@@ -118,13 +118,7 @@ public class Indexer {
   }
 
   protected void onQueueItem(Message<JsonObject> message) {
-    JsonObject json = message.body();
-    QueueItemType itemType = QueueItemType.valueOf(json.getString("type"));
-    JsonObject value = json.getJsonObject("value");
-
-    Future<Void> result = switch (itemType) {
-      case INDEX_ACTION -> indexAction(new IndexActionRequest(value));
-    };
+    Future<Void> result = indexAction(IndexerActionItem.fromJson(message.body()));
 
     result
       .onSuccess(ignored -> message.reply(new JsonObject()))
@@ -153,31 +147,33 @@ public class Indexer {
     return eventPublisher.publish(new IndexerEvent(type, model, item, error));
   }
 
-  protected Future<Void> indexAction(IndexActionRequest request) {
-    return switch (request.getType()) {
-      case PUT -> documentStore.put(model.getIndexName(), request.getUid(), request.getDocument());
-      case REMOVE -> documentStore.remove(model.getIndexName(), request.getUid());
+  protected Future<Void> indexAction(IndexerActionItem item) {
+    return switch (item.getActionType()) {
+      case PUT_DOCUMENT -> {
+        PutDocumentActionItem put = (PutDocumentActionItem) item;
+        yield documentStore.put(model.getIndexName(), put.getUid(), put.getDocument());
+      }
+      case REMOVE_DOCUMENT -> {
+        RemoveDocumentActionItem remove = (RemoveDocumentActionItem) item;
+        yield documentStore.remove(model.getIndexName(), remove.getUid());
+      }
     };
   }
 
-  public Future<Void> index(List<IndexActionRequest> actions) {
+  public Future<Void> index(List<IndexerActionItem> actions) {
     if (!model.getStatus().isActive()) {
       return Future.failedFuture("indexer is not active: " + model.toJson().encode());
     }
 
     List<Future<Void>> futures = actions.stream()
-      .map(action -> enqueueItem(QueueItemType.INDEX_ACTION, action.toJson()))
+      .map(action -> enqueueItem(action.toJson()))
       .collect(Collectors.toList());
 
     return Future.join(futures).mapEmpty();
   }
 
-  protected Future<Void> enqueueItem(QueueItemType type, JsonObject value) {
-    JsonObject payload = new JsonObject()
-      .put("type", type.name())
-      .put("value", value);
-
-    return vertx.eventBus().request(getQueueName(), payload).mapEmpty();
+  protected Future<Void> enqueueItem(JsonObject item) {
+    return vertx.eventBus().request(getQueueName(), item).mapEmpty();
   }
 
   public IndexerSnapshot status() {

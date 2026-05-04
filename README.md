@@ -20,7 +20,7 @@ The default document store is in-memory. Production callers can pass their own `
 ## Preload Flow
 
 Creating an indexer with `IndexerType.PRELOAD` returns an `IndexerCreateResult` with `preloadAddress`.
-Send a `JsonArray` of `IndexActionRequest.toJson()` payloads to that address. Add the `PreloadIndexer.LAST_HEADER` header to the final message to complete preload and promote the replacement indexer.
+Send a `JsonArray` of `IndexerActionItem.toJson()` payloads to that address. Add the `PreloadIndexer.LAST_HEADER` header to the final message to complete preload and promote the replacement indexer.
 
 ## Build
 
@@ -35,8 +35,7 @@ Vertx vertx = Vertx.vertx();
 IndexerService indexer = new DefaultIndexerService(vertx);
 InqwiseIndexerService inqwise = new DefaultInqwiseIndexerService(indexer);
 
-IndexActionRequest request = IndexActionRequest.builder()
-  .withType(IndexActionType.PUT)
+PutDocumentActionItem request = PutDocumentActionItem.builder()
   .withTargetName("customers")
   .withUid("42")
   .withDocument(new JsonObject().put("name", "Ada"))

@@ -54,9 +54,9 @@ public class PreloadIndexer extends Indexer {
     if (nextIndexer == null) {
       result = Future.failedFuture("preload indexer has no replacement indexer");
     } else if (!message.body().isEmpty()) {
-      List<IndexActionRequest> requests = message.body().stream()
+      List<IndexerActionItem> requests = message.body().stream()
         .map(JsonObject.class::cast)
-        .map(IndexActionRequest::new)
+        .map(IndexerActionItem::fromJson)
         .collect(Collectors.toList());
 
       result = result.compose(ignored -> nextIndexer.index(requests));

@@ -41,8 +41,7 @@ class PreloadIndexerTest {
     PreloadIndexer preload = new PreloadIndexer(vertx, preloadModel, replacement, store, options);
 
     JsonArray batch = new JsonArray()
-      .add(IndexActionRequest.builder()
-        .withType(IndexActionType.PUT)
+      .add(PutDocumentActionItem.builder()
         .withTargetName("customers")
         .withUid("42")
         .withDocument(new JsonObject().put("name", "Ada"))
