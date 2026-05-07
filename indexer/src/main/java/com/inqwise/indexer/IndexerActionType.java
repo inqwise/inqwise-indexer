@@ -1,6 +1,6 @@
 package com.inqwise.indexer;
 
 public enum IndexerActionType {
-  PUT_DOCUMENT,
-  REMOVE_DOCUMENT
+	PUT_DOCUMENT,
+	REMOVE_DOCUMENT
 }
