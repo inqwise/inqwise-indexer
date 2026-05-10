@@ -21,6 +21,7 @@ public class Indexer {
 
 	private MessageConsumer<JsonObject> queueConsumer;
 	private IndexerQueueConsumer actionConsumer;
+	private Future<Void> activation;
 
 	public Indexer(Vertx vertx, IndexerModel model, IndexerDocumentStore documentStore) {
 		this(vertx, model, null, documentStore, new IndexerOptions());
@@ -65,18 +66,26 @@ public class Indexer {
 		this.eventPublisher = eventPublisher == null ? IndexerEventPublisher.NOOP : eventPublisher;
 	}
 
-	public Future<Void> activate() {
+	public synchronized Future<Void> activate() {
 		if (!model.getStatus().isActive()) {
 			return Future.succeededFuture();
 		}
 
-		if (queue != null) {
-			return startActionConsumer()
-				.compose(ignored -> emitEvent(IndexerEventType.INDEXER_STARTED, null, null));
+		if (activation != null) {
+			return activation;
 		}
 
-		Future<Void> activation = nextIndexer == null ? Future.succeededFuture() : nextIndexer.activate();
-		return activation.compose(ignored -> startListeners());
+		Future<Void> nextActivation = nextIndexer == null ? Future.succeededFuture() : nextIndexer.activate();
+		activation = nextActivation
+			.compose(ignored -> startListeners())
+			.compose(ignored -> emitEvent(IndexerEventType.INDEXER_STARTED, null, null))
+			.onFailure(ignored -> clearActivation());
+
+		return activation;
+	}
+
+	private synchronized void clearActivation() {
+		activation = null;
 	}
 
 	protected Future<Void> startActionConsumer() {
@@ -99,6 +108,10 @@ public class Indexer {
 	}
 
 	protected Future<Void> startListeners() {
+		if (queue != null) {
+			return startActionConsumer();
+		}
+
 		if (queueConsumer != null) {
 			return Future.succeededFuture();
 		}
@@ -140,7 +153,9 @@ public class Indexer {
 	}
 
 	protected Future<Void> processActionItem(IndexerActionItem item) {
-		return Future.succeededFuture();
+		return Actions.getProvider(item.getActionType())
+			.action()
+			.process(model, documentStore, item);
 	}
 
 	protected Future<Void> emitEvent(IndexerEventType type, IndexerActionItem item, Throwable error) {
@@ -151,7 +166,7 @@ public class Indexer {
 		return switch (item.getActionType()) {
 			case PUT_DOCUMENT -> {
 				PutDocumentActionItem put = (PutDocumentActionItem) item;
-				yield documentStore.put(model.getIndexName(), put.getUid(), put.getDocument());
+				yield documentStore.put(put.getIndexName(), put.getUid(), put.getDocument());
 			}
 			case REMOVE_DOCUMENT -> {
 				RemoveDocumentActionItem remove = (RemoveDocumentActionItem) item;
@@ -198,6 +213,7 @@ public class Indexer {
 	public synchronized Future<Void> unregister() {
 		Future<Void> close = queueConsumer == null ? Future.succeededFuture() : queueConsumer.unregister();
 		queueConsumer = null;
+		activation = null;
 
 		if (actionConsumer != null) {
 			close = close.compose(ignored -> actionConsumer.close());

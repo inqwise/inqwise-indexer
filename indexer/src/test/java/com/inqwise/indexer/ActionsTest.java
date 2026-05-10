@@ -4,7 +4,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
+import io.vertx.core.json.JsonObject;
+import io.vertx.junit5.VertxExtension;
+import io.vertx.junit5.VertxTestContext;
+
+@ExtendWith(VertxExtension.class)
 class ActionsTest {
 	@Test
 	void resolvesDocumentPutActionProvider() {
@@ -12,5 +18,27 @@ class ActionsTest {
 
 		assertEquals(IndexerActionType.PUT_DOCUMENT, provider.type());
 		assertNotNull(provider.action());
+	}
+
+	@Test
+	void documentPutActionWritesToDocumentStore(VertxTestContext testContext) {
+		InMemoryIndexerDocumentStore store = new InMemoryIndexerDocumentStore();
+		IndexerModel model = IndexerModel.builder()
+			.withTargetName("customers")
+			.withIndexName("customers_1")
+			.build();
+		PutDocumentActionItem item = PutDocumentActionItem.builder()
+			.withIndexName("customers_1")
+			.withUid("42")
+			.withDocument(new JsonObject().put("name", "Ada"))
+			.build();
+
+		Actions.getProvider(IndexerActionType.PUT_DOCUMENT)
+			.action()
+			.process(model, store, item)
+			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
+				assertEquals("Ada", store.get("customers_1", "42").getString("name"));
+				testContext.completeNow();
+			})));
 	}
 }

@@ -36,7 +36,7 @@ IndexerService indexer = new DefaultIndexerService(vertx);
 InqwiseIndexerService inqwise = new DefaultInqwiseIndexerService(indexer);
 
 PutDocumentActionItem request = PutDocumentActionItem.builder()
-  .withTargetName("customers")
+  .withIndexName("customers_1")
   .withUid("42")
   .withDocument(new JsonObject().put("name", "Ada"))
   .build();
