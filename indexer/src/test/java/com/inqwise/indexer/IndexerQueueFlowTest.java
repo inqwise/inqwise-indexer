@@ -1,6 +1,8 @@
 package com.inqwise.indexer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -73,5 +75,64 @@ class IndexerQueueFlowTest {
 		indexer.activate()
 			.compose(ignored -> queue.publish(item))
 			.onFailure(testContext::failNow);
+	}
+
+	@Test
+	void deleteRemovesCurrentResourcesOnly(Vertx vertx, VertxTestContext testContext) {
+		InMemoryIndexerDocumentStore store = new InMemoryIndexerDocumentStore();
+		InMemoryIndexerRepository repository = new InMemoryIndexerRepository();
+		InMemoryIndexerQueue currentQueue = new InMemoryIndexerQueue();
+		InMemoryIndexerQueue nextQueue = new InMemoryIndexerQueue();
+		IndexerModel currentModel = IndexerModel.builder()
+			.withId(1)
+			.withTargetId(10)
+			.withTargetName("customers")
+			.withIndexName("customers_1")
+			.build();
+		IndexerModel nextModel = IndexerModel.builder()
+			.withId(2)
+			.withTargetId(10)
+			.withTargetName("customers")
+			.withIndexName("customers_2")
+			.build();
+		Indexer nextIndexer = new Indexer(
+			vertx,
+			nextModel,
+			nextQueue,
+			repository,
+			store,
+			new IndexerOptions(),
+			IndexerEventPublisher.NOOP
+		);
+		Indexer indexer = new Indexer(
+			vertx,
+			currentModel,
+			nextIndexer,
+			currentQueue,
+			repository,
+			store,
+			new IndexerOptions(),
+			IndexerEventPublisher.NOOP
+		);
+
+		repository.save(currentModel)
+			.compose(ignored -> repository.save(nextModel))
+			.compose(ignored -> store.put("customers_1", "42", new JsonObject().put("name", "Ada")))
+			.compose(ignored -> store.put("customers_2", "43", new JsonObject().put("name", "Grace")))
+			.compose(ignored -> indexer.delete())
+			.compose(ignored -> repository.get(1))
+			.compose(deleted -> {
+				assertTrue(deleted.isEmpty());
+				assertNull(store.get("customers_1", "42"));
+				assertEquals("Grace", store.get("customers_2", "43").getString("name"));
+				return Future.succeededFuture();
+			})
+			.compose(ignored -> repository.get(2))
+			.onComplete(testContext.succeeding(next -> testContext.verify(() -> {
+				assertTrue(next.isPresent());
+				assertEquals("customers_2", next.get().getIndexName());
+				assertEquals(nextIndexer.status().toJson(), indexer.status().toJson().getJsonObject("next"));
+				testContext.completeNow();
+			})));
 	}
 }

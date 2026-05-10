@@ -9,13 +9,23 @@ Vert.x 5.x starter library inspired by `vertx-elastic`, with a modular layout:
 
 ## Indexer Behavior
 
-`inqwise-indexer` provides the core indexing concepts from `vertx-elastic` using Vert.x 5 APIs:
+`inqwise-indexer` provides a controlled transport pipeline for gently moving structured actions into a targeted document store:
 
-- `Indexer`: active indexer that applies `PUT` and `REMOVE` actions to an `IndexerDocumentStore`.
-- `PreloadIndexer`: temporary indexer that receives preload batches on its Vert.x event bus address, writes them to a chained replacement `Indexer`, and promotes that replacement when the final preload batch arrives.
-- `DefaultIndexerService`: service facade for creating indexers, routing index actions by target name, deleting indexers, and reporting status.
+- `Indexer`: root runtime component that activates a queue consumer, receives `IndexerActionItem` portions, pauses the consumer while processing, commits successful portions, resumes consumption, and emits transport events.
+- `IndexerQueue`: buffer abstraction. Production implementations can use Kafka or another durable transport. `InMemoryIndexerQueue` is a simple local/test implementation.
+- `IndexerQueueConsumer`: consumer side of the queue. It owns bulk/portion delivery policy, exposes `pause`, `resume`, `commit`, and `close`, and calls the configured item handler.
+- `IndexerActionItem`: abstract action payload. `PutDocumentActionItem` writes a document to a concrete `indexName`.
+- `IndexerDocumentStore`: target document-store abstraction. The default document store is in-memory.
+- `IndexerRepository`: persistence abstraction for `IndexerModel` records. The default repository is in-memory.
 
-The default document store is in-memory. Production callers can pass their own `IndexerDocumentStore` to `DefaultIndexerService`.
+### Lifecycle
+
+- `activate()`: starts the root indexer once. It activates the queue consumer/listener, resumes consumption, and emits `INDEXER_STARTED`. Repeated calls are idempotent.
+- `unregister()`: closes the active consumer/listener. It may inspect `nextIndexer`, but an active consumer on `nextIndexer` is unexpected because chained indexers are not roots by definition.
+- `close()`: stronger runtime cleanup. It should close the current consumer/listener and the referenced queue, including publish and consume sides.
+- `delete()`: deletes the current indexer and its own referenced resources only. It must not delete `nextIndexer`.
+
+`nextIndexer` represents a chained/replacement indexer, not another root consumer. If `nextIndexer` is listening to a queue consumer, that should be treated as unexpected behavior and surfaced before the delete/unregister flow is finalized.
 
 ## Preload Flow
 

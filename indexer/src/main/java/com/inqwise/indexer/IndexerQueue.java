@@ -6,4 +6,8 @@ public interface IndexerQueue {
 	Future<Void> publish(IndexerActionItem item);
 
 	Future<IndexerQueueConsumer> consumer(IndexerQueueConsumerOptions options);
+
+	Future<Void> close();
+
+	Future<Void> delete();
 }

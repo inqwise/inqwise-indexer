@@ -10,6 +10,7 @@ import io.vertx.core.json.JsonObject;
 public class IndexerModel {
 	private final Integer id;
 	private final String uid;
+	private final Integer targetId;
 	private final String targetName;
 	private final String indexName;
 	private final String queueName;
@@ -19,6 +20,7 @@ public class IndexerModel {
 	private IndexerModel(Builder builder) {
 		this.id = builder.id;
 		this.uid = builder.uid == null ? UUID.randomUUID().toString() : builder.uid;
+		this.targetId = builder.targetId;
 		this.targetName = builder.targetName;
 		this.indexName = builder.indexName;
 		this.queueName = builder.queueName;
@@ -29,6 +31,7 @@ public class IndexerModel {
 	public IndexerModel(JsonObject json) {
 		this.id = json.getInteger("id");
 		this.uid = json.getString("uid", UUID.randomUUID().toString());
+		this.targetId = json.getInteger("target_id");
 		this.targetName = json.getString("target_name");
 		this.indexName = json.getString("index_name");
 		this.queueName = json.getString("queue_name");
@@ -40,6 +43,7 @@ public class IndexerModel {
 		return new JsonObject()
 			.put("id", id)
 			.put("uid", uid)
+			.put("target_id", targetId)
 			.put("target_name", targetName)
 			.put("index_name", indexName)
 			.put("queue_name", queueName)
@@ -53,6 +57,10 @@ public class IndexerModel {
 
 	public String getUid() {
 		return uid;
+	}
+
+	public Integer getTargetId() {
+		return targetId;
 	}
 
 	public String getTargetName() {
@@ -82,6 +90,7 @@ public class IndexerModel {
 	public static final class Builder {
 		private Integer id;
 		private String uid;
+		private Integer targetId;
 		private String targetName;
 		private String indexName;
 		private String queueName;
@@ -98,6 +107,11 @@ public class IndexerModel {
 
 		public Builder withUid(String uid) {
 			this.uid = uid;
+			return this;
+		}
+
+		public Builder withTargetId(Integer targetId) {
+			this.targetId = targetId;
 			return this;
 		}
 

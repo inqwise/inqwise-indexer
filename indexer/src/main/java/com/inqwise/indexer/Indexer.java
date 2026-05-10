@@ -17,6 +17,7 @@ public class Indexer {
 	protected final IndexerDocumentStore documentStore;
 	protected final IndexerOptions options;
 	protected final IndexerQueue queue;
+	protected final IndexerRepository repository;
 	protected final IndexerEventPublisher eventPublisher;
 
 	private MessageConsumer<JsonObject> queueConsumer;
@@ -34,7 +35,7 @@ public class Indexer {
 		IndexerDocumentStore documentStore,
 		IndexerOptions options
 	) {
-		this(vertx, model, nextIndexer, documentStore, options, null, IndexerEventPublisher.NOOP);
+		this(vertx, model, nextIndexer, documentStore, options, null, null, IndexerEventPublisher.NOOP);
 	}
 
 	public Indexer(
@@ -45,7 +46,32 @@ public class Indexer {
 		IndexerOptions options,
 		IndexerEventPublisher eventPublisher
 	) {
-		this(vertx, model, null, documentStore, options, queue, eventPublisher);
+		this(vertx, model, null, documentStore, options, queue, null, eventPublisher);
+	}
+
+	public Indexer(
+		Vertx vertx,
+		IndexerModel model,
+		IndexerQueue queue,
+		IndexerRepository repository,
+		IndexerDocumentStore documentStore,
+		IndexerOptions options,
+		IndexerEventPublisher eventPublisher
+	) {
+		this(vertx, model, null, documentStore, options, queue, repository, eventPublisher);
+	}
+
+	public Indexer(
+		Vertx vertx,
+		IndexerModel model,
+		Indexer nextIndexer,
+		IndexerQueue queue,
+		IndexerRepository repository,
+		IndexerDocumentStore documentStore,
+		IndexerOptions options,
+		IndexerEventPublisher eventPublisher
+	) {
+		this(vertx, model, nextIndexer, documentStore, options, queue, repository, eventPublisher);
 	}
 
 	private Indexer(
@@ -55,6 +81,7 @@ public class Indexer {
 		IndexerDocumentStore documentStore,
 		IndexerOptions options,
 		IndexerQueue queue,
+		IndexerRepository repository,
 		IndexerEventPublisher eventPublisher
 	) {
 		this.vertx = Objects.requireNonNull(vertx, "vertx");
@@ -63,6 +90,7 @@ public class Indexer {
 		this.documentStore = Objects.requireNonNull(documentStore, "documentStore");
 		this.options = options == null ? new IndexerOptions() : options;
 		this.queue = queue;
+		this.repository = repository;
 		this.eventPublisher = eventPublisher == null ? IndexerEventPublisher.NOOP : eventPublisher;
 	}
 
@@ -200,17 +228,28 @@ public class Indexer {
 	}
 
 	public Future<IndexerModel> delete() {
-		Future<Void> deleted = unregister()
+		Future<Void> deleted = unregisterCurrent()
+			.compose(ignored -> queue == null ? Future.succeededFuture() : queue.delete())
 			.compose(ignored -> documentStore.drop(model.getIndexName()));
 
-		if (nextIndexer != null) {
-			deleted = deleted.compose(ignored -> nextIndexer.delete().mapEmpty());
+		if (repository != null && model.getId() != null) {
+			deleted = deleted.compose(ignored -> repository.delete(model.getId()).mapEmpty());
 		}
 
 		return deleted.map(model);
 	}
 
 	public synchronized Future<Void> unregister() {
+		Future<Void> close = unregisterCurrent();
+
+		if (nextIndexer != null) {
+			close = close.compose(ignored -> nextIndexer.unregister());
+		}
+
+		return close;
+	}
+
+	protected synchronized Future<Void> unregisterCurrent() {
 		Future<Void> close = queueConsumer == null ? Future.succeededFuture() : queueConsumer.unregister();
 		queueConsumer = null;
 		activation = null;
@@ -220,14 +259,16 @@ public class Indexer {
 			actionConsumer = null;
 		}
 
-		if (nextIndexer != null) {
-			close = close.compose(ignored -> nextIndexer.unregister());
-		}
-
 		return close.compose(ignored -> emitEvent(IndexerEventType.INDEXER_STOPPED, null, null));
 	}
 
 	public Future<Void> close() {
-		return unregister();
+		Future<Void> close = unregisterCurrent();
+
+		if (queue != null) {
+			close = close.compose(ignored -> queue.close());
+		}
+
+		return close;
 	}
 }

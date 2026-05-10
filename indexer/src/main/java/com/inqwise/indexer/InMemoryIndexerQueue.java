@@ -26,6 +26,20 @@ public class InMemoryIndexerQueue implements IndexerQueue {
 		return Future.succeededFuture(consumer);
 	}
 
+	@Override
+	public Future<Void> close() {
+		return consumer.close();
+	}
+
+	@Override
+	public Future<Void> delete() {
+		synchronized (this) {
+			items.clear();
+		}
+
+		return close();
+	}
+
 	private class InMemoryIndexerQueueConsumer implements IndexerQueueConsumer {
 		private Handler<IndexerActionItem> handler;
 		private IndexerQueueConsumerOptions options;
