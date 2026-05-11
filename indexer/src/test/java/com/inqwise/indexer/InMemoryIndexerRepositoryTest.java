@@ -57,8 +57,7 @@ class InMemoryIndexerRepositoryTest {
 				})
 				.compose(ignored -> repository.delete(firstId)))
 			.compose(deleted -> {
-				assertTrue(deleted.isPresent());
-				assertEquals("customers_1", deleted.get().getIndexName());
+				assertTrue(deleted);
 				return Future.succeededFuture();
 			})
 			.compose(ignored -> repository.list())

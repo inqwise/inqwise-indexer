@@ -48,8 +48,8 @@ public class InMemoryIndexerRepository implements IndexerRepository {
 	}
 
 	@Override
-	public Future<Optional<IndexerModel>> delete(Integer id) {
-		return Future.succeededFuture(Optional.ofNullable(modelsById.remove(id)).map(this::copy));
+	public Future<Boolean> delete(Integer id) {
+		return Future.succeededFuture(modelsById.remove(id) != null);
 	}
 
 	private IndexerModel copy(IndexerModel model) {
