@@ -48,6 +48,21 @@ public class InMemoryIndexerRepository implements IndexerRepository {
 	}
 
 	@Override
+	public Future<Optional<IndexerModel>> updateStatus(Integer id, IndexerStatus status) {
+		IndexerModel updated = modelsById.computeIfPresent(id, (ignored, existing) -> {
+			long version = existing.getStatus() == status
+				? existing.getVersion()
+				: existing.getVersion() + 1;
+
+			return new IndexerModel(existing.toJson()
+				.put("status", status.name())
+				.put("version", version));
+		});
+
+		return Future.succeededFuture(Optional.ofNullable(updated).map(this::copy));
+	}
+
+	@Override
 	public Future<Boolean> delete(Integer id) {
 		return Future.succeededFuture(modelsById.remove(id) != null);
 	}

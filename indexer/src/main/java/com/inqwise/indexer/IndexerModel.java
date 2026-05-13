@@ -16,6 +16,7 @@ public class IndexerModel {
 	private final String queueName;
 	private final IndexerType type;
 	private final IndexerStatus status;
+	private final long version;
 
 	private IndexerModel(Builder builder) {
 		this.id = builder.id;
@@ -26,6 +27,7 @@ public class IndexerModel {
 		this.queueName = builder.queueName;
 		this.type = builder.type == null ? IndexerType.INDEX : builder.type;
 		this.status = builder.status == null ? IndexerStatus.STARTED : builder.status;
+		this.version = builder.version;
 	}
 
 	public IndexerModel(JsonObject json) {
@@ -37,6 +39,7 @@ public class IndexerModel {
 		this.queueName = json.getString("queue_name");
 		this.type = IndexerType.valueOf(json.getString("type", IndexerType.INDEX.name()));
 		this.status = IndexerStatus.valueOf(json.getString("status", IndexerStatus.STARTED.name()));
+		this.version = json.getLong("version", 0L);
 	}
 
 	public JsonObject toJson() {
@@ -48,7 +51,8 @@ public class IndexerModel {
 			.put("index_name", indexName)
 			.put("queue_name", queueName)
 			.put("type", type.name())
-			.put("status", status.name());
+			.put("status", status.name())
+			.put("version", version);
 	}
 
 	public Integer getId() {
@@ -83,6 +87,10 @@ public class IndexerModel {
 		return status;
 	}
 
+	public long getVersion() {
+		return version;
+	}
+
 	public static Builder builder() {
 		return new Builder();
 	}
@@ -96,6 +104,7 @@ public class IndexerModel {
 		private String queueName;
 		private IndexerType type;
 		private IndexerStatus status;
+		private long version;
 
 		private Builder() {
 		}
@@ -137,6 +146,11 @@ public class IndexerModel {
 
 		public Builder withStatus(IndexerStatus status) {
 			this.status = status;
+			return this;
+		}
+
+		public Builder withVersion(long version) {
+			this.version = version;
 			return this;
 		}
 

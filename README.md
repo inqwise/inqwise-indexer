@@ -27,6 +27,12 @@ Vert.x 5.x starter library inspired by `vertx-elastic`, with a modular layout:
 
 `nextIndexer` represents a chained/replacement indexer, not another root consumer. If `nextIndexer` is listening to a queue consumer, that should be treated as unexpected behavior and surfaced before the delete/unregister flow is finalized.
 
+### Distributed Lifecycle Commands
+
+Lifecycle commands express durable desired state. `ActivateIndexerCommand` and `DeactivateIndexerCommand` are handled through the generic `CommandService` layer. Their handlers update `IndexerRepository` status/version and publish an `IndexerLifecycleChanged` notification.
+
+The lifecycle notification is a fan-out wake-up for runtime nodes, not the source of truth. Each node should subscribe through its runtime/broker configuration, reload the latest `IndexerModel` identified by the event, and reconcile local runtime resources from that model. Production implementations should back `IndexerLifecycleEventBus` with a durable pub/sub topic. The in-memory implementation retains events and replays them to late subscribers for local tests.
+
 ## Preload Flow
 
 Creating an indexer with `IndexerType.PRELOAD` returns an `IndexerCreateResult` with `preloadAddress`.

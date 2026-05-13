@@ -14,5 +14,7 @@ public interface IndexerRepository {
 
 	Future<List<IndexerModel>> list();
 
+	Future<Optional<IndexerModel>> updateStatus(Integer id, IndexerStatus status);
+
 	Future<Boolean> delete(Integer id);
 }

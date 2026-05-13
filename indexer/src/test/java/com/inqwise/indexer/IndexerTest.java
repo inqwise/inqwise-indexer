@@ -440,6 +440,11 @@ class IndexerTest {
 		}
 
 		@Override
+		public Future<Optional<IndexerModel>> updateStatus(Integer id, IndexerStatus status) {
+			return Future.succeededFuture(Optional.empty());
+		}
+
+		@Override
 		public Future<Boolean> delete(Integer id) {
 			deleteCalled = true;
 			return deleteFailure == null ? Future.succeededFuture(deleteResult) : Future.failedFuture(deleteFailure);
