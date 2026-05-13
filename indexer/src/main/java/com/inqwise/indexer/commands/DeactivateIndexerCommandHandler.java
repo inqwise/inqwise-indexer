@@ -39,24 +39,23 @@ public class DeactivateIndexerCommandHandler implements CommandHandler {
 
 				IndexerModel model = found.get();
 				if (model.getStatus() == IndexerStatus.DELETED) {
-					return publish(model, deactivate.getCommandId());
+					return publish(model);
 				}
 
 				return repository.updateStatus(deactivate.getIndexerId(), IndexerStatus.NON_ACTIVE)
 					.compose(updated -> updated
-						.map(value -> publish(value, deactivate.getCommandId()))
+						.map(this::publish)
 						.orElseGet(() -> Future.failedFuture(
 							"Indexer not found: " + deactivate.getIndexerId()
 						)));
 			});
 	}
 
-	private Future<Void> publish(IndexerModel model, String commandId) {
+	private Future<Void> publish(IndexerModel model) {
 		return eventBus.publish(new IndexerLifecycleChanged(
 			model.getId(),
-			model.getStatus(),
-			model.getVersion(),
-			commandId
+			getType(),
+			model.getVersion()
 		));
 	}
 }

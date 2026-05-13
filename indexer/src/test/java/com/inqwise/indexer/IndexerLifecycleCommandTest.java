@@ -33,7 +33,7 @@ class IndexerLifecycleCommandTest {
 		repository.save(model)
 			.compose(id -> eventBus.subscribe(nodeA::add)
 				.compose(ignored -> eventBus.subscribe(nodeB::add))
-				.compose(ignored -> commandService.submit(new ActivateIndexerCommand(id, "activate-1")))
+				.compose(ignored -> commandService.submit(new ActivateIndexerCommand(id)))
 				.compose(ignored -> repository.get(id)))
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
 				IndexerModel updated = found.orElseThrow();
@@ -41,10 +41,10 @@ class IndexerLifecycleCommandTest {
 				assertEquals(1L, updated.getVersion());
 				assertEquals(1, nodeA.size());
 				assertEquals(1, nodeB.size());
-				assertEquals(IndexerStatus.STARTED, nodeA.get(0).getStatus());
-				assertEquals(IndexerStatus.STARTED, nodeB.get(0).getStatus());
+				assertEquals(updated.getId(), nodeA.get(0).getIndexerId());
+				assertEquals(ActivateIndexerCommand.TYPE, nodeA.get(0).getCommandType());
+				assertEquals(ActivateIndexerCommand.TYPE, nodeB.get(0).getCommandType());
 				assertEquals(1L, nodeA.get(0).getVersion());
-				assertEquals("activate-1", nodeA.get(0).getCommandId());
 				testContext.completeNow();
 			})));
 	}
@@ -59,11 +59,11 @@ class IndexerLifecycleCommandTest {
 		List<IndexerLifecycleChanged> lateNode = new ArrayList<>();
 
 		repository.save(inactiveModel())
-			.compose(id -> commandService.submit(new ActivateIndexerCommand(id, "activate-1")))
+			.compose(id -> commandService.submit(new ActivateIndexerCommand(id)))
 			.compose(ignored -> eventBus.subscribe(lateNode::add))
 			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
 				assertEquals(1, lateNode.size());
-				assertEquals(IndexerStatus.STARTED, lateNode.get(0).getStatus());
+				assertEquals(ActivateIndexerCommand.TYPE, lateNode.get(0).getCommandType());
 				assertEquals(1L, lateNode.get(0).getVersion());
 				testContext.completeNow();
 			})));
@@ -80,10 +80,10 @@ class IndexerLifecycleCommandTest {
 
 		repository.save(inactiveModel())
 			.compose(id -> eventBus.subscribe(events::add)
-				.compose(ignored -> commandService.submit(new ActivateIndexerCommand(id, "activate-1")))
-				.compose(ignored -> commandService.submit(new ActivateIndexerCommand(id, "activate-2")))
-				.compose(ignored -> commandService.submit(new DeactivateIndexerCommand(id, "deactivate-1")))
-				.compose(ignored -> commandService.submit(new DeactivateIndexerCommand(id, "deactivate-2")))
+				.compose(ignored -> commandService.submit(new ActivateIndexerCommand(id)))
+				.compose(ignored -> commandService.submit(new ActivateIndexerCommand(id)))
+				.compose(ignored -> commandService.submit(new DeactivateIndexerCommand(id)))
+				.compose(ignored -> commandService.submit(new DeactivateIndexerCommand(id)))
 				.compose(ignored -> repository.get(id)))
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
 				IndexerModel updated = found.orElseThrow();
@@ -94,6 +94,10 @@ class IndexerLifecycleCommandTest {
 				assertEquals(1L, events.get(1).getVersion());
 				assertEquals(2L, events.get(2).getVersion());
 				assertEquals(2L, events.get(3).getVersion());
+				assertEquals(ActivateIndexerCommand.TYPE, events.get(0).getCommandType());
+				assertEquals(ActivateIndexerCommand.TYPE, events.get(1).getCommandType());
+				assertEquals(DeactivateIndexerCommand.TYPE, events.get(2).getCommandType());
+				assertEquals(DeactivateIndexerCommand.TYPE, events.get(3).getCommandType());
 				testContext.completeNow();
 			})));
 	}

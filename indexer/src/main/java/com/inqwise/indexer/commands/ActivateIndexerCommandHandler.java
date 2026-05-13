@@ -43,24 +43,23 @@ public class ActivateIndexerCommandHandler implements CommandHandler {
 				}
 
 				if (model.getStatus().isActive()) {
-					return publish(model, activate.getCommandId());
+					return publish(model);
 				}
 
 				return repository.updateStatus(activate.getIndexerId(), IndexerStatus.STARTED)
 					.compose(updated -> updated
-						.map(value -> publish(value, activate.getCommandId()))
+						.map(this::publish)
 						.orElseGet(() -> Future.failedFuture(
 							"Indexer not found: " + activate.getIndexerId()
 						)));
 			});
 	}
 
-	private Future<Void> publish(IndexerModel model, String commandId) {
+	private Future<Void> publish(IndexerModel model) {
 		return eventBus.publish(new IndexerLifecycleChanged(
 			model.getId(),
-			model.getStatus(),
-			model.getVersion(),
-			commandId
+			getType(),
+			model.getVersion()
 		));
 	}
 }

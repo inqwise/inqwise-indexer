@@ -29,9 +29,9 @@ Vert.x 5.x starter library inspired by `vertx-elastic`, with a modular layout:
 
 ### Distributed Lifecycle Commands
 
-Lifecycle commands express durable desired state. `ActivateIndexerCommand` and `DeactivateIndexerCommand` are handled through the generic `CommandService` layer. Their handlers update `IndexerRepository` status/version and publish an `IndexerLifecycleChanged` notification.
+Lifecycle commands express durable desired state. `ActivateIndexerCommand` and `DeactivateIndexerCommand` are handled through the generic `CommandService` layer. Their handlers update `IndexerRepository` status/version and publish an `IndexerLifecycleChanged` notification with the indexer id, command type, and resulting version.
 
-The lifecycle notification is a fan-out wake-up for runtime nodes, not the source of truth. Each node should subscribe through its runtime/broker configuration, reload the latest `IndexerModel` identified by the event, and reconcile local runtime resources from that model. Production implementations should back `IndexerLifecycleEventBus` with a durable pub/sub topic. The in-memory implementation retains events and replays them to late subscribers for local tests.
+The lifecycle notification is a fan-out wake-up for runtime nodes, not the source of truth. `IndexerRuntime` subscribes to lifecycle changes, reloads the latest `IndexerModel` identified by the event, and reconciles local runtime resources from that model. Production implementations should back `IndexerLifecycleEventBus` with a durable pub/sub topic. The in-memory implementation retains events and replays them to late subscribers for local tests.
 
 ## Preload Flow
 

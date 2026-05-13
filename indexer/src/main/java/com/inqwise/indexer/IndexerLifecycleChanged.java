@@ -6,28 +6,24 @@ import io.vertx.core.json.JsonObject;
 
 public class IndexerLifecycleChanged {
 	private final Integer indexerId;
-	private final IndexerStatus status;
+	private final String commandType;
 	private final long version;
-	private final String commandId;
 
 	public IndexerLifecycleChanged(
 		Integer indexerId,
-		IndexerStatus status,
-		long version,
-		String commandId
+		String commandType,
+		long version
 	) {
 		this.indexerId = Objects.requireNonNull(indexerId, "indexerId");
-		this.status = Objects.requireNonNull(status, "status");
+		this.commandType = Objects.requireNonNull(commandType, "commandType");
 		this.version = version;
-		this.commandId = commandId;
 	}
 
 	public IndexerLifecycleChanged(JsonObject json) {
 		this(
 			json.getInteger("indexer_id"),
-			IndexerStatus.valueOf(json.getString("status")),
-			json.getLong("version", 0L),
-			json.getString("command_id")
+			json.getString("command_type"),
+			json.getLong("version", 0L)
 		);
 	}
 
@@ -35,23 +31,18 @@ public class IndexerLifecycleChanged {
 		return indexerId;
 	}
 
-	public IndexerStatus getStatus() {
-		return status;
+	public String getCommandType() {
+		return commandType;
 	}
 
 	public long getVersion() {
 		return version;
 	}
 
-	public String getCommandId() {
-		return commandId;
-	}
-
 	public JsonObject toJson() {
 		return new JsonObject()
 			.put("indexer_id", indexerId)
-			.put("status", status.name())
-			.put("version", version)
-			.put("command_id", commandId);
+			.put("command_type", commandType)
+			.put("version", version);
 	}
 }
