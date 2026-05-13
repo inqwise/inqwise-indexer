@@ -11,6 +11,7 @@ public class IndexerRuntime {
 	private final IndexerRepository repository;
 	private final IndexerLifecycleEventBus lifecycleEventBus;
 	private final Function<IndexerModel, Indexer> indexerFactory;
+	private final IndexerResourceCleaner resourceCleaner;
 	private final Map<Integer, Indexer> indexersById = new ConcurrentHashMap<>();
 
 	public IndexerRuntime(
@@ -18,9 +19,19 @@ public class IndexerRuntime {
 		IndexerLifecycleEventBus lifecycleEventBus,
 		Function<IndexerModel, Indexer> indexerFactory
 	) {
+		this(repository, lifecycleEventBus, indexerFactory, IndexerResourceCleaner.NOOP);
+	}
+
+	public IndexerRuntime(
+		IndexerRepository repository,
+		IndexerLifecycleEventBus lifecycleEventBus,
+		Function<IndexerModel, Indexer> indexerFactory,
+		IndexerResourceCleaner resourceCleaner
+	) {
 		this.repository = Objects.requireNonNull(repository, "repository");
 		this.lifecycleEventBus = Objects.requireNonNull(lifecycleEventBus, "lifecycleEventBus");
 		this.indexerFactory = Objects.requireNonNull(indexerFactory, "indexerFactory");
+		this.resourceCleaner = Objects.requireNonNull(resourceCleaner, "resourceCleaner");
 	}
 
 	public Future<Void> start() {
@@ -37,6 +48,10 @@ public class IndexerRuntime {
 				}
 
 				IndexerModel model = found.get();
+				if (model.getStatus() == IndexerStatus.DELETED) {
+					return delete(model);
+				}
+
 				if (model.getStatus().isActive()) {
 					return activate(model);
 				}
@@ -53,6 +68,10 @@ public class IndexerRuntime {
 				}
 
 				IndexerModel model = found.get();
+				if (model.getStatus() == IndexerStatus.DELETED) {
+					return delete(model);
+				}
+
 				if (model.getStatus().isActive()) {
 					return activate(model);
 				}
@@ -78,5 +97,10 @@ public class IndexerRuntime {
 	protected Future<Void> close(Integer indexerId) {
 		Indexer indexer = indexersById.remove(indexerId);
 		return indexer == null ? Future.succeededFuture() : indexer.close();
+	}
+
+	protected Future<Void> delete(IndexerModel model) {
+		return close(model.getId())
+			.compose(ignored -> resourceCleaner.clean(model));
 	}
 }
