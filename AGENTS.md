@@ -7,3 +7,6 @@
 - Design destructive cleanup as idempotent: missing queue/topic, document index, or repository record should be handled as an expected cleanup miss unless the storage client reports a real failure.
 - Keep `Indexer` focused on runtime transport for one model: activate listeners/consumers, pause/resume/commit portions, process action items, emit events, and clean up its own resources.
 - Keep command orchestration generic where possible. Use the generic `CommandService` layer for lifecycle/workflow commands instead of indexer-specific command infrastructure unless the domain requires it.
+- Document important accepted modules, designs, and solutions in `README.md` as part of the change that introduces or approves them.
+- Add important uncovered flows, deferred design questions, and known follow-up decisions to the roadmap instead of leaving them only in conversation or code comments.
+- Periodically refactor `README.md` and the roadmap so they form coherent, complete documents rather than scattered accumulated notes.
