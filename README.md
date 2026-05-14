@@ -18,6 +18,25 @@ Vert.x 5.x starter library inspired by `vertx-elastic`, with a modular layout:
 - `IndexerDocumentStore`: target document-store abstraction. The default document store is in-memory.
 - `IndexerRepository`: persistence abstraction for `IndexerModel` records. The default repository is in-memory.
 
+### Index Flow
+
+Indexing uses two paths:
+
+- Hot path: if the target indexer is already known to be publish-ready, callers publish `IndexerActionItem` payloads directly to `IndexerQueue`.
+- Cold/unknown path: callers submit `SubmitIndexActionsCommand`. The command handler loads or creates the `IndexerModel`, verifies that the indexer is publish-ready, publishes a lifecycle wake-up, then publishes the submitted actions to `IndexerQueue`.
+
+Command completion means that the submitted actions were handed to the indexer queue, not that the documents were already indexed. Runtime processing remains asynchronous.
+
+The cold path fails closed. If the command sees an unexpected indexer state or action mismatch, it must not publish actions. Expected/idempotent cases include creating a missing model, reusing an active model, and waking runtime consumers that may not be hot yet.
+
+The current fail-closed guards are:
+
+- a deleted indexer cannot receive new actions;
+- a non-active indexer cannot receive new actions;
+- multiple repository records for the same `indexName` are treated as an unexpected state;
+- `PUT_DOCUMENT` actions must target the command `indexName`;
+- `REMOVE_DOCUMENT` actions with a `targetName` must match the command `targetName` when both are present.
+
 ### Lifecycle
 
 - `activate()`: starts the root indexer once. It activates the queue consumer/listener, resumes consumption, and emits `INDEXER_STARTED`. Repeated calls are idempotent.
