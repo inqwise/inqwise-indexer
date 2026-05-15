@@ -78,6 +78,38 @@ class IndexerQueueFlowTest {
 	}
 
 	@Test
+	void completeActionItemCompletesStreamThroughQueueConsumer(Vertx vertx, VertxTestContext testContext) {
+		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
+		IndexerModel model = IndexerModel.builder()
+			.withTargetName("customers")
+			.withIndexName("customers_1")
+			.build();
+		CompleteIndexActionItem item = new CompleteIndexActionItem();
+
+		Indexer indexer = new Indexer(
+			vertx,
+			model,
+			queue,
+			new InMemoryIndexerDocumentStore(),
+			new IndexerOptions(),
+			event -> {
+				if (event.getType() == IndexerEventType.ACTION_STREAM_COMPLETED) {
+					testContext.verify(() -> {
+						assertEquals(item.toJson(), event.getItem().toJson());
+						testContext.completeNow();
+					});
+				}
+
+				return Future.succeededFuture();
+			}
+		);
+
+		indexer.activate()
+			.compose(ignored -> queue.publish(item))
+			.onFailure(testContext::failNow);
+	}
+
+	@Test
 	void deleteRemovesCurrentResourcesOnly(Vertx vertx, VertxTestContext testContext) {
 		InMemoryIndexerDocumentStore store = new InMemoryIndexerDocumentStore();
 		InMemoryIndexerRepository repository = new InMemoryIndexerRepository();

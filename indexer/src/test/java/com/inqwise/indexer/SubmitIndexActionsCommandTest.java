@@ -57,6 +57,27 @@ class SubmitIndexActionsCommandTest {
 	}
 
 	@Test
+	void completeActionIsPublishedAsSubmittedAction(VertxTestContext testContext) {
+		InMemoryIndexerRepository repository = new InMemoryIndexerRepository();
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		RecordingQueue queue = new RecordingQueue();
+		InMemoryCommandService commandService = commandService(repository, eventBus, queue);
+		CompleteIndexActionItem complete = new CompleteIndexActionItem();
+		SubmitIndexActionsCommand command = new SubmitIndexActionsCommand(
+			"customers",
+			"customers_1",
+			List.of(complete)
+		);
+
+		commandService.submit(command)
+			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
+				assertEquals(1, queue.published.size());
+				assertEquals(complete.toJson(), queue.published.get(0).toJson());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
 	void deletedIndexerFailsClosedAndDoesNotPublish(VertxTestContext testContext) {
 		InMemoryIndexerRepository repository = new InMemoryIndexerRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();

@@ -181,6 +181,10 @@ public class Indexer {
 	}
 
 	protected Future<Void> processActionItem(IndexerActionItem item) {
+		if (item.getActionType() == IndexerActionType.COMPLETE) {
+			return emitEvent(IndexerEventType.ACTION_STREAM_COMPLETED, item, null);
+		}
+
 		return Actions.getProvider(item.getActionType())
 			.action()
 			.process(model, documentStore, item);
@@ -200,6 +204,7 @@ public class Indexer {
 				RemoveDocumentActionItem remove = (RemoveDocumentActionItem) item;
 				yield documentStore.remove(model.getIndexName(), remove.getUid());
 			}
+			case COMPLETE -> emitEvent(IndexerEventType.ACTION_STREAM_COMPLETED, item, null);
 		};
 	}
 

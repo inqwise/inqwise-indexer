@@ -1,6 +1,7 @@
 package com.inqwise.indexer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import org.junit.jupiter.api.Test;
@@ -18,6 +19,17 @@ class ActionsTest {
 
 		assertEquals(IndexerActionType.PUT_DOCUMENT, provider.type());
 		assertNotNull(provider.action());
+	}
+
+	@Test
+	void completeActionRoundTripsThroughJson() {
+		CompleteIndexActionItem item = new CompleteIndexActionItem();
+
+		IndexerActionItem parsed = IndexerActionItem.fromJson(item.toJson());
+
+		assertInstanceOf(CompleteIndexActionItem.class, parsed);
+		assertEquals(IndexerActionType.COMPLETE, parsed.getActionType());
+		assertEquals(item.toJson(), parsed.toJson());
 	}
 
 	@Test

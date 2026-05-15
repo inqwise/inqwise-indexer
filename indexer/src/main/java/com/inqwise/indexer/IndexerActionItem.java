@@ -15,6 +15,7 @@ public interface IndexerActionItem {
 		return switch (actionType) {
 			case PUT_DOCUMENT -> new PutDocumentActionItem(json);
 			case REMOVE_DOCUMENT -> new RemoveDocumentActionItem(json);
+			case COMPLETE -> new CompleteIndexActionItem(json);
 		};
 	}
 }

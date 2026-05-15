@@ -14,7 +14,7 @@ Vert.x 5.x starter library inspired by `vertx-elastic`, with a modular layout:
 - `Indexer`: root runtime component that activates a queue consumer, receives `IndexerActionItem` portions, pauses the consumer while processing, commits successful portions, resumes consumption, and emits transport events.
 - `IndexerQueue`: buffer abstraction. Production implementations can use Kafka or another durable transport. `InMemoryIndexerQueue` is a simple local/test implementation.
 - `IndexerQueueConsumer`: consumer side of the queue. It owns bulk/portion delivery policy, exposes `pause`, `resume`, `commit`, and `close`, and calls the configured item handler.
-- `IndexerActionItem`: abstract action payload. `PutDocumentActionItem` writes a document to a concrete `indexName`.
+- `IndexerActionItem`: abstract action payload. `PutDocumentActionItem` writes a document to a concrete `indexName`; `CompleteIndexActionItem` marks the action stream as complete.
 - `IndexerDocumentStore`: target document-store abstraction. The default document store is in-memory.
 - `IndexerRepository`: persistence abstraction for `IndexerModel` records. The default repository is in-memory.
 
