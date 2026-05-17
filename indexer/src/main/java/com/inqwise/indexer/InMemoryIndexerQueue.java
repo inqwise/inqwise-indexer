@@ -11,13 +11,8 @@ public class InMemoryIndexerQueue implements IndexerQueue {
 	private final InMemoryIndexerQueueConsumer consumer = new InMemoryIndexerQueueConsumer();
 
 	@Override
-	public Future<Void> publish(IndexerActionItem item) {
-		synchronized (this) {
-			items.addLast(item);
-		}
-
-		consumer.dispatch();
-		return Future.succeededFuture();
+	public Future<IndexerQueuePublisher> publisher(String queueName) {
+		return Future.succeededFuture(new InMemoryIndexerQueuePublisher());
 	}
 
 	@Override
@@ -38,6 +33,23 @@ public class InMemoryIndexerQueue implements IndexerQueue {
 		}
 
 		return close();
+	}
+
+	private class InMemoryIndexerQueuePublisher implements IndexerQueuePublisher {
+		@Override
+		public Future<Void> publish(IndexerActionItem item) {
+			synchronized (InMemoryIndexerQueue.this) {
+				items.addLast(item);
+			}
+
+			consumer.dispatch();
+			return Future.succeededFuture();
+		}
+
+		@Override
+		public Future<Void> close() {
+			return Future.succeededFuture();
+		}
 	}
 
 	private class InMemoryIndexerQueueConsumer implements IndexerQueueConsumer {

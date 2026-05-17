@@ -17,7 +17,6 @@ public class Indexer {
 	protected final IndexerDocumentStore documentStore;
 	protected final IndexerOptions options;
 	protected final IndexerQueue queue;
-	protected final IndexerRepository repository;
 	protected final IndexerEventPublisher eventPublisher;
 
 	private MessageConsumer<JsonObject> queueConsumer;
@@ -35,7 +34,7 @@ public class Indexer {
 		IndexerDocumentStore documentStore,
 		IndexerOptions options
 	) {
-		this(vertx, model, nextIndexer, documentStore, options, null, null, IndexerEventPublisher.NOOP);
+		this(vertx, model, nextIndexer, documentStore, options, null, IndexerEventPublisher.NOOP);
 	}
 
 	public Indexer(
@@ -46,19 +45,7 @@ public class Indexer {
 		IndexerOptions options,
 		IndexerEventPublisher eventPublisher
 	) {
-		this(vertx, model, null, documentStore, options, queue, null, eventPublisher);
-	}
-
-	public Indexer(
-		Vertx vertx,
-		IndexerModel model,
-		IndexerQueue queue,
-		IndexerRepository repository,
-		IndexerDocumentStore documentStore,
-		IndexerOptions options,
-		IndexerEventPublisher eventPublisher
-	) {
-		this(vertx, model, null, documentStore, options, queue, repository, eventPublisher);
+		this(vertx, model, null, documentStore, options, queue, eventPublisher);
 	}
 
 	public Indexer(
@@ -66,12 +53,11 @@ public class Indexer {
 		IndexerModel model,
 		Indexer nextIndexer,
 		IndexerQueue queue,
-		IndexerRepository repository,
 		IndexerDocumentStore documentStore,
 		IndexerOptions options,
 		IndexerEventPublisher eventPublisher
 	) {
-		this(vertx, model, nextIndexer, documentStore, options, queue, repository, eventPublisher);
+		this(vertx, model, nextIndexer, documentStore, options, queue, eventPublisher);
 	}
 
 	private Indexer(
@@ -81,7 +67,6 @@ public class Indexer {
 		IndexerDocumentStore documentStore,
 		IndexerOptions options,
 		IndexerQueue queue,
-		IndexerRepository repository,
 		IndexerEventPublisher eventPublisher
 	) {
 		this.vertx = Objects.requireNonNull(vertx, "vertx");
@@ -90,7 +75,6 @@ public class Indexer {
 		this.documentStore = Objects.requireNonNull(documentStore, "documentStore");
 		this.options = options == null ? new IndexerOptions() : options;
 		this.queue = queue;
-		this.repository = repository;
 		this.eventPublisher = eventPublisher == null ? IndexerEventPublisher.NOOP : eventPublisher;
 	}
 
@@ -185,6 +169,11 @@ public class Indexer {
 			return emitEvent(IndexerEventType.ACTION_STREAM_COMPLETED, item, null);
 		}
 
+		String validationError = validateActionIdentity(item);
+		if (validationError != null) {
+			return Future.failedFuture(validationError);
+		}
+
 		return Actions.getProvider(item.getActionType())
 			.action()
 			.process(model, documentStore, item);
@@ -195,6 +184,11 @@ public class Indexer {
 	}
 
 	protected Future<Void> indexAction(IndexerActionItem item) {
+		String validationError = validateActionIdentity(item);
+		if (validationError != null) {
+			return Future.failedFuture(validationError);
+		}
+
 		return switch (item.getActionType()) {
 			case PUT_DOCUMENT -> {
 				PutDocumentActionItem put = (PutDocumentActionItem) item;
@@ -202,10 +196,83 @@ public class Indexer {
 			}
 			case REMOVE_DOCUMENT -> {
 				RemoveDocumentActionItem remove = (RemoveDocumentActionItem) item;
-				yield documentStore.remove(model.getIndexName(), remove.getUid());
+				yield documentStore.remove(getRemoveIndexName(remove), remove.getUid());
 			}
 			case COMPLETE -> emitEvent(IndexerEventType.ACTION_STREAM_COMPLETED, item, null);
 		};
+	}
+
+	private String validateActionIdentity(IndexerActionItem item) {
+		return switch (item.getActionType()) {
+			case PUT_DOCUMENT -> validatePutIdentity((PutDocumentActionItem) item);
+			case REMOVE_DOCUMENT -> validateRemoveIdentity((RemoveDocumentActionItem) item);
+			case COMPLETE -> validateCompleteIdentity((CompleteIndexActionItem) item);
+		};
+	}
+
+	private String validatePutIdentity(PutDocumentActionItem item) {
+		String error = validateTargetId(item.getTargetId());
+		if (error != null) {
+			return error;
+		}
+
+		error = validateIndexerId(item.getIndexerId());
+		if (error != null) {
+			return error;
+		}
+
+		return validateIndexName(item.getIndexName());
+	}
+
+	private String validateRemoveIdentity(RemoveDocumentActionItem item) {
+		String error = validateTargetId(item.getTargetId());
+		if (error != null) {
+			return error;
+		}
+
+		error = validateIndexerId(item.getIndexerId());
+		if (error != null) {
+			return error;
+		}
+
+		return item.getIndexName() == null ? null : validateIndexName(item.getIndexName());
+	}
+
+	private String validateCompleteIdentity(CompleteIndexActionItem item) {
+		String error = validateTargetId(item.getTargetId());
+		if (error != null) {
+			return error;
+		}
+
+		return validateIndexerId(item.getIndexerId());
+	}
+
+	private String validateTargetId(Integer targetId) {
+		if (targetId != null && model.getTargetId() != null && !targetId.equals(model.getTargetId())) {
+			return "Action target id mismatch for indexer: " + model.getIndexName();
+		}
+
+		return null;
+	}
+
+	private String validateIndexerId(Integer indexerId) {
+		if (indexerId != null && model.getId() != null && !indexerId.equals(model.getId())) {
+			return "Action indexer id mismatch for indexer: " + model.getIndexName();
+		}
+
+		return null;
+	}
+
+	private String validateIndexName(String indexName) {
+		if (!model.getIndexName().equals(indexName)) {
+			return "Action index mismatch for indexer: " + model.getIndexName();
+		}
+
+		return null;
+	}
+
+	private String getRemoveIndexName(RemoveDocumentActionItem item) {
+		return item.getIndexName() == null ? model.getIndexName() : item.getIndexName();
 	}
 
 	public Future<Void> index(List<IndexerActionItem> actions) {
@@ -236,10 +303,6 @@ public class Indexer {
 		Future<Void> deleted = unregisterCurrent()
 			.compose(ignored -> queue == null ? Future.succeededFuture() : queue.delete())
 			.compose(ignored -> documentStore.drop(model.getIndexName()));
-
-		if (repository != null && model.getId() != null) {
-			deleted = deleted.compose(ignored -> repository.delete(model.getId()).mapEmpty());
-		}
 
 		return deleted.map(model);
 	}

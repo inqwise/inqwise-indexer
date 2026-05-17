@@ -23,12 +23,53 @@ class ActionsTest {
 
 	@Test
 	void completeActionRoundTripsThroughJson() {
-		CompleteIndexActionItem item = new CompleteIndexActionItem();
+		CompleteIndexActionItem item = CompleteIndexActionItem.builder()
+			.withTargetId(10)
+			.withIndexerId(20)
+			.build();
 
 		IndexerActionItem parsed = IndexerActionItem.fromJson(item.toJson());
 
 		assertInstanceOf(CompleteIndexActionItem.class, parsed);
 		assertEquals(IndexerActionType.COMPLETE, parsed.getActionType());
+		assertEquals(10, ((CompleteIndexActionItem) parsed).getTargetId());
+		assertEquals(20, ((CompleteIndexActionItem) parsed).getIndexerId());
+		assertEquals(item.toJson(), parsed.toJson());
+	}
+
+	@Test
+	void putActionRoundTripsConcreteIdentityFields() {
+		PutDocumentActionItem item = PutDocumentActionItem.builder()
+			.withTargetId(10)
+			.withIndexerId(20)
+			.withIndexName("customers-2024-a")
+			.withUid("42")
+			.withSequence(100L)
+			.withMutationId("mutation-1")
+			.withDocument(new JsonObject().put("name", "Ada"))
+			.build();
+
+		IndexerActionItem parsed = IndexerActionItem.fromJson(item.toJson());
+
+		assertInstanceOf(PutDocumentActionItem.class, parsed);
+		assertEquals(item.toJson(), parsed.toJson());
+	}
+
+	@Test
+	void removeActionRoundTripsConcreteIdentityFields() {
+		RemoveDocumentActionItem item = RemoveDocumentActionItem.builder()
+			.withTargetId(10)
+			.withIndexerId(20)
+			.withTargetName("customers-2024")
+			.withIndexName("customers-2024-a")
+			.withUid("42")
+			.withSequence(100L)
+			.withMutationId("mutation-1")
+			.build();
+
+		IndexerActionItem parsed = IndexerActionItem.fromJson(item.toJson());
+
+		assertInstanceOf(RemoveDocumentActionItem.class, parsed);
 		assertEquals(item.toJson(), parsed.toJson());
 	}
 

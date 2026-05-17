@@ -73,7 +73,8 @@ class IndexerQueueFlowTest {
 		});
 
 		indexer.activate()
-			.compose(ignored -> queue.publish(item))
+			.compose(ignored -> queue.publisher("customers_1"))
+			.compose(publisher -> publisher.publish(item))
 			.onFailure(testContext::failNow);
 	}
 
@@ -105,14 +106,14 @@ class IndexerQueueFlowTest {
 		);
 
 		indexer.activate()
-			.compose(ignored -> queue.publish(item))
+			.compose(ignored -> queue.publisher("customers_1"))
+			.compose(publisher -> publisher.publish(item))
 			.onFailure(testContext::failNow);
 	}
 
 	@Test
 	void deleteRemovesCurrentResourcesOnly(Vertx vertx, VertxTestContext testContext) {
 		InMemoryIndexerDocumentStore store = new InMemoryIndexerDocumentStore();
-		InMemoryIndexerRepository repository = new InMemoryIndexerRepository();
 		InMemoryIndexerQueue currentQueue = new InMemoryIndexerQueue();
 		InMemoryIndexerQueue nextQueue = new InMemoryIndexerQueue();
 		IndexerModel currentModel = IndexerModel.builder()
@@ -131,7 +132,6 @@ class IndexerQueueFlowTest {
 			vertx,
 			nextModel,
 			nextQueue,
-			repository,
 			store,
 			new IndexerOptions(),
 			IndexerEventPublisher.NOOP
@@ -141,28 +141,20 @@ class IndexerQueueFlowTest {
 			currentModel,
 			nextIndexer,
 			currentQueue,
-			repository,
 			store,
 			new IndexerOptions(),
 			IndexerEventPublisher.NOOP
 		);
 
-		repository.save(currentModel)
-			.compose(ignored -> repository.save(nextModel))
-			.compose(ignored -> store.put("customers_1", "42", new JsonObject().put("name", "Ada")))
+		store.put("customers_1", "42", new JsonObject().put("name", "Ada"))
 			.compose(ignored -> store.put("customers_2", "43", new JsonObject().put("name", "Grace")))
 			.compose(ignored -> indexer.delete())
-			.compose(ignored -> repository.get(1))
-			.compose(deleted -> {
-				assertTrue(deleted.isEmpty());
+			.compose(ignored -> {
 				assertNull(store.get("customers_1", "42"));
 				assertEquals("Grace", store.get("customers_2", "43").getString("name"));
 				return Future.succeededFuture();
 			})
-			.compose(ignored -> repository.get(2))
-			.onComplete(testContext.succeeding(next -> testContext.verify(() -> {
-				assertTrue(next.isPresent());
-				assertEquals("customers_2", next.get().getIndexName());
+			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
 				assertEquals(nextIndexer.status().toJson(), indexer.status().toJson().getJsonObject("next"));
 				testContext.completeNow();
 			})));

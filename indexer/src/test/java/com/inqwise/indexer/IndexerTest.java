@@ -5,8 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import io.vertx.core.Future;
@@ -21,12 +19,71 @@ import org.junit.jupiter.api.extension.ExtendWith;
 class IndexerTest {
 
 	@Test
+	void processActionItemAcceptsMatchingConcreteIdentity(
+		Vertx vertx,
+		VertxTestContext testContext
+	) {
+		InMemoryIndexerDocumentStore store = new InMemoryIndexerDocumentStore();
+		IndexerModel model = IndexerModel.builder()
+			.withId(20)
+			.withTargetId(10)
+			.withTargetName("customers-2024")
+			.withIndexName("customers-2024-a")
+			.build();
+		Indexer indexer = new Indexer(vertx, model, store);
+		PutDocumentActionItem item = PutDocumentActionItem.builder()
+			.withTargetId(10)
+			.withIndexerId(20)
+			.withIndexName("customers-2024-a")
+			.withUid("42")
+			.withDocument(new JsonObject().put("name", "Ada"))
+			.build();
+
+		indexer.processActionItem(item)
+			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
+				assertEquals("Ada", store.get("customers-2024-a", "42").getString("name"));
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void processActionItemRejectsMismatchedConcreteIdentity(
+		Vertx vertx,
+		VertxTestContext testContext
+	) {
+		InMemoryIndexerDocumentStore store = new InMemoryIndexerDocumentStore();
+		IndexerModel model = IndexerModel.builder()
+			.withId(20)
+			.withTargetId(10)
+			.withTargetName("customers-2024")
+			.withIndexName("customers-2024-a")
+			.build();
+		Indexer indexer = new Indexer(vertx, model, store);
+		PutDocumentActionItem item = PutDocumentActionItem.builder()
+			.withTargetId(10)
+			.withIndexerId(21)
+			.withIndexName("customers-2024-a")
+			.withUid("42")
+			.withDocument(new JsonObject().put("name", "Ada"))
+			.build();
+
+		indexer.processActionItem(item)
+			.onComplete(testContext.failing(error -> testContext.verify(() -> {
+				assertEquals(
+					"Action indexer id mismatch for indexer: customers-2024-a",
+					error.getMessage()
+				);
+				assertNull(store.get("customers-2024-a", "42"));
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
 	void deleteShouldCleanupAllResources(
 		Vertx vertx,
 		VertxTestContext testContext
 	) {
 		InMemoryIndexerDocumentStore store = new InMemoryIndexerDocumentStore();
-		InMemoryIndexerRepository repository = new InMemoryIndexerRepository();
 		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
 
 		IndexerModel model = IndexerModel.builder()
@@ -41,7 +98,6 @@ class IndexerTest {
 			vertx,
 			model,
 			queue,
-			repository,
 			store,
 			new IndexerOptions(),
 			event -> {
@@ -52,16 +108,8 @@ class IndexerTest {
 			}
 		);
 
-		// Setup state
-		repository
-			.save(model)
-			.compose(ignored ->
-				store.put(
-					"test_index",
-					"1",
-					new JsonObject().put("key", "value")
-				)
-			)
+		store
+			.put("test_index", "1", new JsonObject().put("key", "value"))
 			.compose(ignored -> indexer.activate())
 			.compose(ignored -> indexer.delete())
 			.onComplete(
@@ -71,34 +119,15 @@ class IndexerTest {
 							model.getIndexName(),
 							deletedModel.getIndexName()
 						);
-
-						// Verify repository deletion
-						repository
-							.get(1)
-							.onComplete(
-								testContext.succeeding(opt ->
-									testContext.verify(() -> {
-										assertFalse(
-											opt.isPresent(),
-											"Model should be removed from repository"
-										);
-
-										// Verify document store drop
-										assertNull(
-											store.get("test_index", "1"),
-											"Document store should be dropped"
-										);
-
-										// Verify event emission
-										assertTrue(
-											stoppedEventEmitted.get(),
-											"INDEXER_STOPPED event should be emitted"
-										);
-
-										testContext.completeNow();
-									})
-								)
-							);
+						assertNull(
+							store.get("test_index", "1"),
+							"Document store should be dropped"
+						);
+						assertTrue(
+							stoppedEventEmitted.get(),
+							"INDEXER_STOPPED event should be emitted"
+						);
+						testContext.completeNow();
 					})
 				)
 			);
@@ -175,45 +204,6 @@ class IndexerTest {
 	}
 
 	@Test
-	void deleteShouldNotAttemptRepositoryDeleteIfIdIsNull(
-		Vertx vertx,
-		VertxTestContext testContext
-	) {
-		InMemoryIndexerDocumentStore store = new InMemoryIndexerDocumentStore();
-		InMemoryIndexerRepository repository = new InMemoryIndexerRepository();
-
-		// Model with no ID
-		IndexerModel model = IndexerModel.builder()
-			.withTargetName("test")
-			.withIndexName("test_index")
-			.build();
-
-		Indexer indexer = new Indexer(
-			vertx,
-			model,
-			null, // queue
-			repository,
-			store,
-			new IndexerOptions(),
-			IndexerEventPublisher.NOOP
-		);
-
-		indexer
-			.delete()
-			.onComplete(
-				testContext.succeeding(deletedModel ->
-					testContext.verify(() -> {
-						assertEquals(
-							model.getIndexName(),
-							deletedModel.getIndexName()
-						);
-						testContext.completeNow();
-					})
-				)
-			);
-	}
-
-	@Test
 	void deleteShouldFailWhenQueueDeleteFailsAndSkipLaterResources(
 		Vertx vertx,
 		VertxTestContext testContext
@@ -221,12 +211,10 @@ class IndexerTest {
 		TestIndexerQueue queue = new TestIndexerQueue();
 		queue.deleteFailure = new IllegalStateException("queue delete failed");
 		TestDocumentStore store = new TestDocumentStore();
-		TestRepository repository = new TestRepository();
 		Indexer indexer = new Indexer(
 			vertx,
 			modelWithId(),
 			queue,
-			repository,
 			store,
 			new IndexerOptions(),
 			IndexerEventPublisher.NOOP
@@ -237,7 +225,6 @@ class IndexerTest {
 				assertEquals("queue delete failed", error.getMessage());
 				assertTrue(queue.deleteCalled);
 				assertFalse(store.dropCalled);
-				assertFalse(repository.deleteCalled);
 				testContext.completeNow();
 			})));
 	}
@@ -250,12 +237,10 @@ class IndexerTest {
 		TestIndexerQueue queue = new TestIndexerQueue();
 		TestDocumentStore store = new TestDocumentStore();
 		store.dropFailure = new IllegalStateException("document drop failed");
-		TestRepository repository = new TestRepository();
 		Indexer indexer = new Indexer(
 			vertx,
 			modelWithId(),
 			queue,
-			repository,
 			store,
 			new IndexerOptions(),
 			IndexerEventPublisher.NOOP
@@ -266,66 +251,6 @@ class IndexerTest {
 				assertEquals("document drop failed", error.getMessage());
 				assertTrue(queue.deleteCalled);
 				assertTrue(store.dropCalled);
-				assertFalse(repository.deleteCalled);
-				testContext.completeNow();
-			})));
-	}
-
-	@Test
-	void deleteShouldFailWhenRepositoryDeleteFails(
-		Vertx vertx,
-		VertxTestContext testContext
-	) {
-		TestIndexerQueue queue = new TestIndexerQueue();
-		TestDocumentStore store = new TestDocumentStore();
-		TestRepository repository = new TestRepository();
-		repository.deleteFailure = new IllegalStateException("repository delete failed");
-		Indexer indexer = new Indexer(
-			vertx,
-			modelWithId(),
-			queue,
-			repository,
-			store,
-			new IndexerOptions(),
-			IndexerEventPublisher.NOOP
-		);
-
-		indexer.delete()
-			.onComplete(testContext.failing(error -> testContext.verify(() -> {
-				assertEquals("repository delete failed", error.getMessage());
-				assertTrue(queue.deleteCalled);
-				assertTrue(store.dropCalled);
-				assertTrue(repository.deleteCalled);
-				testContext.completeNow();
-			})));
-	}
-
-	@Test
-	void deleteShouldSucceedWhenRepositoryRecordIsAlreadyMissing(
-		Vertx vertx,
-		VertxTestContext testContext
-	) {
-		TestIndexerQueue queue = new TestIndexerQueue();
-		TestDocumentStore store = new TestDocumentStore();
-		TestRepository repository = new TestRepository();
-		repository.deleteResult = false;
-		IndexerModel model = modelWithId();
-		Indexer indexer = new Indexer(
-			vertx,
-			model,
-			queue,
-			repository,
-			store,
-			new IndexerOptions(),
-			IndexerEventPublisher.NOOP
-		);
-
-		indexer.delete()
-			.onComplete(testContext.succeeding(deleted -> testContext.verify(() -> {
-				assertEquals(model.getId(), deleted.getId());
-				assertTrue(queue.deleteCalled);
-				assertTrue(store.dropCalled);
-				assertTrue(repository.deleteCalled);
 				testContext.completeNow();
 			})));
 	}
@@ -341,7 +266,6 @@ class IndexerTest {
 			vertx,
 			modelWithId(),
 			queue,
-			null,
 			store,
 			new IndexerOptions(),
 			IndexerEventPublisher.NOOP
@@ -371,8 +295,18 @@ class IndexerTest {
 		private Throwable deleteFailure;
 
 		@Override
-		public Future<Void> publish(IndexerActionItem item) {
-			return Future.succeededFuture();
+		public Future<IndexerQueuePublisher> publisher(String queueName) {
+			return Future.succeededFuture(new IndexerQueuePublisher() {
+				@Override
+				public Future<Void> publish(IndexerActionItem item) {
+					return Future.succeededFuture();
+				}
+
+				@Override
+				public Future<Void> close() {
+					return Future.succeededFuture();
+				}
+			});
 		}
 
 		@Override
@@ -414,40 +348,4 @@ class IndexerTest {
 		}
 	}
 
-	private static class TestRepository implements IndexerRepository {
-		private boolean deleteCalled;
-		private boolean deleteResult = true;
-		private Throwable deleteFailure;
-
-		@Override
-		public Future<Integer> save(IndexerModel model) {
-			return Future.succeededFuture(model.getId());
-		}
-
-		@Override
-		public Future<Optional<IndexerModel>> get(Integer id) {
-			return Future.succeededFuture(Optional.empty());
-		}
-
-		@Override
-		public Future<List<IndexerModel>> getByTargetId(Integer targetId) {
-			return Future.succeededFuture(List.of());
-		}
-
-		@Override
-		public Future<List<IndexerModel>> list() {
-			return Future.succeededFuture(List.of());
-		}
-
-		@Override
-		public Future<Optional<IndexerModel>> updateStatus(Integer id, IndexerStatus status) {
-			return Future.succeededFuture(Optional.empty());
-		}
-
-		@Override
-		public Future<Boolean> delete(Integer id) {
-			deleteCalled = true;
-			return deleteFailure == null ? Future.succeededFuture(deleteResult) : Future.failedFuture(deleteFailure);
-		}
-	}
 }

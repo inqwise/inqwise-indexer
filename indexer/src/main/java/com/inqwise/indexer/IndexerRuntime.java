@@ -5,27 +5,31 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
+import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
+import com.inqwise.indexer.metadata.IndexerRecord;
+import com.inqwise.indexer.metadata.IndexerRuntimeStatus;
+
 import io.vertx.core.Future;
 
 public class IndexerRuntime {
-	private final IndexerRepository repository;
+	private final DocumentStoreMetadataRepository repository;
 	private final IndexerLifecycleEventBus lifecycleEventBus;
-	private final Function<IndexerModel, Indexer> indexerFactory;
+	private final Function<IndexerRecord, Indexer> indexerFactory;
 	private final IndexerResourceCleaner resourceCleaner;
 	private final Map<Integer, Indexer> indexersById = new ConcurrentHashMap<>();
 
 	public IndexerRuntime(
-		IndexerRepository repository,
+		DocumentStoreMetadataRepository repository,
 		IndexerLifecycleEventBus lifecycleEventBus,
-		Function<IndexerModel, Indexer> indexerFactory
+		Function<IndexerRecord, Indexer> indexerFactory
 	) {
 		this(repository, lifecycleEventBus, indexerFactory, IndexerResourceCleaner.NOOP);
 	}
 
 	public IndexerRuntime(
-		IndexerRepository repository,
+		DocumentStoreMetadataRepository repository,
 		IndexerLifecycleEventBus lifecycleEventBus,
-		Function<IndexerModel, Indexer> indexerFactory,
+		Function<IndexerRecord, Indexer> indexerFactory,
 		IndexerResourceCleaner resourceCleaner
 	) {
 		this.repository = Objects.requireNonNull(repository, "repository");
@@ -41,19 +45,20 @@ public class IndexerRuntime {
 	}
 
 	public Future<Void> reconcile(Integer indexerId) {
-		return repository.get(indexerId)
+		return repository.getIndexerById(indexerId)
 			.compose(found -> {
 				if (found.isEmpty()) {
 					return close(indexerId);
 				}
 
-				IndexerModel model = found.get();
-				if (model.getStatus() == IndexerStatus.DELETED) {
-					return delete(model);
+				IndexerRecord indexer = found.get();
+				if (indexer.runtimeStatus() == IndexerRuntimeStatus.DELETED) {
+					return delete(indexer);
 				}
 
-				if (model.getStatus().isActive()) {
-					return activate(model);
+				if (indexer.runtimeStatus() == IndexerRuntimeStatus.STARTED
+					|| indexer.runtimeStatus() == IndexerRuntimeStatus.COMPLETED) {
+					return activate(indexer);
 				}
 
 				return Future.succeededFuture();
@@ -61,29 +66,30 @@ public class IndexerRuntime {
 	}
 
 	public Future<Void> reconcile(IndexerLifecycleChanged event) {
-		return repository.get(event.getIndexerId())
+		return repository.getIndexerById(event.getIndexerId())
 			.compose(found -> {
 				if (found.isEmpty()) {
 					return close(event.getIndexerId());
 				}
 
-				IndexerModel model = found.get();
-				if (model.getStatus() == IndexerStatus.DELETED) {
-					return delete(model);
+				IndexerRecord indexer = found.get();
+				if (indexer.runtimeStatus() == IndexerRuntimeStatus.DELETED) {
+					return delete(indexer);
 				}
 
-				if (model.getStatus().isActive()) {
-					return activate(model);
+				if (indexer.runtimeStatus() == IndexerRuntimeStatus.STARTED
+					|| indexer.runtimeStatus() == IndexerRuntimeStatus.COMPLETED) {
+					return activate(indexer);
 				}
 
 				return Future.succeededFuture();
 			});
 	}
 
-	protected Future<Void> activate(IndexerModel model) {
+	protected Future<Void> activate(IndexerRecord indexerRecord) {
 		Indexer indexer = indexersById.computeIfAbsent(
-			model.getId(),
-			ignored -> indexerFactory.apply(model)
+			indexerRecord.id(),
+			ignored -> indexerFactory.apply(indexerRecord)
 		);
 
 		return indexer.activate();
@@ -99,8 +105,31 @@ public class IndexerRuntime {
 		return indexer == null ? Future.succeededFuture() : indexer.close();
 	}
 
-	protected Future<Void> delete(IndexerModel model) {
-		return close(model.getId())
-			.compose(ignored -> resourceCleaner.clean(model));
+	protected Future<Void> delete(IndexerRecord indexer) {
+		return close(indexer.id())
+			.compose(ignored -> resourceCleaner.clean(toModel(indexer)));
+	}
+
+	public static IndexerModel toModel(IndexerRecord indexer) {
+		return IndexerModel.builder()
+			.withId(indexer.id())
+			.withUid(indexer.uid())
+			.withTargetId(indexer.targetId())
+			.withTargetName(indexer.targetName())
+			.withIndexName(indexer.indexName())
+			.withQueueName(indexer.queueName())
+			.withType(indexer.type())
+			.withStatus(toStatus(indexer.runtimeStatus()))
+			.withVersion(indexer.version())
+			.build();
+	}
+
+	private static IndexerStatus toStatus(IndexerRuntimeStatus status) {
+		return switch (status) {
+			case NON_ACTIVE -> IndexerStatus.NON_ACTIVE;
+			case STARTED -> IndexerStatus.STARTED;
+			case COMPLETED -> IndexerStatus.COMPLETED;
+			case DELETED -> IndexerStatus.DELETED;
+		};
 	}
 }

@@ -4,21 +4,22 @@ import java.util.Objects;
 
 import com.inqwise.indexer.IndexerLifecycleChanged;
 import com.inqwise.indexer.IndexerLifecycleEventBus;
-import com.inqwise.indexer.IndexerModel;
-import com.inqwise.indexer.IndexerRepository;
-import com.inqwise.indexer.IndexerStatus;
+import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
+import com.inqwise.indexer.metadata.IndexerRecord;
+import com.inqwise.indexer.metadata.IndexerRuntimeStatus;
+import com.inqwise.indexer.metadata.UpdateIndexerRuntimeStatus;
 
 import io.vertx.core.Future;
 
 public class ActivateIndexerCommandHandler implements CommandHandler {
-	private final IndexerRepository repository;
+	private final DocumentStoreMetadataRepository metadataRepository;
 	private final IndexerLifecycleEventBus eventBus;
 
 	public ActivateIndexerCommandHandler(
-		IndexerRepository repository,
+		DocumentStoreMetadataRepository metadataRepository,
 		IndexerLifecycleEventBus eventBus
 	) {
-		this.repository = Objects.requireNonNull(repository, "repository");
+		this.metadataRepository = Objects.requireNonNull(metadataRepository, "metadataRepository");
 		this.eventBus = Objects.requireNonNull(eventBus, "eventBus");
 	}
 
@@ -30,23 +31,28 @@ public class ActivateIndexerCommandHandler implements CommandHandler {
 	@Override
 	public Future<Void> handle(Command command) {
 		ActivateIndexerCommand activate = new ActivateIndexerCommand(command.toJson());
-
-		return repository.get(activate.getIndexerId())
+		return metadataRepository.getIndexerById(activate.getIndexerId())
 			.compose(found -> {
 				if (found.isEmpty()) {
 					return Future.failedFuture("Indexer not found: " + activate.getIndexerId());
 				}
 
-				IndexerModel model = found.get();
-				if (model.getStatus() == IndexerStatus.DELETED) {
+				IndexerRecord indexer = found.get();
+				if (indexer.runtimeStatus() == IndexerRuntimeStatus.DELETED) {
 					return Future.failedFuture("Cannot activate deleted indexer: " + activate.getIndexerId());
 				}
 
-				if (model.getStatus().isActive()) {
-					return publish(model);
+				if (indexer.runtimeStatus() == IndexerRuntimeStatus.STARTED
+					|| indexer.runtimeStatus() == IndexerRuntimeStatus.COMPLETED) {
+					return publish(indexer);
 				}
 
-				return repository.updateStatus(activate.getIndexerId(), IndexerStatus.STARTED)
+				return metadataRepository.updateIndexerRuntimeStatus(new UpdateIndexerRuntimeStatus(
+					activate.getIndexerId(),
+					IndexerRuntimeStatus.STARTED,
+					indexer.version()
+				))
+					.compose(ignored -> metadataRepository.getIndexerById(activate.getIndexerId()))
 					.compose(updated -> updated
 						.map(this::publish)
 						.orElseGet(() -> Future.failedFuture(
@@ -55,11 +61,11 @@ public class ActivateIndexerCommandHandler implements CommandHandler {
 			});
 	}
 
-	private Future<Void> publish(IndexerModel model) {
+	private Future<Void> publish(IndexerRecord indexer) {
 		return eventBus.publish(new IndexerLifecycleChanged(
-			model.getId(),
+			indexer.id(),
 			getType(),
-			model.getVersion()
+			indexer.version()
 		));
 	}
 }
