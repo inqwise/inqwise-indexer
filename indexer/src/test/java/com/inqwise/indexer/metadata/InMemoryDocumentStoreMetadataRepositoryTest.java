@@ -64,6 +64,46 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 	}
 
 	@Test
+	void rejectsNonCanonicalTargetDefinitionName() {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+
+		Future<Integer> uppercase = repository.insertTargetDefinition(new InsertTargetDefinition(
+			null,
+			"Customers",
+			null,
+			null
+		));
+		assertTrue(uppercase.failed());
+		assertEquals("Target name is not canonical: Customers", uppercase.cause().getMessage());
+
+		Future<Integer> spaces = repository.insertTargetDefinition(new InsertTargetDefinition(
+			null,
+			"customer docs",
+			null,
+			null
+		));
+		assertTrue(spaces.failed());
+		assertEquals("Target name is not canonical: customer docs", spaces.cause().getMessage());
+	}
+
+	@Test
+	void rejectsTargetNameOverLimit() {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		String targetName = "a".repeat(TargetNameValidator.MAX_TARGET_NAME_LENGTH + 1);
+
+		Future<Integer> inserted = repository.insertTargetDefinition(new InsertTargetDefinition(
+			null,
+			targetName,
+			null,
+			null
+		));
+		assertTrue(inserted.failed());
+		assertEquals("Target name is too long: 129", inserted.cause().getMessage());
+	}
+
+	@Test
 	void ensuresConcreteTargetFromDefinitionAndUtcPeriod(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();

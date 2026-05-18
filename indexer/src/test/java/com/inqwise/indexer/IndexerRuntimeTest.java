@@ -150,6 +150,44 @@ class IndexerRuntimeTest {
 	}
 
 	@Test
+	void verticleBackedIndexerCanReactivateAfterClose(
+		Vertx vertx,
+		VertxTestContext testContext
+	) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
+		InMemoryIndexerDocumentStore documentStore = new InMemoryIndexerDocumentStore();
+		IndexerRuntime runtime = new IndexerRuntime(
+			vertx,
+			repository,
+			eventBus,
+			queue,
+			documentStore,
+			new IndexerOptions(),
+			IndexerEventPublisher.NOOP
+		);
+
+		insertIndexer(repository, IndexerRuntimeStatus.STARTED, MutationState.WRITABLE)
+			.compose(id -> runtime.reconcile(id)
+				.compose(ignored -> runtime.close(id))
+				.compose(ignored -> runtime.reconcile(id)))
+			.compose(ignored -> queue.publisher("queue-customers-1"))
+			.compose(publisher -> publisher.publish(PutDocumentActionItem.builder()
+				.withTargetId(1)
+				.withIndexerId(1)
+				.withIndexName("customers_1")
+				.withUid("43")
+				.withDocument(new io.vertx.core.json.JsonObject().put("name", "Grace"))
+				.build()).eventually(publisher::close))
+			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
+				assertEquals("Grace", documentStore.get("customers_1", "43").getString("name"));
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
 	void missingRepositoryRecordClosesLocalRuntimeIndexer(
 		Vertx vertx,
 		VertxTestContext testContext

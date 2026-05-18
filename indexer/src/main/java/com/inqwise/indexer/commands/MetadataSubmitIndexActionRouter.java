@@ -19,6 +19,7 @@ import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.metadata.MutationState;
 import com.inqwise.indexer.metadata.PublicationState;
 import com.inqwise.indexer.metadata.TargetDefinitionRecord;
+import com.inqwise.indexer.metadata.TargetNameValidator;
 import com.inqwise.indexer.metadata.TargetPeriod;
 import com.inqwise.indexer.metadata.TargetPeriodResolver;
 import com.inqwise.indexer.metadata.TargetPeriodStrategy;
@@ -147,6 +148,10 @@ class MetadataSubmitIndexActionRouter {
 	private Future<TargetRecord> resolveConcreteTarget(SubmitIndexActionsCommand submit) {
 		return resolveTargetDefinition(submit)
 			.compose(targetDefinition -> {
+				if (targetDefinition.status() != TargetStatus.ACTIVE) {
+					return Future.failedFuture("Target definition is not active: " + targetDefinition.id());
+				}
+
 				if (targetDefinition.periodStrategy() != TargetPeriodStrategy.NONE
 					&& submit.getTimestamp() == null) {
 					return Future.failedFuture(
@@ -211,6 +216,8 @@ class MetadataSubmitIndexActionRouter {
 		String suffix = UUID.randomUUID().toString();
 		String indexName = target.targetName() + "--idx-" + suffix;
 		String queueName = target.targetName() + "--queue-" + suffix;
+		TargetNameValidator.requireGeneratedResourceName(indexName);
+		TargetNameValidator.requireGeneratedResourceName(queueName);
 		return repository.updateTargetProvisioningState(new UpdateTargetProvisioningState(
 			target.id(),
 			TargetProvisioningState.PROVISIONING,
@@ -238,15 +245,31 @@ class MetadataSubmitIndexActionRouter {
 						current.version()
 					)).map(indexer))
 					.orElseGet(() -> Future.failedFuture("Target not found: " + target.id()))))
-			.recover(error -> repository.getTargetById(target.id())
-				.compose(found -> found
-					.map(current -> repository.updateTargetProvisioningState(new UpdateTargetProvisioningState(
-						target.id(),
-						TargetProvisioningState.FAILED,
-						current.version()
-					)))
-					.orElseGet(Future::succeededFuture))
-				.compose(ignored -> Future.failedFuture(error)));
+			.recover(error -> recoverWritableIndexerProvisioning(target, error));
+	}
+
+	private Future<IndexerRecord> recoverWritableIndexerProvisioning(
+		TargetRecord target,
+		Throwable error
+	) {
+		return repository.getTargetById(target.id())
+			.compose(found -> {
+				if (found.isEmpty()) {
+					return Future.failedFuture(error);
+				}
+
+				TargetRecord current = found.get();
+				if (current.provisioningState() == TargetProvisioningState.PROVISIONING
+					&& current.version() != target.version()) {
+					return Future.failedFuture("Target provisioning is in progress: " + target.id());
+				}
+
+				return repository.updateTargetProvisioningState(new UpdateTargetProvisioningState(
+					target.id(),
+					TargetProvisioningState.FAILED,
+					current.version()
+				)).compose(ignored -> Future.failedFuture(error));
+			});
 	}
 
 	private Future<IndexerRecord> verifyIndexer(

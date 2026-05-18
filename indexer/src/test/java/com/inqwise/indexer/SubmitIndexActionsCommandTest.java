@@ -1,6 +1,7 @@
 package com.inqwise.indexer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Instant;
@@ -21,6 +22,7 @@ import com.inqwise.indexer.metadata.InsertTargetDefinition;
 import com.inqwise.indexer.metadata.MutationState;
 import com.inqwise.indexer.metadata.PublicationState;
 import com.inqwise.indexer.metadata.TargetPeriodStrategy;
+import com.inqwise.indexer.metadata.TargetStatus;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -221,6 +223,8 @@ class SubmitIndexActionsCommandTest {
 				assertEquals(1, indexers.size());
 				assertEquals(1, queue.published.size());
 				assertTrue(queue.publishedByQueueName.containsKey(indexers.get(0).queueName()));
+				assertTrue(indexers.get(0).indexName().matches("customers--2026-05--idx-[a-f0-9-]{36}"));
+				assertTrue(indexers.get(0).queueName().matches("customers--2026-05--queue-[a-f0-9-]{36}"));
 				assertConcretePut(
 					queue.published.get(0),
 					indexers.get(0).targetId(),
@@ -229,6 +233,37 @@ class SubmitIndexActionsCommandTest {
 				);
 				testContext.completeNow();
 			})));
+	}
+
+	@Test
+	void submitCommandRejectsOversizedActionBatch() {
+		List<IndexerActionItem> actions = new ArrayList<>();
+		for (int i = 0; i <= SubmitIndexActionsCommand.MAX_ACTIONS; i++) {
+			actions.add(PutDocumentActionItem.builder()
+				.withUid("doc-" + i)
+				.withDocument(new JsonObject())
+				.build());
+		}
+
+		IllegalArgumentException error = assertThrows(
+			IllegalArgumentException.class,
+			() -> new SubmitIndexActionsCommand(actions)
+		);
+		assertEquals("Too many actions submitted: 1001", error.getMessage());
+	}
+
+	@Test
+	void submitCommandRejectsOversizedDocument() {
+		String oversized = "x".repeat(SubmitIndexActionsCommand.MAX_DOCUMENT_BYTES + 1);
+
+		IllegalArgumentException error = assertThrows(
+			IllegalArgumentException.class,
+			() -> new SubmitIndexActionsCommand(List.of(PutDocumentActionItem.builder()
+				.withUid("42")
+				.withDocument(new JsonObject().put("body", oversized))
+				.build()))
+		);
+		assertTrue(error.getMessage().startsWith("Document is too large: "));
 	}
 
 	@Test
@@ -254,6 +289,34 @@ class SubmitIndexActionsCommandTest {
 				.build())
 		))).onComplete(testContext.failing(error -> testContext.verify(() -> {
 			assertEquals("Timestamp is required for target period strategy: MONTHLY", error.getMessage());
+			assertTrue(queue.published.isEmpty());
+			testContext.completeNow();
+		})));
+	}
+
+	@Test
+	void publicTargetCommandRejectsInactiveTargetDefinition(VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		RecordingQueue queue = new RecordingQueue();
+		InMemoryCommandService commandService = metadataCommandService(repository, eventBus, queue);
+
+		repository.insertTargetDefinition(new InsertTargetDefinition(
+			"target-customers",
+			"customers",
+			TargetPeriodStrategy.NONE,
+			TargetStatus.NON_ACTIVE
+		)).compose(ignored -> commandService.submit(new SubmitIndexActionsCommand(
+			"target-customers",
+			null,
+			null,
+			List.of(PutDocumentActionItem.builder()
+				.withUid("42")
+				.withDocument(new JsonObject().put("name", "Ada"))
+				.build())
+		))).onComplete(testContext.failing(error -> testContext.verify(() -> {
+			assertEquals("Target definition is not active: 1", error.getMessage());
 			assertTrue(queue.published.isEmpty());
 			testContext.completeNow();
 		})));

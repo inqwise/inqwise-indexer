@@ -1,17 +1,22 @@
 package com.inqwise.indexer.commands;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
 import com.inqwise.indexer.IndexerActionItem;
+import com.inqwise.indexer.IndexerActionType;
+import com.inqwise.indexer.PutDocumentActionItem;
 
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
 public class SubmitIndexActionsCommand implements Command {
 	public static final String TYPE = "indexer.actions.submit";
+	public static final int MAX_ACTIONS = 1000;
+	public static final int MAX_DOCUMENT_BYTES = 1024 * 1024;
 
 	private final String commandId;
 	private final String batchId;
@@ -56,7 +61,7 @@ public class SubmitIndexActionsCommand implements Command {
 		this.targetUid = targetUid;
 		this.targetName = targetName;
 		this.timestamp = timestamp;
-		this.actions = List.copyOf(Objects.requireNonNull(actions, "actions"));
+		this.actions = validateActions(actions);
 	}
 
 	public SubmitIndexActionsCommand(JsonObject json) {
@@ -113,5 +118,24 @@ public class SubmitIndexActionsCommand implements Command {
 			.put("actions", new JsonArray(actions.stream()
 				.map(IndexerActionItem::toJson)
 				.toList()));
+	}
+
+	private List<IndexerActionItem> validateActions(List<IndexerActionItem> actions) {
+		List<IndexerActionItem> copy = List.copyOf(Objects.requireNonNull(actions, "actions"));
+		if (copy.size() > MAX_ACTIONS) {
+			throw new IllegalArgumentException("Too many actions submitted: " + copy.size());
+		}
+
+		for (IndexerActionItem action : copy) {
+			if (action.getActionType() == IndexerActionType.PUT_DOCUMENT) {
+				PutDocumentActionItem put = (PutDocumentActionItem) action;
+				int documentBytes = put.getDocument().encode().getBytes(StandardCharsets.UTF_8).length;
+				if (documentBytes > MAX_DOCUMENT_BYTES) {
+					throw new IllegalArgumentException("Document is too large: " + documentBytes);
+				}
+			}
+		}
+
+		return copy;
 	}
 }

@@ -11,3 +11,4 @@
 - Add important uncovered flows, deferred design questions, and known follow-up decisions to the roadmap instead of leaving them only in conversation or code comments.
 - Periodically refactor `README.md` and the roadmap so they form coherent, complete documents rather than scattered accumulated notes.
 - For scoped multi-step work, create or update a local progress checklist file such as `PROGRESS.md`. Record accepted decisions, implementation tasks, deferred items, and verification status, and keep checklist item statuses current as the work progresses. Treat progress checklist files as local working artifacts; keep them git-ignored rather than committed.
+- After meaningful design or implementation changes, periodically review the implementation shape before committing or starting the next scope. Look for ownership mismatches, lifecycle gaps, distributed-state leakage, unclear boundaries, and missing tests.

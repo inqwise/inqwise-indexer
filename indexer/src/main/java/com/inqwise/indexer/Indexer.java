@@ -377,7 +377,13 @@ public class Indexer {
 	}
 
 	public Future<Void> closeConsumer() {
-		return processor == null ? unregisterCurrent() : processor.close();
+		return processor == null ? unregisterCurrent() : closeProcessor();
+	}
+
+	private Future<Void> closeProcessor() {
+		clearActivation();
+		return processor.close()
+			.compose(ignored -> emitEvent(IndexerEventType.INDEXER_STOPPED, null, null));
 	}
 
 	protected Future<Void> enqueueItem(JsonObject item) {

@@ -18,6 +18,7 @@ public class InMemoryIndexerQueue implements IndexerQueueClient, IndexerQueueRes
 	@Override
 	public Future<IndexerQueueConsumer> consumer(IndexerQueueConsumerOptions options) {
 		consumer.options = options;
+		consumer.closed = false;
 		return Future.succeededFuture(consumer);
 	}
 

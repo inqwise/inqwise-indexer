@@ -30,7 +30,7 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 	@Override
 	public synchronized Future<Integer> insertTargetDefinition(InsertTargetDefinition targetDefinition) {
 		try {
-			require(targetDefinition.targetName(), "targetName");
+			TargetNameValidator.requireTargetName(targetDefinition.targetName());
 			requireUniqueTargetDefinition(targetDefinition.targetName());
 
 			Integer id = targetDefinitionIdSequence.incrementAndGet();
@@ -74,7 +74,7 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 	@Override
 	public synchronized Future<Integer> insertTarget(InsertTarget target) {
 		try {
-			require(target.targetName(), "targetName");
+			TargetNameValidator.requireTargetName(target.targetName());
 			requireUniqueTarget(target.targetName(), target.targetDefinitionId(), target.periodKey());
 
 			Integer id = targetIdSequence.incrementAndGet();
