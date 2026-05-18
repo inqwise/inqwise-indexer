@@ -112,7 +112,7 @@ class IndexerQueueFlowTest {
 	}
 
 	@Test
-	void deleteRemovesCurrentResourcesOnly(Vertx vertx, VertxTestContext testContext) {
+	void deleteClosesCurrentRuntimeOnly(Vertx vertx, VertxTestContext testContext) {
 		InMemoryIndexerDocumentStore store = new InMemoryIndexerDocumentStore();
 		InMemoryIndexerQueue currentQueue = new InMemoryIndexerQueue();
 		InMemoryIndexerQueue nextQueue = new InMemoryIndexerQueue();
@@ -150,7 +150,7 @@ class IndexerQueueFlowTest {
 			.compose(ignored -> store.put("customers_2", "43", new JsonObject().put("name", "Grace")))
 			.compose(ignored -> indexer.delete())
 			.compose(ignored -> {
-				assertNull(store.get("customers_1", "42"));
+				assertEquals("Ada", store.get("customers_1", "42").getString("name"));
 				assertEquals("Grace", store.get("customers_2", "43").getString("name"));
 				return Future.succeededFuture();
 			})

@@ -6,7 +6,7 @@ import java.util.Objects;
 import com.inqwise.indexer.IndexerActionItem;
 import com.inqwise.indexer.IndexerLifecycleChanged;
 import com.inqwise.indexer.IndexerLifecycleEventBus;
-import com.inqwise.indexer.IndexerQueue;
+import com.inqwise.indexer.IndexerQueueClient;
 import com.inqwise.indexer.IndexerQueuePublisher;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 
@@ -15,12 +15,12 @@ import io.vertx.core.Future;
 public class SubmitIndexActionsCommandHandler implements CommandHandler {
 	private final MetadataSubmitIndexActionRouter metadataRouter;
 	private final IndexerLifecycleEventBus eventBus;
-	private final IndexerQueue queue;
+	private final IndexerQueueClient queue;
 
 	public SubmitIndexActionsCommandHandler(
 		DocumentStoreMetadataRepository metadataRepository,
 		IndexerLifecycleEventBus eventBus,
-		IndexerQueue queue
+		IndexerQueueClient queue
 	) {
 		this.metadataRouter = new MetadataSubmitIndexActionRouter(metadataRepository);
 		this.eventBus = Objects.requireNonNull(eventBus, "eventBus");

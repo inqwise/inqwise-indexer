@@ -5,21 +5,33 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 
 import com.inqwise.indexer.CompleteIndexActionItem;
 import com.inqwise.indexer.IndexerActionItem;
+import com.inqwise.indexer.IndexerType;
 import com.inqwise.indexer.PutDocumentActionItem;
 import com.inqwise.indexer.RemoveDocumentActionItem;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.IndexerRecord;
 import com.inqwise.indexer.metadata.IndexerRuntimeStatus;
+import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.metadata.MutationState;
+import com.inqwise.indexer.metadata.PublicationState;
+import com.inqwise.indexer.metadata.TargetDefinitionRecord;
+import com.inqwise.indexer.metadata.TargetPeriod;
+import com.inqwise.indexer.metadata.TargetPeriodResolver;
+import com.inqwise.indexer.metadata.TargetPeriodStrategy;
+import com.inqwise.indexer.metadata.TargetProvisioningState;
+import com.inqwise.indexer.metadata.TargetRecord;
 import com.inqwise.indexer.metadata.TargetStatus;
+import com.inqwise.indexer.metadata.UpdateTargetProvisioningState;
 
 import io.vertx.core.Future;
 
 class MetadataSubmitIndexActionRouter {
 	private final DocumentStoreMetadataRepository repository;
+	private final TargetPeriodResolver periodResolver = new TargetPeriodResolver();
 
 	MetadataSubmitIndexActionRouter(DocumentStoreMetadataRepository repository) {
 		this.repository = Objects.requireNonNull(repository, "repository");
@@ -35,7 +47,7 @@ class MetadataSubmitIndexActionRouter {
 
 		for (IndexerActionItem action : submit.getActions()) {
 			ActionDestination destination = ActionDestination.from(action);
-			if (destination.isEmpty()) {
+			if (destination.isEmpty() && !hasPublicTarget(submit)) {
 				return Future.failedFuture("Action destination is missing for command " + submit.getCommandId());
 			}
 
@@ -75,6 +87,11 @@ class MetadataSubmitIndexActionRouter {
 					)));
 		}
 
+		if (destination.targetId() == null && hasPublicTarget(submit)) {
+			return resolveConcreteTarget(submit)
+				.compose(target -> resolveIndexersByTarget(submit, destination, target, true));
+		}
+
 		if (destination.targetId() == null) {
 			return Future.failedFuture(
 				"Action target id is required for metadata routing in command " + submit.getCommandId()
@@ -87,13 +104,28 @@ class MetadataSubmitIndexActionRouter {
 				.orElseGet(() -> Future.failedFuture(
 					"Target not found: " + destination.targetId()
 				)))
-			.compose(target -> {
-				if (target.status() != TargetStatus.ACTIVE) {
-					return Future.failedFuture("Target is not active: " + destination.targetId());
-				}
+			.compose(target -> resolveIndexersByTarget(submit, destination, target, false));
+	}
 
-				return repository.listWritableIndexersByTargetId(destination.targetId());
-			})
+	private Future<List<IndexerRecord>> resolveIndexersByTarget(
+		SubmitIndexActionsCommand submit,
+		ActionDestination destination,
+		TargetRecord target,
+		boolean autoProvision
+	) {
+		if (target.status() != TargetStatus.ACTIVE) {
+			return Future.failedFuture("Target is not active: " + target.id());
+		}
+
+		if (target.provisioningState() == TargetProvisioningState.PROVISIONING) {
+			return Future.failedFuture("Target provisioning is in progress: " + target.id());
+		}
+
+		if (target.provisioningState() == TargetProvisioningState.FAILED) {
+			return Future.failedFuture("Target provisioning failed: " + target.id());
+		}
+
+		return repository.listWritableIndexersByTargetId(target.id())
 			.compose(indexers -> {
 				List<IndexerRecord> matches = indexers.stream()
 					.filter(indexer -> indexer.runtimeStatus() == IndexerRuntimeStatus.STARTED
@@ -103,13 +135,118 @@ class MetadataSubmitIndexActionRouter {
 					.toList();
 
 				if (matches.isEmpty()) {
-					return Future.failedFuture(
-						"No writable indexers found for target id: " + destination.targetId()
-					);
+					return autoProvision
+						? ensureWritableIndexer(target).map(List::of)
+						: Future.failedFuture("No writable indexers found for target id: " + target.id());
 				}
 
 				return Future.succeededFuture(matches);
 			});
+	}
+
+	private Future<TargetRecord> resolveConcreteTarget(SubmitIndexActionsCommand submit) {
+		return resolveTargetDefinition(submit)
+			.compose(targetDefinition -> {
+				if (targetDefinition.periodStrategy() != TargetPeriodStrategy.NONE
+					&& submit.getTimestamp() == null) {
+					return Future.failedFuture(
+						"Timestamp is required for target period strategy: "
+							+ targetDefinition.periodStrategy()
+					);
+				}
+
+				TargetPeriod period;
+				try {
+					period = periodResolver.resolve(
+						targetDefinition.periodStrategy(),
+						submit.getTimestamp()
+					);
+				} catch (RuntimeException error) {
+					return Future.failedFuture(error);
+				}
+
+				return repository.ensureTarget(targetDefinition, period);
+			});
+	}
+
+	private Future<TargetDefinitionRecord> resolveTargetDefinition(SubmitIndexActionsCommand submit) {
+		Future<TargetDefinitionRecord> resolved = null;
+
+		if (submit.getTargetUid() != null) {
+			resolved = repository.getTargetDefinitionByUid(submit.getTargetUid())
+				.compose(found -> found
+					.map(Future::succeededFuture)
+					.orElseGet(() -> Future.failedFuture(
+						"Target definition not found by uid: " + submit.getTargetUid()
+					)));
+		}
+
+		if (submit.getTargetName() != null) {
+			Future<TargetDefinitionRecord> byName = repository.getTargetDefinitionByName(submit.getTargetName())
+				.compose(found -> found
+					.map(Future::succeededFuture)
+					.orElseGet(() -> Future.failedFuture(
+						"Target definition not found by name: " + submit.getTargetName()
+					)));
+
+			if (resolved == null) {
+				resolved = byName;
+			} else {
+				resolved = resolved.compose(byUid -> byName.compose(byTargetName -> {
+					if (!byUid.id().equals(byTargetName.id())) {
+						return Future.failedFuture("Target uid and name resolve to different targets");
+					}
+
+					return Future.succeededFuture(byUid);
+				}));
+			}
+		}
+
+		return resolved == null
+			? Future.failedFuture("Target reference is missing for command " + submit.getCommandId())
+			: resolved;
+	}
+
+	private Future<IndexerRecord> ensureWritableIndexer(TargetRecord target) {
+		String suffix = UUID.randomUUID().toString();
+		String indexName = target.targetName() + "--idx-" + suffix;
+		String queueName = target.targetName() + "--queue-" + suffix;
+		return repository.updateTargetProvisioningState(new UpdateTargetProvisioningState(
+			target.id(),
+			TargetProvisioningState.PROVISIONING,
+			target.version()
+		)).compose(ignored -> repository.insertIndexer(new InsertIndexer(
+				null,
+				target.id(),
+				target.targetName(),
+				indexName,
+				queueName,
+				IndexerType.INDEX,
+				IndexerRuntimeStatus.STARTED,
+				PublicationState.UNPUBLISHED,
+				MutationState.WRITABLE
+			)))
+			.compose(repository::getIndexerById)
+			.compose(found -> found
+				.map(Future::succeededFuture)
+				.orElseGet(() -> Future.failedFuture("Created indexer not found for target: " + target.id())))
+			.compose(indexer -> repository.getTargetById(target.id())
+				.compose(found -> found
+					.map(current -> repository.updateTargetProvisioningState(new UpdateTargetProvisioningState(
+						target.id(),
+						TargetProvisioningState.READY,
+						current.version()
+					)).map(indexer))
+					.orElseGet(() -> Future.failedFuture("Target not found: " + target.id()))))
+			.recover(error -> repository.getTargetById(target.id())
+				.compose(found -> found
+					.map(current -> repository.updateTargetProvisioningState(new UpdateTargetProvisioningState(
+						target.id(),
+						TargetProvisioningState.FAILED,
+						current.version()
+					)))
+					.orElseGet(Future::succeededFuture))
+				.compose(ignored -> Future.failedFuture(error)));
 	}
 
 	private Future<IndexerRecord> verifyIndexer(
@@ -174,5 +311,9 @@ class MetadataSubmitIndexActionRouter {
 
 	private String getQueueName(IndexerRecord indexer) {
 		return indexer.queueName() == null ? indexer.indexName() : indexer.queueName();
+	}
+
+	private boolean hasPublicTarget(SubmitIndexActionsCommand submit) {
+		return submit.getTargetUid() != null || submit.getTargetName() != null;
 	}
 }

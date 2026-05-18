@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -14,28 +15,80 @@ import com.inqwise.indexer.IndexerType;
 import io.vertx.core.Future;
 
 public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMetadataRepository {
+	private final AtomicInteger targetDefinitionIdSequence = new AtomicInteger();
 	private final AtomicInteger targetIdSequence = new AtomicInteger();
 	private final AtomicInteger indexerIdSequence = new AtomicInteger();
 	private final AtomicInteger publicationIdSequence = new AtomicInteger();
 	private final AtomicInteger manifestIdSequence = new AtomicInteger();
+	private final Map<Integer, TargetDefinitionRecord> targetDefinitionsById = new ConcurrentHashMap<>();
 	private final Map<Integer, TargetRecord> targetsById = new ConcurrentHashMap<>();
 	private final Map<Integer, IndexerRecord> indexersById = new ConcurrentHashMap<>();
 	private final Map<Integer, PublicationRecord> publicationsById = new ConcurrentHashMap<>();
 	private final Map<Integer, ManifestRecord> manifestsById = new ConcurrentHashMap<>();
+	private final TargetNameEncoder targetNameEncoder = new TargetNameEncoder();
+
+	@Override
+	public synchronized Future<Integer> insertTargetDefinition(InsertTargetDefinition targetDefinition) {
+		try {
+			require(targetDefinition.targetName(), "targetName");
+			requireUniqueTargetDefinition(targetDefinition.targetName());
+
+			Integer id = targetDefinitionIdSequence.incrementAndGet();
+			Instant now = Instant.now();
+			targetDefinitionsById.put(id, new TargetDefinitionRecord(
+				id,
+				uid(targetDefinition.uid()),
+				targetDefinition.targetName(),
+				defaultValue(targetDefinition.periodStrategy(), TargetPeriodStrategy.NONE),
+				defaultValue(targetDefinition.status(), TargetStatus.ACTIVE),
+				now,
+				now,
+				0L
+			));
+
+			return Future.succeededFuture(id);
+		} catch (RuntimeException error) {
+			return Future.failedFuture(error);
+		}
+	}
+
+	@Override
+	public Future<Optional<TargetDefinitionRecord>> getTargetDefinitionById(Integer id) {
+		return Future.succeededFuture(Optional.ofNullable(targetDefinitionsById.get(id)));
+	}
+
+	@Override
+	public Future<Optional<TargetDefinitionRecord>> getTargetDefinitionByUid(String uid) {
+		return Future.succeededFuture(targetDefinitionsById.values().stream()
+			.filter(target -> target.uid().equals(uid))
+			.findFirst());
+	}
+
+	@Override
+	public Future<Optional<TargetDefinitionRecord>> getTargetDefinitionByName(String targetName) {
+		return Future.succeededFuture(targetDefinitionsById.values().stream()
+			.filter(target -> target.targetName().equals(targetName))
+			.findFirst());
+	}
 
 	@Override
 	public synchronized Future<Integer> insertTarget(InsertTarget target) {
 		try {
 			require(target.targetName(), "targetName");
-			requireUniqueTarget(target.targetName());
+			requireUniqueTarget(target.targetName(), target.targetDefinitionId(), target.periodKey());
 
 			Integer id = targetIdSequence.incrementAndGet();
 			Instant now = Instant.now();
 			targetsById.put(id, new TargetRecord(
 				id,
 				uid(target.uid()),
+				target.targetDefinitionId(),
 				target.targetName(),
+				target.periodKey(),
+				target.periodStartInclusive(),
+				target.periodEndExclusive(),
 				defaultValue(target.status(), TargetStatus.ACTIVE),
+				TargetProvisioningState.READY,
 				now,
 				now,
 				0L
@@ -60,17 +113,85 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 	}
 
 	@Override
+	public Future<Optional<TargetRecord>> getTargetByDefinitionAndPeriod(ConcreteTargetKey key) {
+		return Future.succeededFuture(targetsById.values().stream()
+			.filter(target -> key.targetDefinitionId().equals(target.targetDefinitionId()))
+			.filter(target -> Objects.equals(key.periodKey(), target.periodKey()))
+			.findFirst());
+	}
+
+	@Override
+	public synchronized Future<TargetRecord> ensureTarget(
+		TargetDefinitionRecord targetDefinition,
+		TargetPeriod period
+	) {
+		try {
+			require(targetDefinition, "targetDefinition");
+			TargetPeriod resolvedPeriod = period == null
+				? new TargetPeriod(TargetPeriodStrategy.NONE, null, null, null)
+				: period;
+			Optional<TargetRecord> existing = targetsById.values().stream()
+				.filter(target -> targetDefinition.id().equals(target.targetDefinitionId()))
+				.filter(target -> Objects.equals(resolvedPeriod.key(), target.periodKey()))
+				.findFirst();
+
+			if (existing.isPresent()) {
+				return Future.succeededFuture(existing.get());
+			}
+
+			String targetName = targetNameEncoder.concreteTargetName(
+				targetDefinition.targetName(),
+				resolvedPeriod
+			);
+			requireUniqueTarget(targetName, targetDefinition.id(), resolvedPeriod.key());
+
+			Integer id = targetIdSequence.incrementAndGet();
+			Instant now = Instant.now();
+			TargetRecord created = new TargetRecord(
+				id,
+				uid(null),
+				targetDefinition.id(),
+				targetName,
+				resolvedPeriod.key(),
+				resolvedPeriod.startInclusive(),
+				resolvedPeriod.endExclusive(),
+				TargetStatus.ACTIVE,
+				TargetProvisioningState.READY,
+				now,
+				now,
+				0L
+			);
+			targetsById.put(id, created);
+			return Future.succeededFuture(created);
+		} catch (RuntimeException error) {
+			return Future.failedFuture(error);
+		}
+	}
+
+	@Override
 	public synchronized Future<Void> updateTargetStatus(UpdateTargetStatus update) {
 		try {
 			TargetRecord existing = requireTarget(update.id(), update.expectedVersion());
-			targetsById.put(update.id(), new TargetRecord(
-				existing.id(),
-				existing.uid(),
-				existing.targetName(),
+			targetsById.put(update.id(), copyTarget(
+				existing,
 				require(update.status(), "status"),
-				existing.createdAt(),
-				Instant.now(),
-				existing.version() + 1
+				existing.provisioningState()
+			));
+
+			return Future.succeededFuture();
+		} catch (RuntimeException error) {
+			return Future.failedFuture(error);
+		}
+	}
+
+	@Override
+	public synchronized Future<Void> updateTargetProvisioningState(UpdateTargetProvisioningState update) {
+		try {
+			TargetRecord existing = requireTarget(update.id(), update.expectedVersion());
+			targetsById.put(update.id(), copyTarget(
+				existing,
+				existing.status(),
+				require(update.provisioningState(), "provisioningState")
 			));
 
 			return Future.succeededFuture();
@@ -463,6 +584,27 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 		);
 	}
 
+	private TargetRecord copyTarget(
+		TargetRecord existing,
+		TargetStatus status,
+		TargetProvisioningState provisioningState
+	) {
+		return new TargetRecord(
+			existing.id(),
+			existing.uid(),
+			existing.targetDefinitionId(),
+			existing.targetName(),
+			existing.periodKey(),
+			existing.periodStartInclusive(),
+			existing.periodEndExclusive(),
+			status,
+			provisioningState,
+			existing.createdAt(),
+			Instant.now(),
+			existing.version() + 1
+		);
+	}
+
 	private TargetRecord requireTarget(Integer id, long expectedVersion) {
 		TargetRecord existing = targetsById.get(id);
 		if (existing == null) {
@@ -508,9 +650,25 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 		}
 	}
 
-	private void requireUniqueTarget(String targetName) {
-		boolean exists = targetsById.values().stream()
+	private void requireUniqueTargetDefinition(String targetName) {
+		boolean exists = targetDefinitionsById.values().stream()
 			.anyMatch(target -> target.targetName().equals(targetName));
+
+		if (exists) {
+			throw new IllegalStateException("Target definition already exists: " + targetName);
+		}
+	}
+
+	private void requireUniqueTarget(
+		String targetName,
+		Integer targetDefinitionId,
+		String periodKey
+	) {
+		boolean exists = targetsById.values().stream()
+			.anyMatch(target -> target.targetName().equals(targetName)
+				|| (targetDefinitionId != null
+					&& targetDefinitionId.equals(target.targetDefinitionId())
+					&& Objects.equals(periodKey, target.periodKey())));
 
 		if (exists) {
 			throw new IllegalStateException("Target already exists: " + targetName);

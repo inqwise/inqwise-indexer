@@ -6,7 +6,7 @@ import java.util.Deque;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 
-public class InMemoryIndexerQueue implements IndexerQueue {
+public class InMemoryIndexerQueue implements IndexerQueueClient, IndexerQueueResourceCleaner {
 	private final Deque<IndexerActionItem> items = new ArrayDeque<>();
 	private final InMemoryIndexerQueueConsumer consumer = new InMemoryIndexerQueueConsumer();
 
@@ -21,13 +21,12 @@ public class InMemoryIndexerQueue implements IndexerQueue {
 		return Future.succeededFuture(consumer);
 	}
 
-	@Override
 	public Future<Void> close() {
 		return consumer.close();
 	}
 
 	@Override
-	public Future<Void> delete() {
+	public Future<Void> delete(String queueName) {
 		synchronized (this) {
 			items.clear();
 		}

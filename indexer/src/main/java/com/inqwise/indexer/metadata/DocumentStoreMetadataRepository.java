@@ -6,13 +6,27 @@ import java.util.Optional;
 import io.vertx.core.Future;
 
 public interface DocumentStoreMetadataRepository {
+	Future<Integer> insertTargetDefinition(InsertTargetDefinition targetDefinition);
+
+	Future<Optional<TargetDefinitionRecord>> getTargetDefinitionById(Integer id);
+
+	Future<Optional<TargetDefinitionRecord>> getTargetDefinitionByUid(String uid);
+
+	Future<Optional<TargetDefinitionRecord>> getTargetDefinitionByName(String targetName);
+
 	Future<Integer> insertTarget(InsertTarget target);
 
 	Future<Optional<TargetRecord>> getTargetById(Integer id);
 
 	Future<Optional<TargetRecord>> getTargetByUid(String uid);
 
+	Future<Optional<TargetRecord>> getTargetByDefinitionAndPeriod(ConcreteTargetKey key);
+
+	Future<TargetRecord> ensureTarget(TargetDefinitionRecord targetDefinition, TargetPeriod period);
+
 	Future<Void> updateTargetStatus(UpdateTargetStatus update);
+
+	Future<Void> updateTargetProvisioningState(UpdateTargetProvisioningState update);
 
 	Future<Void> deleteTarget(DeleteTarget delete);
 

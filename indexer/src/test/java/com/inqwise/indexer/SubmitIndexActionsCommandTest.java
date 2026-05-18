@@ -3,6 +3,7 @@ package com.inqwise.indexer;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -11,12 +12,15 @@ import java.util.Map;
 import com.inqwise.indexer.commands.InMemoryCommandService;
 import com.inqwise.indexer.commands.SubmitIndexActionsCommand;
 import com.inqwise.indexer.commands.SubmitIndexActionsCommandHandler;
+import com.inqwise.indexer.metadata.ConcreteTargetKey;
 import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.IndexerRuntimeStatus;
 import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.metadata.InsertTarget;
+import com.inqwise.indexer.metadata.InsertTargetDefinition;
 import com.inqwise.indexer.metadata.MutationState;
 import com.inqwise.indexer.metadata.PublicationState;
+import com.inqwise.indexer.metadata.TargetPeriodStrategy;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -180,6 +184,82 @@ class SubmitIndexActionsCommandTest {
 	}
 
 	@Test
+	void publicTargetCommandCreatesPeriodTargetAndWritableIndexer(VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		RecordingQueue queue = new RecordingQueue();
+		InMemoryCommandService commandService = metadataCommandService(repository, eventBus, queue);
+
+		repository.insertTargetDefinition(new InsertTargetDefinition(
+			"target-customers",
+			"customers",
+			TargetPeriodStrategy.MONTHLY,
+			null
+		)).compose(ignored -> {
+			PutDocumentActionItem action = PutDocumentActionItem.builder()
+				.withUid("42")
+				.withDocument(new JsonObject().put("name", "Ada"))
+				.build();
+
+			return commandService.submit(new SubmitIndexActionsCommand(
+				"target-customers",
+				null,
+				Instant.parse("2026-05-18T10:15:00Z"),
+				List.of(action)
+			));
+		}).compose(ignored -> repository.getTargetDefinitionByUid("target-customers"))
+			.compose(found -> repository.getTargetByDefinitionAndPeriod(
+				new ConcreteTargetKey(found.get().id(), "2026-05")
+			))
+			.compose(found -> {
+				assertTrue(found.isPresent());
+				assertEquals("customers--2026-05", found.get().targetName());
+				return repository.listWritableIndexersByTargetId(found.get().id());
+			})
+			.onComplete(testContext.succeeding(indexers -> testContext.verify(() -> {
+				assertEquals(1, indexers.size());
+				assertEquals(1, queue.published.size());
+				assertTrue(queue.publishedByQueueName.containsKey(indexers.get(0).queueName()));
+				assertConcretePut(
+					queue.published.get(0),
+					indexers.get(0).targetId(),
+					indexers.get(0).id(),
+					indexers.get(0).indexName()
+				);
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void publicTargetCommandRequiresTimestampForPeriodTarget(VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		RecordingQueue queue = new RecordingQueue();
+		InMemoryCommandService commandService = metadataCommandService(repository, eventBus, queue);
+
+		repository.insertTargetDefinition(new InsertTargetDefinition(
+			"target-customers",
+			"customers",
+			TargetPeriodStrategy.MONTHLY,
+			null
+		)).compose(ignored -> commandService.submit(new SubmitIndexActionsCommand(
+			"target-customers",
+			null,
+			null,
+			List.of(PutDocumentActionItem.builder()
+				.withUid("42")
+				.withDocument(new JsonObject().put("name", "Ada"))
+				.build())
+		))).onComplete(testContext.failing(error -> testContext.verify(() -> {
+			assertEquals("Timestamp is required for target period strategy: MONTHLY", error.getMessage());
+			assertTrue(queue.published.isEmpty());
+			testContext.completeNow();
+		})));
+	}
+
+	@Test
 	void metadataCommandFailsConcreteIndexerActionWhenIndexerIsNotWritable(
 		VertxTestContext testContext
 	) {
@@ -337,7 +417,7 @@ class SubmitIndexActionsCommandTest {
 		assertEquals("Ada", put.getDocument().getString("name"));
 	}
 
-	private static class RecordingQueue implements IndexerQueue {
+	private static class RecordingQueue implements IndexerQueueClient {
 		private final List<IndexerActionItem> published = new ArrayList<>();
 		private final Map<String, List<IndexerActionItem>> publishedByQueueName =
 			new LinkedHashMap<>();
@@ -366,14 +446,5 @@ class SubmitIndexActionsCommandTest {
 			return Future.failedFuture("consumer is not expected");
 		}
 
-		@Override
-		public Future<Void> close() {
-			return Future.succeededFuture();
-		}
-
-		@Override
-		public Future<Void> delete() {
-			return Future.succeededFuture();
-		}
 	}
 }

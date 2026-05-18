@@ -10,3 +10,4 @@
 - Document important accepted modules, designs, and solutions in `README.md` as part of the change that introduces or approves them.
 - Add important uncovered flows, deferred design questions, and known follow-up decisions to the roadmap instead of leaving them only in conversation or code comments.
 - Periodically refactor `README.md` and the roadmap so they form coherent, complete documents rather than scattered accumulated notes.
+- For scoped multi-step work, create or update a local progress checklist file such as `PROGRESS.md`. Record accepted decisions, implementation tasks, deferred items, and verification status, and keep checklist item statuses current as the work progresses. Treat progress checklist files as local working artifacts; keep them git-ignored rather than committed.

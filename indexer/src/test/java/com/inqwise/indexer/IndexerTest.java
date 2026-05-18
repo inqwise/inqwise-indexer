@@ -79,7 +79,7 @@ class IndexerTest {
 	}
 
 	@Test
-	void deleteShouldCleanupAllResources(
+	void deleteShouldCloseRuntimeWithoutDroppingDocumentStore(
 		Vertx vertx,
 		VertxTestContext testContext
 	) {
@@ -119,9 +119,10 @@ class IndexerTest {
 							model.getIndexName(),
 							deletedModel.getIndexName()
 						);
-						assertNull(
-							store.get("test_index", "1"),
-							"Document store should be dropped"
+						assertEquals(
+							"value",
+							store.get("test_index", "1").getString("key"),
+							"Document store cleanup is handled outside Indexer"
 						);
 						assertTrue(
 							stoppedEventEmitted.get(),
@@ -165,9 +166,10 @@ class IndexerTest {
 							model.getIndexName(),
 							deletedModel.getIndexName()
 						);
-						assertNull(
-							store.get("test_index", "1"),
-							"Document store should be dropped even without repository"
+						assertEquals(
+							"value",
+							store.get("test_index", "1").getString("key"),
+							"Document store cleanup is handled outside Indexer"
 						);
 						testContext.completeNow();
 					})
@@ -204,12 +206,11 @@ class IndexerTest {
 	}
 
 	@Test
-	void deleteShouldFailWhenQueueDeleteFailsAndSkipLaterResources(
+	void deleteShouldNotDeleteQueueOrDropDocumentStore(
 		Vertx vertx,
 		VertxTestContext testContext
 	) {
 		TestIndexerQueue queue = new TestIndexerQueue();
-		queue.deleteFailure = new IllegalStateException("queue delete failed");
 		TestDocumentStore store = new TestDocumentStore();
 		Indexer indexer = new Indexer(
 			vertx,
@@ -221,22 +222,20 @@ class IndexerTest {
 		);
 
 		indexer.delete()
-			.onComplete(testContext.failing(error -> testContext.verify(() -> {
-				assertEquals("queue delete failed", error.getMessage());
-				assertTrue(queue.deleteCalled);
+			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
+				assertFalse(queue.deleteCalled);
 				assertFalse(store.dropCalled);
 				testContext.completeNow();
 			})));
 	}
 
 	@Test
-	void deleteShouldFailWhenDocumentDropFailsAndSkipRepositoryDelete(
+	void deleteShouldIgnoreDocumentDropBecauseCleanupIsExternal(
 		Vertx vertx,
 		VertxTestContext testContext
 	) {
 		TestIndexerQueue queue = new TestIndexerQueue();
 		TestDocumentStore store = new TestDocumentStore();
-		store.dropFailure = new IllegalStateException("document drop failed");
 		Indexer indexer = new Indexer(
 			vertx,
 			modelWithId(),
@@ -247,16 +246,15 @@ class IndexerTest {
 		);
 
 		indexer.delete()
-			.onComplete(testContext.failing(error -> testContext.verify(() -> {
-				assertEquals("document drop failed", error.getMessage());
-				assertTrue(queue.deleteCalled);
-				assertTrue(store.dropCalled);
+			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
+				assertFalse(queue.deleteCalled);
+				assertFalse(store.dropCalled);
 				testContext.completeNow();
 			})));
 	}
 
 	@Test
-	void closeShouldCloseQueueWithoutDeletingQueueOrDroppingIndex(
+	void closeShouldCloseLocalHandlesWithoutDeletingQueueOrDroppingIndex(
 		Vertx vertx,
 		VertxTestContext testContext
 	) {
@@ -273,7 +271,7 @@ class IndexerTest {
 
 		indexer.close()
 			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
-				assertTrue(queue.closeCalled);
+				assertFalse(queue.closeCalled);
 				assertFalse(queue.deleteCalled);
 				assertFalse(store.dropCalled);
 				testContext.completeNow();
@@ -288,7 +286,7 @@ class IndexerTest {
 			.build();
 	}
 
-	private static class TestIndexerQueue implements IndexerQueue {
+	private static class TestIndexerQueue implements IndexerQueueClient, IndexerQueueResourceCleaner {
 		private boolean closeCalled;
 		private boolean deleteCalled;
 		private Throwable closeFailure;
@@ -314,14 +312,13 @@ class IndexerTest {
 			return Future.failedFuture("consumer is not expected in this test");
 		}
 
-		@Override
 		public Future<Void> close() {
 			closeCalled = true;
 			return closeFailure == null ? Future.succeededFuture() : Future.failedFuture(closeFailure);
 		}
 
 		@Override
-		public Future<Void> delete() {
+		public Future<Void> delete(String queueName) {
 			deleteCalled = true;
 			return deleteFailure == null ? Future.succeededFuture() : Future.failedFuture(deleteFailure);
 		}

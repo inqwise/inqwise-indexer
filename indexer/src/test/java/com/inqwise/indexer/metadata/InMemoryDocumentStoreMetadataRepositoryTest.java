@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.Instant;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -57,6 +59,41 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 			)))
 			.onComplete(testContext.failing(error -> testContext.verify(() -> {
 				assertTrue(error.getMessage().contains("version conflict"));
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void ensuresConcreteTargetFromDefinitionAndUtcPeriod(VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		TargetPeriodResolver resolver = new TargetPeriodResolver();
+
+		repository.insertTargetDefinition(new InsertTargetDefinition(
+			"customers-uid",
+			"customers",
+			TargetPeriodStrategy.MONTHLY,
+			null
+		))
+			.compose(repository::getTargetDefinitionById)
+			.compose(found -> {
+				assertTrue(found.isPresent());
+				TargetPeriod period = resolver.resolve(
+					found.get().periodStrategy(),
+					Instant.parse("2026-05-18T10:15:00Z")
+				);
+				return repository.ensureTarget(found.get(), period);
+			})
+			.compose(target -> repository.getTargetByDefinitionAndPeriod(new ConcreteTargetKey(
+				target.targetDefinitionId(),
+				target.periodKey()
+			)))
+			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
+				assertTrue(found.isPresent());
+				TargetRecord target = found.get();
+				assertEquals("customers--2026-05", target.targetName());
+				assertEquals("2026-05", target.periodKey());
+				assertEquals(TargetProvisioningState.READY, target.provisioningState());
 				testContext.completeNow();
 			})));
 	}

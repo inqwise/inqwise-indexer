@@ -2,16 +2,12 @@ package com.inqwise.indexer.metadata;
 
 import java.time.Instant;
 
-public record TargetRecord(
+public record TargetDefinitionRecord(
 	Integer id,
 	String uid,
-	Integer targetDefinitionId,
 	String targetName,
-	String periodKey,
-	Instant periodStartInclusive,
-	Instant periodEndExclusive,
+	TargetPeriodStrategy periodStrategy,
 	TargetStatus status,
-	TargetProvisioningState provisioningState,
 	Instant createdAt,
 	Instant updatedAt,
 	long version

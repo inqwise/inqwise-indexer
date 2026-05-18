@@ -11,8 +11,11 @@ Vert.x 5.x starter library inspired by `vertx-elastic`, with a modular layout:
 
 `inqwise-indexer` provides a controlled transport pipeline for gently moving structured actions into a targeted document store:
 
-- `Indexer`: root runtime component that activates a queue consumer, receives `IndexerActionItem` portions, pauses the consumer while processing, commits successful portions, resumes consumption, and emits transport events.
-- `IndexerQueue`: buffer abstraction. Production implementations can use Kafka or another durable transport. `InMemoryIndexerQueue` is a simple local/test implementation.
+- `Indexer`: front object for one internal indexer. It owns producer-side submission into the indexer queue, validates concrete action identity, delegates action-specific document writes to `IndexerAction`, and delegates consumer lifecycle to an `IndexerProcessor` when one is provided.
+- `IndexerProcessor`: consumer-side runtime abstraction. `VerticleIndexerProcessor` deploys an `IndexerProcessorVerticle` and hides the Vert.x deployment id.
+- `IndexerProcessorVerticle`: owns queue consumption for one indexer, including pause, process, commit, and resume. It receives only an `ActionItemProcessHandler`, not the whole `Indexer`.
+- `IndexerQueueClient`: buffer client abstraction for publisher and consumer handles. Production implementations can use Kafka or another durable transport. `InMemoryIndexerQueue` is a simple local/test implementation.
+- `IndexerQueueResourceCleaner`: cleanup-side abstraction for deleting queue resources. Queue deletion is not part of the shared queue client surface.
 - `IndexerQueueConsumer`: consumer side of the queue. It owns bulk/portion delivery policy, exposes `pause`, `resume`, `commit`, and `close`, and calls the configured item handler.
 - `IndexerActionItem`: abstract action payload. `PutDocumentActionItem` writes a document to a concrete `indexName`; `CompleteIndexActionItem` marks the action stream as complete.
 - `IndexerDocumentStore`: target document-store abstraction. The default document store is in-memory.
@@ -20,17 +23,25 @@ Vert.x 5.x starter library inspired by `vertx-elastic`, with a modular layout:
 
 ### Document Store Publishing Model
 
-Document-store publishing separates logical routing from physical index execution:
+Document-store publishing separates public target routing from physical index execution:
 
-- `targetName` is the logical business target, period, or collection group, such as `customers-2024`.
+- `TargetDefinitionRecord` is the public/base target exposed to API callers. It is resolved by `targetUid` or `targetName`.
+- `TargetRecord` is the concrete target used internally for one period bucket, or the single concrete target when the period strategy is `NONE`.
+- `targetUid` is the public token for a target definition. A separate target-token model is not used yet.
+- `targetName` on a target definition is the logical business target name, such as `customers`.
+- concrete period target names are encoded as `{baseTargetName}--{periodKey}`, such as `customers--2026-05`.
+- supported period strategies are `NONE`, `MONTHLY`, `HALF_YEARLY`, and `YEARLY`.
+- period routing uses UTC.
 - `indexName` is the concrete physical document-store index, such as `customers-2024-01J...`.
 - the indexer id or uid identifies one durable physical index version.
 - `PUBLISHED` means queryable; it does not mean immutable.
 - publication state and mutation state are separate, so a valid physical index can be `PUBLISHED` and `WRITABLE`.
 
-Repository access for document-store metadata is id-first. Identity lookup uses `id` or `uid`, and relationship lookup uses foreign ids such as `targetId` and `indexerId`. Names remain stored for validation, display, and physical execution, but they are not the default repository access path.
+Repository access for document-store metadata is id-first. Identity lookup uses `id` or `uid`, and relationship lookup uses foreign ids such as `targetDefinitionId`, concrete `targetId`, and `indexerId`. Names remain stored for validation, display, and physical execution, but they are not the default repository access path.
 
-Logical write requests route by `targetId`. Command orchestration resolves writable indexers for each target, expands logical mutations to concrete `IndexerActionItem` payloads, and publishes those concrete actions to each resolved indexer queue. Runtime action items execute by `indexerId` and `indexName`; `Indexer` must stay focused on concrete runtime transport and document-store writes.
+Public write requests route by `targetUid` or `targetName` plus a timestamp when the target definition uses period routing. Command orchestration resolves the target definition, resolves the UTC period, ensures the concrete `TargetRecord`, resolves or provisions a writable indexer for that concrete target, expands logical mutations to concrete `IndexerActionItem` payloads, and publishes those concrete actions to each resolved indexer queue. Runtime action items execute by concrete `targetId`, `indexerId`, and `indexName`.
+
+If a concrete target has no writable indexer during public-target submission, the command path attempts to provision the first writable indexer and moves the concrete target through `PROVISIONING` and back to `READY`. Provisioning failure marks the target `FAILED`, so later writes fail fast instead of repeatedly creating indexers.
 
 Query routing resolves published indexers by `targetId` and queries only the resulting concrete `indexName` values. A target may have zero published indexes during first build, multiple writable indexes during rebuild, and multiple published indexes when the query model requires it.
 
@@ -38,8 +49,8 @@ Query routing resolves published indexers by `targetId` and queries only the res
 
 Indexing uses two paths:
 
-- Hot path: if the target indexer is already known to be publish-ready, callers publish `IndexerActionItem` payloads directly to `IndexerQueue`.
-- Cold/unknown path: callers submit `SubmitIndexActionsCommand`. The command handler resolves writable metadata indexers by `targetId`, verifies each destination, expands logical actions to concrete `indexerId`/`indexName` payloads, publishes a lifecycle wake-up, then publishes the concrete actions to scoped `IndexerQueuePublisher` endpoints.
+- Hot path: if the target indexer is already known to be publish-ready, callers submit `IndexerActionItem` payloads through the indexer-facing producer API, which publishes to the configured `IndexerQueueClient`.
+- Cold/unknown path: callers submit `SubmitIndexActionsCommand`. The command can carry concrete action destinations or a public `targetUid`/`targetName` plus timestamp. The command handler resolves writable metadata indexers by concrete `targetId`, verifies each destination, expands logical actions to concrete `indexerId`/`indexName` payloads, publishes a lifecycle wake-up, then publishes the concrete actions to scoped `IndexerQueuePublisher` endpoints.
 
 Command completion means that the submitted actions were handed to the indexer queue, not that the documents were already indexed. Runtime processing remains asynchronous.
 
@@ -56,8 +67,10 @@ The current fail-closed guards are:
 
 - `activate()`: starts the root indexer once. It activates the queue consumer/listener, resumes consumption, and emits `INDEXER_STARTED`. Repeated calls are idempotent.
 - `unregister()`: closes the active consumer/listener. It may inspect `nextIndexer`, but an active consumer on `nextIndexer` is unexpected because chained indexers are not roots by definition.
-- `close()`: stronger runtime cleanup. It should close the current consumer/listener and the referenced queue, including publish and consume sides.
-- `delete()`: deletes the current indexer and its own referenced resources only. It must not delete `nextIndexer`.
+- `openProducer()` / `closeProducer()`: open or close the producer-side queue publisher for this indexer.
+- `openConsumer()` / `closeConsumer()`: open or close the consumer-side processor for this indexer.
+- `close()`: closes local producer and consumer handles. It does not delete queue resources or drop document-store indexes.
+- `delete()`: retained as a local runtime close operation that returns the model. Destructive cleanup belongs to command orchestration and resource cleaners.
 
 `nextIndexer` represents a chained/replacement indexer, not another root consumer. If `nextIndexer` is listening to a queue consumer, that should be treated as unexpected behavior and surfaced before the delete/unregister flow is finalized.
 
@@ -65,7 +78,7 @@ The current fail-closed guards are:
 
 Lifecycle commands express durable desired state. `ActivateIndexerCommand` and `DeactivateIndexerCommand` are handled through the generic `CommandService` layer. Their handlers update `DocumentStoreMetadataRepository` runtime status/version and publish an `IndexerLifecycleChanged` notification with the indexer id, command type, and resulting version.
 
-The lifecycle notification is a fan-out wake-up for runtime nodes, not the source of truth. `IndexerRuntime` subscribes to lifecycle changes, reloads the latest metadata indexer identified by the event, maps it to an `IndexerModel` for runtime transport, and reconciles local resources from that model. Production implementations should back `IndexerLifecycleEventBus` with a durable pub/sub topic. The in-memory implementation retains events and replays them to late subscribers for local tests.
+The lifecycle notification is a fan-out wake-up for runtime nodes, not the source of truth. `IndexerRuntime` subscribes to lifecycle changes, reloads the latest metadata indexer identified by the event, maps it to an `IndexerModel` for runtime transport, and reconciles local resources from that model. Runtime construction can use the Verticle-backed constructor so active indexers deploy an `IndexerProcessorVerticle` while `IndexerRuntime` only tracks `Indexer` instances and never exposes Vert.x deployment ids. Production implementations should back `IndexerLifecycleEventBus` with a durable pub/sub topic. The in-memory implementation retains events and replays them to late subscribers for local tests.
 
 ## Preload Flow
 

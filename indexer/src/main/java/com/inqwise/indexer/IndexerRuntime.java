@@ -10,6 +10,7 @@ import com.inqwise.indexer.metadata.IndexerRecord;
 import com.inqwise.indexer.metadata.IndexerRuntimeStatus;
 
 import io.vertx.core.Future;
+import io.vertx.core.Vertx;
 
 public class IndexerRuntime {
 	private final DocumentStoreMetadataRepository repository;
@@ -24,6 +25,55 @@ public class IndexerRuntime {
 		Function<IndexerRecord, Indexer> indexerFactory
 	) {
 		this(repository, lifecycleEventBus, indexerFactory, IndexerResourceCleaner.NOOP);
+	}
+
+	public IndexerRuntime(
+		Vertx vertx,
+		DocumentStoreMetadataRepository repository,
+		IndexerLifecycleEventBus lifecycleEventBus,
+		IndexerQueueClient queue,
+		IndexerDocumentStore documentStore,
+		IndexerOptions options,
+		IndexerEventPublisher eventPublisher
+	) {
+		this(
+			repository,
+			lifecycleEventBus,
+			indexer -> createVerticleBackedIndexer(
+				vertx,
+				toModel(indexer),
+				queue,
+				documentStore,
+				options,
+				eventPublisher
+			),
+			IndexerResourceCleaner.NOOP
+		);
+	}
+
+	public IndexerRuntime(
+		Vertx vertx,
+		DocumentStoreMetadataRepository repository,
+		IndexerLifecycleEventBus lifecycleEventBus,
+		IndexerQueueClient queue,
+		IndexerDocumentStore documentStore,
+		IndexerOptions options,
+		IndexerEventPublisher eventPublisher,
+		IndexerResourceCleaner resourceCleaner
+	) {
+		this(
+			repository,
+			lifecycleEventBus,
+			indexer -> createVerticleBackedIndexer(
+				vertx,
+				toModel(indexer),
+				queue,
+				documentStore,
+				options,
+				eventPublisher
+			),
+			resourceCleaner
+		);
 	}
 
 	public IndexerRuntime(
@@ -131,5 +181,39 @@ public class IndexerRuntime {
 			case COMPLETED -> IndexerStatus.COMPLETED;
 			case DELETED -> IndexerStatus.DELETED;
 		};
+	}
+
+	private static Indexer createVerticleBackedIndexer(
+		Vertx vertx,
+		IndexerModel model,
+		IndexerQueueClient queue,
+		IndexerDocumentStore documentStore,
+		IndexerOptions options,
+		IndexerEventPublisher eventPublisher
+	) {
+		IndexerOptions resolvedOptions = options == null ? new IndexerOptions() : options;
+		IndexerEventPublisher resolvedPublisher = eventPublisher == null
+			? IndexerEventPublisher.NOOP
+			: eventPublisher;
+
+		return new Indexer(
+			vertx,
+			model,
+			queue,
+			documentStore,
+			resolvedOptions,
+			resolvedPublisher,
+			(processorModel, processorOptions, processHandler, processorEventPublisher) ->
+				new VerticleIndexerProcessor(
+					vertx,
+					() -> new IndexerProcessorVerticle(
+						processorModel,
+						processorOptions,
+						queue,
+						processHandler,
+						processorEventPublisher
+					)
+				)
+		);
 	}
 }
