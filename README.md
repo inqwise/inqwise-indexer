@@ -15,7 +15,7 @@ Vert.x 5.x starter library inspired by `vertx-elastic`, with a modular layout:
 - `IndexerProcessor`: consumer-side runtime abstraction. `VerticleIndexerProcessor` deploys an `IndexerProcessorVerticle` and hides the Vert.x deployment id.
 - `IndexerProcessorVerticle`: owns queue consumption for one indexer, including pause, process, commit, and resume. It receives only an `ActionItemProcessHandler`, not the whole `Indexer`.
 - `IndexerQueueClient`: buffer client abstraction for publisher and consumer handles. Production implementations can use Kafka or another durable transport. `InMemoryIndexerQueue` is a simple local/test implementation.
-- `IndexerQueueResourceCleaner`: cleanup-side abstraction for deleting queue resources. Queue deletion is not part of the shared queue client surface.
+- `IndexerQueueResourceManager`: admin-side abstraction for ensuring and deleting queue resources. Queue provisioning and deletion are not part of the shared runtime queue client surface.
 - `IndexerQueueConsumer`: consumer side of the queue. It owns bulk/portion delivery policy, exposes `pause`, `resume`, `commit`, and `close`, and calls the configured item handler.
 - `IndexerActionItem`: abstract action payload. `PutDocumentActionItem` writes a document to a concrete `indexName`; `CompleteIndexActionItem` marks the action stream as complete.
 - `IndexerDocumentStore`: target document-store abstraction. The default document store is in-memory.
@@ -79,6 +79,8 @@ The current fail-closed guards are:
 Lifecycle commands express durable desired state. `ActivateIndexerCommand` and `DeactivateIndexerCommand` are handled through the generic `CommandService` layer. Their handlers update `DocumentStoreMetadataRepository` runtime status/version and publish an `IndexerLifecycleChanged` notification with the indexer id, command type, and resulting version.
 
 The lifecycle notification is a fan-out wake-up for runtime nodes, not the source of truth. `IndexerRuntime` subscribes to lifecycle changes, reloads the latest metadata indexer identified by the event, maps it to an `IndexerModel` for runtime transport, and reconciles local resources from that model. Runtime construction can use the Verticle-backed constructor so active indexers deploy an `IndexerProcessorVerticle` while `IndexerRuntime` only tracks `Indexer` instances and never exposes Vert.x deployment ids. Production implementations should back `IndexerLifecycleEventBus` with a durable pub/sub topic. The in-memory implementation retains events and replays them to late subscribers for local tests.
+
+Indexer-scoped queue reset is an orchestration workflow, not an `Indexer` runtime method. Reset is a troubleshooting mechanism whose initial semantics are that future writes move to a clean queue, not that every old in-flight item is synchronously proven dead. For Kafka, prefer advancing a queue generation in metadata and publishing through a new generated topic name over deleting and recreating the same topic name in place. Runtime nodes learn the new queue name through lifecycle fan-out and reconcile onto the new consumer. Old topics can be deleted asynchronously by resource cleanup, and missing old topics remain expected idempotent cleanup misses. Strict old-consumer fencing or distributed close acknowledgement can be added later if reset must provide stronger "old items cannot be processed" guarantees.
 
 ## Preload Flow
 

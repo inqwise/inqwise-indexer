@@ -50,6 +50,8 @@ public interface DocumentStoreMetadataRepository {
 
 	Future<Void> updateIndexerMutationState(UpdateIndexerMutationState update);
 
+	Future<Void> updateIndexerQueueName(UpdateIndexerQueueName update);
+
 	Future<Void> deleteIndexer(DeleteIndexer delete);
 
 	Future<Integer> insertPublication(InsertPublication publication);

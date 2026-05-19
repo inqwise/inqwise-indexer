@@ -296,6 +296,7 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 			IndexerRecord existing = requireIndexer(update.id(), update.expectedVersion());
 			indexersById.put(update.id(), copyIndexer(
 				existing,
+				existing.queueName(),
 				require(update.runtimeStatus(), "runtimeStatus"),
 				existing.publicationState(),
 				existing.mutationState()
@@ -313,6 +314,7 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 			IndexerRecord existing = requireIndexer(update.id(), update.expectedVersion());
 			indexersById.put(update.id(), copyIndexer(
 				existing,
+				existing.queueName(),
 				existing.runtimeStatus(),
 				require(update.publicationState(), "publicationState"),
 				existing.mutationState()
@@ -330,9 +332,28 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 			IndexerRecord existing = requireIndexer(update.id(), update.expectedVersion());
 			indexersById.put(update.id(), copyIndexer(
 				existing,
+				existing.queueName(),
 				existing.runtimeStatus(),
 				existing.publicationState(),
 				require(update.mutationState(), "mutationState")
+			));
+
+			return Future.succeededFuture();
+		} catch (RuntimeException error) {
+			return Future.failedFuture(error);
+		}
+	}
+
+	@Override
+	public synchronized Future<Void> updateIndexerQueueName(UpdateIndexerQueueName update) {
+		try {
+			IndexerRecord existing = requireIndexer(update.id(), update.expectedVersion());
+			indexersById.put(update.id(), copyIndexer(
+				existing,
+				require(update.queueName(), "queueName"),
+				existing.runtimeStatus(),
+				existing.publicationState(),
+				existing.mutationState()
 			));
 
 			return Future.succeededFuture();
@@ -563,6 +584,7 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 
 	private IndexerRecord copyIndexer(
 		IndexerRecord existing,
+		String queueName,
 		IndexerRuntimeStatus runtimeStatus,
 		PublicationState publicationState,
 		MutationState mutationState
@@ -573,7 +595,7 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 			existing.targetId(),
 			existing.targetName(),
 			existing.indexName(),
-			existing.queueName(),
+			queueName,
 			existing.type(),
 			runtimeStatus,
 			publicationState,

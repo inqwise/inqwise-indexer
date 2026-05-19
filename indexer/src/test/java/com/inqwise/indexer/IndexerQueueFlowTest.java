@@ -23,6 +23,7 @@ class IndexerQueueFlowTest {
 		IndexerModel model = IndexerModel.builder()
 			.withTargetName("customers")
 			.withIndexName("customers_1")
+			.withQueueName("customers_1")
 			.build();
 		Indexer indexer = new Indexer(
 			vertx,
@@ -54,6 +55,7 @@ class IndexerQueueFlowTest {
 		IndexerModel model = IndexerModel.builder()
 			.withTargetName("customers")
 			.withIndexName("customers_1")
+			.withQueueName("customers_1")
 			.build();
 		PutDocumentActionItem item = PutDocumentActionItem.builder()
 			.withIndexName("customers_1")
@@ -84,6 +86,7 @@ class IndexerQueueFlowTest {
 		IndexerModel model = IndexerModel.builder()
 			.withTargetName("customers")
 			.withIndexName("customers_1")
+			.withQueueName("customers_1")
 			.build();
 		CompleteIndexActionItem item = new CompleteIndexActionItem();
 
@@ -108,6 +111,81 @@ class IndexerQueueFlowTest {
 		indexer.activate()
 			.compose(ignored -> queue.publisher("customers_1"))
 			.compose(publisher -> publisher.publish(item))
+			.onFailure(testContext::failNow);
+	}
+
+	@Test
+	void inMemoryQueueIsolatesItemsByQueueName(Vertx vertx, VertxTestContext testContext) {
+		InMemoryIndexerDocumentStore store = new InMemoryIndexerDocumentStore();
+		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
+		IndexerModel model = IndexerModel.builder()
+			.withTargetName("customers")
+			.withIndexName("customers_b")
+			.withQueueName("queue-b")
+			.build();
+		PutDocumentActionItem item = PutDocumentActionItem.builder()
+			.withIndexName("customers_b")
+			.withUid("42")
+			.withDocument(new JsonObject().put("name", "Ada"))
+			.build();
+
+		Indexer indexer = new Indexer(
+			vertx,
+			model,
+			queue,
+			store,
+			new IndexerOptions(),
+			IndexerEventPublisher.NOOP
+		);
+
+		indexer.activate()
+			.compose(ignored -> queue.publisher("queue-a"))
+			.compose(publisher -> publisher.publish(item).eventually(publisher::close))
+			.onSuccess(ignored -> vertx.setTimer(20L, timer -> testContext.verify(() -> {
+				assertNull(store.get("customers_b", "42"));
+				testContext.completeNow();
+			})))
+			.onFailure(testContext::failNow);
+	}
+
+	@Test
+	void deletingOneInMemoryQueueDoesNotDeleteAnother(Vertx vertx, VertxTestContext testContext) {
+		InMemoryIndexerDocumentStore store = new InMemoryIndexerDocumentStore();
+		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
+		IndexerModel model = IndexerModel.builder()
+			.withTargetName("customers")
+			.withIndexName("customers_b")
+			.withQueueName("queue-b")
+			.build();
+		PutDocumentActionItem item = PutDocumentActionItem.builder()
+			.withIndexName("customers_b")
+			.withUid("43")
+			.withDocument(new JsonObject().put("name", "Grace"))
+			.build();
+
+		Indexer indexer = new Indexer(
+			vertx,
+			model,
+			queue,
+			store,
+			new IndexerOptions(),
+			event -> {
+				if (event.getType() == IndexerEventType.CONSUMER_RESUMED && event.getItem() != null) {
+					testContext.verify(() -> {
+						assertEquals("Grace", store.get("customers_b", "43").getString("name"));
+						testContext.completeNow();
+					});
+				}
+
+				return Future.succeededFuture();
+			}
+		);
+
+		indexer.activate()
+			.compose(ignored -> queue.ensure("queue-a"))
+			.compose(ignored -> queue.delete("queue-a"))
+			.compose(ignored -> queue.publisher("queue-b"))
+			.compose(publisher -> publisher.publish(item).eventually(publisher::close))
 			.onFailure(testContext::failNow);
 	}
 

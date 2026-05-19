@@ -286,7 +286,7 @@ class IndexerTest {
 			.build();
 	}
 
-	private static class TestIndexerQueue implements IndexerQueueClient, IndexerQueueResourceCleaner {
+	private static class TestIndexerQueue implements IndexerQueueClient, IndexerQueueResourceManager {
 		private boolean closeCalled;
 		private boolean deleteCalled;
 		private Throwable closeFailure;
@@ -315,6 +315,11 @@ class IndexerTest {
 		public Future<Void> close() {
 			closeCalled = true;
 			return closeFailure == null ? Future.succeededFuture() : Future.failedFuture(closeFailure);
+		}
+
+		@Override
+		public Future<Void> ensure(String queueName) {
+			return Future.succeededFuture();
 		}
 
 		@Override

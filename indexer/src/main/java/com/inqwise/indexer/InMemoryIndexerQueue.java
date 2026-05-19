@@ -2,47 +2,97 @@ package com.inqwise.indexer;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.HashMap;
+import java.util.Map;
 
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 
-public class InMemoryIndexerQueue implements IndexerQueueClient, IndexerQueueResourceCleaner {
-	private final Deque<IndexerActionItem> items = new ArrayDeque<>();
-	private final InMemoryIndexerQueueConsumer consumer = new InMemoryIndexerQueueConsumer();
+public class InMemoryIndexerQueue implements IndexerQueueClient, IndexerQueueResourceManager {
+	private final Map<String, QueueState> queuesByName = new HashMap<>();
 
 	@Override
 	public Future<IndexerQueuePublisher> publisher(String queueName) {
-		return Future.succeededFuture(new InMemoryIndexerQueuePublisher());
+		QueueState state = ensureState(queueName);
+		return Future.succeededFuture(new InMemoryIndexerQueuePublisher(state));
 	}
 
 	@Override
 	public Future<IndexerQueueConsumer> consumer(IndexerQueueConsumerOptions options) {
-		consumer.options = options;
-		consumer.closed = false;
+		QueueState state = ensureState(options.getQueueName());
+		InMemoryIndexerQueueConsumer consumer = new InMemoryIndexerQueueConsumer(state, options);
+		synchronized (this) {
+			if (state.consumer != null) {
+				state.consumer.close();
+			}
+
+			state.consumer = consumer;
+		}
+
 		return Future.succeededFuture(consumer);
 	}
 
 	public Future<Void> close() {
-		return consumer.close();
+		synchronized (this) {
+			queuesByName.values().forEach(state -> {
+				if (state.consumer != null) {
+					state.consumer.close();
+				}
+			});
+		}
+
+		return Future.succeededFuture();
+	}
+
+	@Override
+	public Future<Void> ensure(String queueName) {
+		ensureState(queueName);
+		return Future.succeededFuture();
 	}
 
 	@Override
 	public Future<Void> delete(String queueName) {
 		synchronized (this) {
-			items.clear();
+			QueueState state = queuesByName.remove(queueName);
+			if (state != null) {
+				state.items.clear();
+				if (state.consumer != null) {
+					state.consumer.close();
+				}
+			}
 		}
 
-		return close();
+		return Future.succeededFuture();
+	}
+
+	private QueueState ensureState(String queueName) {
+		synchronized (this) {
+			return queuesByName.computeIfAbsent(queueName, ignored -> new QueueState());
+		}
+	}
+
+	private static class QueueState {
+		private final Deque<IndexerActionItem> items = new ArrayDeque<>();
+		private InMemoryIndexerQueueConsumer consumer;
 	}
 
 	private class InMemoryIndexerQueuePublisher implements IndexerQueuePublisher {
+		private final QueueState state;
+
+		private InMemoryIndexerQueuePublisher(QueueState state) {
+			this.state = state;
+		}
+
 		@Override
 		public Future<Void> publish(IndexerActionItem item) {
 			synchronized (InMemoryIndexerQueue.this) {
-				items.addLast(item);
+				state.items.addLast(item);
 			}
 
-			consumer.dispatch();
+			if (state.consumer != null) {
+				state.consumer.dispatch();
+			}
+
 			return Future.succeededFuture();
 		}
 
@@ -53,11 +103,17 @@ public class InMemoryIndexerQueue implements IndexerQueueClient, IndexerQueueRes
 	}
 
 	private class InMemoryIndexerQueueConsumer implements IndexerQueueConsumer {
+		private final QueueState state;
 		private Handler<IndexerActionItem> handler;
-		private IndexerQueueConsumerOptions options;
+		private final IndexerQueueConsumerOptions options;
 		private IndexerActionItem inFlight;
 		private boolean paused = true;
 		private boolean closed;
+
+		private InMemoryIndexerQueueConsumer(QueueState state, IndexerQueueConsumerOptions options) {
+			this.state = state;
+			this.options = options;
+		}
 
 		@Override
 		public IndexerQueueConsumer handler(Handler<IndexerActionItem> handler) {
@@ -82,8 +138,8 @@ public class InMemoryIndexerQueue implements IndexerQueueClient, IndexerQueueRes
 		@Override
 		public Future<Void> commit() {
 			synchronized (InMemoryIndexerQueue.this) {
-				if (inFlight != null && items.peekFirst() == inFlight) {
-					items.removeFirst();
+				if (inFlight != null && state.items.peekFirst() == inFlight) {
+					state.items.removeFirst();
 				}
 
 				inFlight = null;
@@ -105,12 +161,12 @@ public class InMemoryIndexerQueue implements IndexerQueueClient, IndexerQueueRes
 			IndexerActionItem item;
 
 			synchronized (InMemoryIndexerQueue.this) {
-				if (closed || paused || inFlight != null || handler == null || items.isEmpty()) {
+				if (closed || paused || inFlight != null || handler == null || state.items.isEmpty()) {
 					return;
 				}
 
 				currentHandler = handler;
-				item = items.peekFirst();
+				item = state.items.peekFirst();
 				inFlight = item;
 			}
 

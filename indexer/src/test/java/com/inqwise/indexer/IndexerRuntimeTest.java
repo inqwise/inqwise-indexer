@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import com.inqwise.indexer.commands.ActivateIndexerCommand;
 import com.inqwise.indexer.commands.ActivateIndexerCommandHandler;
@@ -19,6 +20,7 @@ import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.metadata.MutationState;
 import com.inqwise.indexer.metadata.PublicationState;
+import com.inqwise.indexer.metadata.UpdateIndexerQueueName;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -72,7 +74,7 @@ class IndexerRuntimeTest {
 	}
 
 	@Test
-	void deactivateCommandDoesNotUnregisterByDefault(
+	void deactivateCommandClosesLocalRuntimeIndexer(
 		Vertx vertx,
 		VertxTestContext testContext
 	) {
@@ -104,11 +106,12 @@ class IndexerRuntimeTest {
 			.compose(id -> runtime.start()
 				.compose(ignored -> runtime.reconcile(id))
 				.compose(ignored -> commandService.submit(new DeactivateIndexerCommand(id)))
+				.compose(ignored -> runtime.reconcile(id))
 				.compose(ignored -> repository.getIndexerById(id)))
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
 				assertEquals(IndexerRuntimeStatus.NON_ACTIVE, found.orElseThrow().runtimeStatus());
 				assertEquals(1L, found.get().version());
-				assertEquals(0, stopped.get());
+				assertEquals(1, stopped.get());
 				testContext.completeNow();
 			})));
 	}
@@ -183,6 +186,50 @@ class IndexerRuntimeTest {
 				.build()).eventually(publisher::close))
 			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
 				assertEquals("Grace", documentStore.get("customers_1", "43").getString("name"));
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void reconcileReplacesLocalIndexerWhenQueueNameChanges(
+		Vertx vertx,
+		VertxTestContext testContext
+	) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		AtomicInteger activated = new AtomicInteger();
+		AtomicInteger unregistered = new AtomicInteger();
+		AtomicInteger closed = new AtomicInteger();
+		AtomicReference<String> lastQueueName = new AtomicReference<>();
+		IndexerRuntime runtime = new IndexerRuntime(
+			repository,
+			eventBus,
+			indexer -> {
+				lastQueueName.set(indexer.queueName());
+				return new TestIndexer(
+					vertx,
+					IndexerRuntime.toModel(indexer),
+					activated,
+					unregistered,
+					closed
+				);
+			}
+		);
+
+		insertIndexer(repository, IndexerRuntimeStatus.STARTED, MutationState.WRITABLE)
+			.compose(id -> runtime.reconcile(id)
+				.compose(ignored -> repository.updateIndexerQueueName(new UpdateIndexerQueueName(
+					id,
+					"queue-customers-1-v1",
+					0L
+				)))
+				.compose(ignored -> runtime.reconcile(id)))
+			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
+				assertEquals(2, activated.get());
+				assertEquals(1, closed.get());
+				assertEquals(0, unregistered.get());
+				assertEquals("queue-customers-1-v1", lastQueueName.get());
 				testContext.completeNow();
 			})));
 	}

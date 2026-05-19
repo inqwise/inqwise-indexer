@@ -169,6 +169,67 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 	}
 
 	@Test
+	void updatesIndexerQueueNameWithExpectedVersion(VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+
+		repository.insertTarget(new InsertTarget(null, "customers-2024", null))
+			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
+				null,
+				targetId,
+				"customers-2024",
+				"customers-2024-a",
+				"queue-a",
+				IndexerType.INDEX,
+				IndexerRuntimeStatus.STARTED,
+				PublicationState.PUBLISHED,
+				MutationState.WRITABLE
+			)))
+			.compose(indexerId -> repository.updateIndexerQueueName(new UpdateIndexerQueueName(
+				indexerId,
+				"queue-a-v1",
+				0L
+			)).compose(ignored -> repository.getIndexerById(indexerId)))
+			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
+				assertTrue(found.isPresent());
+				assertEquals("queue-a-v1", found.get().queueName());
+				assertEquals(1L, found.get().version());
+				assertEquals(IndexerRuntimeStatus.STARTED, found.get().runtimeStatus());
+				assertEquals(PublicationState.PUBLISHED, found.get().publicationState());
+				assertEquals(MutationState.WRITABLE, found.get().mutationState());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void rejectsStaleIndexerQueueNameUpdate(VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+
+		repository.insertTarget(new InsertTarget(null, "customers-2024", null))
+			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
+				null,
+				targetId,
+				"customers-2024",
+				"customers-2024-a",
+				"queue-a",
+				IndexerType.INDEX,
+				IndexerRuntimeStatus.STARTED,
+				PublicationState.PUBLISHED,
+				MutationState.WRITABLE
+			)))
+			.compose(indexerId -> repository.updateIndexerQueueName(new UpdateIndexerQueueName(
+				indexerId,
+				"queue-a-v2",
+				2L
+			)))
+			.onComplete(testContext.failing(error -> testContext.verify(() -> {
+				assertTrue(error.getMessage().contains("version conflict"));
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
 	void publicationReadinessSetsReadyAt(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();

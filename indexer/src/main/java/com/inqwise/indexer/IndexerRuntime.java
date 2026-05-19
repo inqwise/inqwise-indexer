@@ -17,7 +17,7 @@ public class IndexerRuntime {
 	private final IndexerLifecycleEventBus lifecycleEventBus;
 	private final Function<IndexerRecord, Indexer> indexerFactory;
 	private final IndexerResourceCleaner resourceCleaner;
-	private final Map<Integer, Indexer> indexersById = new ConcurrentHashMap<>();
+	private final Map<Integer, RuntimeEntry> indexersById = new ConcurrentHashMap<>();
 
 	public IndexerRuntime(
 		DocumentStoreMetadataRepository repository,
@@ -111,7 +111,7 @@ public class IndexerRuntime {
 					return activate(indexer);
 				}
 
-				return Future.succeededFuture();
+				return close(indexer.id());
 			});
 	}
 
@@ -132,27 +132,36 @@ public class IndexerRuntime {
 					return activate(indexer);
 				}
 
-				return Future.succeededFuture();
+				return close(indexer.id());
 			});
 	}
 
 	protected Future<Void> activate(IndexerRecord indexerRecord) {
-		Indexer indexer = indexersById.computeIfAbsent(
-			indexerRecord.id(),
-			ignored -> indexerFactory.apply(indexerRecord)
-		);
+		IndexerModel model = toModel(indexerRecord);
+		RuntimeEntry existing = indexersById.get(indexerRecord.id());
+		if (existing != null && sameRuntimeModel(existing.model(), model)) {
+			return existing.indexer().activate();
+		}
 
-		return indexer.activate();
+		Future<Void> closeExisting = existing == null
+			? Future.succeededFuture()
+			: existing.indexer().close();
+
+		return closeExisting.compose(ignored -> {
+			Indexer indexer = indexerFactory.apply(indexerRecord);
+			indexersById.put(indexerRecord.id(), new RuntimeEntry(model, indexer));
+			return indexer.activate();
+		});
 	}
 
 	protected Future<Void> unregister(Integer indexerId) {
-		Indexer indexer = indexersById.remove(indexerId);
-		return indexer == null ? Future.succeededFuture() : indexer.unregister();
+		RuntimeEntry entry = indexersById.remove(indexerId);
+		return entry == null ? Future.succeededFuture() : entry.indexer().unregister();
 	}
 
 	protected Future<Void> close(Integer indexerId) {
-		Indexer indexer = indexersById.remove(indexerId);
-		return indexer == null ? Future.succeededFuture() : indexer.close();
+		RuntimeEntry entry = indexersById.remove(indexerId);
+		return entry == null ? Future.succeededFuture() : entry.indexer().close();
 	}
 
 	protected Future<Void> delete(IndexerRecord indexer) {
@@ -215,5 +224,13 @@ public class IndexerRuntime {
 					)
 				)
 		);
+	}
+
+	private boolean sameRuntimeModel(IndexerModel current, IndexerModel next) {
+		return Objects.equals(current.getQueueName(), next.getQueueName())
+			&& current.getVersion() == next.getVersion();
+	}
+
+	private record RuntimeEntry(IndexerModel model, Indexer indexer) {
 	}
 }
