@@ -28,10 +28,9 @@ public class PreloadIndexer extends Indexer {
 
 	@Override
 	protected Future<Void> startListeners() {
-		return switch (model.getStatus()) {
-			case STARTED -> startPreloadListener();
-			case COMPLETED -> preloadComplete();
-			case NON_ACTIVE, DELETED -> Future.succeededFuture();
+		return switch (model.getRuntimeState()) {
+			case ACTIVE -> startPreloadListener();
+			case NON_ACTIVE -> Future.succeededFuture();
 		};
 	}
 

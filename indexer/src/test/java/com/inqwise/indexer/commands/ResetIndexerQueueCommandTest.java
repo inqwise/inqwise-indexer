@@ -9,13 +9,13 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import com.inqwise.indexer.IndexerLifecycleChanged;
+import com.inqwise.indexer.IndexerMetadataChanged;
 import com.inqwise.indexer.IndexerLifecycleEventBus;
 import com.inqwise.indexer.IndexerQueueResourceManager;
 import com.inqwise.indexer.IndexerType;
 import com.inqwise.indexer.InMemoryIndexerLifecycleEventBus;
 import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
-import com.inqwise.indexer.metadata.IndexerRuntimeStatus;
+import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.metadata.MutationState;
@@ -35,13 +35,13 @@ class ResetIndexerQueueCommandTest {
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		RecordingQueueResourceManager resources = new RecordingQueueResourceManager();
 		InMemoryCommandService commandService = commandService(repository, eventBus, resources);
-		List<IndexerLifecycleChanged> events = new ArrayList<>();
+		List<IndexerMetadataChanged> events = new ArrayList<>();
 
 		eventBus.subscribe(events::add)
 			.compose(ignored -> insertIndexer(
 				repository,
 				"queue-customers-1",
-				IndexerRuntimeStatus.STARTED
+				IndexerRuntimeState.ACTIVE
 			))
 			.compose(indexerId -> commandService.submit(new ResetIndexerQueueCommand(indexerId, 0L))
 				.compose(ignored -> repository.getIndexerById(indexerId)))
@@ -65,7 +65,7 @@ class ResetIndexerQueueCommandTest {
 		RecordingQueueResourceManager resources = new RecordingQueueResourceManager();
 		InMemoryCommandService commandService = commandService(repository, eventBus, resources);
 
-		insertIndexer(repository, "queue-customers-1-v3", IndexerRuntimeStatus.STARTED)
+		insertIndexer(repository, "queue-customers-1-v3", IndexerRuntimeState.ACTIVE)
 			.compose(indexerId -> commandService.submit(new ResetIndexerQueueCommand(indexerId, 0L))
 				.compose(ignored -> repository.getIndexerById(indexerId)))
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
@@ -84,7 +84,7 @@ class ResetIndexerQueueCommandTest {
 		RecordingQueueResourceManager resources = new RecordingQueueResourceManager();
 		InMemoryCommandService commandService = commandService(repository, eventBus, resources);
 
-		insertIndexer(repository, "queue-customers-1", IndexerRuntimeStatus.STARTED)
+		insertIndexer(repository, "queue-customers-1", IndexerRuntimeState.ACTIVE)
 			.compose(indexerId -> commandService.submit(new ResetIndexerQueueCommand(indexerId, 5L)))
 			.onComplete(testContext.failing(error -> testContext.verify(() -> {
 				assertTrue(error.getMessage().contains("version conflict"));
@@ -101,7 +101,12 @@ class ResetIndexerQueueCommandTest {
 		RecordingQueueResourceManager resources = new RecordingQueueResourceManager();
 		InMemoryCommandService commandService = commandService(repository, eventBus, resources);
 
-		insertIndexer(repository, "queue-customers-1", IndexerRuntimeStatus.DELETED)
+		insertIndexer(
+				repository,
+				"queue-customers-1",
+				IndexerRuntimeState.NON_ACTIVE,
+				MutationState.DELETING
+			)
 			.compose(indexerId -> commandService.submit(new ResetIndexerQueueCommand(indexerId, 0L)))
 			.onComplete(testContext.failing(error -> testContext.verify(() -> {
 				assertTrue(error.getMessage().contains("Cannot reset deleted indexer queue"));
@@ -119,7 +124,7 @@ class ResetIndexerQueueCommandTest {
 		resources.ensureFailure = new IllegalStateException("topic create failed");
 		InMemoryCommandService commandService = commandService(repository, eventBus, resources);
 
-		insertIndexer(repository, "queue-customers-1", IndexerRuntimeStatus.STARTED)
+		insertIndexer(repository, "queue-customers-1", IndexerRuntimeState.ACTIVE)
 			.compose(indexerId -> commandService.submit(new ResetIndexerQueueCommand(indexerId, 0L))
 				.recover(error -> repository.getIndexerById(indexerId).compose(found -> {
 					assertTrue(found.isPresent());
@@ -141,7 +146,7 @@ class ResetIndexerQueueCommandTest {
 		RecordingQueueResourceManager resources = new RecordingQueueResourceManager();
 		InMemoryCommandService commandService = commandService(repository, eventBus, resources);
 
-		insertIndexer(repository, "queue-customers-1", IndexerRuntimeStatus.STARTED)
+		insertIndexer(repository, "queue-customers-1", IndexerRuntimeState.ACTIVE)
 			.compose(indexerId -> commandService.submit(new ResetIndexerQueueCommand(indexerId, 0L))
 				.recover(error -> repository.getIndexerById(indexerId).compose(found -> {
 					assertTrue(found.isPresent());
@@ -163,12 +168,12 @@ class ResetIndexerQueueCommandTest {
 		RecordingQueueResourceManager resources = new RecordingQueueResourceManager();
 		InMemoryCommandService commandService = commandService(repository, eventBus, resources);
 
-		insertIndexer(repository, "queue-customers-1", IndexerRuntimeStatus.NON_ACTIVE)
+		insertIndexer(repository, "queue-customers-1", IndexerRuntimeState.NON_ACTIVE)
 			.compose(indexerId -> commandService.submit(new ResetIndexerQueueCommand(indexerId, 0L))
 				.compose(ignored -> repository.getIndexerById(indexerId)))
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
 				assertTrue(found.isPresent());
-				assertEquals(IndexerRuntimeStatus.NON_ACTIVE, found.get().runtimeStatus());
+				assertEquals(IndexerRuntimeState.NON_ACTIVE, found.get().runtimeState());
 				assertEquals("queue-customers-1-v1", found.get().queueName());
 				assertEquals(List.of("queue-customers-1-v1"), resources.ensured);
 				testContext.completeNow();
@@ -187,7 +192,16 @@ class ResetIndexerQueueCommandTest {
 	private Future<Integer> insertIndexer(
 		InMemoryDocumentStoreMetadataRepository repository,
 		String queueName,
-		IndexerRuntimeStatus runtimeStatus
+		IndexerRuntimeState runtimeState
+	) {
+		return insertIndexer(repository, queueName, runtimeState, MutationState.WRITABLE);
+	}
+
+	private Future<Integer> insertIndexer(
+		InMemoryDocumentStoreMetadataRepository repository,
+		String queueName,
+		IndexerRuntimeState runtimeState,
+		MutationState mutationState
 	) {
 		return repository.insertTarget(new InsertTarget(null, "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
@@ -197,9 +211,9 @@ class ResetIndexerQueueCommandTest {
 				"customers_1",
 				queueName,
 				IndexerType.INDEX,
-				runtimeStatus,
+				runtimeState,
 				PublicationState.UNPUBLISHED,
-				MutationState.WRITABLE
+				mutationState
 			)));
 	}
 
@@ -223,12 +237,12 @@ class ResetIndexerQueueCommandTest {
 
 	private static class FailingLifecycleEventBus implements IndexerLifecycleEventBus {
 		@Override
-		public Future<Void> publish(IndexerLifecycleChanged event) {
+		public Future<Void> publish(IndexerMetadataChanged event) {
 			return Future.failedFuture("lifecycle publish failed");
 		}
 
 		@Override
-		public Future<Void> subscribe(Handler<IndexerLifecycleChanged> handler) {
+		public Future<Void> subscribe(Handler<IndexerMetadataChanged> handler) {
 			return Future.succeededFuture();
 		}
 	}

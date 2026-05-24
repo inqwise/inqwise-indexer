@@ -1,7 +1,7 @@
 package com.inqwise.indexer.metadata;
 
 public record InsertPublication(
-	String uid,
+	String prefix,
 	Integer indexerId,
 	Integer targetId,
 	String targetName,
@@ -9,4 +9,7 @@ public record InsertPublication(
 	ReadinessState readinessState,
 	String reason
 ) {
+	public InsertPublication {
+		prefix = prefix == null ? "test" : prefix;
+	}
 }

@@ -22,6 +22,8 @@ public interface DocumentStoreMetadataRepository {
 
 	Future<Optional<TargetRecord>> getTargetByDefinitionAndPeriod(ConcreteTargetKey key);
 
+	Future<List<TargetRecord>> listTargets(TargetMetadataQuery query);
+
 	Future<TargetRecord> ensureTarget(TargetDefinitionRecord targetDefinition, TargetPeriod period);
 
 	Future<Void> updateTargetStatus(UpdateTargetStatus update);
@@ -38,13 +40,17 @@ public interface DocumentStoreMetadataRepository {
 
 	Future<List<IndexerRecord>> listIndexersByTargetId(Integer targetId);
 
+	Future<List<IndexerRecord>> listIndexers(IndexerMetadataQuery query);
+
 	Future<List<IndexerRecord>> listWritableIndexersByTargetId(Integer targetId);
 
 	Future<List<IndexerRecord>> listPublishedIndexersByTargetId(Integer targetId);
 
 	Future<List<IndexerRecord>> listRuntimeActiveIndexers();
 
-	Future<Void> updateIndexerRuntimeStatus(UpdateIndexerRuntimeStatus update);
+	Future<Void> updateIndexerRuntimeState(UpdateIndexerRuntimeState update);
+
+	Future<Void> updateIndexerProvisioningState(UpdateIndexerProvisioningState update);
 
 	Future<Void> updateIndexerPublicationState(UpdateIndexerPublicationState update);
 

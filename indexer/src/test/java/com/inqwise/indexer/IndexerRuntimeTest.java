@@ -15,7 +15,7 @@ import com.inqwise.indexer.commands.DeleteIndexerCommandHandler;
 import com.inqwise.indexer.commands.InMemoryCommandService;
 import com.inqwise.indexer.metadata.DeleteIndexer;
 import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
-import com.inqwise.indexer.metadata.IndexerRuntimeStatus;
+import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.metadata.MutationState;
@@ -61,12 +61,12 @@ class IndexerRuntimeTest {
 			)
 		);
 
-		insertIndexer(repository, IndexerRuntimeStatus.NON_ACTIVE, MutationState.WRITABLE)
+		insertIndexer(repository, IndexerRuntimeState.NON_ACTIVE, MutationState.WRITABLE)
 			.compose(id -> runtime.start()
 				.compose(ignored -> commandService.submit(new ActivateIndexerCommand(id)))
 				.compose(ignored -> repository.getIndexerById(id)))
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
-				assertEquals(IndexerRuntimeStatus.STARTED, found.orElseThrow().runtimeStatus());
+				assertEquals(IndexerRuntimeState.ACTIVE, found.orElseThrow().runtimeState());
 				assertEquals(1L, found.get().version());
 				assertEquals(1, started.get());
 				testContext.completeNow();
@@ -102,14 +102,14 @@ class IndexerRuntimeTest {
 			)
 		);
 
-		insertIndexer(repository, IndexerRuntimeStatus.STARTED, MutationState.WRITABLE)
+		insertIndexer(repository, IndexerRuntimeState.ACTIVE, MutationState.WRITABLE)
 			.compose(id -> runtime.start()
 				.compose(ignored -> runtime.reconcile(id))
 				.compose(ignored -> commandService.submit(new DeactivateIndexerCommand(id)))
 				.compose(ignored -> runtime.reconcile(id))
 				.compose(ignored -> repository.getIndexerById(id)))
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
-				assertEquals(IndexerRuntimeStatus.NON_ACTIVE, found.orElseThrow().runtimeStatus());
+				assertEquals(IndexerRuntimeState.NON_ACTIVE, found.orElseThrow().runtimeState());
 				assertEquals(1L, found.get().version());
 				assertEquals(1, stopped.get());
 				testContext.completeNow();
@@ -136,7 +136,7 @@ class IndexerRuntimeTest {
 			IndexerEventPublisher.NOOP
 		);
 
-		insertIndexer(repository, IndexerRuntimeStatus.STARTED, MutationState.WRITABLE)
+		insertIndexer(repository, IndexerRuntimeState.ACTIVE, MutationState.WRITABLE)
 			.compose(id -> runtime.reconcile(id))
 			.compose(ignored -> queue.publisher("queue-customers-1"))
 			.compose(publisher -> publisher.publish(PutDocumentActionItem.builder()
@@ -172,7 +172,7 @@ class IndexerRuntimeTest {
 			IndexerEventPublisher.NOOP
 		);
 
-		insertIndexer(repository, IndexerRuntimeStatus.STARTED, MutationState.WRITABLE)
+		insertIndexer(repository, IndexerRuntimeState.ACTIVE, MutationState.WRITABLE)
 			.compose(id -> runtime.reconcile(id)
 				.compose(ignored -> runtime.close(id))
 				.compose(ignored -> runtime.reconcile(id)))
@@ -217,7 +217,7 @@ class IndexerRuntimeTest {
 			}
 		);
 
-		insertIndexer(repository, IndexerRuntimeStatus.STARTED, MutationState.WRITABLE)
+		insertIndexer(repository, IndexerRuntimeState.ACTIVE, MutationState.WRITABLE)
 			.compose(id -> runtime.reconcile(id)
 				.compose(ignored -> repository.updateIndexerQueueName(new UpdateIndexerQueueName(
 					id,
@@ -257,7 +257,7 @@ class IndexerRuntimeTest {
 			)
 		);
 
-		insertIndexer(repository, IndexerRuntimeStatus.STARTED, MutationState.WRITABLE)
+		insertIndexer(repository, IndexerRuntimeState.ACTIVE, MutationState.WRITABLE)
 			.compose(id -> runtime.reconcile(id)
 				.compose(ignored -> repository.deleteIndexer(new DeleteIndexer(id, 0L)))
 				.compose(ignored -> runtime.reconcile(id)))
@@ -300,13 +300,15 @@ class IndexerRuntimeTest {
 			}
 		);
 
-		insertIndexer(repository, IndexerRuntimeStatus.STARTED, MutationState.WRITABLE)
+		insertIndexer(repository, IndexerRuntimeState.ACTIVE, MutationState.WRITABLE)
 			.compose(id -> runtime.start()
 				.compose(ignored -> runtime.reconcile(id))
 				.compose(ignored -> commandService.submit(new DeleteIndexerCommand(id, 0L)))
 				.compose(ignored -> repository.getIndexerById(id)))
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
-				assertEquals(IndexerRuntimeStatus.DELETED, found.orElseThrow().runtimeStatus());
+				assertTrue(found.isPresent());
+				assertEquals(MutationState.DELETING, found.get().mutationState());
+				assertEquals(IndexerRuntimeState.NON_ACTIVE, found.get().runtimeState());
 				assertEquals(1, activated.get());
 				assertEquals(0, unregistered.get());
 				assertEquals(1, closed.get());
@@ -336,7 +338,7 @@ class IndexerRuntimeTest {
 			}
 		);
 
-		insertIndexer(repository, IndexerRuntimeStatus.DELETED, MutationState.DELETING)
+		insertIndexer(repository, IndexerRuntimeState.NON_ACTIVE, MutationState.DELETING)
 			.compose(runtime::reconcile)
 			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
 				assertEquals(1, cleaned.get());
@@ -364,7 +366,7 @@ class IndexerRuntimeTest {
 			}
 		);
 
-		insertIndexer(repository, IndexerRuntimeStatus.DELETED, MutationState.DELETING)
+		insertIndexer(repository, IndexerRuntimeState.NON_ACTIVE, MutationState.DELETING)
 			.compose(runtime::reconcile)
 			.onComplete(testContext.failing(error -> testContext.verify(() -> {
 				assertTrue(error.getMessage().contains("cleanup failed"));
@@ -385,7 +387,7 @@ class IndexerRuntimeTest {
 
 	private Future<Integer> insertIndexer(
 		InMemoryDocumentStoreMetadataRepository repository,
-		IndexerRuntimeStatus runtimeStatus,
+		IndexerRuntimeState runtimeStatus,
 		MutationState mutationState
 	) {
 		return repository.insertTarget(new InsertTarget(null, "customers", null))

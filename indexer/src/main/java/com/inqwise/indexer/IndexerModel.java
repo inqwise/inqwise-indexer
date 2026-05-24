@@ -1,7 +1,6 @@
 package com.inqwise.indexer;
 
 import java.util.Objects;
-import java.util.UUID;
 
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
@@ -15,30 +14,32 @@ public class IndexerModel {
 	private final String indexName;
 	private final String queueName;
 	private final IndexerType type;
-	private final IndexerStatus status;
+	private final IndexerRuntimeState runtimeState;
 	private final long version;
 
 	private IndexerModel(Builder builder) {
 		this.id = builder.id;
-		this.uid = builder.uid == null ? UUID.randomUUID().toString() : builder.uid;
+		this.uid = builder.uid;
 		this.targetId = builder.targetId;
 		this.targetName = builder.targetName;
 		this.indexName = builder.indexName;
 		this.queueName = builder.queueName;
 		this.type = builder.type == null ? IndexerType.INDEX : builder.type;
-		this.status = builder.status == null ? IndexerStatus.STARTED : builder.status;
+		this.runtimeState = builder.runtimeState == null ? IndexerRuntimeState.ACTIVE : builder.runtimeState;
 		this.version = builder.version;
 	}
 
 	public IndexerModel(JsonObject json) {
 		this.id = json.getInteger("id");
-		this.uid = json.getString("uid", UUID.randomUUID().toString());
+		this.uid = json.getString("uid");
 		this.targetId = json.getInteger("target_id");
 		this.targetName = json.getString("target_name");
 		this.indexName = json.getString("index_name");
 		this.queueName = json.getString("queue_name");
 		this.type = IndexerType.valueOf(json.getString("type", IndexerType.INDEX.name()));
-		this.status = IndexerStatus.valueOf(json.getString("status", IndexerStatus.STARTED.name()));
+		this.runtimeState = IndexerRuntimeState.valueOf(
+			json.getString("runtime_state", IndexerRuntimeState.ACTIVE.name())
+		);
 		this.version = json.getLong("version", 0L);
 	}
 
@@ -51,7 +52,7 @@ public class IndexerModel {
 			.put("index_name", indexName)
 			.put("queue_name", queueName)
 			.put("type", type.name())
-			.put("status", status.name())
+			.put("runtime_state", runtimeState.name())
 			.put("version", version);
 	}
 
@@ -83,8 +84,8 @@ public class IndexerModel {
 		return type;
 	}
 
-	public IndexerStatus getStatus() {
-		return status;
+	public IndexerRuntimeState getRuntimeState() {
+		return runtimeState;
 	}
 
 	public long getVersion() {
@@ -103,7 +104,7 @@ public class IndexerModel {
 		private String indexName;
 		private String queueName;
 		private IndexerType type;
-		private IndexerStatus status;
+		private IndexerRuntimeState runtimeState;
 		private long version;
 
 		private Builder() {
@@ -144,8 +145,8 @@ public class IndexerModel {
 			return this;
 		}
 
-		public Builder withStatus(IndexerStatus status) {
-			this.status = status;
+		public Builder withRuntimeState(IndexerRuntimeState runtimeState) {
+			this.runtimeState = runtimeState;
 			return this;
 		}
 

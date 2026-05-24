@@ -1,5 +1,7 @@
 package com.inqwise.indexer.metadata;
 
+import com.inqwise.indexer.IndexerRuntimeState;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -29,7 +31,7 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 			.compose(found -> {
 				assertTrue(found.isPresent());
 				TargetRecord target = found.get();
-				assertEquals("target-uid", target.uid());
+				assertEquals("target-uid-1", target.uid());
 				assertEquals(TargetStatus.ACTIVE, target.status());
 				assertEquals(0L, target.version());
 				return repository.updateTargetStatus(new UpdateTargetStatus(
@@ -151,7 +153,7 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 				"customers-2024-a",
 				"queue-a",
 				IndexerType.INDEX,
-				IndexerRuntimeStatus.STARTED,
+				IndexerRuntimeState.ACTIVE,
 				PublicationState.PUBLISHED,
 				MutationState.WRITABLE
 			)).compose(firstId -> repository.insertIndexer(new InsertIndexer(
@@ -161,7 +163,7 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 				"customers-2024-b",
 				"queue-b",
 				IndexerType.INDEX,
-				IndexerRuntimeStatus.NON_ACTIVE,
+				IndexerRuntimeState.NON_ACTIVE,
 				PublicationState.UNPUBLISHED,
 				MutationState.READ_ONLY
 			)).compose(secondId -> assertIndexerLists(repository, targetId, firstId, secondId))))
@@ -181,7 +183,7 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 				"customers-2024-a",
 				"queue-a",
 				IndexerType.INDEX,
-				IndexerRuntimeStatus.STARTED,
+				IndexerRuntimeState.ACTIVE,
 				PublicationState.PUBLISHED,
 				MutationState.WRITABLE
 			)))
@@ -194,7 +196,7 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 				assertTrue(found.isPresent());
 				assertEquals("queue-a-v1", found.get().queueName());
 				assertEquals(1L, found.get().version());
-				assertEquals(IndexerRuntimeStatus.STARTED, found.get().runtimeStatus());
+				assertEquals(IndexerRuntimeState.ACTIVE, found.get().runtimeState());
 				assertEquals(PublicationState.PUBLISHED, found.get().publicationState());
 				assertEquals(MutationState.WRITABLE, found.get().mutationState());
 				testContext.completeNow();
@@ -214,7 +216,7 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 				"customers-2024-a",
 				"queue-a",
 				IndexerType.INDEX,
-				IndexerRuntimeStatus.STARTED,
+				IndexerRuntimeState.ACTIVE,
 				PublicationState.PUBLISHED,
 				MutationState.WRITABLE
 			)))

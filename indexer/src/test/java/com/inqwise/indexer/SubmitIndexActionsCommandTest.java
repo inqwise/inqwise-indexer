@@ -15,7 +15,7 @@ import com.inqwise.indexer.commands.SubmitIndexActionsCommand;
 import com.inqwise.indexer.commands.SubmitIndexActionsCommandHandler;
 import com.inqwise.indexer.metadata.ConcreteTargetKey;
 import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
-import com.inqwise.indexer.metadata.IndexerRuntimeStatus;
+import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.metadata.InsertTargetDefinition;
@@ -41,7 +41,7 @@ class SubmitIndexActionsCommandTest {
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		RecordingQueue queue = new RecordingQueue();
 		InMemoryCommandService commandService = metadataCommandService(repository, eventBus, queue);
-		List<IndexerLifecycleChanged> events = new ArrayList<>();
+		List<IndexerMetadataChanged> events = new ArrayList<>();
 
 		repository.insertTarget(new InsertTarget(null, "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
@@ -51,7 +51,7 @@ class SubmitIndexActionsCommandTest {
 				"customers_1",
 				"queue-customers-1",
 				IndexerType.INDEX,
-				IndexerRuntimeStatus.STARTED,
+				IndexerRuntimeState.ACTIVE,
 				PublicationState.UNPUBLISHED,
 				MutationState.WRITABLE
 			)).compose(firstIndexerId -> repository.insertIndexer(new InsertIndexer(
@@ -61,7 +61,7 @@ class SubmitIndexActionsCommandTest {
 				"customers_2",
 				"queue-customers-2",
 				IndexerType.INDEX,
-				IndexerRuntimeStatus.STARTED,
+				IndexerRuntimeState.ACTIVE,
 				PublicationState.PUBLISHED,
 				MutationState.WRITABLE
 			)).compose(secondIndexerId -> {
@@ -113,7 +113,7 @@ class SubmitIndexActionsCommandTest {
 				"customers_1",
 				"queue-customers-1",
 				IndexerType.INDEX,
-				IndexerRuntimeStatus.NON_ACTIVE,
+				IndexerRuntimeState.NON_ACTIVE,
 				PublicationState.PUBLISHED,
 				MutationState.WRITABLE
 			)).compose(ignored -> repository.insertIndexer(new InsertIndexer(
@@ -123,7 +123,7 @@ class SubmitIndexActionsCommandTest {
 				"customers_2",
 				"queue-customers-2",
 				IndexerType.INDEX,
-				IndexerRuntimeStatus.DELETED,
+				IndexerRuntimeState.NON_ACTIVE,
 				PublicationState.PUBLISHED,
 				MutationState.WRITABLE
 			))).compose(ignored -> {
@@ -158,7 +158,7 @@ class SubmitIndexActionsCommandTest {
 				"customers_1",
 				"queue-customers-1",
 				IndexerType.INDEX,
-				IndexerRuntimeStatus.STARTED,
+				IndexerRuntimeState.ACTIVE,
 				PublicationState.UNPUBLISHED,
 				MutationState.WRITABLE
 			)).compose(indexerId -> {
@@ -340,7 +340,7 @@ class SubmitIndexActionsCommandTest {
 				"customers_1",
 				"queue-customers-1",
 				IndexerType.INDEX,
-				IndexerRuntimeStatus.STARTED,
+				IndexerRuntimeState.ACTIVE,
 				PublicationState.PUBLISHED,
 				MutationState.READ_ONLY
 			)).compose(indexerId -> {
@@ -379,7 +379,7 @@ class SubmitIndexActionsCommandTest {
 				"customers_1",
 				"queue-customers-1",
 				IndexerType.INDEX,
-				IndexerRuntimeStatus.NON_ACTIVE,
+				IndexerRuntimeState.NON_ACTIVE,
 				PublicationState.PUBLISHED,
 				MutationState.WRITABLE
 			)).compose(indexerId -> {
@@ -416,7 +416,7 @@ class SubmitIndexActionsCommandTest {
 				"customers_1",
 				"queue-customers-1",
 				IndexerType.INDEX,
-				IndexerRuntimeStatus.STARTED,
+				IndexerRuntimeState.ACTIVE,
 				PublicationState.UNPUBLISHED,
 				MutationState.WRITABLE
 			)).compose(indexerId -> {

@@ -3,8 +3,9 @@ package com.inqwise.indexer.commands;
 import java.util.Objects;
 
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
+import com.inqwise.indexer.metadata.IndexerProvisioningState;
 import com.inqwise.indexer.metadata.IndexerRecord;
-import com.inqwise.indexer.metadata.IndexerRuntimeStatus;
+import com.inqwise.indexer.metadata.IndexerStatus;
 import com.inqwise.indexer.metadata.MutationState;
 import com.inqwise.indexer.metadata.PublicationRecord;
 import com.inqwise.indexer.metadata.PublicationState;
@@ -74,8 +75,8 @@ public class PublishIndexCommandHandler implements CommandHandler {
 			return Future.failedFuture("Index is deleting: " + indexer.indexName());
 		}
 
-		if (indexer.runtimeStatus() != IndexerRuntimeStatus.STARTED
-			&& indexer.runtimeStatus() != IndexerRuntimeStatus.COMPLETED) {
+		if (indexer.status() != IndexerStatus.AVAILABLE
+			|| indexer.provisioningState() != IndexerProvisioningState.READY) {
 			return Future.failedFuture("Indexer is not active: " + indexer.indexName());
 		}
 

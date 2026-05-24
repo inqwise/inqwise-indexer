@@ -4,7 +4,7 @@ import java.time.Instant;
 
 public record TargetDefinitionRecord(
 	Integer id,
-	String uid,
+	String prefix,
 	String targetName,
 	TargetPeriodStrategy periodStrategy,
 	TargetStatus status,
@@ -12,4 +12,7 @@ public record TargetDefinitionRecord(
 	Instant updatedAt,
 	long version
 ) {
+	public String uid() {
+		return MetadataUid.toToken(prefix, id);
+	}
 }

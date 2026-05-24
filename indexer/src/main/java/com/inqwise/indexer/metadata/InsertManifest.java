@@ -3,7 +3,7 @@ package com.inqwise.indexer.metadata;
 import io.vertx.core.json.JsonObject;
 
 public record InsertManifest(
-	String uid,
+	String prefix,
 	Integer targetId,
 	Integer indexerId,
 	String targetName,
@@ -14,6 +14,7 @@ public record InsertManifest(
 	ManifestStatus status
 ) {
 	public InsertManifest {
+		prefix = prefix == null ? "test" : prefix;
 		manifest = manifest == null ? new JsonObject() : manifest.copy();
 	}
 

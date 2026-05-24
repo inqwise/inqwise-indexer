@@ -1,15 +1,25 @@
 package com.inqwise.indexer.metadata;
 
 public record InsertTarget(
-	String uid,
+	String prefix,
 	Integer targetDefinitionId,
 	String targetName,
 	String periodKey,
 	java.time.Instant periodStartInclusive,
 	java.time.Instant periodEndExclusive,
-	TargetStatus status
+	TargetStatus status,
+	TargetProvisioningState provisioningState
 ) {
-	public InsertTarget(String uid, String targetName, TargetStatus status) {
-		this(uid, null, targetName, null, null, null, status);
+	public InsertTarget(String prefix, String targetName, TargetStatus status) {
+		this(
+			prefix == null ? "test" : prefix,
+			null,
+			targetName,
+			null,
+			null,
+			null,
+			status == null ? TargetStatus.ACTIVE : status,
+			TargetProvisioningState.READY
+		);
 	}
 }

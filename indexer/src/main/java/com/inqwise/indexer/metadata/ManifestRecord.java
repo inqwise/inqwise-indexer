@@ -6,7 +6,7 @@ import io.vertx.core.json.JsonObject;
 
 public record ManifestRecord(
 	Integer id,
-	String uid,
+	String prefix,
 	Integer targetId,
 	Integer indexerId,
 	String targetName,
@@ -26,5 +26,9 @@ public record ManifestRecord(
 	@Override
 	public JsonObject manifest() {
 		return manifest.copy();
+	}
+
+	public String uid() {
+		return MetadataUid.toToken(prefix, id);
 	}
 }

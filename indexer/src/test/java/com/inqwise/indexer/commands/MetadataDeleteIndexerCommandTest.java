@@ -9,11 +9,11 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import com.inqwise.indexer.IndexerLifecycleChanged;
+import com.inqwise.indexer.IndexerMetadataChanged;
 import com.inqwise.indexer.IndexerType;
 import com.inqwise.indexer.InMemoryIndexerLifecycleEventBus;
 import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
-import com.inqwise.indexer.metadata.IndexerRuntimeStatus;
+import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.metadata.MutationState;
@@ -26,11 +26,11 @@ import io.vertx.junit5.VertxTestContext;
 @ExtendWith(VertxExtension.class)
 class MetadataDeleteIndexerCommandTest {
 	@Test
-	void metadataDeleteMarksIndexerDeletingAndDeleted(VertxTestContext testContext) {
+	void metadataDeleteMarksIndexerDeletingAndNonActive(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
-		List<IndexerLifecycleChanged> events = new ArrayList<>();
+		List<IndexerMetadataChanged> events = new ArrayList<>();
 		InMemoryCommandService commandService = commandService(repository, eventBus);
 
 		eventBus.subscribe(events::add)
@@ -40,7 +40,7 @@ class MetadataDeleteIndexerCommandTest {
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
 				assertTrue(found.isPresent());
 				assertEquals(MutationState.DELETING, found.get().mutationState());
-				assertEquals(IndexerRuntimeStatus.DELETED, found.get().runtimeStatus());
+				assertEquals(IndexerRuntimeState.NON_ACTIVE, found.get().runtimeState());
 				assertEquals(2L, found.get().version());
 				assertEquals(1, events.size());
 				assertEquals(DeleteIndexerCommand.TYPE, events.get(0).getCommandType());
@@ -69,7 +69,7 @@ class MetadataDeleteIndexerCommandTest {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
-		List<IndexerLifecycleChanged> events = new ArrayList<>();
+		List<IndexerMetadataChanged> events = new ArrayList<>();
 		InMemoryCommandService commandService = commandService(repository, eventBus);
 
 		eventBus.subscribe(events::add)
@@ -97,7 +97,7 @@ class MetadataDeleteIndexerCommandTest {
 				"customers_1",
 				"queue-customers",
 				IndexerType.INDEX,
-				IndexerRuntimeStatus.STARTED,
+				IndexerRuntimeState.ACTIVE,
 				PublicationState.PUBLISHED,
 				MutationState.WRITABLE
 			)));

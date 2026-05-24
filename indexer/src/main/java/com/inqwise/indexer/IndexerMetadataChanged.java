@@ -4,12 +4,12 @@ import java.util.Objects;
 
 import io.vertx.core.json.JsonObject;
 
-public class IndexerLifecycleChanged {
+public class IndexerMetadataChanged {
 	private final Integer indexerId;
 	private final String commandType;
 	private final long version;
 
-	public IndexerLifecycleChanged(
+	public IndexerMetadataChanged(
 		Integer indexerId,
 		String commandType,
 		long version
@@ -19,7 +19,7 @@ public class IndexerLifecycleChanged {
 		this.version = version;
 	}
 
-	public IndexerLifecycleChanged(JsonObject json) {
+	public IndexerMetadataChanged(JsonObject json) {
 		this(
 			json.getInteger("indexer_id"),
 			json.getString("command_type"),

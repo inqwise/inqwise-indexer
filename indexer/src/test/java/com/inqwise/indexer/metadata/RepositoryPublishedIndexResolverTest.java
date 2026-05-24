@@ -1,5 +1,7 @@
 package com.inqwise.indexer.metadata;
 
+import com.inqwise.indexer.IndexerRuntimeState;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -24,55 +26,71 @@ class RepositoryPublishedIndexResolverTest {
 		RepositoryPublishedIndexResolver resolver = new RepositoryPublishedIndexResolver(repository);
 
 		repository.insertTarget(new InsertTarget(null, "customers", null))
-			.compose(targetId -> insertIndexer(
-				repository,
-				targetId,
-				"customers_1",
-				PublicationState.PUBLISHED,
-				MutationState.WRITABLE,
-				IndexerRuntimeStatus.STARTED
-			).compose(firstId -> insertIndexer(
-				repository,
-				targetId,
-				"customers_2",
-				PublicationState.UNPUBLISHED,
-				MutationState.WRITABLE,
-				IndexerRuntimeStatus.STARTED
-			).compose(ignored -> insertIndexer(
-				repository,
-				targetId,
-				"customers_3",
-				PublicationState.PUBLISHED,
-				MutationState.DELETING,
-				IndexerRuntimeStatus.STARTED
-			)).compose(ignored -> insertIndexer(
-				repository,
-				targetId,
-				"customers_4",
-				PublicationState.PUBLISHED,
-				MutationState.READ_ONLY,
-				IndexerRuntimeStatus.COMPLETED
-			)).compose(fourthId -> insertIndexer(
-				repository,
-				targetId,
-				"customers_5",
-				PublicationState.PUBLISHED,
-				MutationState.WRITABLE,
-				IndexerRuntimeStatus.NON_ACTIVE
-			).compose(ignored -> insertIndexer(
-				repository,
-				targetId,
-				"customers_6",
-				PublicationState.PUBLISHED,
-				MutationState.WRITABLE,
-				IndexerRuntimeStatus.DELETED
-			)).compose(ignored -> resolver.resolvePublishedIndexes(targetId))
-				.compose(indexes -> {
-					assertEquals(2, indexes.size());
-					assertEquals(new PublishedIndex(firstId, targetId, "customers_1"), indexes.get(0));
-					assertEquals(new PublishedIndex(fourthId, targetId, "customers_4"), indexes.get(1));
-					return Future.succeededFuture();
-				}))))
+			.compose(targetId -> {
+				int[] ids = new int[4];
+				return insertIndexer(
+					repository,
+					targetId,
+					"customers_1",
+					PublicationState.PUBLISHED,
+					MutationState.WRITABLE,
+					IndexerRuntimeState.ACTIVE
+				).compose(firstId -> {
+					ids[0] = firstId;
+					return insertIndexer(
+						repository,
+						targetId,
+						"customers_2",
+						PublicationState.UNPUBLISHED,
+						MutationState.WRITABLE,
+						IndexerRuntimeState.ACTIVE
+					);
+				}).compose(ignored -> insertIndexer(
+					repository,
+					targetId,
+					"customers_3",
+					PublicationState.PUBLISHED,
+					MutationState.DELETING,
+					IndexerRuntimeState.ACTIVE
+				)).compose(ignored -> insertIndexer(
+					repository,
+					targetId,
+					"customers_4",
+					PublicationState.PUBLISHED,
+					MutationState.READ_ONLY,
+					IndexerRuntimeState.ACTIVE
+				)).compose(fourthId -> {
+					ids[1] = fourthId;
+					return insertIndexer(
+						repository,
+						targetId,
+						"customers_5",
+						PublicationState.PUBLISHED,
+						MutationState.WRITABLE,
+						IndexerRuntimeState.NON_ACTIVE
+					);
+				}).compose(fifthId -> {
+					ids[2] = fifthId;
+					return insertIndexer(
+						repository,
+						targetId,
+						"customers_6",
+						PublicationState.PUBLISHED,
+						MutationState.WRITABLE,
+						IndexerRuntimeState.NON_ACTIVE
+					);
+				}).compose(sixthId -> {
+					ids[3] = sixthId;
+					return resolver.resolvePublishedIndexes(targetId);
+				}).map(indexes -> {
+					assertEquals(4, indexes.size());
+					assertEquals(new PublishedIndex(ids[0], targetId, "customers_1"), indexes.get(0));
+					assertEquals(new PublishedIndex(ids[1], targetId, "customers_4"), indexes.get(1));
+					assertEquals(new PublishedIndex(ids[2], targetId, "customers_5"), indexes.get(2));
+					assertEquals(new PublishedIndex(ids[3], targetId, "customers_6"), indexes.get(3));
+					return null;
+				});
+			})
 			.onComplete(testContext.succeeding(ignored -> testContext.completeNow()));
 	}
 
@@ -89,7 +107,7 @@ class RepositoryPublishedIndexResolverTest {
 				"customers_1",
 				PublicationState.UNPUBLISHED,
 				MutationState.WRITABLE,
-				IndexerRuntimeStatus.STARTED
+				IndexerRuntimeState.ACTIVE
 			).compose(ignored -> resolver.resolvePublishedIndexes(targetId)))
 			.onComplete(testContext.succeeding(indexes -> testContext.verify(() -> {
 				assertTrue(indexes.isEmpty());
@@ -110,14 +128,14 @@ class RepositoryPublishedIndexResolverTest {
 				"customers_1",
 				PublicationState.PUBLISHED,
 				MutationState.WRITABLE,
-				IndexerRuntimeStatus.STARTED
+				IndexerRuntimeState.ACTIVE
 			).compose(firstId -> insertIndexer(
 				repository,
 				targetId,
 				"customers_2",
 				PublicationState.PUBLISHED,
 				MutationState.READ_ONLY,
-				IndexerRuntimeStatus.STARTED
+				IndexerRuntimeState.ACTIVE
 			).compose(secondId -> resolver.resolvePublishedIndexes(targetId)
 				.compose(indexes -> {
 					assertEquals(List.of(
@@ -143,7 +161,7 @@ class RepositoryPublishedIndexResolverTest {
 		String indexName,
 		PublicationState publicationState,
 		MutationState mutationState,
-		IndexerRuntimeStatus runtimeStatus
+		IndexerRuntimeState runtimeStatus
 	) {
 		return repository.insertIndexer(new InsertIndexer(
 			null,

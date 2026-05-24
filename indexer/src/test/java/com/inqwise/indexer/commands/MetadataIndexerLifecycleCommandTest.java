@@ -9,11 +9,11 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import com.inqwise.indexer.IndexerLifecycleChanged;
+import com.inqwise.indexer.IndexerMetadataChanged;
 import com.inqwise.indexer.IndexerType;
 import com.inqwise.indexer.InMemoryIndexerLifecycleEventBus;
 import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
-import com.inqwise.indexer.metadata.IndexerRuntimeStatus;
+import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.metadata.MutationState;
@@ -33,15 +33,15 @@ class MetadataIndexerLifecycleCommandTest {
 			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		InMemoryCommandService commandService = commandService(repository, eventBus);
-		List<IndexerLifecycleChanged> events = new ArrayList<>();
+		List<IndexerMetadataChanged> events = new ArrayList<>();
 
 		eventBus.subscribe(events::add)
-			.compose(ignored -> insertIndexer(repository, IndexerRuntimeStatus.NON_ACTIVE))
+			.compose(ignored -> insertIndexer(repository, IndexerRuntimeState.NON_ACTIVE))
 			.compose(indexerId -> commandService.submit(new ActivateIndexerCommand(indexerId))
 				.compose(ignored -> repository.getIndexerById(indexerId)))
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
 				assertTrue(found.isPresent());
-				assertEquals(IndexerRuntimeStatus.STARTED, found.get().runtimeStatus());
+				assertEquals(IndexerRuntimeState.ACTIVE, found.get().runtimeState());
 				assertEquals(1L, found.get().version());
 				assertEquals(1, events.size());
 				assertEquals(ActivateIndexerCommand.TYPE, events.get(0).getCommandType());
@@ -58,10 +58,10 @@ class MetadataIndexerLifecycleCommandTest {
 			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		InMemoryCommandService commandService = commandService(repository, eventBus);
-		List<IndexerLifecycleChanged> events = new ArrayList<>();
+		List<IndexerMetadataChanged> events = new ArrayList<>();
 
 		eventBus.subscribe(events::add)
-			.compose(ignored -> insertIndexer(repository, IndexerRuntimeStatus.NON_ACTIVE))
+			.compose(ignored -> insertIndexer(repository, IndexerRuntimeState.NON_ACTIVE))
 			.compose(indexerId -> commandService.submit(new ActivateIndexerCommand(indexerId))
 				.compose(ignored -> commandService.submit(new ActivateIndexerCommand(indexerId)))
 				.compose(ignored -> commandService.submit(new DeactivateIndexerCommand(indexerId)))
@@ -69,7 +69,7 @@ class MetadataIndexerLifecycleCommandTest {
 				.compose(ignored -> repository.getIndexerById(indexerId)))
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
 				assertTrue(found.isPresent());
-				assertEquals(IndexerRuntimeStatus.NON_ACTIVE, found.get().runtimeStatus());
+				assertEquals(IndexerRuntimeState.NON_ACTIVE, found.get().runtimeState());
 				assertEquals(2L, found.get().version());
 				assertEquals(4, events.size());
 				assertEquals(1L, events.get(0).getVersion());
@@ -89,7 +89,7 @@ class MetadataIndexerLifecycleCommandTest {
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		InMemoryCommandService commandService = commandService(repository, eventBus);
 
-		insertIndexer(repository, IndexerRuntimeStatus.DELETED)
+		insertIndexer(repository, IndexerRuntimeState.NON_ACTIVE, MutationState.DELETING)
 			.compose(indexerId -> commandService.submit(new ActivateIndexerCommand(indexerId)))
 			.onComplete(testContext.failing(error -> testContext.verify(() -> {
 				assertTrue(error.getMessage().startsWith("Cannot activate deleted indexer"));
@@ -108,7 +108,15 @@ class MetadataIndexerLifecycleCommandTest {
 
 	private Future<Integer> insertIndexer(
 		InMemoryDocumentStoreMetadataRepository repository,
-		IndexerRuntimeStatus runtimeStatus
+		IndexerRuntimeState runtimeState
+	) {
+		return insertIndexer(repository, runtimeState, MutationState.WRITABLE);
+	}
+
+	private Future<Integer> insertIndexer(
+		InMemoryDocumentStoreMetadataRepository repository,
+		IndexerRuntimeState runtimeState,
+		MutationState mutationState
 	) {
 		return repository.insertTarget(new InsertTarget(null, "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
@@ -118,9 +126,9 @@ class MetadataIndexerLifecycleCommandTest {
 				"customers_1",
 				"queue-customers",
 				IndexerType.INDEX,
-				runtimeStatus,
+				runtimeState,
 				PublicationState.UNPUBLISHED,
-				MutationState.WRITABLE
+				mutationState
 			)));
 	}
 }

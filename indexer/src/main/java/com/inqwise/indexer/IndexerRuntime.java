@@ -6,8 +6,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
+import com.inqwise.indexer.metadata.IndexerProvisioningState;
 import com.inqwise.indexer.metadata.IndexerRecord;
-import com.inqwise.indexer.metadata.IndexerRuntimeStatus;
+import com.inqwise.indexer.metadata.IndexerStatus;
+import com.inqwise.indexer.metadata.MutationState;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
@@ -101,39 +103,33 @@ public class IndexerRuntime {
 					return close(indexerId);
 				}
 
-				IndexerRecord indexer = found.get();
-				if (indexer.runtimeStatus() == IndexerRuntimeStatus.DELETED) {
-					return delete(indexer);
-				}
-
-				if (indexer.runtimeStatus() == IndexerRuntimeStatus.STARTED
-					|| indexer.runtimeStatus() == IndexerRuntimeStatus.COMPLETED) {
-					return activate(indexer);
-				}
-
-				return close(indexer.id());
+				return reconcile(found.get());
 			});
 	}
 
-	public Future<Void> reconcile(IndexerLifecycleChanged event) {
+	public Future<Void> reconcile(IndexerMetadataChanged event) {
 		return repository.getIndexerById(event.getIndexerId())
 			.compose(found -> {
 				if (found.isEmpty()) {
 					return close(event.getIndexerId());
 				}
 
-				IndexerRecord indexer = found.get();
-				if (indexer.runtimeStatus() == IndexerRuntimeStatus.DELETED) {
-					return delete(indexer);
-				}
-
-				if (indexer.runtimeStatus() == IndexerRuntimeStatus.STARTED
-					|| indexer.runtimeStatus() == IndexerRuntimeStatus.COMPLETED) {
-					return activate(indexer);
-				}
-
-				return close(indexer.id());
+				return reconcile(found.get());
 			});
+	}
+
+	private Future<Void> reconcile(IndexerRecord indexer) {
+		if (indexer.status() != IndexerStatus.AVAILABLE
+			|| indexer.mutationState() == MutationState.DELETING) {
+			return delete(indexer);
+		}
+
+		if (indexer.provisioningState() == IndexerProvisioningState.READY
+			&& indexer.runtimeState() == IndexerRuntimeState.ACTIVE) {
+			return activate(indexer);
+		}
+
+		return close(indexer.id());
 	}
 
 	protected Future<Void> activate(IndexerRecord indexerRecord) {
@@ -178,18 +174,9 @@ public class IndexerRuntime {
 			.withIndexName(indexer.indexName())
 			.withQueueName(indexer.queueName())
 			.withType(indexer.type())
-			.withStatus(toStatus(indexer.runtimeStatus()))
+			.withRuntimeState(indexer.runtimeState())
 			.withVersion(indexer.version())
 			.build();
-	}
-
-	private static IndexerStatus toStatus(IndexerRuntimeStatus status) {
-		return switch (status) {
-			case NON_ACTIVE -> IndexerStatus.NON_ACTIVE;
-			case STARTED -> IndexerStatus.STARTED;
-			case COMPLETED -> IndexerStatus.COMPLETED;
-			case DELETED -> IndexerStatus.DELETED;
-		};
 	}
 
 	private static Indexer createVerticleBackedIndexer(

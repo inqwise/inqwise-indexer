@@ -9,12 +9,14 @@ import java.util.UUID;
 
 import com.inqwise.indexer.CompleteIndexActionItem;
 import com.inqwise.indexer.IndexerActionItem;
+import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.IndexerType;
 import com.inqwise.indexer.PutDocumentActionItem;
 import com.inqwise.indexer.RemoveDocumentActionItem;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
+import com.inqwise.indexer.metadata.IndexerProvisioningState;
 import com.inqwise.indexer.metadata.IndexerRecord;
-import com.inqwise.indexer.metadata.IndexerRuntimeStatus;
+import com.inqwise.indexer.metadata.IndexerStatus;
 import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.metadata.MutationState;
 import com.inqwise.indexer.metadata.PublicationState;
@@ -129,8 +131,7 @@ class MetadataSubmitIndexActionRouter {
 		return repository.listWritableIndexersByTargetId(target.id())
 			.compose(indexers -> {
 				List<IndexerRecord> matches = indexers.stream()
-					.filter(indexer -> indexer.runtimeStatus() == IndexerRuntimeStatus.STARTED
-						|| indexer.runtimeStatus() == IndexerRuntimeStatus.COMPLETED)
+					.filter(indexer -> indexer.runtimeState() == IndexerRuntimeState.ACTIVE)
 					.filter(indexer -> destination.indexName() == null
 						|| destination.indexName().equals(indexer.indexName()))
 					.toList();
@@ -214,6 +215,7 @@ class MetadataSubmitIndexActionRouter {
 
 	private Future<IndexerRecord> ensureWritableIndexer(TargetRecord target) {
 		String suffix = UUID.randomUUID().toString();
+		String prefix = "i" + suffix.replace("-", "").substring(0, 12);
 		String indexName = target.targetName() + "--idx-" + suffix;
 		String queueName = target.targetName() + "--queue-" + suffix;
 		TargetNameValidator.requireGeneratedResourceName(indexName);
@@ -223,13 +225,15 @@ class MetadataSubmitIndexActionRouter {
 			TargetProvisioningState.PROVISIONING,
 			target.version()
 		)).compose(ignored -> repository.insertIndexer(new InsertIndexer(
-				null,
+				prefix,
 				target.id(),
 				target.targetName(),
 				indexName,
 				queueName,
 				IndexerType.INDEX,
-				IndexerRuntimeStatus.STARTED,
+				IndexerStatus.AVAILABLE,
+				IndexerProvisioningState.READY,
+				IndexerRuntimeState.ACTIVE,
 				PublicationState.UNPUBLISHED,
 				MutationState.WRITABLE
 			)))
@@ -276,8 +280,9 @@ class MetadataSubmitIndexActionRouter {
 		ActionDestination destination,
 		IndexerRecord indexer
 	) {
-		if (indexer.runtimeStatus() != IndexerRuntimeStatus.STARTED
-			&& indexer.runtimeStatus() != IndexerRuntimeStatus.COMPLETED) {
+		if (indexer.status() != IndexerStatus.AVAILABLE
+			|| indexer.provisioningState() != IndexerProvisioningState.READY
+			|| indexer.runtimeState() != IndexerRuntimeState.ACTIVE) {
 			return Future.failedFuture("Indexer is not active: " + indexer.indexName());
 		}
 

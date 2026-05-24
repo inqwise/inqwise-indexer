@@ -131,7 +131,7 @@ public class Indexer {
 	}
 
 	public synchronized Future<Void> activate() {
-		if (!model.getStatus().isActive()) {
+		if (!model.getRuntimeState().isActive()) {
 			return Future.succeededFuture();
 		}
 
@@ -218,7 +218,7 @@ public class Indexer {
 
 	protected Future<Void> processActionItem(IndexerActionItem item) {
 		if (item.getActionType() == IndexerActionType.COMPLETE) {
-			return emitEvent(IndexerEventType.ACTION_STREAM_COMPLETED, item, null);
+			return completeIndexActionNotImplemented();
 		}
 
 		String validationError = validateActionIdentity(item);
@@ -250,8 +250,14 @@ public class Indexer {
 				RemoveDocumentActionItem remove = (RemoveDocumentActionItem) item;
 				yield documentStore.remove(getRemoveIndexName(remove), remove.getUid());
 			}
-			case COMPLETE -> emitEvent(IndexerEventType.ACTION_STREAM_COMPLETED, item, null);
+			case COMPLETE -> completeIndexActionNotImplemented();
 		};
+	}
+
+	private Future<Void> completeIndexActionNotImplemented() {
+		return Future.failedFuture(new UnsupportedOperationException(
+			"Complete index action flow is not implemented"
+		));
 	}
 
 	private String validateActionIdentity(IndexerActionItem item) {
@@ -328,7 +334,7 @@ public class Indexer {
 	}
 
 	public Future<Void> index(List<IndexerActionItem> actions) {
-		if (!model.getStatus().isActive()) {
+		if (!model.getRuntimeState().isActive()) {
 			return Future.failedFuture("indexer is not active: " + model.toJson().encode());
 		}
 

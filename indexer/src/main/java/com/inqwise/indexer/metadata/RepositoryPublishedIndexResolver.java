@@ -19,8 +19,6 @@ public class RepositoryPublishedIndexResolver implements PublishedIndexResolver 
 		return repository.listPublishedIndexersByTargetId(targetId)
 			.map(indexers -> indexers.stream()
 				.filter(indexer -> indexer.mutationState() != MutationState.DELETING)
-				.filter(indexer -> indexer.runtimeStatus() == IndexerRuntimeStatus.STARTED
-					|| indexer.runtimeStatus() == IndexerRuntimeStatus.COMPLETED)
 				.map(indexer -> new PublishedIndex(
 					indexer.id(),
 					indexer.targetId(),

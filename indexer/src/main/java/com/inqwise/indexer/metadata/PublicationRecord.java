@@ -4,7 +4,7 @@ import java.time.Instant;
 
 public record PublicationRecord(
 	Integer id,
-	String uid,
+	String prefix,
 	Integer indexerId,
 	Integer targetId,
 	String targetName,
@@ -16,4 +16,7 @@ public record PublicationRecord(
 	Instant updatedAt,
 	long version
 ) {
+	public String uid() {
+		return MetadataUid.toToken(prefix, id);
+	}
 }

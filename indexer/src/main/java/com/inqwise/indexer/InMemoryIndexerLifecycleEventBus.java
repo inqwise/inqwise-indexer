@@ -8,14 +8,14 @@ import io.vertx.core.Future;
 import io.vertx.core.Handler;
 
 public class InMemoryIndexerLifecycleEventBus implements IndexerLifecycleEventBus {
-	private final List<IndexerLifecycleChanged> events = new ArrayList<>();
-	private final List<Handler<IndexerLifecycleChanged>> subscribers = new ArrayList<>();
+	private final List<IndexerMetadataChanged> events = new ArrayList<>();
+	private final List<Handler<IndexerMetadataChanged>> subscribers = new ArrayList<>();
 
 	@Override
-	public Future<Void> publish(IndexerLifecycleChanged event) {
+	public Future<Void> publish(IndexerMetadataChanged event) {
 		Objects.requireNonNull(event, "event");
 
-		List<Handler<IndexerLifecycleChanged>> handlers;
+		List<Handler<IndexerMetadataChanged>> handlers;
 		synchronized (this) {
 			events.add(event);
 			handlers = List.copyOf(subscribers);
@@ -26,10 +26,10 @@ public class InMemoryIndexerLifecycleEventBus implements IndexerLifecycleEventBu
 	}
 
 	@Override
-	public Future<Void> subscribe(Handler<IndexerLifecycleChanged> handler) {
+	public Future<Void> subscribe(Handler<IndexerMetadataChanged> handler) {
 		Objects.requireNonNull(handler, "handler");
 
-		List<IndexerLifecycleChanged> replay;
+		List<IndexerMetadataChanged> replay;
 		synchronized (this) {
 			subscribers.add(handler);
 			replay = List.copyOf(events);

@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.Objects;
 
 import com.inqwise.indexer.IndexerActionItem;
-import com.inqwise.indexer.IndexerLifecycleChanged;
+import com.inqwise.indexer.IndexerMetadataChanged;
 import com.inqwise.indexer.IndexerLifecycleEventBus;
 import com.inqwise.indexer.IndexerQueueClient;
 import com.inqwise.indexer.IndexerQueuePublisher;
@@ -56,7 +56,7 @@ public class SubmitIndexActionsCommandHandler implements CommandHandler {
 	}
 
 	private Future<Void> publishLifecycle(RoutedIndexActions group) {
-		return eventBus.publish(new IndexerLifecycleChanged(
+		return eventBus.publish(new IndexerMetadataChanged(
 			group.indexerId(),
 			getType(),
 			group.indexerVersion()

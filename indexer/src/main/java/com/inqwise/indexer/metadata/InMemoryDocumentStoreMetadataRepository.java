@@ -6,10 +6,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.IndexerType;
 
 import io.vertx.core.Future;
@@ -37,7 +37,7 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 			Instant now = Instant.now();
 			targetDefinitionsById.put(id, new TargetDefinitionRecord(
 				id,
-				uid(targetDefinition.uid()),
+				requirePrefix(targetDefinition.prefix()),
 				targetDefinition.targetName(),
 				defaultValue(targetDefinition.periodStrategy(), TargetPeriodStrategy.NONE),
 				defaultValue(targetDefinition.status(), TargetStatus.ACTIVE),
@@ -59,9 +59,7 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 
 	@Override
 	public Future<Optional<TargetDefinitionRecord>> getTargetDefinitionByUid(String uid) {
-		return Future.succeededFuture(targetDefinitionsById.values().stream()
-			.filter(target -> target.uid().equals(uid))
-			.findFirst());
+		return Future.succeededFuture(findByUid(targetDefinitionsById, uid));
 	}
 
 	@Override
@@ -81,14 +79,14 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 			Instant now = Instant.now();
 			targetsById.put(id, new TargetRecord(
 				id,
-				uid(target.uid()),
+				requirePrefix(target.prefix()),
 				target.targetDefinitionId(),
 				target.targetName(),
 				target.periodKey(),
 				target.periodStartInclusive(),
 				target.periodEndExclusive(),
-				defaultValue(target.status(), TargetStatus.ACTIVE),
-				TargetProvisioningState.READY,
+				require(target.status(), "status"),
+				require(target.provisioningState(), "provisioningState"),
 				now,
 				now,
 				0L
@@ -107,9 +105,7 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 
 	@Override
 	public Future<Optional<TargetRecord>> getTargetByUid(String uid) {
-		return Future.succeededFuture(targetsById.values().stream()
-			.filter(target -> target.uid().equals(uid))
-			.findFirst());
+		return Future.succeededFuture(findByUid(targetsById, uid));
 	}
 
 	@Override
@@ -118,6 +114,20 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 			.filter(target -> key.targetDefinitionId().equals(target.targetDefinitionId()))
 			.filter(target -> Objects.equals(key.periodKey(), target.periodKey()))
 			.findFirst());
+	}
+
+	@Override
+	public Future<List<TargetRecord>> listTargets(TargetMetadataQuery query) {
+		TargetMetadataQuery resolvedQuery = query == null
+			? new TargetMetadataQuery(null, null, null, null)
+			: query;
+		return Future.succeededFuture(targetsById.values().stream()
+			.filter(target -> matches(resolvedQuery.ids(), target.id()))
+			.filter(target -> matches(resolvedQuery.targetDefinitionIds(), target.targetDefinitionId()))
+			.filter(target -> matches(resolvedQuery.statuses(), target.status()))
+			.filter(target -> matches(resolvedQuery.provisioningStates(), target.provisioningState()))
+			.sorted(Comparator.comparing(TargetRecord::id))
+			.toList());
 	}
 
 	@Override
@@ -149,7 +159,7 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 			Instant now = Instant.now();
 			TargetRecord created = new TargetRecord(
 				id,
-				uid(null),
+				targetDefinition.prefix(),
 				targetDefinition.id(),
 				targetName,
 				resolvedPeriod.key(),
@@ -223,15 +233,17 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 			Instant now = Instant.now();
 			indexersById.put(id, new IndexerRecord(
 				id,
-				uid(indexer.uid()),
+				requirePrefix(indexer.prefix()),
 				indexer.targetId(),
 				indexer.targetName(),
 				indexer.indexName(),
 				indexer.queueName(),
 				defaultValue(indexer.type(), IndexerType.INDEX),
-				defaultValue(indexer.runtimeStatus(), IndexerRuntimeStatus.NON_ACTIVE),
-				defaultValue(indexer.publicationState(), PublicationState.UNPUBLISHED),
-				defaultValue(indexer.mutationState(), MutationState.WRITABLE),
+				require(indexer.status(), "status"),
+				require(indexer.provisioningState(), "provisioningState"),
+				require(indexer.runtimeState(), "runtimeState"),
+				require(indexer.publicationState(), "publicationState"),
+				require(indexer.mutationState(), "mutationState"),
 				now,
 				now,
 				0L
@@ -250,9 +262,7 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 
 	@Override
 	public Future<Optional<IndexerRecord>> getIndexerByUid(String uid) {
-		return Future.succeededFuture(indexersById.values().stream()
-			.filter(indexer -> indexer.uid().equals(uid))
-			.findFirst());
+		return Future.succeededFuture(findByUid(indexersById, uid));
 	}
 
 	@Override
@@ -264,9 +274,29 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 	}
 
 	@Override
+	public Future<List<IndexerRecord>> listIndexers(IndexerMetadataQuery query) {
+		IndexerMetadataQuery resolvedQuery = query == null
+			? new IndexerMetadataQuery(null, null, null, null, null, null, null, null)
+			: query;
+		return Future.succeededFuture(indexersById.values().stream()
+			.filter(indexer -> matches(resolvedQuery.ids(), indexer.id()))
+			.filter(indexer -> matches(resolvedQuery.targetIds(), indexer.targetId()))
+			.filter(indexer -> matches(resolvedQuery.types(), indexer.type()))
+			.filter(indexer -> matches(resolvedQuery.statuses(), indexer.status()))
+			.filter(indexer -> matches(resolvedQuery.provisioningStates(), indexer.provisioningState()))
+			.filter(indexer -> matches(resolvedQuery.runtimeStates(), indexer.runtimeState()))
+			.filter(indexer -> matches(resolvedQuery.publicationStates(), indexer.publicationState()))
+			.filter(indexer -> matches(resolvedQuery.mutationStates(), indexer.mutationState()))
+			.sorted(Comparator.comparing(IndexerRecord::id))
+			.toList());
+	}
+
+	@Override
 	public Future<List<IndexerRecord>> listWritableIndexersByTargetId(Integer targetId) {
 		return Future.succeededFuture(indexersById.values().stream()
 			.filter(indexer -> targetId.equals(indexer.targetId()))
+			.filter(indexer -> indexer.status() == IndexerStatus.AVAILABLE)
+			.filter(indexer -> indexer.provisioningState() == IndexerProvisioningState.READY)
 			.filter(indexer -> indexer.mutationState() == MutationState.WRITABLE)
 			.sorted(Comparator.comparing(IndexerRecord::id))
 			.toList());
@@ -276,6 +306,8 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 	public Future<List<IndexerRecord>> listPublishedIndexersByTargetId(Integer targetId) {
 		return Future.succeededFuture(indexersById.values().stream()
 			.filter(indexer -> targetId.equals(indexer.targetId()))
+			.filter(indexer -> indexer.status() == IndexerStatus.AVAILABLE)
+			.filter(indexer -> indexer.provisioningState() == IndexerProvisioningState.READY)
 			.filter(indexer -> indexer.publicationState() == PublicationState.PUBLISHED)
 			.sorted(Comparator.comparing(IndexerRecord::id))
 			.toList());
@@ -284,20 +316,43 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 	@Override
 	public Future<List<IndexerRecord>> listRuntimeActiveIndexers() {
 		return Future.succeededFuture(indexersById.values().stream()
-			.filter(indexer -> indexer.runtimeStatus() == IndexerRuntimeStatus.STARTED
-				|| indexer.runtimeStatus() == IndexerRuntimeStatus.COMPLETED)
+			.filter(indexer -> indexer.status() == IndexerStatus.AVAILABLE)
+			.filter(indexer -> indexer.provisioningState() == IndexerProvisioningState.READY)
+			.filter(indexer -> indexer.runtimeState() == IndexerRuntimeState.ACTIVE)
 			.sorted(Comparator.comparing(IndexerRecord::id))
 			.toList());
 	}
 
 	@Override
-	public synchronized Future<Void> updateIndexerRuntimeStatus(UpdateIndexerRuntimeStatus update) {
+	public synchronized Future<Void> updateIndexerRuntimeState(UpdateIndexerRuntimeState update) {
 		try {
 			IndexerRecord existing = requireIndexer(update.id(), update.expectedVersion());
 			indexersById.put(update.id(), copyIndexer(
 				existing,
 				existing.queueName(),
-				require(update.runtimeStatus(), "runtimeStatus"),
+				existing.status(),
+				existing.provisioningState(),
+				require(update.runtimeState(), "runtimeState"),
+				existing.publicationState(),
+				existing.mutationState()
+			));
+
+			return Future.succeededFuture();
+		} catch (RuntimeException error) {
+			return Future.failedFuture(error);
+		}
+	}
+
+	@Override
+	public synchronized Future<Void> updateIndexerProvisioningState(UpdateIndexerProvisioningState update) {
+		try {
+			IndexerRecord existing = requireIndexer(update.id(), update.expectedVersion());
+			indexersById.put(update.id(), copyIndexer(
+				existing,
+				existing.queueName(),
+				existing.status(),
+				require(update.provisioningState(), "provisioningState"),
+				existing.runtimeState(),
 				existing.publicationState(),
 				existing.mutationState()
 			));
@@ -315,7 +370,9 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 			indexersById.put(update.id(), copyIndexer(
 				existing,
 				existing.queueName(),
-				existing.runtimeStatus(),
+				existing.status(),
+				existing.provisioningState(),
+				existing.runtimeState(),
 				require(update.publicationState(), "publicationState"),
 				existing.mutationState()
 			));
@@ -333,7 +390,9 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 			indexersById.put(update.id(), copyIndexer(
 				existing,
 				existing.queueName(),
-				existing.runtimeStatus(),
+				existing.status(),
+				existing.provisioningState(),
+				existing.runtimeState(),
 				existing.publicationState(),
 				require(update.mutationState(), "mutationState")
 			));
@@ -351,7 +410,9 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 			indexersById.put(update.id(), copyIndexer(
 				existing,
 				require(update.queueName(), "queueName"),
-				existing.runtimeStatus(),
+				existing.status(),
+				existing.provisioningState(),
+				existing.runtimeState(),
 				existing.publicationState(),
 				existing.mutationState()
 			));
@@ -390,7 +451,7 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 			);
 			publicationsById.put(id, new PublicationRecord(
 				id,
-				uid(publication.uid()),
+				requirePrefix(publication.prefix()),
 				publication.indexerId(),
 				publication.targetId(),
 				publication.targetName(),
@@ -416,9 +477,7 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 
 	@Override
 	public Future<Optional<PublicationRecord>> getPublicationByUid(String uid) {
-		return Future.succeededFuture(publicationsById.values().stream()
-			.filter(publication -> publication.uid().equals(uid))
-			.findFirst());
+		return Future.succeededFuture(findByUid(publicationsById, uid));
 	}
 
 	@Override
@@ -443,7 +502,7 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 			ReadinessState readinessState = require(update.readinessState(), "readinessState");
 			publicationsById.put(update.id(), new PublicationRecord(
 				existing.id(),
-				existing.uid(),
+				existing.prefix(),
 				existing.indexerId(),
 				existing.targetId(),
 				existing.targetName(),
@@ -492,7 +551,7 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 			Instant now = Instant.now();
 			manifestsById.put(id, new ManifestRecord(
 				id,
-				uid(manifest.uid()),
+				requirePrefix(manifest.prefix()),
 				manifest.targetId(),
 				manifest.indexerId(),
 				manifest.targetName(),
@@ -519,9 +578,7 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 
 	@Override
 	public Future<Optional<ManifestRecord>> getManifestByUid(String uid) {
-		return Future.succeededFuture(manifestsById.values().stream()
-			.filter(manifest -> manifest.uid().equals(uid))
-			.findFirst());
+		return Future.succeededFuture(findByUid(manifestsById, uid));
 	}
 
 	@Override
@@ -551,7 +608,7 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 
 			manifestsById.put(update.id(), new ManifestRecord(
 				existing.id(),
-				existing.uid(),
+				existing.prefix(),
 				existing.targetId(),
 				existing.indexerId(),
 				existing.targetName(),
@@ -585,25 +642,33 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 	private IndexerRecord copyIndexer(
 		IndexerRecord existing,
 		String queueName,
-		IndexerRuntimeStatus runtimeStatus,
+		IndexerStatus status,
+		IndexerProvisioningState provisioningState,
+		IndexerRuntimeState runtimeState,
 		PublicationState publicationState,
 		MutationState mutationState
 	) {
 		return new IndexerRecord(
 			existing.id(),
-			existing.uid(),
+			existing.prefix(),
 			existing.targetId(),
 			existing.targetName(),
 			existing.indexName(),
 			queueName,
 			existing.type(),
-			runtimeStatus,
+			status,
+			provisioningState,
+			runtimeState,
 			publicationState,
 			mutationState,
 			existing.createdAt(),
 			Instant.now(),
 			existing.version() + 1
 		);
+	}
+
+	private static <T> boolean matches(List<T> values, T value) {
+		return values.isEmpty() || values.contains(value);
 	}
 
 	private TargetRecord copyTarget(
@@ -613,7 +678,7 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 	) {
 		return new TargetRecord(
 			existing.id(),
-			existing.uid(),
+			existing.prefix(),
 			existing.targetDefinitionId(),
 			existing.targetName(),
 			existing.periodKey(),
@@ -727,8 +792,50 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 		}
 	}
 
-	private String uid(String uid) {
-		return uid == null ? UUID.randomUUID().toString() : uid;
+	private <T> Optional<T> findByUid(Map<Integer, T> records, String uid) {
+		MetadataUid.Parsed parsed;
+		try {
+			parsed = MetadataUid.parse(uid);
+		} catch (RuntimeException ignored) {
+			return records.values().stream()
+				.filter(record -> uid.equals(prefix(record)))
+				.findFirst();
+		}
+
+		T record = records.get(parsed.id());
+		if (record == null) {
+			return Optional.empty();
+		}
+
+		String prefix = prefix(record);
+		return parsed.prefix().equals(prefix) ? Optional.of(record) : Optional.empty();
+	}
+
+	private <T> String prefix(T record) {
+		if (record instanceof TargetDefinitionRecord targetDefinition) {
+			return targetDefinition.prefix();
+		}
+		if (record instanceof TargetRecord target) {
+			return target.prefix();
+		}
+		if (record instanceof IndexerRecord indexer) {
+			return indexer.prefix();
+		}
+		if (record instanceof PublicationRecord publication) {
+			return publication.prefix();
+		}
+		if (record instanceof ManifestRecord manifest) {
+			return manifest.prefix();
+		}
+		throw new IllegalArgumentException("Unsupported metadata record: " + record);
+	}
+
+	private String requirePrefix(String prefix) {
+		require(prefix, "prefix");
+		if (!prefix.matches("[a-z][a-z0-9_-]{2,63}")) {
+			throw new IllegalArgumentException("Invalid metadata prefix: " + prefix);
+		}
+		return prefix;
 	}
 
 	private <T> T defaultValue(T value, T defaultValue) {

@@ -2,14 +2,14 @@ package com.inqwise.indexer.commands;
 
 import java.util.Objects;
 
-import com.inqwise.indexer.IndexerLifecycleChanged;
+import com.inqwise.indexer.IndexerMetadataChanged;
 import com.inqwise.indexer.IndexerLifecycleEventBus;
+import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.IndexerRecord;
-import com.inqwise.indexer.metadata.IndexerRuntimeStatus;
 import com.inqwise.indexer.metadata.MutationState;
 import com.inqwise.indexer.metadata.UpdateIndexerMutationState;
-import com.inqwise.indexer.metadata.UpdateIndexerRuntimeStatus;
+import com.inqwise.indexer.metadata.UpdateIndexerRuntimeState;
 
 import io.vertx.core.Future;
 
@@ -40,11 +40,6 @@ public class DeleteIndexerCommandHandler implements CommandHandler {
 				}
 
 				IndexerRecord indexer = found.get();
-				if (indexer.runtimeStatus() == IndexerRuntimeStatus.DELETED
-					&& indexer.mutationState() == MutationState.DELETING) {
-					return publish(indexer);
-				}
-
 				if (delete.getExpectedVersion() == null) {
 					return Future.failedFuture(
 						"Expected version is required for metadata indexer delete: "
@@ -53,7 +48,7 @@ public class DeleteIndexerCommandHandler implements CommandHandler {
 				}
 
 				return markDeleting(indexer, delete.getExpectedVersion())
-					.compose(this::markDeleted)
+					.compose(this::deactivate)
 					.compose(this::publish);
 			});
 	}
@@ -74,12 +69,12 @@ public class DeleteIndexerCommandHandler implements CommandHandler {
 				.orElseGet(() -> Future.failedFuture("Indexer not found: " + indexer.id())));
 	}
 
-	private Future<IndexerRecord> markDeleted(IndexerRecord indexer) {
-		Future<Void> updated = indexer.runtimeStatus() == IndexerRuntimeStatus.DELETED
+	private Future<IndexerRecord> deactivate(IndexerRecord indexer) {
+		Future<Void> updated = indexer.runtimeState() == IndexerRuntimeState.NON_ACTIVE
 			? Future.succeededFuture()
-			: metadataRepository.updateIndexerRuntimeStatus(new UpdateIndexerRuntimeStatus(
+			: metadataRepository.updateIndexerRuntimeState(new UpdateIndexerRuntimeState(
 				indexer.id(),
-				IndexerRuntimeStatus.DELETED,
+				IndexerRuntimeState.NON_ACTIVE,
 				indexer.version()
 			));
 
@@ -91,7 +86,7 @@ public class DeleteIndexerCommandHandler implements CommandHandler {
 	}
 
 	private Future<Void> publish(IndexerRecord indexer) {
-		return eventBus.publish(new IndexerLifecycleChanged(
+		return eventBus.publish(new IndexerMetadataChanged(
 			indexer.id(),
 			getType(),
 			indexer.version()

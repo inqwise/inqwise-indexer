@@ -9,7 +9,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 import com.inqwise.indexer.IndexerType;
 import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
-import com.inqwise.indexer.metadata.IndexerRuntimeStatus;
+import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.metadata.InsertPublication;
 import com.inqwise.indexer.metadata.InsertTarget;
@@ -124,7 +124,7 @@ class IndexPublicationCommandTest {
 				"customers_1",
 				"queue-customers",
 				IndexerType.INDEX,
-				IndexerRuntimeStatus.STARTED,
+				IndexerRuntimeState.ACTIVE,
 				PublicationState.UNPUBLISHED,
 				MutationState.WRITABLE
 			)).compose(indexerId -> repository.insertPublication(new InsertPublication(
@@ -151,7 +151,7 @@ class IndexPublicationCommandTest {
 				"customers_1",
 				"queue-customers",
 				IndexerType.INDEX,
-				IndexerRuntimeStatus.STARTED,
+				IndexerRuntimeState.ACTIVE,
 				PublicationState.UNPUBLISHED,
 				mutationState
 			)).compose(indexerId -> repository.insertPublication(new InsertPublication(
@@ -176,7 +176,7 @@ class IndexPublicationCommandTest {
 				"customers_1",
 				"queue-customers",
 				IndexerType.INDEX,
-				IndexerRuntimeStatus.STARTED,
+				IndexerRuntimeState.ACTIVE,
 				PublicationState.PUBLISHED,
 				MutationState.READ_ONLY
 			)));

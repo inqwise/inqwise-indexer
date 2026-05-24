@@ -4,7 +4,7 @@ import java.time.Instant;
 
 public record TargetRecord(
 	Integer id,
-	String uid,
+	String prefix,
 	Integer targetDefinitionId,
 	String targetName,
 	String periodKey,
@@ -16,4 +16,7 @@ public record TargetRecord(
 	Instant updatedAt,
 	long version
 ) {
+	public String uid() {
+		return MetadataUid.toToken(prefix, id);
+	}
 }

@@ -3,12 +3,13 @@ package com.inqwise.indexer.commands;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
-import com.inqwise.indexer.IndexerLifecycleChanged;
+import com.inqwise.indexer.IndexerMetadataChanged;
 import com.inqwise.indexer.IndexerLifecycleEventBus;
 import com.inqwise.indexer.IndexerQueueResourceManager;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.IndexerRecord;
-import com.inqwise.indexer.metadata.IndexerRuntimeStatus;
+import com.inqwise.indexer.metadata.IndexerStatus;
+import com.inqwise.indexer.metadata.MutationState;
 import com.inqwise.indexer.metadata.UpdateIndexerQueueName;
 
 import io.vertx.core.Future;
@@ -49,7 +50,8 @@ public class ResetIndexerQueueCommandHandler implements CommandHandler {
 				}
 
 				IndexerRecord indexer = found.get();
-				if (indexer.runtimeStatus() == IndexerRuntimeStatus.DELETED) {
+				if (indexer.status() != IndexerStatus.AVAILABLE
+					|| indexer.mutationState() == MutationState.DELETING) {
 					return Future.failedFuture("Cannot reset deleted indexer queue: " + reset.getIndexerId());
 				}
 
@@ -78,7 +80,7 @@ public class ResetIndexerQueueCommandHandler implements CommandHandler {
 	}
 
 	private Future<Void> publish(IndexerRecord indexer) {
-		return eventBus.publish(new IndexerLifecycleChanged(
+		return eventBus.publish(new IndexerMetadataChanged(
 			indexer.id(),
 			getType(),
 			indexer.version()

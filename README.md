@@ -45,6 +45,8 @@ If a concrete target has no writable indexer during public-target submission, th
 
 Query routing resolves published indexers by `targetId` and queries only the resulting concrete `indexName` values. A target may have zero published indexes during first build, multiple writable indexes during rebuild, and multiple published indexes when the query model requires it.
 
+Routing is expected to grow a hot metadata layer that keeps an in-memory view of operational targets and indexers for the action-item flow. That hot view should contain only records eligible for fast routing decisions and should decide whether an action can be forwarded directly to a hot target/indexer or must fall back to `SubmitIndexActionsCommand`. Broader metadata inspection belongs to an administration layer that can load targets and indexers with wider status/state filters. Repository query-object methods such as `listTargets(TargetMetadataQuery)` and `listIndexers(IndexerMetadataQuery)` support both layers without baking hot-routing filters into the repository itself.
+
 ### Index Flow
 
 Indexing uses two paths:
@@ -54,12 +56,13 @@ Indexing uses two paths:
 
 Command completion means that the submitted actions were handed to the indexer queue, not that the documents were already indexed. Runtime processing remains asynchronous.
 
-The cold path fails closed. If the command sees an unexpected indexer state or action mismatch, it must not publish actions. Expected/idempotent cases include resolving a writable active metadata indexer and waking runtime consumers that may not be hot yet.
+The cold path fails closed. If the command sees an unexpected indexer state or action mismatch, it must not publish actions. Expected/idempotent cases include resolving a writable, available, provisioned, runtime-active metadata indexer and waking runtime consumers that may not be hot yet.
 
 The current fail-closed guards are:
 
-- a deleted indexer cannot receive new actions;
-- a non-active indexer cannot receive new actions;
+- an unavailable or deleting indexer cannot receive new actions;
+- an indexer whose provisioning state is not `READY` cannot receive new actions;
+- a runtime-`NON_ACTIVE` indexer cannot receive new actions;
 - logical actions must carry `targetId` so writable indexers can be resolved;
 - concrete actions with `indexerId` and `indexName` must match the resolved metadata indexer.
 
@@ -76,11 +79,13 @@ The current fail-closed guards are:
 
 ### Distributed Lifecycle Commands
 
-Lifecycle commands express durable desired state. `ActivateIndexerCommand` and `DeactivateIndexerCommand` are handled through the generic `CommandService` layer. Their handlers update `DocumentStoreMetadataRepository` runtime status/version and publish an `IndexerLifecycleChanged` notification with the indexer id, command type, and resulting version.
+Lifecycle commands express durable desired state. `ActivateIndexerCommand` and `DeactivateIndexerCommand` are handled through the generic `CommandService` layer. Their handlers update `DocumentStoreMetadataRepository` runtime state/version and publish an `IndexerMetadataChanged` notification with the indexer id, command type, and resulting version. `IndexerRuntimeState.ACTIVE/NON_ACTIVE` is a consumer-control switch only; it does not change publication state, mutation state, provisioning state, or indexer availability.
 
-The lifecycle notification is a fan-out wake-up for runtime nodes, not the source of truth. `IndexerRuntime` subscribes to lifecycle changes, reloads the latest metadata indexer identified by the event, maps it to an `IndexerModel` for runtime transport, and reconciles local resources from that model. Runtime construction can use the Verticle-backed constructor so active indexers deploy an `IndexerProcessorVerticle` while `IndexerRuntime` only tracks `Indexer` instances and never exposes Vert.x deployment ids. Production implementations should back `IndexerLifecycleEventBus` with a durable pub/sub topic. The in-memory implementation retains events and replays them to late subscribers for local tests.
+The metadata-change notification is a fan-out wake-up for runtime nodes, not the source of truth. `IndexerRuntime` subscribes to metadata changes, reloads the latest metadata indexer identified by the event, maps it to an `IndexerModel` for runtime transport, and reconciles local resources from that model. Runtime construction can use the Verticle-backed constructor so active indexers deploy an `IndexerProcessorVerticle` while `IndexerRuntime` only tracks `Indexer` instances and never exposes Vert.x deployment ids. Production implementations should back `IndexerLifecycleEventBus` with a durable pub/sub topic. The in-memory implementation retains events and replays them to late subscribers for local tests.
 
-Indexer-scoped queue reset is an orchestration workflow, not an `Indexer` runtime method. Reset is a troubleshooting mechanism whose initial semantics are that future writes move to a clean queue, not that every old in-flight item is synchronously proven dead. For Kafka, prefer advancing a queue generation in metadata and publishing through a new generated topic name over deleting and recreating the same topic name in place. Runtime nodes learn the new queue name through lifecycle fan-out and reconcile onto the new consumer. Old topics can be deleted asynchronously by resource cleanup, and missing old topics remain expected idempotent cleanup misses. Strict old-consumer fencing or distributed close acknowledgement can be added later if reset must provide stronger "old items cannot be processed" guarantees.
+Runtime reconciliation opens a consumer only when the metadata indexer is `IndexerStatus.AVAILABLE`, `IndexerProvisioningState.READY`, and `IndexerRuntimeState.ACTIVE`. Otherwise it closes the local runtime indexer. If the metadata indexer is marked `MutationState.DELETING`, runtime also invokes the configured resource cleaner while the metadata record still contains the concrete queue/index names needed for cleanup.
+
+Indexer-scoped queue reset is an orchestration workflow, not an `Indexer` runtime method. Reset is a troubleshooting mechanism whose initial semantics are that future writes move to a clean queue, not that every old in-flight item is synchronously proven dead. For Kafka, prefer advancing a queue generation in metadata and publishing through a new generated topic name over deleting and recreating the same topic name in place. Runtime nodes learn the new queue name through metadata-change fan-out and reconcile onto the new consumer. Old topics can be deleted asynchronously by resource cleanup, and missing old topics remain expected idempotent cleanup misses. Strict old-consumer fencing or distributed close acknowledgement can be added later if reset must provide stronger "old items cannot be processed" guarantees.
 
 ## Preload Flow
 

@@ -81,7 +81,7 @@ class IndexerQueueFlowTest {
 	}
 
 	@Test
-	void completeActionItemCompletesStreamThroughQueueConsumer(Vertx vertx, VertxTestContext testContext) {
+	void completeActionItemFailsUntilCompletionFlowIsImplemented(Vertx vertx, VertxTestContext testContext) {
 		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
 		IndexerModel model = IndexerModel.builder()
 			.withTargetName("customers")
@@ -95,14 +95,18 @@ class IndexerQueueFlowTest {
 			model,
 			queue,
 			new InMemoryIndexerDocumentStore(),
-			new IndexerOptions(),
-			event -> {
-				if (event.getType() == IndexerEventType.ACTION_STREAM_COMPLETED) {
-					testContext.verify(() -> {
-						assertEquals(item.toJson(), event.getItem().toJson());
-						testContext.completeNow();
-					});
-				}
+				new IndexerOptions(),
+				event -> {
+					if (event.getType() == IndexerEventType.ACTION_ITEM_FAILED) {
+						testContext.verify(() -> {
+							assertEquals(item.toJson(), event.getItem().toJson());
+							assertEquals(
+								"Complete index action flow is not implemented",
+								event.getError().getMessage()
+							);
+							testContext.completeNow();
+						});
+					}
 
 				return Future.succeededFuture();
 			}
