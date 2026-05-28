@@ -9,7 +9,9 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import com.inqwise.indexer.IndexResourceOwnership;
 import com.inqwise.indexer.IndexerRuntimeState;
+import com.inqwise.indexer.IndexerRole;
 import com.inqwise.indexer.IndexerType;
 
 import io.vertx.core.Future;
@@ -227,7 +229,6 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 			require(indexer.targetId(), "targetId");
 			require(indexer.targetName(), "targetName");
 			require(indexer.indexName(), "indexName");
-			requireUniqueIndexer(indexer.indexName());
 
 			Integer id = indexerIdSequence.incrementAndGet();
 			Instant now = Instant.now();
@@ -239,6 +240,8 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 				indexer.indexName(),
 				indexer.queueName(),
 				defaultValue(indexer.type(), IndexerType.INDEX),
+				defaultValue(indexer.role(), IndexerRole.LIVE_WRITER),
+				defaultValue(indexer.indexOwnership(), IndexResourceOwnership.OWNER),
 				require(indexer.status(), "status"),
 				require(indexer.provisioningState(), "provisioningState"),
 				require(indexer.runtimeState(), "runtimeState"),
@@ -656,6 +659,8 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 			existing.indexName(),
 			queueName,
 			existing.type(),
+			existing.role(),
+			existing.indexOwnership(),
 			status,
 			provisioningState,
 			runtimeState,
@@ -759,15 +764,6 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 
 		if (exists) {
 			throw new IllegalStateException("Target already exists: " + targetName);
-		}
-	}
-
-	private void requireUniqueIndexer(String indexName) {
-		boolean exists = indexersById.values().stream()
-			.anyMatch(indexer -> indexer.indexName().equals(indexName));
-
-		if (exists) {
-			throw new IllegalStateException("Indexer already exists for index: " + indexName);
 		}
 	}
 

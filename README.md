@@ -4,22 +4,26 @@ Vert.x 5.x starter library inspired by `vertx-elastic`, with a modular layout:
 
 - `inqwise-common`: shared data objects and indexing request models.
 - `inqwise-indexer`: indexing service contracts and default in-memory implementation.
+- `inqwise-indexer-load`: load/reload orchestration helpers and load-specific metadata around the core indexer primitives.
 - `inqwise-client`: client-side wrappers for the indexer service.
-- `inqwise`: top-level facade for index actions and preload orchestration.
+- `inqwise`: top-level facade for index actions and load orchestration.
 
 ## Indexer Behavior
 
 `inqwise-indexer` provides a controlled transport pipeline for gently moving structured actions into a targeted document store:
 
 - `Indexer`: front object for one internal indexer. It owns producer-side submission into the indexer queue, validates concrete action identity, delegates action-specific document writes to `IndexerAction`, and delegates consumer lifecycle to an `IndexerProcessor` when one is provided.
+- `IndexerRole`: declares the indexer responsibility. `LIVE_WRITER` handles ongoing action streams. `LOAD_WRITER` handles finite historical loads.
+- `IndexResourceOwnership`: declares whether an indexer owns the physical document index resource. Cleanup deletes a document index only for an `OWNER`; `ATTACHED` writers may share the same `indexName` without owning deletion.
 - `IndexerProcessor`: consumer-side runtime abstraction. `VerticleIndexerProcessor` deploys an `IndexerProcessorVerticle` and hides the Vert.x deployment id.
 - `IndexerProcessorVerticle`: owns queue consumption for one indexer, including pause, process, commit, and resume. It receives only an `ActionItemProcessHandler`, not the whole `Indexer`.
 - `IndexerQueueClient`: buffer client abstraction for publisher and consumer handles. Production implementations can use Kafka or another durable transport. `InMemoryIndexerQueue` is a simple local/test implementation.
 - `IndexerQueueResourceManager`: admin-side abstraction for ensuring and deleting queue resources. Queue provisioning and deletion are not part of the shared runtime queue client surface.
 - `IndexerQueueConsumer`: consumer side of the queue. It owns bulk/portion delivery policy, exposes `pause`, `resume`, `commit`, and `close`, and calls the configured item handler.
-- `IndexerActionItem`: abstract action payload. `PutDocumentActionItem` writes a document to a concrete `indexName`; `CompleteIndexActionItem` marks the action stream as complete.
+- `IndexerActionItem`: abstract action payload. `PutDocumentActionItem` writes a document to a concrete `indexName`; `CompleteIndexActionItem` is an internal marker for historical load completion; `CatchUpBarrierActionItem` is an internal marker proving a live writer consumed earlier queued catch-up actions.
 - `IndexerDocumentStore`: target document-store abstraction. The default document store is in-memory.
 - `DocumentStoreMetadataRepository`: id-first metadata abstraction for targets, indexers, publications, manifests, and mutation state. The default repository is in-memory.
+- `CreateIndexerCommand`: generic command for inserting durable indexer metadata with role and index ownership. Load-specific orchestration composes this primitive rather than introducing a separate load-only create command.
 
 ### Document Store Publishing Model
 
@@ -36,6 +40,7 @@ Document-store publishing separates public target routing from physical index ex
 - the indexer id or uid identifies one durable physical index version.
 - `PUBLISHED` means queryable; it does not mean immutable.
 - publication state and mutation state are separate, so a valid physical index can be `PUBLISHED` and `WRITABLE`.
+- multiple indexers may share one physical `indexName` when their roles and ownership make that relationship explicit, for example a `LOAD_WRITER` owner plus an attached `LIVE_WRITER`.
 
 Repository access for document-store metadata is id-first. Identity lookup uses `id` or `uid`, and relationship lookup uses foreign ids such as `targetDefinitionId`, concrete `targetId`, and `indexerId`. Names remain stored for validation, display, and physical execution, but they are not the default repository access path.
 
@@ -66,16 +71,29 @@ The current fail-closed guards are:
 - logical actions must carry `targetId` so writable indexers can be resolved;
 - concrete actions with `indexerId` and `indexName` must match the resolved metadata indexer.
 
+### Load And Reload Workflow
+
+Durable load/reload orchestration is split between the core `indexer` module and the `indexer-load` module. Core owns indexer roles, resource ownership, runtime marker processing hooks, and generic indexer commands. `indexer-load` owns load workflow metadata, external loader contracts, and marker handlers.
+
+- `LOAD_WRITER`: finite historical load writer for a target and physical `indexName`.
+- `LIVE_WRITER`: ongoing writer. During reload, a new live writer may be linked to the load workflow and write to the same `indexName` as the load writer.
+- `IndexerLoadRecord`: load-plugin metadata keyed by the load writer id. It tracks load state, optional linked live writer id, timestamp replay window, review requirement, barrier progress, and failure details.
+- `LiveWriterPolicy`: live writer creation is explicit. A load may create no live writer, create one immediately, or create one lazily on the first live action when the policy allows it.
+
+`CompleteIndexActionItem` and `CatchUpBarrierActionItem` are internal actions. External loaders should use loader-facing helpers such as `LoadWriter.submit(...)` and `LoadWriter.complete(...)` rather than constructing marker items directly. `QueueLoadWriter.complete(...)` publishes the internal completion marker to the load writer queue.
+
+Historical-only loads publish the `LOAD_WRITER` automatically after successful completion unless review is required. Loads with live support publish the linked `LIVE_WRITER` after historical completion, catch-up barrier processing, and optional review. By default, publishing a replacement live writer should clean up the old live writer and the load writer; document-index deletion follows `IndexResourceOwnership`, not name scanning.
+
+Timestamp-based live catch-up uses the configured replay window to decide which live actions are copied to the candidate writer. Duplicate/retry safety is assumed only inside the same partition/key ordering scope.
+
 ### Lifecycle
 
 - `activate()`: starts the root indexer once. It activates the queue consumer/listener, resumes consumption, and emits `INDEXER_STARTED`. Repeated calls are idempotent.
-- `unregister()`: closes the active consumer/listener. It may inspect `nextIndexer`, but an active consumer on `nextIndexer` is unexpected because chained indexers are not roots by definition.
+- `unregister()`: closes the active consumer/listener.
 - `openProducer()` / `closeProducer()`: open or close the producer-side queue publisher for this indexer.
 - `openConsumer()` / `closeConsumer()`: open or close the consumer-side processor for this indexer.
 - `close()`: closes local producer and consumer handles. It does not delete queue resources or drop document-store indexes.
 - `delete()`: retained as a local runtime close operation that returns the model. Destructive cleanup belongs to command orchestration and resource cleaners.
-
-`nextIndexer` represents a chained/replacement indexer, not another root consumer. If `nextIndexer` is listening to a queue consumer, that should be treated as unexpected behavior and surfaced before the delete/unregister flow is finalized.
 
 ### Distributed Lifecycle Commands
 
@@ -86,11 +104,6 @@ The metadata-change notification is a fan-out wake-up for runtime nodes, not the
 Runtime reconciliation opens a consumer only when the metadata indexer is `IndexerStatus.AVAILABLE`, `IndexerProvisioningState.READY`, and `IndexerRuntimeState.ACTIVE`. Otherwise it closes the local runtime indexer. If the metadata indexer is marked `MutationState.DELETING`, runtime also invokes the configured resource cleaner while the metadata record still contains the concrete queue/index names needed for cleanup.
 
 Indexer-scoped queue reset is an orchestration workflow, not an `Indexer` runtime method. Reset is a troubleshooting mechanism whose initial semantics are that future writes move to a clean queue, not that every old in-flight item is synchronously proven dead. For Kafka, prefer advancing a queue generation in metadata and publishing through a new generated topic name over deleting and recreating the same topic name in place. Runtime nodes learn the new queue name through metadata-change fan-out and reconcile onto the new consumer. Old topics can be deleted asynchronously by resource cleanup, and missing old topics remain expected idempotent cleanup misses. Strict old-consumer fencing or distributed close acknowledgement can be added later if reset must provide stronger "old items cannot be processed" guarantees.
-
-## Preload Flow
-
-Creating an indexer with `IndexerType.PRELOAD` returns an `IndexerCreateResult` with `preloadAddress`.
-Send a `JsonArray` of `IndexerActionItem.toJson()` payloads to that address. Add the `PreloadIndexer.LAST_HEADER` header to the final message to complete preload and promote the replacement indexer.
 
 ## Build
 

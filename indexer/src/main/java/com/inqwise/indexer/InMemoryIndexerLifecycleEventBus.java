@@ -38,4 +38,8 @@ public class InMemoryIndexerLifecycleEventBus implements IndexerLifecycleEventBu
 		replay.forEach(handler::handle);
 		return Future.succeededFuture();
 	}
+
+	public synchronized List<IndexerMetadataChanged> events() {
+		return List.copyOf(events);
+	}
 }

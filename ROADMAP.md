@@ -4,7 +4,7 @@
 
 - Add public API error mapping so internal ids, index names, queue names, and storage details are not exposed directly to external callers.
 - Add authorization, ownership checks, and rate limits before exposing auto-provision-on-write to public API traffic.
-- Design the concrete queue/resource provisioning contract for indexer creation. In particular, decide whether `queueName` is always derived from `indexName`, stored explicitly on `IndexerModel`, or versioned for replacement/preload flows.
+- Design the concrete queue/resource provisioning contract for indexer creation. In particular, decide whether `queueName` is always derived from `indexName`, stored explicitly on `IndexerModel`, or versioned for replacement/load flows.
 - Add durable command state storage for `SubmitIndexActionsCommand` when the command service moves beyond the in-memory implementation. The intended states are received, ensuring indexer, publish-ready, publishing, published, retryable failure, and final failure.
 - Define command retry policy for the planned queue-backed command engine. Failed commands may be redelivered and processed by another consumer, so the command layer needs maximum retry count, retry/backoff timing, poison-command handling, final failure state, and operator visibility. Queue reset retry behavior should follow this generic command retry policy rather than embedding reset-specific retry loops.
 - Add a separate `CommandStateRepository` for queue-backed command execution state. It should track command payload, status, attempts, maximum attempts, worker lease, retry timing, last error, timestamps, and optimistic version, and stay separate from `DocumentStoreMetadataRepository`.
@@ -14,7 +14,7 @@
 - Add an explicit retry/recovery command for concrete targets whose first writable indexer provisioning failed.
 - Add a target creation command for creating public target definitions and, when requested, initial concrete targets through the generic `CommandService` layer instead of direct repository calls.
 - Add an indexer creation/provisioning command that resolves static definitions, ensures document index and queue resources, inserts `IndexerRecord` and `ManifestRecord`, and marks the concrete target ready after resources are usable.
-- Implement the `CompleteIndexActionItem` workflow. The flow must be command-orchestrated and target-aware, define exactly which indexer states it changes, and must not silently mark action streams complete until the durable completion semantics are implemented.
+- Finish publication orchestration for load/reload workflows. The accepted direction is `LOAD_WRITER` plus optional linked `LIVE_WRITER`, internal completion/barrier markers, and load metadata keyed by load writer id.
 - Finish the indexer delete workflow after cleanup ownership is finalized. The current command marks the metadata indexer `DELETING` and runtime `NON_ACTIVE` so runtime nodes can clean resources from durable metadata; final repository removal or tombstone handling remains deferred.
 - Consider wrapping external queue/topic and document-index provisioning calls with Vert.x Circuit Breaker. Do not encode circuit-breaker behavior in the metadata model.
 
@@ -27,7 +27,8 @@
 - Add repository-backed mutation tracking only for the blend window where historical reload data is mixed with live stream mutations.
 - Decide the query-side contract for resolving multiple published indexers by `targetId`, including ordering and conflict behavior when a target has more than one published physical index.
 - Enforce the target publication invariant atomically: at most one indexer may be `PUBLISHED` for a target. Publishing a replacement indexer must not allow either two published indexers under the same target or a transient no-published-indexer state when a previous published indexer exists.
-- Define `ReloadIndexer` blend mode for concurrent historical snapshot load plus live stream. This includes stale-write protection, a hot-path mutation-state store or document-store conditional writes, and indexer-scoped mutation-state cleanup after the blend window closes.
+- Add full load plugin orchestration around external `LoadProvider` implementations, including create/publish/delete composition, review approval, auto-publish for historical-only loads, linked live-writer creation policies, and cooperative provider stop on unexpected failures.
+- Define future partition/lane support for catch-up barriers. The first design assumes a single ordered catch-up queue; partitioned catch-up needs one barrier per ordered lane.
 - Deferred: back the id-first `DocumentStoreMetadataRepository` with the production storage engine and preserve the insert/update/delete model split used by the in-memory implementation.
 
 ## Runtime Resources

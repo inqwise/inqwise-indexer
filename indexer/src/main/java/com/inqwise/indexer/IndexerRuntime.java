@@ -174,6 +174,8 @@ public class IndexerRuntime {
 			.withIndexName(indexer.indexName())
 			.withQueueName(indexer.queueName())
 			.withType(indexer.type())
+			.withRole(indexer.role())
+			.withIndexOwnership(indexer.indexOwnership())
 			.withRuntimeState(indexer.runtimeState())
 			.withVersion(indexer.version())
 			.build();

@@ -2,7 +2,9 @@ package com.inqwise.indexer.metadata;
 
 import java.time.Instant;
 
+import com.inqwise.indexer.IndexResourceOwnership;
 import com.inqwise.indexer.IndexerRuntimeState;
+import com.inqwise.indexer.IndexerRole;
 import com.inqwise.indexer.IndexerType;
 
 public record IndexerRecord(
@@ -13,6 +15,8 @@ public record IndexerRecord(
 	String indexName,
 	String queueName,
 	IndexerType type,
+	IndexerRole role,
+	IndexResourceOwnership indexOwnership,
 	IndexerStatus status,
 	IndexerProvisioningState provisioningState,
 	IndexerRuntimeState runtimeState,

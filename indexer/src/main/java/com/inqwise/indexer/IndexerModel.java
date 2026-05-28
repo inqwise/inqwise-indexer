@@ -14,6 +14,8 @@ public class IndexerModel {
 	private final String indexName;
 	private final String queueName;
 	private final IndexerType type;
+	private final IndexerRole role;
+	private final IndexResourceOwnership indexOwnership;
 	private final IndexerRuntimeState runtimeState;
 	private final long version;
 
@@ -25,6 +27,10 @@ public class IndexerModel {
 		this.indexName = builder.indexName;
 		this.queueName = builder.queueName;
 		this.type = builder.type == null ? IndexerType.INDEX : builder.type;
+		this.role = builder.role == null ? IndexerRole.LIVE_WRITER : builder.role;
+		this.indexOwnership = builder.indexOwnership == null
+			? IndexResourceOwnership.OWNER
+			: builder.indexOwnership;
 		this.runtimeState = builder.runtimeState == null ? IndexerRuntimeState.ACTIVE : builder.runtimeState;
 		this.version = builder.version;
 	}
@@ -37,6 +43,10 @@ public class IndexerModel {
 		this.indexName = json.getString("index_name");
 		this.queueName = json.getString("queue_name");
 		this.type = IndexerType.valueOf(json.getString("type", IndexerType.INDEX.name()));
+		this.role = IndexerRole.valueOf(json.getString("role", IndexerRole.LIVE_WRITER.name()));
+		this.indexOwnership = IndexResourceOwnership.valueOf(
+			json.getString("index_ownership", IndexResourceOwnership.OWNER.name())
+		);
 		this.runtimeState = IndexerRuntimeState.valueOf(
 			json.getString("runtime_state", IndexerRuntimeState.ACTIVE.name())
 		);
@@ -52,6 +62,8 @@ public class IndexerModel {
 			.put("index_name", indexName)
 			.put("queue_name", queueName)
 			.put("type", type.name())
+			.put("role", role.name())
+			.put("index_ownership", indexOwnership.name())
 			.put("runtime_state", runtimeState.name())
 			.put("version", version);
 	}
@@ -84,6 +96,14 @@ public class IndexerModel {
 		return type;
 	}
 
+	public IndexerRole getRole() {
+		return role;
+	}
+
+	public IndexResourceOwnership getIndexOwnership() {
+		return indexOwnership;
+	}
+
 	public IndexerRuntimeState getRuntimeState() {
 		return runtimeState;
 	}
@@ -104,6 +124,8 @@ public class IndexerModel {
 		private String indexName;
 		private String queueName;
 		private IndexerType type;
+		private IndexerRole role;
+		private IndexResourceOwnership indexOwnership;
 		private IndexerRuntimeState runtimeState;
 		private long version;
 
@@ -142,6 +164,16 @@ public class IndexerModel {
 
 		public Builder withType(IndexerType type) {
 			this.type = type;
+			return this;
+		}
+
+		public Builder withRole(IndexerRole role) {
+			this.role = role;
+			return this;
+		}
+
+		public Builder withIndexOwnership(IndexResourceOwnership indexOwnership) {
+			this.indexOwnership = indexOwnership;
 			return this;
 		}
 

@@ -2,6 +2,7 @@ package com.inqwise.indexer.commands;
 
 import java.util.Objects;
 
+import com.inqwise.indexer.CatchUpBarrierActionItem;
 import com.inqwise.indexer.CompleteIndexActionItem;
 import com.inqwise.indexer.IndexerActionItem;
 import com.inqwise.indexer.PutDocumentActionItem;
@@ -31,6 +32,10 @@ final class ActionDestination {
 			case COMPLETE -> {
 				CompleteIndexActionItem complete = (CompleteIndexActionItem) action;
 				yield new ActionDestination(complete.getTargetId(), complete.getIndexerId(), null);
+			}
+			case CATCH_UP_BARRIER -> {
+				CatchUpBarrierActionItem barrier = (CatchUpBarrierActionItem) action;
+				yield new ActionDestination(barrier.getTargetId(), barrier.getIndexerId(), null);
 			}
 		};
 	}

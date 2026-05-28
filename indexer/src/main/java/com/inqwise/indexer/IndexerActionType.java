@@ -3,5 +3,6 @@ package com.inqwise.indexer;
 public enum IndexerActionType {
 	PUT_DOCUMENT,
 	REMOVE_DOCUMENT,
-	COMPLETE
+	COMPLETE,
+	CATCH_UP_BARRIER
 }

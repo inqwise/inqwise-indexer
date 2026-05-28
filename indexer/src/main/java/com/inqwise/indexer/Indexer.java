@@ -13,11 +13,11 @@ import io.vertx.core.json.JsonObject;
 public class Indexer {
 	protected final Vertx vertx;
 	protected final IndexerModel model;
-	protected final Indexer nextIndexer;
 	protected final IndexerDocumentStore documentStore;
 	protected final IndexerOptions options;
 	protected final IndexerQueueClient queue;
 	protected final IndexerEventPublisher eventPublisher;
+	protected final IndexerMarkerHandler markerHandler;
 	protected IndexerProcessor processor;
 
 	private MessageConsumer<JsonObject> queueConsumer;
@@ -26,17 +26,25 @@ public class Indexer {
 	private Future<Void> activation;
 
 	public Indexer(Vertx vertx, IndexerModel model, IndexerDocumentStore documentStore) {
-		this(vertx, model, null, documentStore, new IndexerOptions());
+		this(vertx, model, documentStore, new IndexerOptions());
 	}
 
 	public Indexer(
 		Vertx vertx,
 		IndexerModel model,
-		Indexer nextIndexer,
 		IndexerDocumentStore documentStore,
 		IndexerOptions options
 	) {
-		this(vertx, model, nextIndexer, documentStore, options, null, IndexerEventPublisher.NOOP);
+		this(
+			vertx,
+			model,
+			documentStore,
+			options,
+			null,
+			IndexerEventPublisher.NOOP,
+			null,
+			IndexerMarkerHandler.FAILING
+		);
 	}
 
 	public Indexer(
@@ -47,31 +55,16 @@ public class Indexer {
 		IndexerOptions options,
 		IndexerEventPublisher eventPublisher
 	) {
-		this(vertx, model, null, documentStore, options, queue, eventPublisher);
-	}
-
-	public Indexer(
-		Vertx vertx,
-		IndexerModel model,
-		Indexer nextIndexer,
-		IndexerQueueClient queue,
-		IndexerDocumentStore documentStore,
-		IndexerOptions options,
-		IndexerEventPublisher eventPublisher
-	) {
-		this(vertx, model, nextIndexer, documentStore, options, queue, eventPublisher);
-	}
-
-	private Indexer(
-		Vertx vertx,
-		IndexerModel model,
-		Indexer nextIndexer,
-		IndexerDocumentStore documentStore,
-		IndexerOptions options,
-		IndexerQueueClient queue,
-		IndexerEventPublisher eventPublisher
-	) {
-		this(vertx, model, nextIndexer, documentStore, options, queue, eventPublisher, null);
+		this(
+			vertx,
+			model,
+			documentStore,
+			options,
+			queue,
+			eventPublisher,
+			null,
+			IndexerMarkerHandler.FAILING
+		);
 	}
 
 	public Indexer(
@@ -83,7 +76,16 @@ public class Indexer {
 		IndexerEventPublisher eventPublisher,
 		IndexerProcessor processor
 	) {
-		this(vertx, model, null, documentStore, options, queue, eventPublisher, processor);
+		this(
+			vertx,
+			model,
+			documentStore,
+			options,
+			queue,
+			eventPublisher,
+			processor,
+			IndexerMarkerHandler.FAILING
+		);
 	}
 
 	public Indexer(
@@ -98,36 +100,57 @@ public class Indexer {
 		this(
 			vertx,
 			model,
-			null,
 			documentStore,
 			options,
 			queue,
 			eventPublisher,
-			null
+			null,
+			IndexerMarkerHandler.FAILING
 		);
 
 		this.processor = Objects.requireNonNull(processorFactory, "processorFactory")
 			.create(this.model, this.options, this::processActionItem, this.eventPublisher);
 	}
 
+	public Indexer(
+		Vertx vertx,
+		IndexerModel model,
+		IndexerQueueClient queue,
+		IndexerDocumentStore documentStore,
+		IndexerOptions options,
+		IndexerEventPublisher eventPublisher,
+		IndexerMarkerHandler markerHandler
+	) {
+		this(
+			vertx,
+			model,
+			documentStore,
+			options,
+			queue,
+			eventPublisher,
+			null,
+			markerHandler
+		);
+	}
+
 	private Indexer(
 		Vertx vertx,
 		IndexerModel model,
-		Indexer nextIndexer,
 		IndexerDocumentStore documentStore,
 		IndexerOptions options,
 		IndexerQueueClient queue,
 		IndexerEventPublisher eventPublisher,
-		IndexerProcessor processor
+		IndexerProcessor processor,
+		IndexerMarkerHandler markerHandler
 	) {
 		this.vertx = Objects.requireNonNull(vertx, "vertx");
 		this.model = Objects.requireNonNull(model, "model");
-		this.nextIndexer = nextIndexer;
 		this.documentStore = Objects.requireNonNull(documentStore, "documentStore");
 		this.options = options == null ? new IndexerOptions() : options;
 		this.queue = queue;
 		this.eventPublisher = eventPublisher == null ? IndexerEventPublisher.NOOP : eventPublisher;
 		this.processor = processor;
+		this.markerHandler = markerHandler == null ? IndexerMarkerHandler.FAILING : markerHandler;
 	}
 
 	public synchronized Future<Void> activate() {
@@ -139,9 +162,7 @@ public class Indexer {
 			return activation;
 		}
 
-		Future<Void> nextActivation = nextIndexer == null ? Future.succeededFuture() : nextIndexer.activate();
-		activation = nextActivation
-			.compose(ignored -> openConsumer())
+		activation = openConsumer()
 			.compose(ignored -> emitEvent(IndexerEventType.INDEXER_STARTED, null, null))
 			.onFailure(ignored -> clearActivation());
 
@@ -217,13 +238,17 @@ public class Indexer {
 	}
 
 	protected Future<Void> processActionItem(IndexerActionItem item) {
-		if (item.getActionType() == IndexerActionType.COMPLETE) {
-			return completeIndexActionNotImplemented();
-		}
-
 		String validationError = validateActionIdentity(item);
 		if (validationError != null) {
 			return Future.failedFuture(validationError);
+		}
+
+		if (item.getActionType() == IndexerActionType.COMPLETE) {
+			return processCompleteIndexAction((CompleteIndexActionItem) item);
+		}
+
+		if (item.getActionType() == IndexerActionType.CATCH_UP_BARRIER) {
+			return processCatchUpBarrierAction((CatchUpBarrierActionItem) item);
 		}
 
 		return Actions.getProvider(item.getActionType())
@@ -250,14 +275,26 @@ public class Indexer {
 				RemoveDocumentActionItem remove = (RemoveDocumentActionItem) item;
 				yield documentStore.remove(getRemoveIndexName(remove), remove.getUid());
 			}
-			case COMPLETE -> completeIndexActionNotImplemented();
+			case COMPLETE -> processCompleteIndexAction((CompleteIndexActionItem) item);
+			case CATCH_UP_BARRIER -> processCatchUpBarrierAction((CatchUpBarrierActionItem) item);
 		};
 	}
 
-	private Future<Void> completeIndexActionNotImplemented() {
-		return Future.failedFuture(new UnsupportedOperationException(
-			"Complete index action flow is not implemented"
-		));
+	private Future<Void> processCompleteIndexAction(CompleteIndexActionItem item) {
+		if (model.getRole() != IndexerRole.LOAD_WRITER) {
+			return Future.failedFuture("Complete index action requires LOAD_WRITER role");
+		}
+
+		return markerHandler.complete(model, item)
+			.compose(ignored -> emitEvent(IndexerEventType.ACTION_STREAM_COMPLETED, item, null));
+	}
+
+	private Future<Void> processCatchUpBarrierAction(CatchUpBarrierActionItem item) {
+		if (model.getRole() != IndexerRole.LIVE_WRITER) {
+			return Future.failedFuture("Catch-up barrier action requires LIVE_WRITER role");
+		}
+
+		return markerHandler.catchUpBarrier(model, item);
 	}
 
 	private String validateActionIdentity(IndexerActionItem item) {
@@ -265,6 +302,7 @@ public class Indexer {
 			case PUT_DOCUMENT -> validatePutIdentity((PutDocumentActionItem) item);
 			case REMOVE_DOCUMENT -> validateRemoveIdentity((RemoveDocumentActionItem) item);
 			case COMPLETE -> validateCompleteIdentity((CompleteIndexActionItem) item);
+			case CATCH_UP_BARRIER -> validateCatchUpBarrierIdentity((CatchUpBarrierActionItem) item);
 		};
 	}
 
@@ -297,6 +335,39 @@ public class Indexer {
 	}
 
 	private String validateCompleteIdentity(CompleteIndexActionItem item) {
+		if (item.getTargetId() == null) {
+			return "Complete index action target id is required";
+		}
+
+		if (item.getIndexerId() == null) {
+			return "Complete index action indexer id is required";
+		}
+
+		String error = validateTargetId(item.getTargetId());
+		if (error != null) {
+			return error;
+		}
+
+		return validateIndexerId(item.getIndexerId());
+	}
+
+	private String validateCatchUpBarrierIdentity(CatchUpBarrierActionItem item) {
+		if (item.getTargetId() == null) {
+			return "Catch-up barrier target id is required";
+		}
+
+		if (item.getIndexerId() == null) {
+			return "Catch-up barrier indexer id is required";
+		}
+
+		if (item.getBarrierId() == null) {
+			return "Catch-up barrier id is required";
+		}
+
+		if (item.getBarrierTimestamp() == null) {
+			return "Catch-up barrier timestamp is required";
+		}
+
 		String error = validateTargetId(item.getTargetId());
 		if (error != null) {
 			return error;
@@ -399,8 +470,7 @@ public class Indexer {
 	public IndexerSnapshot status() {
 		return new IndexerSnapshot(
 			model,
-			getQueueName(),
-			nextIndexer == null ? null : nextIndexer.status()
+			getQueueName()
 		);
 	}
 
@@ -410,13 +480,7 @@ public class Indexer {
 	}
 
 	public synchronized Future<Void> unregister() {
-		Future<Void> close = closeConsumer();
-
-		if (nextIndexer != null) {
-			close = close.compose(ignored -> nextIndexer.unregister());
-		}
-
-		return close;
+		return closeConsumer();
 	}
 
 	protected synchronized Future<Void> unregisterCurrent() {

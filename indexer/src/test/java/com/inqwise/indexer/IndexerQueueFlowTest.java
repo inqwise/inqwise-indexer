@@ -81,14 +81,19 @@ class IndexerQueueFlowTest {
 	}
 
 	@Test
-	void completeActionItemFailsUntilCompletionFlowIsImplemented(Vertx vertx, VertxTestContext testContext) {
+	void completeActionItemFailsForLiveWriter(Vertx vertx, VertxTestContext testContext) {
 		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
 		IndexerModel model = IndexerModel.builder()
+			.withId(20)
+			.withTargetId(10)
 			.withTargetName("customers")
 			.withIndexName("customers_1")
 			.withQueueName("customers_1")
 			.build();
-		CompleteIndexActionItem item = new CompleteIndexActionItem();
+		CompleteIndexActionItem item = CompleteIndexActionItem.builder()
+			.withTargetId(10)
+			.withIndexerId(20)
+			.build();
 
 		Indexer indexer = new Indexer(
 			vertx,
@@ -101,7 +106,7 @@ class IndexerQueueFlowTest {
 						testContext.verify(() -> {
 							assertEquals(item.toJson(), event.getItem().toJson());
 							assertEquals(
-								"Complete index action flow is not implemented",
+								"Complete index action requires LOAD_WRITER role",
 								event.getError().getMessage()
 							);
 							testContext.completeNow();
@@ -194,34 +199,18 @@ class IndexerQueueFlowTest {
 	}
 
 	@Test
-	void deleteClosesCurrentRuntimeOnly(Vertx vertx, VertxTestContext testContext) {
+	void deleteClosesRuntimeOnly(Vertx vertx, VertxTestContext testContext) {
 		InMemoryIndexerDocumentStore store = new InMemoryIndexerDocumentStore();
 		InMemoryIndexerQueue currentQueue = new InMemoryIndexerQueue();
-		InMemoryIndexerQueue nextQueue = new InMemoryIndexerQueue();
 		IndexerModel currentModel = IndexerModel.builder()
 			.withId(1)
 			.withTargetId(10)
 			.withTargetName("customers")
 			.withIndexName("customers_1")
 			.build();
-		IndexerModel nextModel = IndexerModel.builder()
-			.withId(2)
-			.withTargetId(10)
-			.withTargetName("customers")
-			.withIndexName("customers_2")
-			.build();
-		Indexer nextIndexer = new Indexer(
-			vertx,
-			nextModel,
-			nextQueue,
-			store,
-			new IndexerOptions(),
-			IndexerEventPublisher.NOOP
-		);
 		Indexer indexer = new Indexer(
 			vertx,
 			currentModel,
-			nextIndexer,
 			currentQueue,
 			store,
 			new IndexerOptions(),
@@ -229,15 +218,13 @@ class IndexerQueueFlowTest {
 		);
 
 		store.put("customers_1", "42", new JsonObject().put("name", "Ada"))
-			.compose(ignored -> store.put("customers_2", "43", new JsonObject().put("name", "Grace")))
 			.compose(ignored -> indexer.delete())
 			.compose(ignored -> {
 				assertEquals("Ada", store.get("customers_1", "42").getString("name"));
-				assertEquals("Grace", store.get("customers_2", "43").getString("name"));
 				return Future.succeededFuture();
 			})
 			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
-				assertEquals(nextIndexer.status().toJson(), indexer.status().toJson().getJsonObject("next"));
+				assertEquals("customers_1", indexer.status().toJson().getString("index_name"));
 				testContext.completeNow();
 			})));
 	}

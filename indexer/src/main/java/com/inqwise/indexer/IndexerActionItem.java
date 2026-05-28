@@ -16,6 +16,7 @@ public interface IndexerActionItem {
 			case PUT_DOCUMENT -> new PutDocumentActionItem(json);
 			case REMOVE_DOCUMENT -> new RemoveDocumentActionItem(json);
 			case COMPLETE -> new CompleteIndexActionItem(json);
+			case CATCH_UP_BARRIER -> new CatchUpBarrierActionItem(json);
 		};
 	}
 }

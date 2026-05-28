@@ -19,6 +19,7 @@
 	<modules>
 		<module>indexer-common</module>
 		<module>indexer</module>
+		<module>indexer-load</module>
 	</modules>
 
 	<dependencyManagement>

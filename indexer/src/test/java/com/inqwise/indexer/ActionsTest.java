@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import java.time.Instant;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -34,6 +36,27 @@ class ActionsTest {
 		assertEquals(IndexerActionType.COMPLETE, parsed.getActionType());
 		assertEquals(10, ((CompleteIndexActionItem) parsed).getTargetId());
 		assertEquals(20, ((CompleteIndexActionItem) parsed).getIndexerId());
+		assertEquals(item.toJson(), parsed.toJson());
+	}
+
+	@Test
+	void catchUpBarrierActionRoundTripsThroughJson() {
+		Instant barrierTimestamp = Instant.parse("2026-05-28T10:30:00Z");
+		CatchUpBarrierActionItem item = CatchUpBarrierActionItem.builder()
+			.withTargetId(10)
+			.withIndexerId(20)
+			.withBarrierId("barrier-1")
+			.withBarrierTimestamp(barrierTimestamp)
+			.build();
+
+		IndexerActionItem parsed = IndexerActionItem.fromJson(item.toJson());
+
+		assertInstanceOf(CatchUpBarrierActionItem.class, parsed);
+		assertEquals(IndexerActionType.CATCH_UP_BARRIER, parsed.getActionType());
+		assertEquals(10, ((CatchUpBarrierActionItem) parsed).getTargetId());
+		assertEquals(20, ((CatchUpBarrierActionItem) parsed).getIndexerId());
+		assertEquals("barrier-1", ((CatchUpBarrierActionItem) parsed).getBarrierId());
+		assertEquals(barrierTimestamp, ((CatchUpBarrierActionItem) parsed).getBarrierTimestamp());
 		assertEquals(item.toJson(), parsed.toJson());
 	}
 

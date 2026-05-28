@@ -7,9 +7,12 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
+import com.inqwise.indexer.CatchUpBarrierActionItem;
 import com.inqwise.indexer.CompleteIndexActionItem;
+import com.inqwise.indexer.IndexResourceOwnership;
 import com.inqwise.indexer.IndexerActionItem;
 import com.inqwise.indexer.IndexerRuntimeState;
+import com.inqwise.indexer.IndexerRole;
 import com.inqwise.indexer.IndexerType;
 import com.inqwise.indexer.PutDocumentActionItem;
 import com.inqwise.indexer.RemoveDocumentActionItem;
@@ -231,6 +234,8 @@ class MetadataSubmitIndexActionRouter {
 				indexName,
 				queueName,
 				IndexerType.INDEX,
+				IndexerRole.LIVE_WRITER,
+				IndexResourceOwnership.OWNER,
 				IndexerStatus.AVAILABLE,
 				IndexerProvisioningState.READY,
 				IndexerRuntimeState.ACTIVE,
@@ -334,6 +339,15 @@ class MetadataSubmitIndexActionRouter {
 				.withTargetId(indexer.targetId())
 				.withIndexerId(indexer.id())
 				.build();
+			case CATCH_UP_BARRIER -> {
+				CatchUpBarrierActionItem barrier = (CatchUpBarrierActionItem) action;
+				yield CatchUpBarrierActionItem.builder()
+					.withTargetId(indexer.targetId())
+					.withIndexerId(indexer.id())
+					.withBarrierId(barrier.getBarrierId())
+					.withBarrierTimestamp(barrier.getBarrierTimestamp())
+					.build();
+			}
 		};
 	}
 
