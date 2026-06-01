@@ -1,12 +1,16 @@
-package com.inqwise.indexer.metadata;
+package com.inqwise.indexer.providers;
 
 import java.util.List;
 
-import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.IndexerRole;
+import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.IndexerType;
+import com.inqwise.indexer.metadata.IndexerProvisioningState;
+import com.inqwise.indexer.metadata.IndexerStatus;
+import com.inqwise.indexer.metadata.MutationState;
+import com.inqwise.indexer.metadata.PublicationState;
 
-public record IndexerMetadataQuery(
+public record IndexerProviderQuery(
 	List<Integer> ids,
 	List<Integer> targetIds,
 	List<IndexerType> types,
@@ -17,7 +21,7 @@ public record IndexerMetadataQuery(
 	List<PublicationState> publicationStates,
 	List<MutationState> mutationStates
 ) {
-	public IndexerMetadataQuery {
+	public IndexerProviderQuery {
 		ids = copy(ids);
 		targetIds = copy(targetIds);
 		types = copy(types);

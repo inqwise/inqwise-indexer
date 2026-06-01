@@ -4,13 +4,23 @@ import java.util.List;
 
 import com.inqwise.indexer.IndexerActionItem;
 
-record RoutedIndexActions(
+public record RoutedIndexActions(
 	Integer indexerId,
 	long indexerVersion,
 	String queueName,
-	List<IndexerActionItem> actions
+	List<IndexerActionItem> actions,
+	boolean metadataChanged
 ) {
-	RoutedIndexActions {
+	public RoutedIndexActions(
+		Integer indexerId,
+		long indexerVersion,
+		String queueName,
+		List<IndexerActionItem> actions
+	) {
+		this(indexerId, indexerVersion, queueName, actions, false);
+	}
+
+	public RoutedIndexActions {
 		actions = List.copyOf(actions);
 	}
 }

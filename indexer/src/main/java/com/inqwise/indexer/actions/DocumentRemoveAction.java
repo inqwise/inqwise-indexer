@@ -2,56 +2,55 @@ package com.inqwise.indexer.actions;
 
 import java.util.Optional;
 
-import com.inqwise.indexer.IndexerActionType;
 import com.inqwise.indexer.IndexerActionItem;
 import com.inqwise.indexer.IndexerActionItems;
+import com.inqwise.indexer.IndexerActionType;
 import com.inqwise.indexer.IndexerDocumentStore;
 import com.inqwise.indexer.IndexerModel;
-import com.inqwise.indexer.PutDocumentActionItem;
+import com.inqwise.indexer.RemoveDocumentActionItem;
 import com.inqwise.indexer.spi.IndexerActionProvider;
 
 import io.vertx.core.Future;
 
-public class DocumentPutAction implements IndexerAction {
+public class DocumentRemoveAction implements IndexerAction {
 	@Override
 	public Future<Void> process(IndexerModel model, IndexerDocumentStore documentStore, IndexerActionItem item) {
-		PutDocumentActionItem put = (PutDocumentActionItem) item;
-		return documentStore.put(put.getIndexName(), put.getUid(), put.getDocument());
+		RemoveDocumentActionItem remove = (RemoveDocumentActionItem) item;
+		String indexName = remove.getIndexName() == null ? model.getIndexName() : remove.getIndexName();
+		return documentStore.remove(indexName, remove.getUid());
 	}
 
 	public static class Provider implements IndexerActionProvider {
-
 		@Override
 		public IndexerAction action() {
-			return new DocumentPutAction();
+			return new DocumentRemoveAction();
 		}
 
 		@Override
 		public IndexerActionType type() {
-			return IndexerActionType.PUT_DOCUMENT;
+			return IndexerActionType.REMOVE_DOCUMENT;
 		}
 
 		@Override
 		public IndexerActionRouter router() {
 			return (context, item, mode) -> {
-				PutDocumentActionItem put = (PutDocumentActionItem) item;
-				if (!matches(context, put, mode)) {
+				RemoveDocumentActionItem remove = (RemoveDocumentActionItem) item;
+				if (!matches(context, remove, mode)) {
 					return Optional.empty();
 				}
 
-				return Optional.of(IndexerActionItems.concretePutDocument(
+				return Optional.of(IndexerActionItems.concreteRemoveDocument(
 					context.targetId(),
 					context.indexerId(),
 					context.indexName(),
-					put.getUid(),
-					put.getDocument()
+					remove.getUid()
 				));
 			};
 		}
 
 		private boolean matches(
 			IndexerActionRouteContext context,
-			PutDocumentActionItem item,
+			RemoveDocumentActionItem item,
 			IndexerActionRouteMode mode
 		) {
 			if (item.getTargetId() != null && !item.getTargetId().equals(context.targetId())) {
@@ -76,6 +75,5 @@ public class DocumentPutAction implements IndexerAction {
 
 			return false;
 		}
-
 	}
 }

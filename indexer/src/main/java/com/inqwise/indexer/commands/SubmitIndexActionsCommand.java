@@ -19,7 +19,6 @@ public class SubmitIndexActionsCommand implements Command {
 	public static final int MAX_DOCUMENT_BYTES = 1024 * 1024;
 
 	private final String commandId;
-	private final String batchId;
 	private final String targetUid;
 	private final String targetName;
 	private final Instant timestamp;
@@ -28,15 +27,14 @@ public class SubmitIndexActionsCommand implements Command {
 	public SubmitIndexActionsCommand(
 		List<IndexerActionItem> actions
 	) {
-		this(UUID.randomUUID().toString(), UUID.randomUUID().toString(), actions);
+		this(UUID.randomUUID().toString(), actions);
 	}
 
 	public SubmitIndexActionsCommand(
 		String commandId,
-		String batchId,
 		List<IndexerActionItem> actions
 	) {
-		this(commandId, batchId, null, null, null, actions);
+		this(commandId, null, null, null, actions);
 	}
 
 	public SubmitIndexActionsCommand(
@@ -45,19 +43,17 @@ public class SubmitIndexActionsCommand implements Command {
 		Instant timestamp,
 		List<IndexerActionItem> actions
 	) {
-		this(UUID.randomUUID().toString(), UUID.randomUUID().toString(), targetUid, targetName, timestamp, actions);
+		this(UUID.randomUUID().toString(), targetUid, targetName, timestamp, actions);
 	}
 
 	public SubmitIndexActionsCommand(
 		String commandId,
-		String batchId,
 		String targetUid,
 		String targetName,
 		Instant timestamp,
 		List<IndexerActionItem> actions
 	) {
 		this.commandId = Objects.requireNonNull(commandId, "commandId");
-		this.batchId = Objects.requireNonNull(batchId, "batchId");
 		this.targetUid = targetUid;
 		this.targetName = targetName;
 		this.timestamp = timestamp;
@@ -67,7 +63,6 @@ public class SubmitIndexActionsCommand implements Command {
 	public SubmitIndexActionsCommand(JsonObject json) {
 		this(
 			json.getString("command_id"),
-			json.getString("batch_id"),
 			json.getString("target_uid"),
 			json.getString("target_name"),
 			json.getString("timestamp") == null ? null : Instant.parse(json.getString("timestamp")),
@@ -85,10 +80,6 @@ public class SubmitIndexActionsCommand implements Command {
 
 	public String getCommandId() {
 		return commandId;
-	}
-
-	public String getBatchId() {
-		return batchId;
 	}
 
 	public String getTargetUid() {
@@ -111,7 +102,6 @@ public class SubmitIndexActionsCommand implements Command {
 	public JsonObject toJson() {
 		return new JsonObject()
 			.put("command_id", commandId)
-			.put("batch_id", batchId)
 			.put("target_uid", targetUid)
 			.put("target_name", targetName)
 			.put("timestamp", timestamp == null ? null : timestamp.toString())
@@ -122,11 +112,17 @@ public class SubmitIndexActionsCommand implements Command {
 
 	private List<IndexerActionItem> validateActions(List<IndexerActionItem> actions) {
 		List<IndexerActionItem> copy = List.copyOf(Objects.requireNonNull(actions, "actions"));
+		if (copy.isEmpty()) {
+			throw new IllegalArgumentException("No actions submitted");
+		}
+
 		if (copy.size() > MAX_ACTIONS) {
 			throw new IllegalArgumentException("Too many actions submitted: " + copy.size());
 		}
 
+		boolean hasTargetEnvelope = targetUid != null || targetName != null;
 		for (IndexerActionItem action : copy) {
+			validateRouteMode(action, hasTargetEnvelope);
 			if (action.getActionType() == IndexerActionType.PUT_DOCUMENT) {
 				PutDocumentActionItem put = (PutDocumentActionItem) action;
 				int documentBytes = put.getDocument().encode().getBytes(StandardCharsets.UTF_8).length;
@@ -137,5 +133,48 @@ public class SubmitIndexActionsCommand implements Command {
 		}
 
 		return copy;
+	}
+
+	private void validateRouteMode(IndexerActionItem action, boolean hasTargetEnvelope) {
+		ActionDestination destination = ActionDestination.from(action);
+
+		if (hasTargetEnvelope) {
+			if (!isDocumentMutation(action)) {
+				throw new IllegalArgumentException(
+					"Target envelope supports only document mutation actions: " + action.getActionType()
+				);
+			}
+
+			if (!destination.isEmpty()) {
+				throw new IllegalArgumentException(
+					"Target envelope actions must not include concrete destination fields"
+				);
+			}
+
+			return;
+		}
+
+		if (timestamp != null) {
+			throw new IllegalArgumentException("Timestamp is allowed only with target envelope routing");
+		}
+
+		if (destination.isEmpty()) {
+			throw new IllegalArgumentException("Concrete action destination is required");
+		}
+
+		if (destination.indexerId() == null && destination.targetId() == null) {
+			throw new IllegalArgumentException("Concrete action requires target id or indexer id");
+		}
+
+		if (!isDocumentMutation(action) && destination.indexerId() == null) {
+			throw new IllegalArgumentException(
+				"Internal action requires concrete indexer id: " + action.getActionType()
+			);
+		}
+	}
+
+	private boolean isDocumentMutation(IndexerActionItem action) {
+		return action.getActionType() == IndexerActionType.PUT_DOCUMENT
+			|| action.getActionType() == IndexerActionType.REMOVE_DOCUMENT;
 	}
 }

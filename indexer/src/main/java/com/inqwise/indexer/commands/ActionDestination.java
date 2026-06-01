@@ -8,7 +8,7 @@ import com.inqwise.indexer.IndexerActionItem;
 import com.inqwise.indexer.PutDocumentActionItem;
 import com.inqwise.indexer.RemoveDocumentActionItem;
 
-final class ActionDestination {
+public final class ActionDestination {
 	private final Integer targetId;
 	private final Integer indexerId;
 	private final String indexName;
@@ -19,7 +19,7 @@ final class ActionDestination {
 		this.indexName = indexName;
 	}
 
-	static ActionDestination from(IndexerActionItem action) {
+	public static ActionDestination from(IndexerActionItem action) {
 		return switch (action.getActionType()) {
 			case PUT_DOCUMENT -> {
 				PutDocumentActionItem put = (PutDocumentActionItem) action;
@@ -40,19 +40,19 @@ final class ActionDestination {
 		};
 	}
 
-	Integer targetId() {
+	public Integer targetId() {
 		return targetId;
 	}
 
-	Integer indexerId() {
+	public Integer indexerId() {
 		return indexerId;
 	}
 
-	String indexName() {
+	public String indexName() {
 		return indexName;
 	}
 
-	boolean isEmpty() {
+	public boolean isEmpty() {
 		return targetId == null && indexerId == null && indexName == null;
 	}
 

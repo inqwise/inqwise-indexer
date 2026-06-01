@@ -1,1 +1,2 @@
 com.inqwise.indexer.actions.DocumentPutAction$Provider
+com.inqwise.indexer.actions.DocumentRemoveAction$Provider

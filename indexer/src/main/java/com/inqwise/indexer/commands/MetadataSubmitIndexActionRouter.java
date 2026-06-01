@@ -1,10 +1,12 @@
 package com.inqwise.indexer.commands;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 import com.inqwise.indexer.CatchUpBarrierActionItem;
@@ -14,8 +16,9 @@ import com.inqwise.indexer.IndexerActionItem;
 import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.IndexerRole;
 import com.inqwise.indexer.IndexerType;
-import com.inqwise.indexer.PutDocumentActionItem;
-import com.inqwise.indexer.RemoveDocumentActionItem;
+import com.inqwise.indexer.Actions;
+import com.inqwise.indexer.actions.IndexerActionRouteContext;
+import com.inqwise.indexer.actions.IndexerActionRouteMode;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.IndexerProvisioningState;
 import com.inqwise.indexer.metadata.IndexerRecord;
@@ -48,6 +51,7 @@ class MetadataSubmitIndexActionRouter {
 			return Future.failedFuture("No actions submitted for command " + submit.getCommandId());
 		}
 
+		MetadataRoutingContext routingContext = new MetadataRoutingContext();
 		Future<Map<IndexerRecord, List<IndexerActionItem>>> actionsByIndexer =
 			Future.succeededFuture(new LinkedHashMap<>());
 
@@ -58,7 +62,7 @@ class MetadataSubmitIndexActionRouter {
 			}
 
 			actionsByIndexer = actionsByIndexer.compose(groups ->
-				resolveIndexers(submit, destination)
+				resolveIndexers(submit, destination, routingContext)
 					.compose(indexers -> {
 						for (IndexerRecord indexer : indexers) {
 							groups.computeIfAbsent(indexer, ignored -> new ArrayList<>())
@@ -74,14 +78,16 @@ class MetadataSubmitIndexActionRouter {
 				entry.getKey().id(),
 				entry.getKey().version(),
 				getQueueName(entry.getKey()),
-				entry.getValue()
+				entry.getValue(),
+				routingContext.metadataChanged(entry.getKey().id())
 			))
 			.toList());
 	}
 
 	private Future<List<IndexerRecord>> resolveIndexers(
 		SubmitIndexActionsCommand submit,
-		ActionDestination destination
+		ActionDestination destination,
+		MetadataRoutingContext routingContext
 	) {
 		if (destination.indexerId() != null) {
 			return repository.getIndexerById(destination.indexerId())
@@ -89,13 +95,19 @@ class MetadataSubmitIndexActionRouter {
 					.map(indexer -> verifyIndexer(destination, indexer)
 						.map(List::of))
 					.orElseGet(() -> Future.failedFuture(
-						"Indexer not found: " + destination.indexerId()
+						CommandFailure.stableInvalid("Indexer not found: " + destination.indexerId())
 					)));
 		}
 
 		if (destination.targetId() == null && hasPublicTarget(submit)) {
 			return resolveConcreteTarget(submit)
-				.compose(target -> resolveIndexersByTarget(submit, destination, target, true));
+				.compose(target -> resolveIndexersByTarget(
+					submit,
+					destination,
+					target,
+					true,
+					routingContext
+				));
 		}
 
 		if (destination.targetId() == null) {
@@ -108,27 +120,38 @@ class MetadataSubmitIndexActionRouter {
 			.compose(found -> found
 				.map(Future::succeededFuture)
 				.orElseGet(() -> Future.failedFuture(
-					"Target not found: " + destination.targetId()
+					CommandFailure.stableInvalid("Target not found: " + destination.targetId())
 				)))
-			.compose(target -> resolveIndexersByTarget(submit, destination, target, false));
+			.compose(target -> resolveIndexersByTarget(
+				submit,
+				destination,
+				target,
+				false,
+				routingContext
+			));
 	}
 
 	private Future<List<IndexerRecord>> resolveIndexersByTarget(
 		SubmitIndexActionsCommand submit,
 		ActionDestination destination,
 		TargetRecord target,
-		boolean autoProvision
+		boolean autoProvision,
+		MetadataRoutingContext routingContext
 	) {
 		if (target.status() != TargetStatus.ACTIVE) {
 			return Future.failedFuture("Target is not active: " + target.id());
 		}
 
 		if (target.provisioningState() == TargetProvisioningState.PROVISIONING) {
-			return Future.failedFuture("Target provisioning is in progress: " + target.id());
+			return Future.failedFuture(CommandFailure.retryable(
+				"Target provisioning is in progress: " + target.id()
+			));
 		}
 
 		if (target.provisioningState() == TargetProvisioningState.FAILED) {
-			return Future.failedFuture("Target provisioning failed: " + target.id());
+			return Future.failedFuture(CommandFailure.finalFailure(
+				"Target provisioning failed: " + target.id()
+			));
 		}
 
 		return repository.listWritableIndexersByTargetId(target.id())
@@ -141,8 +164,10 @@ class MetadataSubmitIndexActionRouter {
 
 				if (matches.isEmpty()) {
 					return autoProvision
-						? ensureWritableIndexer(target).map(List::of)
-						: Future.failedFuture("No writable indexers found for target id: " + target.id());
+						? ensureWritableIndexer(target, routingContext).map(List::of)
+						: Future.failedFuture(CommandFailure.stableInvalid(
+							"No writable indexers found for target id: " + target.id()
+						));
 				}
 
 				return Future.succeededFuture(matches);
@@ -186,7 +211,9 @@ class MetadataSubmitIndexActionRouter {
 				.compose(found -> found
 					.map(Future::succeededFuture)
 					.orElseGet(() -> Future.failedFuture(
-						"Target definition not found by uid: " + submit.getTargetUid()
+						CommandFailure.stableInvalid(
+							"Target definition not found by uid: " + submit.getTargetUid()
+						)
 					)));
 		}
 
@@ -195,7 +222,9 @@ class MetadataSubmitIndexActionRouter {
 				.compose(found -> found
 					.map(Future::succeededFuture)
 					.orElseGet(() -> Future.failedFuture(
-						"Target definition not found by name: " + submit.getTargetName()
+						CommandFailure.stableInvalid(
+							"Target definition not found by name: " + submit.getTargetName()
+						)
 					)));
 
 			if (resolved == null) {
@@ -203,7 +232,9 @@ class MetadataSubmitIndexActionRouter {
 			} else {
 				resolved = resolved.compose(byUid -> byName.compose(byTargetName -> {
 					if (!byUid.id().equals(byTargetName.id())) {
-						return Future.failedFuture("Target uid and name resolve to different targets");
+						return Future.failedFuture(CommandFailure.stableInvalid(
+							"Target uid and name resolve to different targets"
+						));
 					}
 
 					return Future.succeededFuture(byUid);
@@ -212,11 +243,16 @@ class MetadataSubmitIndexActionRouter {
 		}
 
 		return resolved == null
-			? Future.failedFuture("Target reference is missing for command " + submit.getCommandId())
+			? Future.failedFuture(CommandFailure.stableInvalid(
+				"Target reference is missing for command " + submit.getCommandId()
+			))
 			: resolved;
 	}
 
-	private Future<IndexerRecord> ensureWritableIndexer(TargetRecord target) {
+	private Future<IndexerRecord> ensureWritableIndexer(
+		TargetRecord target,
+		MetadataRoutingContext routingContext
+	) {
 		String suffix = UUID.randomUUID().toString();
 		String prefix = "i" + suffix.replace("-", "").substring(0, 12);
 		String indexName = target.targetName() + "--idx-" + suffix;
@@ -227,7 +263,10 @@ class MetadataSubmitIndexActionRouter {
 			target.id(),
 			TargetProvisioningState.PROVISIONING,
 			target.version()
-		)).compose(ignored -> repository.insertIndexer(new InsertIndexer(
+		)).recover(error -> Future.failedFuture(CommandFailure.retryable(
+			"Target provisioning lock changed: " + target.id(),
+			error
+		))).compose(ignored -> repository.insertIndexer(new InsertIndexer(
 				prefix,
 				target.id(),
 				target.targetName(),
@@ -246,6 +285,7 @@ class MetadataSubmitIndexActionRouter {
 			.compose(found -> found
 				.map(Future::succeededFuture)
 				.orElseGet(() -> Future.failedFuture("Created indexer not found for target: " + target.id())))
+			.onSuccess(indexer -> routingContext.markMetadataChanged(indexer.id()))
 			.compose(indexer -> repository.getTargetById(target.id())
 				.compose(found -> found
 					.map(current -> repository.updateTargetProvisioningState(new UpdateTargetProvisioningState(
@@ -268,16 +308,29 @@ class MetadataSubmitIndexActionRouter {
 				}
 
 				TargetRecord current = found.get();
-				if (current.provisioningState() == TargetProvisioningState.PROVISIONING
-					&& current.version() != target.version()) {
-					return Future.failedFuture("Target provisioning is in progress: " + target.id());
+				if (current.provisioningState() == TargetProvisioningState.FAILED) {
+					return Future.failedFuture(CommandFailure.finalFailure(
+						"Target provisioning failed: " + target.id(),
+						error
+					));
+				}
+
+				if (current.version() != target.version() + 1
+					|| current.provisioningState() != TargetProvisioningState.PROVISIONING) {
+					return Future.failedFuture(CommandFailure.retryable(
+						"Target provisioning changed: " + target.id(),
+						error
+					));
 				}
 
 				return repository.updateTargetProvisioningState(new UpdateTargetProvisioningState(
 					target.id(),
 					TargetProvisioningState.FAILED,
 					current.version()
-				)).compose(ignored -> Future.failedFuture(error));
+				)).compose(ignored -> Future.failedFuture(CommandFailure.retryable(
+					"Writable indexer provisioning failed: " + target.id(),
+					error
+				)));
 			});
 	}
 
@@ -312,29 +365,9 @@ class MetadataSubmitIndexActionRouter {
 	) {
 		return switch (action.getActionType()) {
 			case PUT_DOCUMENT -> {
-				PutDocumentActionItem put = (PutDocumentActionItem) action;
-				yield PutDocumentActionItem.builder()
-					.withTargetId(indexer.targetId())
-					.withIndexerId(indexer.id())
-					.withIndexName(indexer.indexName())
-					.withUid(put.getUid())
-					.withSequence(put.getSequence())
-					.withMutationId(put.getMutationId())
-					.withDocument(put.getDocument())
-					.build();
+				yield routeAction(action, indexer);
 			}
-			case REMOVE_DOCUMENT -> {
-				RemoveDocumentActionItem remove = (RemoveDocumentActionItem) action;
-				yield RemoveDocumentActionItem.builder()
-					.withTargetId(indexer.targetId())
-					.withIndexerId(indexer.id())
-					.withTargetName(remove.getTargetName())
-					.withIndexName(indexer.indexName())
-					.withUid(remove.getUid())
-					.withSequence(remove.getSequence())
-					.withMutationId(remove.getMutationId())
-					.build();
-			}
+			case REMOVE_DOCUMENT -> routeAction(action, indexer);
 			case COMPLETE -> CompleteIndexActionItem.builder()
 				.withTargetId(indexer.targetId())
 				.withIndexerId(indexer.id())
@@ -351,11 +384,42 @@ class MetadataSubmitIndexActionRouter {
 		};
 	}
 
+	private IndexerActionItem routeAction(
+		IndexerActionItem action,
+		IndexerRecord indexer
+	) {
+		return Actions.getProvider(action.getActionType())
+			.router()
+			.route(new IndexerActionRouteContext(
+				indexer.targetId(),
+				indexer.id(),
+				indexer.targetName(),
+				indexer.indexName(),
+				getQueueName(indexer),
+				indexer.role()
+			), action, IndexerActionRouteMode.DIRECT)
+			.orElseThrow(() -> new IllegalArgumentException(
+				"Action is not accepted by indexer: " + indexer.indexName()
+			));
+	}
+
 	private String getQueueName(IndexerRecord indexer) {
 		return indexer.queueName() == null ? indexer.indexName() : indexer.queueName();
 	}
 
 	private boolean hasPublicTarget(SubmitIndexActionsCommand submit) {
 		return submit.getTargetUid() != null || submit.getTargetName() != null;
+	}
+
+	private static class MetadataRoutingContext {
+		private final Set<Integer> metadataChangedIndexerIds = new HashSet<>();
+
+		private void markMetadataChanged(Integer indexerId) {
+			metadataChangedIndexerIds.add(indexerId);
+		}
+
+		private boolean metadataChanged(Integer indexerId) {
+			return metadataChangedIndexerIds.contains(indexerId);
+		}
 	}
 }

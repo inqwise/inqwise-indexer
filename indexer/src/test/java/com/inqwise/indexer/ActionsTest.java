@@ -9,6 +9,9 @@ import java.time.Instant;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+import com.inqwise.indexer.actions.IndexerActionRouteContext;
+import com.inqwise.indexer.actions.IndexerActionRouteMode;
+
 import io.vertx.core.json.JsonObject;
 import io.vertx.junit5.VertxExtension;
 import io.vertx.junit5.VertxTestContext;
@@ -21,6 +24,16 @@ class ActionsTest {
 
 		assertEquals(IndexerActionType.PUT_DOCUMENT, provider.type());
 		assertNotNull(provider.action());
+		assertNotNull(provider.router());
+	}
+
+	@Test
+	void resolvesDocumentRemoveActionProvider() {
+		var provider = Actions.getProvider(IndexerActionType.REMOVE_DOCUMENT);
+
+		assertEquals(IndexerActionType.REMOVE_DOCUMENT, provider.type());
+		assertNotNull(provider.action());
+		assertNotNull(provider.router());
 	}
 
 	@Test
@@ -67,8 +80,6 @@ class ActionsTest {
 			.withIndexerId(20)
 			.withIndexName("customers-2024-a")
 			.withUid("42")
-			.withSequence(100L)
-			.withMutationId("mutation-1")
 			.withDocument(new JsonObject().put("name", "Ada"))
 			.build();
 
@@ -83,11 +94,8 @@ class ActionsTest {
 		RemoveDocumentActionItem item = RemoveDocumentActionItem.builder()
 			.withTargetId(10)
 			.withIndexerId(20)
-			.withTargetName("customers-2024")
 			.withIndexName("customers-2024-a")
 			.withUid("42")
-			.withSequence(100L)
-			.withMutationId("mutation-1")
 			.build();
 
 		IndexerActionItem parsed = IndexerActionItem.fromJson(item.toJson());
@@ -116,5 +124,52 @@ class ActionsTest {
 				assertEquals("Ada", store.get("customers_1", "42").getString("name"));
 				testContext.completeNow();
 			})));
+	}
+
+	@Test
+	void documentPutRouterCreatesConcreteAction() {
+		PutDocumentActionItem item = IndexerActionItems.putDocument(
+			"42",
+			new JsonObject().put("name", "Ada")
+		);
+
+		IndexerActionItem routed = Actions.getProvider(IndexerActionType.PUT_DOCUMENT)
+			.router()
+			.route(routeContext(), item, IndexerActionRouteMode.DIRECT)
+			.orElseThrow();
+
+		PutDocumentActionItem put = (PutDocumentActionItem) routed;
+		assertEquals(10, put.getTargetId());
+		assertEquals(20, put.getIndexerId());
+		assertEquals("customers-2024-a", put.getIndexName());
+		assertEquals("42", put.getUid());
+		assertEquals("Ada", put.getDocument().getString("name"));
+	}
+
+	@Test
+	void documentRemoveRouterSkipsCandidateMismatch() {
+		RemoveDocumentActionItem item = IndexerActionItems.concreteRemoveDocument(
+			10,
+			21,
+			"customers-2024-a",
+			"42"
+		);
+
+		var routed = Actions.getProvider(IndexerActionType.REMOVE_DOCUMENT)
+			.router()
+			.route(routeContext(), item, IndexerActionRouteMode.CANDIDATE);
+
+		assertEquals(true, routed.isEmpty());
+	}
+
+	private IndexerActionRouteContext routeContext() {
+		return new IndexerActionRouteContext(
+			10,
+			20,
+			"customers",
+			"customers-2024-a",
+			"queue-customers",
+			IndexerRole.LIVE_WRITER
+		);
 	}
 }

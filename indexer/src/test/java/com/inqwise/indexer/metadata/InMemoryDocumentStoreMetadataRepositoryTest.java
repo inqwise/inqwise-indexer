@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Instant;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -211,6 +212,54 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 				assertEquals(IndexerRole.LIVE_WRITER, indexers.get(1).role());
 				assertEquals(IndexResourceOwnership.OWNER, indexers.get(0).indexOwnership());
 				assertEquals(IndexResourceOwnership.ATTACHED, indexers.get(1).indexOwnership());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void listIndexersFiltersByRole(VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+
+		repository.insertTarget(new InsertTarget(null, "customers-2024", null))
+			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
+				"load-writer",
+				targetId,
+				"customers-2024",
+				"customers-2024-a",
+				"queue-load",
+				IndexerType.INDEX,
+				IndexerRole.LOAD_WRITER,
+				IndexResourceOwnership.OWNER,
+				IndexerRuntimeState.ACTIVE,
+				PublicationState.UNPUBLISHED,
+				MutationState.WRITABLE
+			)).compose(loadId -> repository.insertIndexer(new InsertIndexer(
+				"live-writer",
+				targetId,
+				"customers-2024",
+				"customers-2024-a",
+				"queue-live",
+				IndexerType.INDEX,
+				IndexerRole.LIVE_WRITER,
+				IndexResourceOwnership.ATTACHED,
+				IndexerRuntimeState.ACTIVE,
+				PublicationState.UNPUBLISHED,
+				MutationState.WRITABLE
+			)).compose(liveId -> repository.listIndexers(new IndexerMetadataQuery(
+				null,
+				null,
+				null,
+				List.of(IndexerRole.LIVE_WRITER),
+				null,
+				null,
+				null,
+				null,
+				null
+			)))))
+			.onComplete(testContext.succeeding(indexers -> testContext.verify(() -> {
+				assertEquals(1, indexers.size());
+				assertEquals(IndexerRole.LIVE_WRITER, indexers.get(0).role());
 				testContext.completeNow();
 			})));
 	}

@@ -4,15 +4,20 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
+import com.inqwise.indexer.commands.CommandFailure;
 import com.inqwise.indexer.commands.InMemoryCommandService;
 import com.inqwise.indexer.commands.SubmitIndexActionsCommand;
 import com.inqwise.indexer.commands.SubmitIndexActionsCommandHandler;
+import com.inqwise.indexer.hot.InMemoryInvalidRouteCache;
+import com.inqwise.indexer.hot.InvalidRouteSignatures;
 import com.inqwise.indexer.metadata.ConcreteTargetKey;
 import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.IndexerRuntimeState;
@@ -21,8 +26,11 @@ import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.metadata.InsertTargetDefinition;
 import com.inqwise.indexer.metadata.MutationState;
 import com.inqwise.indexer.metadata.PublicationState;
+import com.inqwise.indexer.metadata.TargetPeriod;
 import com.inqwise.indexer.metadata.TargetPeriodStrategy;
+import com.inqwise.indexer.metadata.TargetProvisioningState;
 import com.inqwise.indexer.metadata.TargetStatus;
+import com.inqwise.indexer.metadata.UpdateTargetProvisioningState;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -68,15 +76,13 @@ class SubmitIndexActionsCommandTest {
 				PutDocumentActionItem action = PutDocumentActionItem.builder()
 					.withTargetId(targetId)
 					.withUid("42")
-					.withSequence(100L)
-					.withMutationId("mutation-1")
 					.withDocument(new JsonObject().put("name", "Ada"))
 					.build();
 
 				return eventBus.subscribe(events::add)
 					.compose(ignored -> commandService.submit(new SubmitIndexActionsCommand(List.of(action))))
 					.compose(ignored -> {
-						assertEquals(2, events.size());
+						assertEquals(0, events.size());
 						assertConcretePut(
 							queue.publishedByQueueName.get("queue-customers-1").get(0),
 							targetId,
@@ -192,13 +198,15 @@ class SubmitIndexActionsCommandTest {
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		RecordingQueue queue = new RecordingQueue();
 		InMemoryCommandService commandService = metadataCommandService(repository, eventBus, queue);
+		List<IndexerMetadataChanged> events = new ArrayList<>();
 
-		repository.insertTargetDefinition(new InsertTargetDefinition(
-			"target-customers",
-			"customers",
-			TargetPeriodStrategy.MONTHLY,
-			null
-		)).compose(ignored -> {
+		eventBus.subscribe(events::add)
+			.compose(ignored -> repository.insertTargetDefinition(new InsertTargetDefinition(
+				"target-customers",
+				"customers",
+				TargetPeriodStrategy.MONTHLY,
+				null
+			))).compose(ignored -> {
 			PutDocumentActionItem action = PutDocumentActionItem.builder()
 				.withUid("42")
 				.withDocument(new JsonObject().put("name", "Ada"))
@@ -222,6 +230,10 @@ class SubmitIndexActionsCommandTest {
 			.onComplete(testContext.succeeding(indexers -> testContext.verify(() -> {
 				assertEquals(1, indexers.size());
 				assertEquals(1, queue.published.size());
+				assertEquals(1, events.size());
+				assertEquals(indexers.get(0).id(), events.get(0).getIndexerId());
+				assertEquals(SubmitIndexActionsCommand.TYPE, events.get(0).getCommandType());
+				assertEquals(indexers.get(0).version(), events.get(0).getVersion());
 				assertTrue(queue.publishedByQueueName.containsKey(indexers.get(0).queueName()));
 				assertTrue(indexers.get(0).indexName().matches("customers--2026-05--idx-[a-f0-9-]{36}"));
 				assertTrue(indexers.get(0).queueName().matches("customers--2026-05--queue-[a-f0-9-]{36}"));
@@ -231,6 +243,160 @@ class SubmitIndexActionsCommandTest {
 					indexers.get(0).id(),
 					indexers.get(0).indexName()
 				);
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void publicTargetCommandFailsRetryableWhenTargetProvisioningInProgress(
+		VertxTestContext testContext
+	) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		RecordingQueue queue = new RecordingQueue();
+		InMemoryCommandService commandService = metadataCommandService(repository, eventBus, queue);
+
+		repository.insertTargetDefinition(new InsertTargetDefinition(
+			"target-customers",
+			"customers",
+			TargetPeriodStrategy.MONTHLY,
+			null
+		)).compose(ignored -> repository.getTargetDefinitionByUid("target-customers"))
+			.compose(found -> repository.ensureTarget(found.get(), may2026Period()))
+			.compose(target -> repository.updateTargetProvisioningState(new UpdateTargetProvisioningState(
+				target.id(),
+				TargetProvisioningState.PROVISIONING,
+				target.version()
+			))).compose(ignored -> commandService.submit(new SubmitIndexActionsCommand(
+				"target-customers",
+				null,
+				Instant.parse("2026-05-18T10:15:00Z"),
+				List.of(PutDocumentActionItem.builder()
+					.withUid("42")
+					.withDocument(new JsonObject().put("name", "Ada"))
+					.build())
+			))).onComplete(testContext.failing(error -> testContext.verify(() -> {
+			CommandFailure failure = (CommandFailure) error;
+			assertTrue(failure.retryable());
+			assertEquals("Target provisioning is in progress: 1", failure.getMessage());
+			assertTrue(queue.published.isEmpty());
+			testContext.completeNow();
+		})));
+	}
+
+	@Test
+	void publicTargetCommandFailsFinalWhenTargetProvisioningFailed(
+		VertxTestContext testContext
+	) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		RecordingQueue queue = new RecordingQueue();
+		InMemoryCommandService commandService = metadataCommandService(repository, eventBus, queue);
+
+		repository.insertTargetDefinition(new InsertTargetDefinition(
+			"target-customers",
+			"customers",
+			TargetPeriodStrategy.MONTHLY,
+			null
+		)).compose(ignored -> repository.getTargetDefinitionByUid("target-customers"))
+			.compose(found -> repository.ensureTarget(found.get(), may2026Period()))
+			.compose(target -> repository.updateTargetProvisioningState(new UpdateTargetProvisioningState(
+				target.id(),
+				TargetProvisioningState.FAILED,
+				target.version()
+			))).compose(ignored -> commandService.submit(new SubmitIndexActionsCommand(
+				"target-customers",
+				null,
+				Instant.parse("2026-05-18T10:15:00Z"),
+				List.of(PutDocumentActionItem.builder()
+					.withUid("42")
+					.withDocument(new JsonObject().put("name", "Ada"))
+					.build())
+			))).onComplete(testContext.failing(error -> testContext.verify(() -> {
+			CommandFailure failure = (CommandFailure) error;
+			assertTrue(!failure.retryable());
+			assertEquals("Target provisioning failed: 1", failure.getMessage());
+			assertTrue(queue.published.isEmpty());
+			testContext.completeNow();
+		})));
+	}
+
+	@Test
+	void publicTargetCommandFailsRetryableWhenProvisioningLockConflicts(
+		VertxTestContext testContext
+	) {
+		ProvisioningLockConflictRepository repository =
+			new ProvisioningLockConflictRepository();
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		RecordingQueue queue = new RecordingQueue();
+		InMemoryCommandService commandService = metadataCommandService(repository, eventBus, queue);
+
+		repository.insertTargetDefinition(new InsertTargetDefinition(
+			"target-customers",
+			"customers",
+			TargetPeriodStrategy.MONTHLY,
+			null
+		)).compose(ignored -> repository.getTargetDefinitionByUid("target-customers"))
+			.compose(found -> repository.ensureTarget(found.get(), may2026Period()))
+			.compose(target -> commandService.submit(new SubmitIndexActionsCommand(
+				"target-customers",
+				null,
+				Instant.parse("2026-05-18T10:15:00Z"),
+				List.of(PutDocumentActionItem.builder()
+					.withUid("42")
+					.withDocument(new JsonObject().put("name", "Ada"))
+					.build())
+			)).recover(error -> repository.getTargetById(target.id()).compose(found -> {
+			CommandFailure failure = (CommandFailure) error;
+			assertTrue(failure.retryable());
+			assertEquals("Target provisioning lock changed: 1", failure.getMessage());
+			assertEquals(TargetProvisioningState.READY, found.get().provisioningState());
+			assertTrue(queue.published.isEmpty());
+			return Future.failedFuture(error);
+		}))).onComplete(testContext.failing(error -> testContext.completeNow()));
+	}
+
+	@Test
+	void publicTargetCommandRecordsStableInvalidRouteFailure(
+		VertxTestContext testContext
+	) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		RecordingQueue queue = new RecordingQueue();
+		InMemoryInvalidRouteCache invalidRouteCache =
+			new InMemoryInvalidRouteCache(Duration.ofMinutes(5));
+		InMemoryCommandService commandService = new InMemoryCommandService()
+			.register(new SubmitIndexActionsCommandHandler(
+				repository,
+				eventBus,
+				queue,
+				invalidRouteCache
+			));
+		SubmitIndexActionsCommand command = new SubmitIndexActionsCommand(
+			null,
+			"customers",
+			Instant.parse("2026-05-18T10:15:00Z"),
+			List.of(PutDocumentActionItem.builder()
+				.withUid("42")
+				.withDocument(new JsonObject().put("name", "Ada"))
+				.build())
+		);
+
+		commandService.submit(command)
+			.onComplete(testContext.failing(error -> testContext.verify(() -> {
+				CommandFailure failure = (CommandFailure) error;
+				assertTrue(failure.stableInvalid());
+				assertEquals("Target definition not found by name: customers", failure.getMessage());
+				assertEquals(
+					failure.getMessage(),
+					invalidRouteCache.find(InvalidRouteSignatures.from(command).get(0))
+						.orElseThrow()
+						.reason()
+				);
+				assertTrue(queue.published.isEmpty());
 				testContext.completeNow();
 			})));
 	}
@@ -258,12 +424,101 @@ class SubmitIndexActionsCommandTest {
 
 		IllegalArgumentException error = assertThrows(
 			IllegalArgumentException.class,
-			() -> new SubmitIndexActionsCommand(List.of(PutDocumentActionItem.builder()
-				.withUid("42")
-				.withDocument(new JsonObject().put("body", oversized))
-				.build()))
+			() -> new SubmitIndexActionsCommand(
+				"target-customers",
+				null,
+				Instant.parse("2026-05-18T10:15:00Z"),
+				List.of(PutDocumentActionItem.builder()
+					.withUid("42")
+					.withDocument(new JsonObject().put("body", oversized))
+					.build())
+			)
 		);
 		assertTrue(error.getMessage().startsWith("Document is too large: "));
+	}
+
+	@Test
+	void submitCommandRejectsEmptyActions() {
+		IllegalArgumentException error = assertThrows(
+			IllegalArgumentException.class,
+			() -> new SubmitIndexActionsCommand(List.of())
+		);
+		assertEquals("No actions submitted", error.getMessage());
+	}
+
+	@Test
+	void targetEnvelopeRejectsConcreteActionDestinations() {
+		IllegalArgumentException error = assertThrows(
+			IllegalArgumentException.class,
+			() -> new SubmitIndexActionsCommand(
+				"target-customers",
+				null,
+				Instant.parse("2026-05-18T10:15:00Z"),
+				List.of(PutDocumentActionItem.builder()
+					.withTargetId(10)
+					.withUid("42")
+					.withDocument(new JsonObject().put("name", "Ada"))
+					.build())
+			)
+		);
+		assertEquals("Target envelope actions must not include concrete destination fields", error.getMessage());
+	}
+
+	@Test
+	void targetEnvelopeRejectsInternalActions() {
+		IllegalArgumentException error = assertThrows(
+			IllegalArgumentException.class,
+			() -> new SubmitIndexActionsCommand(
+				"target-customers",
+				null,
+				Instant.parse("2026-05-18T10:15:00Z"),
+				List.of(CompleteIndexActionItem.builder().build())
+			)
+		);
+		assertEquals("Target envelope supports only document mutation actions: COMPLETE", error.getMessage());
+	}
+
+	@Test
+	void concreteCommandRejectsTimestampWithoutTargetEnvelope() {
+		IllegalArgumentException error = assertThrows(
+			IllegalArgumentException.class,
+			() -> new SubmitIndexActionsCommand(
+				"command-1",
+				null,
+				null,
+				Instant.parse("2026-05-18T10:15:00Z"),
+				List.of(PutDocumentActionItem.builder()
+					.withTargetId(10)
+					.withUid("42")
+					.withDocument(new JsonObject().put("name", "Ada"))
+					.build())
+			)
+		);
+		assertEquals("Timestamp is allowed only with target envelope routing", error.getMessage());
+	}
+
+	@Test
+	void concreteCommandRejectsIndexNameOnlyDestination() {
+		IllegalArgumentException error = assertThrows(
+			IllegalArgumentException.class,
+			() -> new SubmitIndexActionsCommand(List.of(PutDocumentActionItem.builder()
+				.withIndexName("customers_1")
+				.withUid("42")
+				.withDocument(new JsonObject().put("name", "Ada"))
+				.build()))
+		);
+		assertEquals("Concrete action requires target id or indexer id", error.getMessage());
+	}
+
+	@Test
+	void concreteCommandRejectsInternalActionWithoutIndexerId() {
+		IllegalArgumentException error = assertThrows(
+			IllegalArgumentException.class,
+			() -> new SubmitIndexActionsCommand(List.of(CompleteIndexActionItem.builder()
+				.withTargetId(10)
+				.build()))
+		);
+		assertEquals("Internal action requires concrete indexer id: COMPLETE", error.getMessage());
 	}
 
 	@Test
@@ -436,25 +691,15 @@ class SubmitIndexActionsCommandTest {
 	}
 
 	@Test
-	void actionDestinationMissingFailsBeforePublish(VertxTestContext testContext) {
-		InMemoryDocumentStoreMetadataRepository repository =
-			new InMemoryDocumentStoreMetadataRepository();
-		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
-		RecordingQueue queue = new RecordingQueue();
-		InMemoryCommandService commandService = metadataCommandService(repository, eventBus, queue);
-		SubmitIndexActionsCommand command = new SubmitIndexActionsCommand(
-			List.of(PutDocumentActionItem.builder()
+	void actionDestinationMissingFailsAtCommandConstruction() {
+		IllegalArgumentException error = assertThrows(
+			IllegalArgumentException.class,
+			() -> new SubmitIndexActionsCommand(List.of(PutDocumentActionItem.builder()
 				.withUid("42")
 				.withDocument(new JsonObject().put("name", "Ada"))
-				.build())
+				.build()))
 		);
-
-		commandService.submit(command)
-			.onComplete(testContext.failing(error -> testContext.verify(() -> {
-				assertTrue(error.getMessage().startsWith("Action destination is missing"));
-				assertTrue(queue.published.isEmpty());
-				testContext.completeNow();
-			})));
+		assertEquals("Concrete action destination is required", error.getMessage());
 	}
 
 	private InMemoryCommandService metadataCommandService(
@@ -478,6 +723,34 @@ class SubmitIndexActionsCommandTest {
 		assertEquals(indexName, put.getIndexName());
 		assertEquals("42", put.getUid());
 		assertEquals("Ada", put.getDocument().getString("name"));
+	}
+
+	private TargetPeriod may2026Period() {
+		return new TargetPeriod(
+			TargetPeriodStrategy.MONTHLY,
+			"2026-05",
+			Instant.parse("2026-05-01T00:00:00Z"),
+			Instant.parse("2026-06-01T00:00:00Z")
+		);
+	}
+
+	private static class ProvisioningLockConflictRepository
+		extends InMemoryDocumentStoreMetadataRepository {
+		private final AtomicBoolean conflictOnce = new AtomicBoolean(true);
+
+		@Override
+		public Future<Void> updateTargetProvisioningState(UpdateTargetProvisioningState update) {
+			if (update.provisioningState() == TargetProvisioningState.PROVISIONING
+				&& conflictOnce.compareAndSet(true, false)) {
+				return super.updateTargetProvisioningState(new UpdateTargetProvisioningState(
+					update.id(),
+					TargetProvisioningState.READY,
+					update.expectedVersion()
+				)).compose(ignored -> super.updateTargetProvisioningState(update));
+			}
+
+			return super.updateTargetProvisioningState(update);
+		}
 	}
 
 	private static class RecordingQueue implements IndexerQueueClient {

@@ -20,7 +20,9 @@ Vert.x 5.x starter library inspired by `vertx-elastic`, with a modular layout:
 - `IndexerQueueClient`: buffer client abstraction for publisher and consumer handles. Production implementations can use Kafka or another durable transport. `InMemoryIndexerQueue` is a simple local/test implementation.
 - `IndexerQueueResourceManager`: admin-side abstraction for ensuring and deleting queue resources. Queue provisioning and deletion are not part of the shared runtime queue client surface.
 - `IndexerQueueConsumer`: consumer side of the queue. It owns bulk/portion delivery policy, exposes `pause`, `resume`, `commit`, and `close`, and calls the configured item handler.
-- `IndexerActionItem`: abstract action payload. `PutDocumentActionItem` writes a document to a concrete `indexName`; `CompleteIndexActionItem` is an internal marker for historical load completion; `CatchUpBarrierActionItem` is an internal marker proving a live writer consumed earlier queued catch-up actions.
+- `IndexerActionItem`: abstract action payload. `PutDocumentActionItem` and `RemoveDocumentActionItem` carry document mutations and may be expanded from logical requests to concrete target/indexer/index payloads. `CompleteIndexActionItem` is an internal marker for historical load completion; `CatchUpBarrierActionItem` is an internal marker proving a live writer consumed earlier queued catch-up actions.
+- `IndexerActionProvider`: action-type extension point for processing and route normalization. Document action providers create concrete queue payloads through `IndexerActionItems`.
+- `IndexerProvider`: indexer-type extension point for loading and composing indexer views. The default metadata-backed provider exposes hot routing capability only for eligible live writers.
 - `IndexerDocumentStore`: target document-store abstraction. The default document store is in-memory.
 - `DocumentStoreMetadataRepository`: id-first metadata abstraction for targets, indexers, publications, manifests, and mutation state. The default repository is in-memory.
 - `CreateIndexerCommand`: generic command for inserting durable indexer metadata with role and index ownership. Load-specific orchestration composes this primitive rather than introducing a separate load-only create command.
@@ -50,26 +52,40 @@ If a concrete target has no writable indexer during public-target submission, th
 
 Query routing resolves published indexers by `targetId` and queries only the resulting concrete `indexName` values. A target may have zero published indexes during first build, multiple writable indexes during rebuild, and multiple published indexes when the query model requires it.
 
-Routing is expected to grow a hot metadata layer that keeps an in-memory view of operational targets and indexers for the action-item flow. That hot view should contain only records eligible for fast routing decisions and should decide whether an action can be forwarded directly to a hot target/indexer or must fall back to `SubmitIndexActionsCommand`. Broader metadata inspection belongs to an administration layer that can load targets and indexers with wider status/state filters. Repository query-object methods such as `listTargets(TargetMetadataQuery)` and `listIndexers(IndexerMetadataQuery)` support both layers without baking hot-routing filters into the repository itself.
+Hot routing keeps an in-memory view of operational targets and indexers for the action-item flow. `HotMetadataView` loads a full immutable `HotTarget` snapshot from repository target records and `IndexerProvider` results, indexes it by target name, target uid, concrete target id, and indexer id, and invalidates the whole snapshot rather than patching child indexers in place. The default view uses only active, ready concrete targets and hot-capable live writers.
+
+`HotTarget` owns target-level routing. It resolves the request timestamp to the configured UTC target period, selects the concrete target snapshot, and routes each action to every hot live writer under that concrete target. Hot routing is batch-atomic: either every action is accepted by at least one hot indexer and grouped into `RoutedIndexActions`, or the original request falls back unchanged to `SubmitIndexActionsCommand`.
+
+`HotIndexer` owns final per-indexer acceptance and concrete action expansion. `MetadataHotIndexer` delegates action-specific normalization to `IndexerActionProvider.router()`. Candidate routing skips non-matching indexers; direct routing throws on conflicting concrete fields. This keeps action-specific rules out of the target cache and lets future providers add indexer-specific composition without changing the cache.
+
+`HotIndexActionsService` is the hot-path entry point. It first tries a target-envelope route by `targetUid` or `targetName` plus timestamp, then tries direct concrete routing for actions that carry an `indexerId`, and otherwise submits the original request to the command service. `RoutedIndexActionPublisher` is shared by hot routing and the cold command path for queue publication.
+
+Hot routing support also includes two standalone guard components. `InvalidRouteCache` stores expiring invalid route signatures for stable cold failures such as missing target definitions, missing concrete targets/indexers, or missing writable indexers. `HotIndexActionsService` checks this cache before falling back to `SubmitIndexActionsCommand`; cached invalid routes fail fast instead of repeatedly entering cold submit. Retryable provisioning states and operator-recovery failures are not cached. `TargetInvalidationRegistry` stores versioned, expiring target invalidation entries for background cache invalidation when event delivery is missed or delayed. The target invalidation registry is not consulted on every hot route.
+
+Broader metadata inspection belongs to an administration layer that can load targets and indexers with wider status/state filters. Repository query-object methods such as `listTargets(TargetMetadataQuery)` and `listIndexers(IndexerMetadataQuery)` and the generic `IndexerProvider` read APIs support both hot routing and administration without baking hot-routing filters into the repository itself.
 
 ### Index Flow
 
 Indexing uses two paths:
 
-- Hot path: if the target indexer is already known to be publish-ready, callers submit `IndexerActionItem` payloads through the indexer-facing producer API, which publishes to the configured `IndexerQueueClient`.
-- Cold/unknown path: callers submit `SubmitIndexActionsCommand`. The command can carry concrete action destinations or a public `targetUid`/`targetName` plus timestamp. The command handler resolves writable metadata indexers by concrete `targetId`, verifies each destination, expands logical actions to concrete `indexerId`/`indexName` payloads, publishes a lifecycle wake-up, then publishes the concrete actions to scoped `IndexerQueuePublisher` endpoints.
+- Hot path: callers submit a `HotIndexActionsRequest` to `HotIndexActionsService`. A normal live-write request carries `targetUid` or `targetName`, a timestamp, and logical document mutation items. If the cached target/indexer snapshot proves the route, the service expands the items to concrete `targetId`, `indexerId`, and `indexName` payloads and publishes them through `RoutedIndexActionPublisher`.
+- Cold/unknown path: callers submit `SubmitIndexActionsCommand`, either directly or through hot-path fallback. The command supports only two routing schemas. Target-envelope mode carries `targetUid` or `targetName`, optional timestamp, and logical document mutation actions with no concrete destination fields. Concrete mode carries no target envelope or timestamp, and every action must include a concrete `targetId` or `indexerId`; internal actions such as complete and catch-up barrier require `indexerId`. The command handler resolves writable metadata indexers by concrete `targetId`, verifies each destination, expands logical actions to concrete `indexerId`/`indexName` payloads, publishes metadata-change wake-ups only for real metadata changes such as auto-provisioned indexers, then publishes the concrete actions through the shared `RoutedIndexActionPublisher`.
 
 Command completion means that the submitted actions were handed to the indexer queue, not that the documents were already indexed. Runtime processing remains asynchronous.
 
 The cold path fails closed. If the command sees an unexpected indexer state or action mismatch, it must not publish actions. Expected/idempotent cases include resolving a writable, available, provisioned, runtime-active metadata indexer and waking runtime consumers that may not be hot yet.
+
+Cold command failures use typed `CommandFailure` classification where the command layer needs retry decisions. Concurrent provisioning states, including target provisioning already in progress and target provisioning lock/version conflicts, are `RETRYABLE`. Stable invalid routes, including missing target definitions, missing concrete targets/indexers, and missing writable indexers, are `STABLE_INVALID` and may be written to `InvalidRouteCache`. Target provisioning marked `FAILED` is final for the submit command and requires explicit recovery before the same route should be retried.
 
 The current fail-closed guards are:
 
 - an unavailable or deleting indexer cannot receive new actions;
 - an indexer whose provisioning state is not `READY` cannot receive new actions;
 - a runtime-`NON_ACTIVE` indexer cannot receive new actions;
-- logical actions must carry `targetId` so writable indexers can be resolved;
+- cold concrete-target routing requires either target-envelope document mutations or concrete route fields so writable indexers can be resolved;
 - concrete actions with `indexerId` and `indexName` must match the resolved metadata indexer.
+
+Routing identity fields are immutable by definition for normal lifecycle: `targetId`, `targetName`, `indexName`, `queueName`, `role`, and `type`. If these values are wrong, create a replacement indexer instead of mutating the existing record. `ResetIndexerQueueCommand` remains a narrow troubleshooting exception in the current codebase and must not be used as a normal reload/live-writer swap mechanism.
 
 ### Load And Reload Workflow
 

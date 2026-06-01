@@ -8,7 +8,7 @@ import org.apache.logging.log4j.Logger;
 
 import com.inqwise.indexer.spi.IndexerActionProvider;
 
-class Actions {
+public class Actions {
 	private static final Logger logger = LogManager.getLogger(Actions.class);
 
 	private static ServiceLoader<IndexerActionProvider> providers;

@@ -1,0 +1,164 @@
+package com.inqwise.indexer.hot;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+
+import com.inqwise.indexer.IndexerActionItem;
+import com.inqwise.indexer.actions.IndexerActionRouteMode;
+import com.inqwise.indexer.commands.CommandFailure;
+import com.inqwise.indexer.commands.ActionDestination;
+import com.inqwise.indexer.commands.CommandService;
+import com.inqwise.indexer.commands.RoutedIndexActionPublisher;
+import com.inqwise.indexer.commands.RoutedIndexActions;
+import com.inqwise.indexer.commands.SubmitIndexActionsCommand;
+
+import io.vertx.core.Future;
+
+public class HotIndexActionsService {
+	private final HotMetadataView hotMetadataView;
+	private final RoutedIndexActionPublisher publisher;
+	private final CommandService commandService;
+	private final InvalidRouteCache invalidRouteCache;
+
+	public HotIndexActionsService(
+		HotMetadataView hotMetadataView,
+		RoutedIndexActionPublisher publisher,
+		CommandService commandService
+	) {
+		this(hotMetadataView, publisher, commandService, null);
+	}
+
+	public HotIndexActionsService(
+		HotMetadataView hotMetadataView,
+		RoutedIndexActionPublisher publisher,
+		CommandService commandService,
+		InvalidRouteCache invalidRouteCache
+	) {
+		this.hotMetadataView = Objects.requireNonNull(hotMetadataView, "hotMetadataView");
+		this.publisher = Objects.requireNonNull(publisher, "publisher");
+		this.commandService = Objects.requireNonNull(commandService, "commandService");
+		this.invalidRouteCache = invalidRouteCache;
+	}
+
+	public Future<Void> submit(HotIndexActionsRequest request) {
+		Objects.requireNonNull(request, "request");
+		if (request.actions().isEmpty()) {
+			return Future.failedFuture("No actions submitted");
+		}
+
+		Optional<InvalidRouteRecord> invalidRoute = findInvalidRoute(request);
+		if (invalidRoute.isPresent()) {
+			return Future.failedFuture(CommandFailure.stableInvalid(
+				"Invalid route cached: " + invalidRoute.get().reason()
+			));
+		}
+
+		HotRouteResult result = route(request);
+		if (result instanceof HotRouteResult.Routed routed) {
+			return publisher.publish(routed.groups());
+		}
+
+		return fallback(request);
+	}
+
+	private HotRouteResult route(HotIndexActionsRequest request) {
+		if (hasTargetEnvelope(request)) {
+			return routeByTarget(request);
+		}
+
+		return routeDirect(request);
+	}
+
+	private HotRouteResult routeByTarget(HotIndexActionsRequest request) {
+		Optional<HotTarget> target = request.targetUid() != null
+			? hotMetadataView.findTargetByUid(request.targetUid())
+			: hotMetadataView.findTargetByName(request.targetName());
+
+		return target
+			.<HotRouteResult>map(found -> found.route(request))
+			.orElseGet(() -> new HotRouteResult.Miss("Hot target not found"));
+	}
+
+	private HotRouteResult routeDirect(HotIndexActionsRequest request) {
+		Map<HotIndexer, List<IndexerActionItem>> actionsByIndexer = new LinkedHashMap<>();
+
+		for (IndexerActionItem action : request.actions()) {
+			ActionDestination destination = ActionDestination.from(action);
+			if (destination.indexerId() == null) {
+				return new HotRouteResult.Miss("Direct hot route requires indexer id");
+			}
+
+			HotIndexer indexer = hotMetadataView.findIndexerById(destination.indexerId()).orElse(null);
+			if (indexer == null) {
+				return new HotRouteResult.Miss("Hot indexer not found: " + destination.indexerId());
+			}
+
+			IndexerActionItem routed = indexer.route(action, IndexerActionRouteMode.DIRECT)
+				.orElseThrow(() -> new IllegalArgumentException(
+					"Action is not accepted by hot indexer: " + destination.indexerId()
+				));
+			actionsByIndexer.computeIfAbsent(indexer, ignored -> new ArrayList<>())
+				.add(routed);
+		}
+
+		return new HotRouteResult.Routed(actionsByIndexer.entrySet().stream()
+			.map(entry -> new RoutedIndexActions(
+				entry.getKey().id(),
+				0L,
+				entry.getKey().queueName(),
+				entry.getValue()
+			))
+			.toList());
+	}
+
+	private Future<Void> fallback(HotIndexActionsRequest request) {
+		try {
+			return commandService.submit(new SubmitIndexActionsCommand(
+				request.targetUid(),
+				request.targetName(),
+				request.timestamp(),
+				request.actions()
+			)).recover(error -> {
+				recordStableInvalidRoute(request, error);
+				return Future.failedFuture(error);
+			});
+		} catch (RuntimeException error) {
+			recordStableInvalidRoute(request, error);
+			return Future.failedFuture(error);
+		}
+	}
+
+	private boolean hasTargetEnvelope(HotIndexActionsRequest request) {
+		return request.targetUid() != null || request.targetName() != null;
+	}
+
+	private Optional<InvalidRouteRecord> findInvalidRoute(HotIndexActionsRequest request) {
+		if (invalidRouteCache == null) {
+			return Optional.empty();
+		}
+
+		return InvalidRouteSignatures.from(request).stream()
+			.map(invalidRouteCache::find)
+			.filter(Optional::isPresent)
+			.map(Optional::get)
+			.findFirst();
+	}
+
+	private void recordStableInvalidRoute(HotIndexActionsRequest request, Throwable error) {
+		if (invalidRouteCache == null || !isStableInvalid(error)) {
+			return;
+		}
+
+		for (InvalidRouteSignature signature : InvalidRouteSignatures.from(request)) {
+			invalidRouteCache.record(signature, error.getMessage());
+		}
+	}
+
+	private boolean isStableInvalid(Throwable error) {
+		return error instanceof CommandFailure failure && failure.stableInvalid();
+	}
+}

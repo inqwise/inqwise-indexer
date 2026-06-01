@@ -3,11 +3,12 @@ package com.inqwise.indexer.commands;
 import java.util.List;
 import java.util.Objects;
 
-import com.inqwise.indexer.IndexerActionItem;
 import com.inqwise.indexer.IndexerMetadataChanged;
 import com.inqwise.indexer.IndexerLifecycleEventBus;
 import com.inqwise.indexer.IndexerQueueClient;
-import com.inqwise.indexer.IndexerQueuePublisher;
+import com.inqwise.indexer.hot.InvalidRouteCache;
+import com.inqwise.indexer.hot.InvalidRouteSignature;
+import com.inqwise.indexer.hot.InvalidRouteSignatures;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 
 import io.vertx.core.Future;
@@ -15,16 +16,27 @@ import io.vertx.core.Future;
 public class SubmitIndexActionsCommandHandler implements CommandHandler {
 	private final MetadataSubmitIndexActionRouter metadataRouter;
 	private final IndexerLifecycleEventBus eventBus;
-	private final IndexerQueueClient queue;
+	private final RoutedIndexActionPublisher publisher;
+	private final InvalidRouteCache invalidRouteCache;
 
 	public SubmitIndexActionsCommandHandler(
 		DocumentStoreMetadataRepository metadataRepository,
 		IndexerLifecycleEventBus eventBus,
 		IndexerQueueClient queue
 	) {
+		this(metadataRepository, eventBus, queue, null);
+	}
+
+	public SubmitIndexActionsCommandHandler(
+		DocumentStoreMetadataRepository metadataRepository,
+		IndexerLifecycleEventBus eventBus,
+		IndexerQueueClient queue,
+		InvalidRouteCache invalidRouteCache
+	) {
 		this.metadataRouter = new MetadataSubmitIndexActionRouter(metadataRepository);
 		this.eventBus = Objects.requireNonNull(eventBus, "eventBus");
-		this.queue = Objects.requireNonNull(queue, "queue");
+		this.publisher = new RoutedIndexActionPublisher(queue);
+		this.invalidRouteCache = invalidRouteCache;
 	}
 
 	@Override
@@ -37,7 +49,11 @@ public class SubmitIndexActionsCommandHandler implements CommandHandler {
 		SubmitIndexActionsCommand submit = new SubmitIndexActionsCommand(command.toJson());
 
 		return route(submit)
-			.compose(this::publish);
+			.compose(this::publish)
+			.recover(error -> {
+				recordStableInvalidRoute(submit, error);
+				return Future.failedFuture(error);
+			});
 	}
 
 	private Future<List<RoutedIndexActions>> route(SubmitIndexActionsCommand submit) {
@@ -48,14 +64,18 @@ public class SubmitIndexActionsCommandHandler implements CommandHandler {
 		Future<Void> published = Future.succeededFuture();
 
 		for (RoutedIndexActions group : groups) {
-			published = published.compose(ignored -> publishLifecycle(group)
-				.compose(publishedLifecycle -> publishActions(group.queueName(), group.actions())));
+			published = published.compose(ignored -> publishMetadataChanged(group)
+				.compose(publishedLifecycle -> publisher.publish(List.of(group))));
 		}
 
 		return published;
 	}
 
-	private Future<Void> publishLifecycle(RoutedIndexActions group) {
+	private Future<Void> publishMetadataChanged(RoutedIndexActions group) {
+		if (!group.metadataChanged()) {
+			return Future.succeededFuture();
+		}
+
 		return eventBus.publish(new IndexerMetadataChanged(
 			group.indexerId(),
 			getType(),
@@ -63,20 +83,17 @@ public class SubmitIndexActionsCommandHandler implements CommandHandler {
 		));
 	}
 
-	private Future<Void> publishActions(String queueName, List<IndexerActionItem> actions) {
-		return queue.publisher(queueName)
-			.compose(publisher -> publishActions(publisher, actions)
-				.eventually(publisher::close));
+	private void recordStableInvalidRoute(SubmitIndexActionsCommand submit, Throwable error) {
+		if (invalidRouteCache == null || !isStableInvalid(error)) {
+			return;
+		}
+
+		for (InvalidRouteSignature signature : InvalidRouteSignatures.from(submit)) {
+			invalidRouteCache.record(signature, error.getMessage());
+		}
 	}
 
-	private Future<Void> publishActions(
-		IndexerQueuePublisher publisher,
-		List<IndexerActionItem> actions
-	) {
-		List<Future<Void>> publishes = actions.stream()
-			.map(publisher::publish)
-			.toList();
-
-		return Future.join(publishes).mapEmpty();
+	private boolean isStableInvalid(Throwable error) {
+		return error instanceof CommandFailure failure && failure.stableInvalid();
 	}
 }
