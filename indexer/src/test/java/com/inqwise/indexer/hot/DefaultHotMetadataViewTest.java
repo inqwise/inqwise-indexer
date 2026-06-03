@@ -12,11 +12,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import com.inqwise.indexer.IndexerActionItems;
 import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.IndexerType;
+import com.inqwise.indexer.definitions.StaticTargetDefinitionProvider;
+import com.inqwise.indexer.definitions.TargetDefinition;
 import com.inqwise.indexer.metadata.ConcreteTargetKey;
 import com.inqwise.indexer.metadata.DeleteTarget;
 import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.InsertIndexer;
-import com.inqwise.indexer.metadata.InsertTargetDefinition;
 import com.inqwise.indexer.metadata.MutationState;
 import com.inqwise.indexer.metadata.PublicationState;
 import com.inqwise.indexer.metadata.TargetPeriod;
@@ -44,12 +45,10 @@ class DefaultHotMetadataViewTest {
 				.map(target))
 			.onComplete(testContext.succeeding(target -> testContext.verify(() -> {
 				assertTrue(view.findTargetByName("customers").isPresent());
-				assertTrue(view.findTargetByUid("target-customers-1").isPresent());
 				assertTrue(view.findIndexerById(1).isPresent());
 
 				HotRouteResult result = view.findTargetByName("customers").orElseThrow()
 					.route(new HotIndexActionsRequest(
-						null,
 						"customers",
 						Instant.parse("2026-05-18T10:15:00Z"),
 						List.of(IndexerActionItems.putDocument(
@@ -76,7 +75,6 @@ class DefaultHotMetadataViewTest {
 				view.invalidateHotTargetByConcreteTargetId(target.id());
 
 				assertTrue(view.findTargetByName("customers").isEmpty());
-				assertTrue(view.findTargetByUid("target-customers-1").isEmpty());
 				assertTrue(view.findIndexerById(1).isEmpty());
 				testContext.completeNow();
 			})));
@@ -122,6 +120,7 @@ class DefaultHotMetadataViewTest {
 	private DefaultHotMetadataView view(InMemoryDocumentStoreMetadataRepository repository) {
 		return new DefaultHotMetadataView(
 			repository,
+			targetDefinitionProvider(),
 			new IndexerProviders(List.of(new MetadataIndexerProvider(repository)))
 		);
 	}
@@ -130,19 +129,11 @@ class DefaultHotMetadataViewTest {
 		InMemoryDocumentStoreMetadataRepository repository
 	) {
 		TargetPeriodResolver resolver = new TargetPeriodResolver();
-		return repository.insertTargetDefinition(new InsertTargetDefinition(
-			"target-customers",
-			"customers",
+		TargetPeriod period = resolver.resolve(
 			TargetPeriodStrategy.MONTHLY,
-			null
-		)).compose(repository::getTargetDefinitionById)
-			.compose(found -> {
-				TargetPeriod period = resolver.resolve(
-					TargetPeriodStrategy.MONTHLY,
-					Instant.parse("2026-05-18T10:15:00Z")
-				);
-				return repository.ensureTarget(found.orElseThrow(), period);
-			})
+			Instant.parse("2026-05-18T10:15:00Z")
+		);
+		return repository.ensureTarget("customers", period)
 			.compose(target -> repository.insertIndexer(new InsertIndexer(
 				"indexer-customers",
 				target.id(),
@@ -154,7 +145,13 @@ class DefaultHotMetadataViewTest {
 				PublicationState.UNPUBLISHED,
 				MutationState.WRITABLE
 			)).compose(indexerId -> repository.getTargetByDefinitionAndPeriod(
-				new ConcreteTargetKey(target.targetDefinitionId(), target.periodKey())
+				new ConcreteTargetKey(target.targetName(), target.periodKey())
 			)).map(found -> found.orElseThrow()));
+	}
+
+	private StaticTargetDefinitionProvider targetDefinitionProvider() {
+		return new StaticTargetDefinitionProvider(List.of(
+			new TargetDefinition("customers", TargetPeriodStrategy.MONTHLY)
+		));
 	}
 }

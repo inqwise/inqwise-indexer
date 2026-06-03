@@ -5,7 +5,6 @@ import java.time.Instant;
 public record TargetRecord(
 	Integer id,
 	String prefix,
-	Integer targetDefinitionId,
 	String targetName,
 	String periodKey,
 	Instant periodStartInclusive,

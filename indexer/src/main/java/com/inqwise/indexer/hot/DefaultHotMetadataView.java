@@ -13,11 +13,12 @@ import java.util.stream.Collectors;
 import com.inqwise.indexer.IndexerRole;
 import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.IndexerType;
+import com.inqwise.indexer.definitions.TargetDefinition;
+import com.inqwise.indexer.definitions.TargetDefinitionProvider;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.IndexerProvisioningState;
 import com.inqwise.indexer.metadata.IndexerStatus;
 import com.inqwise.indexer.metadata.MutationState;
-import com.inqwise.indexer.metadata.TargetDefinitionRecord;
 import com.inqwise.indexer.metadata.TargetMetadataQuery;
 import com.inqwise.indexer.metadata.TargetProvisioningState;
 import com.inqwise.indexer.metadata.TargetRecord;
@@ -29,29 +30,29 @@ import io.vertx.core.Future;
 
 public class DefaultHotMetadataView implements HotMetadataView {
 	private final DocumentStoreMetadataRepository repository;
+	private final TargetDefinitionProvider targetDefinitionProvider;
 	private final IndexerProviders indexerProviders;
 	private final ConcurrentMap<String, HotTarget> targetsByName = new ConcurrentHashMap<>();
-	private final ConcurrentMap<String, HotTarget> targetsByUid = new ConcurrentHashMap<>();
 	private final ConcurrentMap<Integer, HotTarget> targetsByConcreteTargetId = new ConcurrentHashMap<>();
 	private final ConcurrentMap<Integer, HotIndexer> indexersById = new ConcurrentHashMap<>();
 	private final ConcurrentMap<Integer, HotTarget> targetsByIndexerId = new ConcurrentHashMap<>();
 
 	public DefaultHotMetadataView(
 		DocumentStoreMetadataRepository repository,
+		TargetDefinitionProvider targetDefinitionProvider,
 		IndexerProviders indexerProviders
 	) {
 		this.repository = Objects.requireNonNull(repository, "repository");
+		this.targetDefinitionProvider = Objects.requireNonNull(
+			targetDefinitionProvider,
+			"targetDefinitionProvider"
+		);
 		this.indexerProviders = Objects.requireNonNull(indexerProviders, "indexerProviders");
 	}
 
 	@Override
 	public Optional<HotTarget> findTargetByName(String targetName) {
 		return Optional.ofNullable(targetsByName.get(targetName));
-	}
-
-	@Override
-	public Optional<HotTarget> findTargetByUid(String targetUid) {
-		return Optional.ofNullable(targetsByUid.get(targetUid));
 	}
 
 	@Override
@@ -90,7 +91,7 @@ public class DefaultHotMetadataView implements HotMetadataView {
 	}
 
 	private Future<Void> refreshHotTarget(TargetRecord concreteTarget) {
-		return repository.getTargetDefinitionById(concreteTarget.targetDefinitionId())
+		return targetDefinitionProvider.getByName(concreteTarget.targetName())
 			.compose(found -> found
 				.map(definition -> loadConcreteTargets(definition)
 					.compose(targets -> buildHotTarget(definition, targets)))
@@ -100,21 +101,21 @@ public class DefaultHotMetadataView implements HotMetadataView {
 				}));
 	}
 
-	private Future<List<TargetRecord>> loadConcreteTargets(TargetDefinitionRecord definition) {
+	private Future<List<TargetRecord>> loadConcreteTargets(TargetDefinition definition) {
 		return repository.listTargets(new TargetMetadataQuery(
 			null,
-			List.of(definition.id()),
+			List.of(definition.targetName()),
 			List.of(TargetStatus.ACTIVE),
 			List.of(TargetProvisioningState.READY)
 		));
 	}
 
 	private Future<Void> buildHotTarget(
-		TargetDefinitionRecord definition,
+		TargetDefinition definition,
 		List<TargetRecord> concreteTargets
 	) {
 		if (concreteTargets.isEmpty()) {
-			removeByDefinition(definition);
+			removeByName(definition.targetName());
 			return Future.succeededFuture();
 		}
 
@@ -142,8 +143,6 @@ public class DefaultHotMetadataView implements HotMetadataView {
 				));
 
 			HotTarget hotTarget = new HotTarget(
-				definition.id(),
-				definition.uid(),
 				definition.targetName(),
 				definition.periodStrategy(),
 				concreteTargets.stream()
@@ -164,11 +163,8 @@ public class DefaultHotMetadataView implements HotMetadataView {
 	}
 
 	private synchronized void replace(HotTarget target) {
-		removeByDefinition(target.targetDefinitionId());
+		removeByName(target.targetName());
 		targetsByName.put(target.targetName(), target);
-		if (target.targetUid() != null) {
-			targetsByUid.put(target.targetUid(), target);
-		}
 
 		for (Integer targetId : target.concreteTargetIds()) {
 			targetsByConcreteTargetId.put(targetId, target);
@@ -181,26 +177,19 @@ public class DefaultHotMetadataView implements HotMetadataView {
 	}
 
 	private synchronized void remove(HotTarget target) {
-		removeByDefinition(target.targetDefinitionId());
+		removeByName(target.targetName());
 	}
 
-	private synchronized void removeByDefinition(TargetDefinitionRecord definition) {
-		removeByDefinition(definition.id());
-	}
-
-	private synchronized void removeByDefinition(Integer targetDefinitionId) {
+	private synchronized void removeByName(String targetName) {
 		List<HotTarget> matchingTargets = new ArrayList<>();
 		for (HotTarget target : targetsByName.values()) {
-			if (target.targetDefinitionId().equals(targetDefinitionId)) {
+			if (target.targetName().equals(targetName)) {
 				matchingTargets.add(target);
 			}
 		}
 
 		for (HotTarget target : matchingTargets) {
 			targetsByName.remove(target.targetName(), target);
-			if (target.targetUid() != null) {
-				targetsByUid.remove(target.targetUid(), target);
-			}
 			for (Integer targetId : target.concreteTargetIds()) {
 				targetsByConcreteTargetId.remove(targetId, target);
 			}

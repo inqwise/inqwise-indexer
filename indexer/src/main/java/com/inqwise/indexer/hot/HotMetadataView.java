@@ -7,8 +7,6 @@ import io.vertx.core.Future;
 public interface HotMetadataView {
 	Optional<HotTarget> findTargetByName(String targetName);
 
-	Optional<HotTarget> findTargetByUid(String targetUid);
-
 	Optional<HotIndexer> findIndexerById(Integer indexerId);
 
 	Future<Void> refreshHotTargetByConcreteTargetId(Integer targetId);

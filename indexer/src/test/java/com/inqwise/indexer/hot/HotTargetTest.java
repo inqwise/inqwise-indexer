@@ -25,7 +25,6 @@ class HotTargetTest {
 		));
 
 		HotRouteResult result = target.route(new HotIndexActionsRequest(
-			null,
 			"customers",
 			null,
 			List.of(IndexerActionItems.putDocument("42", new JsonObject().put("name", "Ada")))
@@ -52,7 +51,6 @@ class HotTargetTest {
 		));
 
 		HotRouteResult result = target.route(new HotIndexActionsRequest(
-			null,
 			"customers",
 			null,
 			List.of(IndexerActionItems.putDocument("42", new JsonObject()))
@@ -71,7 +69,6 @@ class HotTargetTest {
 		));
 
 		HotRouteResult result = target.route(new HotIndexActionsRequest(
-			null,
 			"customers",
 			null,
 			List.of(IndexerActionItems.putDocument("42", new JsonObject()))
@@ -88,7 +85,6 @@ class HotTargetTest {
 		));
 
 		HotRouteResult result = target.route(new HotIndexActionsRequest(
-			null,
 			"customers",
 			Instant.parse("2026-05-18T10:15:00Z"),
 			List.of(IndexerActionItems.putDocument("42", new JsonObject()))
@@ -107,7 +103,6 @@ class HotTargetTest {
 		));
 
 		HotRouteResult result = target.route(new HotIndexActionsRequest(
-			null,
 			"customers",
 			null,
 			List.of(IndexerActionItems.putDocument("42", new JsonObject()))
@@ -121,8 +116,6 @@ class HotTargetTest {
 		List<HotConcreteTarget> concreteTargets
 	) {
 		return new HotTarget(
-			1,
-			"target-customers-1",
 			"customers",
 			periodStrategy,
 			concreteTargets

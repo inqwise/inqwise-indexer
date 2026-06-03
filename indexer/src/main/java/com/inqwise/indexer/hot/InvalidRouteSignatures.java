@@ -13,7 +13,6 @@ public final class InvalidRouteSignatures {
 	public static List<InvalidRouteSignature> from(HotIndexActionsRequest request) {
 		return request.actions().stream()
 			.map(action -> from(
-				request.targetUid(),
 				request.targetName(),
 				action
 			))
@@ -23,7 +22,6 @@ public final class InvalidRouteSignatures {
 	public static List<InvalidRouteSignature> from(SubmitIndexActionsCommand command) {
 		return command.getActions().stream()
 			.map(action -> from(
-				command.getTargetUid(),
 				command.getTargetName(),
 				action
 			))
@@ -31,14 +29,12 @@ public final class InvalidRouteSignatures {
 	}
 
 	private static InvalidRouteSignature from(
-		String targetUid,
 		String targetName,
 		IndexerActionItem action
 	) {
 		ActionDestination destination = ActionDestination.from(action);
-		boolean hasTargetEnvelope = targetUid != null || targetName != null;
+		boolean hasTargetEnvelope = targetName != null;
 		return new InvalidRouteSignature(
-			hasTargetEnvelope ? targetUid : null,
 			hasTargetEnvelope ? targetName : null,
 			null,
 			hasTargetEnvelope ? null : destination.targetId(),

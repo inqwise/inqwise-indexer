@@ -19,6 +19,8 @@ import com.inqwise.indexer.IndexerType;
 import com.inqwise.indexer.Actions;
 import com.inqwise.indexer.actions.IndexerActionRouteContext;
 import com.inqwise.indexer.actions.IndexerActionRouteMode;
+import com.inqwise.indexer.definitions.TargetDefinition;
+import com.inqwise.indexer.definitions.TargetDefinitionProvider;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.IndexerProvisioningState;
 import com.inqwise.indexer.metadata.IndexerRecord;
@@ -26,7 +28,6 @@ import com.inqwise.indexer.metadata.IndexerStatus;
 import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.metadata.MutationState;
 import com.inqwise.indexer.metadata.PublicationState;
-import com.inqwise.indexer.metadata.TargetDefinitionRecord;
 import com.inqwise.indexer.metadata.TargetNameValidator;
 import com.inqwise.indexer.metadata.TargetPeriod;
 import com.inqwise.indexer.metadata.TargetPeriodResolver;
@@ -40,10 +41,18 @@ import io.vertx.core.Future;
 
 class MetadataSubmitIndexActionRouter {
 	private final DocumentStoreMetadataRepository repository;
+	private final TargetDefinitionProvider targetDefinitionProvider;
 	private final TargetPeriodResolver periodResolver = new TargetPeriodResolver();
 
-	MetadataSubmitIndexActionRouter(DocumentStoreMetadataRepository repository) {
+	MetadataSubmitIndexActionRouter(
+		DocumentStoreMetadataRepository repository,
+		TargetDefinitionProvider targetDefinitionProvider
+	) {
 		this.repository = Objects.requireNonNull(repository, "repository");
+		this.targetDefinitionProvider = Objects.requireNonNull(
+			targetDefinitionProvider,
+			"targetDefinitionProvider"
+		);
 	}
 
 	Future<List<RoutedIndexActions>> route(SubmitIndexActionsCommand submit) {
@@ -177,10 +186,6 @@ class MetadataSubmitIndexActionRouter {
 	private Future<TargetRecord> resolveConcreteTarget(SubmitIndexActionsCommand submit) {
 		return resolveTargetDefinition(submit)
 			.compose(targetDefinition -> {
-				if (targetDefinition.status() != TargetStatus.ACTIVE) {
-					return Future.failedFuture("Target definition is not active: " + targetDefinition.id());
-				}
-
 				if (targetDefinition.periodStrategy() != TargetPeriodStrategy.NONE
 					&& submit.getTimestamp() == null) {
 					return Future.failedFuture(
@@ -199,26 +204,16 @@ class MetadataSubmitIndexActionRouter {
 					return Future.failedFuture(error);
 				}
 
-				return repository.ensureTarget(targetDefinition, period);
+				return repository.ensureTarget(targetDefinition.targetName(), period);
 			});
 	}
 
-	private Future<TargetDefinitionRecord> resolveTargetDefinition(SubmitIndexActionsCommand submit) {
-		Future<TargetDefinitionRecord> resolved = null;
-
-		if (submit.getTargetUid() != null) {
-			resolved = repository.getTargetDefinitionByUid(submit.getTargetUid())
-				.compose(found -> found
-					.map(Future::succeededFuture)
-					.orElseGet(() -> Future.failedFuture(
-						CommandFailure.stableInvalid(
-							"Target definition not found by uid: " + submit.getTargetUid()
-						)
-					)));
-		}
-
-		if (submit.getTargetName() != null) {
-			Future<TargetDefinitionRecord> byName = repository.getTargetDefinitionByName(submit.getTargetName())
+	private Future<TargetDefinition> resolveTargetDefinition(SubmitIndexActionsCommand submit) {
+		return submit.getTargetName() == null
+			? Future.failedFuture(CommandFailure.stableInvalid(
+				"Target reference is missing for command " + submit.getCommandId()
+			))
+			: targetDefinitionProvider.getByName(submit.getTargetName())
 				.compose(found -> found
 					.map(Future::succeededFuture)
 					.orElseGet(() -> Future.failedFuture(
@@ -226,27 +221,6 @@ class MetadataSubmitIndexActionRouter {
 							"Target definition not found by name: " + submit.getTargetName()
 						)
 					)));
-
-			if (resolved == null) {
-				resolved = byName;
-			} else {
-				resolved = resolved.compose(byUid -> byName.compose(byTargetName -> {
-					if (!byUid.id().equals(byTargetName.id())) {
-						return Future.failedFuture(CommandFailure.stableInvalid(
-							"Target uid and name resolve to different targets"
-						));
-					}
-
-					return Future.succeededFuture(byUid);
-				}));
-			}
-		}
-
-		return resolved == null
-			? Future.failedFuture(CommandFailure.stableInvalid(
-				"Target reference is missing for command " + submit.getCommandId()
-			))
-			: resolved;
 	}
 
 	private Future<IndexerRecord> ensureWritableIndexer(
@@ -408,7 +382,7 @@ class MetadataSubmitIndexActionRouter {
 	}
 
 	private boolean hasPublicTarget(SubmitIndexActionsCommand submit) {
-		return submit.getTargetUid() != null || submit.getTargetName() != null;
+		return submit.getTargetName() != null;
 	}
 
 	private static class MetadataRoutingContext {

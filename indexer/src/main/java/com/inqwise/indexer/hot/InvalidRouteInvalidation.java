@@ -1,7 +1,6 @@
 package com.inqwise.indexer.hot;
 
 public record InvalidRouteInvalidation(
-	String targetUid,
 	String targetName,
 	String periodKey,
 	Integer targetId,
@@ -9,8 +8,7 @@ public record InvalidRouteInvalidation(
 	String indexName
 ) {
 	boolean matches(InvalidRouteSignature signature) {
-		return matches(targetUid, signature.targetUid())
-			&& matches(targetName, signature.targetName())
+		return matches(targetName, signature.targetName())
 			&& matches(periodKey, signature.periodKey())
 			&& matches(targetId, signature.targetId())
 			&& matches(indexerId, signature.indexerId())

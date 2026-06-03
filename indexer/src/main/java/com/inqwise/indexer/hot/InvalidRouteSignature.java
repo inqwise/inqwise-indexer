@@ -5,7 +5,6 @@ import java.util.Objects;
 import com.inqwise.indexer.IndexerActionType;
 
 public record InvalidRouteSignature(
-	String targetUid,
 	String targetName,
 	String periodKey,
 	Integer targetId,

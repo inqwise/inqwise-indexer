@@ -19,7 +19,6 @@ public class SubmitIndexActionsCommand implements Command {
 	public static final int MAX_DOCUMENT_BYTES = 1024 * 1024;
 
 	private final String commandId;
-	private final String targetUid;
 	private final String targetName;
 	private final Instant timestamp;
 	private final List<IndexerActionItem> actions;
@@ -34,27 +33,24 @@ public class SubmitIndexActionsCommand implements Command {
 		String commandId,
 		List<IndexerActionItem> actions
 	) {
-		this(commandId, null, null, null, actions);
+		this(commandId, null, null, actions);
 	}
 
 	public SubmitIndexActionsCommand(
-		String targetUid,
 		String targetName,
 		Instant timestamp,
 		List<IndexerActionItem> actions
 	) {
-		this(UUID.randomUUID().toString(), targetUid, targetName, timestamp, actions);
+		this(UUID.randomUUID().toString(), targetName, timestamp, actions);
 	}
 
 	public SubmitIndexActionsCommand(
 		String commandId,
-		String targetUid,
 		String targetName,
 		Instant timestamp,
 		List<IndexerActionItem> actions
 	) {
 		this.commandId = Objects.requireNonNull(commandId, "commandId");
-		this.targetUid = targetUid;
 		this.targetName = targetName;
 		this.timestamp = timestamp;
 		this.actions = validateActions(actions);
@@ -63,7 +59,6 @@ public class SubmitIndexActionsCommand implements Command {
 	public SubmitIndexActionsCommand(JsonObject json) {
 		this(
 			json.getString("command_id"),
-			json.getString("target_uid"),
 			json.getString("target_name"),
 			json.getString("timestamp") == null ? null : Instant.parse(json.getString("timestamp")),
 			json.getJsonArray("actions", new JsonArray()).stream()
@@ -82,10 +77,6 @@ public class SubmitIndexActionsCommand implements Command {
 		return commandId;
 	}
 
-	public String getTargetUid() {
-		return targetUid;
-	}
-
 	public String getTargetName() {
 		return targetName;
 	}
@@ -102,7 +93,6 @@ public class SubmitIndexActionsCommand implements Command {
 	public JsonObject toJson() {
 		return new JsonObject()
 			.put("command_id", commandId)
-			.put("target_uid", targetUid)
 			.put("target_name", targetName)
 			.put("timestamp", timestamp == null ? null : timestamp.toString())
 			.put("actions", new JsonArray(actions.stream()
@@ -120,7 +110,7 @@ public class SubmitIndexActionsCommand implements Command {
 			throw new IllegalArgumentException("Too many actions submitted: " + copy.size());
 		}
 
-		boolean hasTargetEnvelope = targetUid != null || targetName != null;
+		boolean hasTargetEnvelope = targetName != null;
 		for (IndexerActionItem action : copy) {
 			validateRouteMode(action, hasTargetEnvelope);
 			if (action.getActionType() == IndexerActionType.PUT_DOCUMENT) {

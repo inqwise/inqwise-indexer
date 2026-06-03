@@ -17,72 +17,25 @@ import com.inqwise.indexer.IndexerType;
 import io.vertx.core.Future;
 
 public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMetadataRepository {
-	private final AtomicInteger targetDefinitionIdSequence = new AtomicInteger();
 	private final AtomicInteger targetIdSequence = new AtomicInteger();
 	private final AtomicInteger indexerIdSequence = new AtomicInteger();
 	private final AtomicInteger publicationIdSequence = new AtomicInteger();
 	private final AtomicInteger manifestIdSequence = new AtomicInteger();
-	private final Map<Integer, TargetDefinitionRecord> targetDefinitionsById = new ConcurrentHashMap<>();
 	private final Map<Integer, TargetRecord> targetsById = new ConcurrentHashMap<>();
 	private final Map<Integer, IndexerRecord> indexersById = new ConcurrentHashMap<>();
 	private final Map<Integer, PublicationRecord> publicationsById = new ConcurrentHashMap<>();
 	private final Map<Integer, ManifestRecord> manifestsById = new ConcurrentHashMap<>();
-	private final TargetNameEncoder targetNameEncoder = new TargetNameEncoder();
 
-	@Override
-	public synchronized Future<Integer> insertTargetDefinition(InsertTargetDefinition targetDefinition) {
-		try {
-			TargetNameValidator.requireTargetName(targetDefinition.targetName());
-			requireUniqueTargetDefinition(targetDefinition.targetName());
-
-			Integer id = targetDefinitionIdSequence.incrementAndGet();
-			Instant now = Instant.now();
-			targetDefinitionsById.put(id, new TargetDefinitionRecord(
-				id,
-				requirePrefix(targetDefinition.prefix()),
-				targetDefinition.targetName(),
-				defaultValue(targetDefinition.periodStrategy(), TargetPeriodStrategy.NONE),
-				defaultValue(targetDefinition.status(), TargetStatus.ACTIVE),
-				now,
-				now,
-				0L
-			));
-
-			return Future.succeededFuture(id);
-		} catch (RuntimeException error) {
-			return Future.failedFuture(error);
-		}
-	}
-
-	@Override
-	public Future<Optional<TargetDefinitionRecord>> getTargetDefinitionById(Integer id) {
-		return Future.succeededFuture(Optional.ofNullable(targetDefinitionsById.get(id)));
-	}
-
-	@Override
-	public Future<Optional<TargetDefinitionRecord>> getTargetDefinitionByUid(String uid) {
-		return Future.succeededFuture(findByUid(targetDefinitionsById, uid));
-	}
-
-	@Override
-	public Future<Optional<TargetDefinitionRecord>> getTargetDefinitionByName(String targetName) {
-		return Future.succeededFuture(targetDefinitionsById.values().stream()
-			.filter(target -> target.targetName().equals(targetName))
-			.findFirst());
-	}
-
-	@Override
 	public synchronized Future<Integer> insertTarget(InsertTarget target) {
 		try {
 			TargetNameValidator.requireTargetName(target.targetName());
-			requireUniqueTarget(target.targetName(), target.targetDefinitionId(), target.periodKey());
+			requireUniqueTarget(target.targetName(), target.periodKey());
 
 			Integer id = targetIdSequence.incrementAndGet();
 			Instant now = Instant.now();
 			targetsById.put(id, new TargetRecord(
 				id,
 				requirePrefix(target.prefix()),
-				target.targetDefinitionId(),
 				target.targetName(),
 				target.periodKey(),
 				target.periodStartInclusive(),
@@ -113,7 +66,7 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 	@Override
 	public Future<Optional<TargetRecord>> getTargetByDefinitionAndPeriod(ConcreteTargetKey key) {
 		return Future.succeededFuture(targetsById.values().stream()
-			.filter(target -> key.targetDefinitionId().equals(target.targetDefinitionId()))
+			.filter(target -> key.targetName().equals(target.targetName()))
 			.filter(target -> Objects.equals(key.periodKey(), target.periodKey()))
 			.findFirst());
 	}
@@ -125,7 +78,7 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 			: query;
 		return Future.succeededFuture(targetsById.values().stream()
 			.filter(target -> matches(resolvedQuery.ids(), target.id()))
-			.filter(target -> matches(resolvedQuery.targetDefinitionIds(), target.targetDefinitionId()))
+			.filter(target -> matches(resolvedQuery.targetNames(), target.targetName()))
 			.filter(target -> matches(resolvedQuery.statuses(), target.status()))
 			.filter(target -> matches(resolvedQuery.provisioningStates(), target.provisioningState()))
 			.sorted(Comparator.comparing(TargetRecord::id))
@@ -134,16 +87,16 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 
 	@Override
 	public synchronized Future<TargetRecord> ensureTarget(
-		TargetDefinitionRecord targetDefinition,
+		String targetName,
 		TargetPeriod period
 	) {
 		try {
-			require(targetDefinition, "targetDefinition");
+			TargetNameValidator.requireTargetName(targetName);
 			TargetPeriod resolvedPeriod = period == null
 				? new TargetPeriod(TargetPeriodStrategy.NONE, null, null, null)
 				: period;
 			Optional<TargetRecord> existing = targetsById.values().stream()
-				.filter(target -> targetDefinition.id().equals(target.targetDefinitionId()))
+				.filter(target -> targetName.equals(target.targetName()))
 				.filter(target -> Objects.equals(resolvedPeriod.key(), target.periodKey()))
 				.findFirst();
 
@@ -151,18 +104,13 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 				return Future.succeededFuture(existing.get());
 			}
 
-			String targetName = targetNameEncoder.concreteTargetName(
-				targetDefinition.targetName(),
-				resolvedPeriod
-			);
-			requireUniqueTarget(targetName, targetDefinition.id(), resolvedPeriod.key());
+			requireUniqueTarget(targetName, resolvedPeriod.key());
 
 			Integer id = targetIdSequence.incrementAndGet();
 			Instant now = Instant.now();
 			TargetRecord created = new TargetRecord(
 				id,
-				targetDefinition.prefix(),
-				targetDefinition.id(),
+				"target",
 				targetName,
 				resolvedPeriod.key(),
 				resolvedPeriod.startInclusive(),
@@ -685,7 +633,6 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 		return new TargetRecord(
 			existing.id(),
 			existing.prefix(),
-			existing.targetDefinitionId(),
 			existing.targetName(),
 			existing.periodKey(),
 			existing.periodStartInclusive(),
@@ -743,25 +690,13 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 		}
 	}
 
-	private void requireUniqueTargetDefinition(String targetName) {
-		boolean exists = targetDefinitionsById.values().stream()
-			.anyMatch(target -> target.targetName().equals(targetName));
-
-		if (exists) {
-			throw new IllegalStateException("Target definition already exists: " + targetName);
-		}
-	}
-
 	private void requireUniqueTarget(
 		String targetName,
-		Integer targetDefinitionId,
 		String periodKey
 	) {
 		boolean exists = targetsById.values().stream()
 			.anyMatch(target -> target.targetName().equals(targetName)
-				|| (targetDefinitionId != null
-					&& targetDefinitionId.equals(target.targetDefinitionId())
-					&& Objects.equals(periodKey, target.periodKey())));
+				&& Objects.equals(periodKey, target.periodKey()));
 
 		if (exists) {
 			throw new IllegalStateException("Target already exists: " + targetName);
@@ -809,9 +744,6 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 	}
 
 	private <T> String prefix(T record) {
-		if (record instanceof TargetDefinitionRecord targetDefinition) {
-			return targetDefinition.prefix();
-		}
 		if (record instanceof TargetRecord target) {
 			return target.prefix();
 		}

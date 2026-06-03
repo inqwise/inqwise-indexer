@@ -16,6 +16,8 @@ import com.inqwise.indexer.commands.CommandFailure;
 import com.inqwise.indexer.commands.InMemoryCommandService;
 import com.inqwise.indexer.commands.SubmitIndexActionsCommand;
 import com.inqwise.indexer.commands.SubmitIndexActionsCommandHandler;
+import com.inqwise.indexer.definitions.StaticTargetDefinitionProvider;
+import com.inqwise.indexer.definitions.TargetDefinition;
 import com.inqwise.indexer.hot.InMemoryInvalidRouteCache;
 import com.inqwise.indexer.hot.InvalidRouteSignatures;
 import com.inqwise.indexer.metadata.ConcreteTargetKey;
@@ -23,7 +25,6 @@ import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.metadata.InsertTarget;
-import com.inqwise.indexer.metadata.InsertTargetDefinition;
 import com.inqwise.indexer.metadata.MutationState;
 import com.inqwise.indexer.metadata.PublicationState;
 import com.inqwise.indexer.metadata.TargetPeriod;
@@ -201,30 +202,23 @@ class SubmitIndexActionsCommandTest {
 		List<IndexerMetadataChanged> events = new ArrayList<>();
 
 		eventBus.subscribe(events::add)
-			.compose(ignored -> repository.insertTargetDefinition(new InsertTargetDefinition(
-				"target-customers",
-				"customers",
-				TargetPeriodStrategy.MONTHLY,
-				null
-			))).compose(ignored -> {
+			.compose(ignored -> {
 			PutDocumentActionItem action = PutDocumentActionItem.builder()
 				.withUid("42")
 				.withDocument(new JsonObject().put("name", "Ada"))
 				.build();
 
 			return commandService.submit(new SubmitIndexActionsCommand(
-				"target-customers",
-				null,
+				"customers",
 				Instant.parse("2026-05-18T10:15:00Z"),
 				List.of(action)
 			));
-		}).compose(ignored -> repository.getTargetDefinitionByUid("target-customers"))
-			.compose(found -> repository.getTargetByDefinitionAndPeriod(
-				new ConcreteTargetKey(found.get().id(), "2026-05")
+		}).compose(ignored -> repository.getTargetByDefinitionAndPeriod(
+				new ConcreteTargetKey("customers", "2026-05")
 			))
 			.compose(found -> {
 				assertTrue(found.isPresent());
-				assertEquals("customers--2026-05", found.get().targetName());
+				assertEquals("customers", found.get().targetName());
 				return repository.listWritableIndexersByTargetId(found.get().id());
 			})
 			.onComplete(testContext.succeeding(indexers -> testContext.verify(() -> {
@@ -235,8 +229,8 @@ class SubmitIndexActionsCommandTest {
 				assertEquals(SubmitIndexActionsCommand.TYPE, events.get(0).getCommandType());
 				assertEquals(indexers.get(0).version(), events.get(0).getVersion());
 				assertTrue(queue.publishedByQueueName.containsKey(indexers.get(0).queueName()));
-				assertTrue(indexers.get(0).indexName().matches("customers--2026-05--idx-[a-f0-9-]{36}"));
-				assertTrue(indexers.get(0).queueName().matches("customers--2026-05--queue-[a-f0-9-]{36}"));
+				assertTrue(indexers.get(0).indexName().matches("customers--idx-[a-f0-9-]{36}"));
+				assertTrue(indexers.get(0).queueName().matches("customers--queue-[a-f0-9-]{36}"));
 				assertConcretePut(
 					queue.published.get(0),
 					indexers.get(0).targetId(),
@@ -257,20 +251,13 @@ class SubmitIndexActionsCommandTest {
 		RecordingQueue queue = new RecordingQueue();
 		InMemoryCommandService commandService = metadataCommandService(repository, eventBus, queue);
 
-		repository.insertTargetDefinition(new InsertTargetDefinition(
-			"target-customers",
-			"customers",
-			TargetPeriodStrategy.MONTHLY,
-			null
-		)).compose(ignored -> repository.getTargetDefinitionByUid("target-customers"))
-			.compose(found -> repository.ensureTarget(found.get(), may2026Period()))
+		repository.ensureTarget("customers", may2026Period())
 			.compose(target -> repository.updateTargetProvisioningState(new UpdateTargetProvisioningState(
 				target.id(),
 				TargetProvisioningState.PROVISIONING,
 				target.version()
 			))).compose(ignored -> commandService.submit(new SubmitIndexActionsCommand(
-				"target-customers",
-				null,
+				"customers",
 				Instant.parse("2026-05-18T10:15:00Z"),
 				List.of(PutDocumentActionItem.builder()
 					.withUid("42")
@@ -295,20 +282,13 @@ class SubmitIndexActionsCommandTest {
 		RecordingQueue queue = new RecordingQueue();
 		InMemoryCommandService commandService = metadataCommandService(repository, eventBus, queue);
 
-		repository.insertTargetDefinition(new InsertTargetDefinition(
-			"target-customers",
-			"customers",
-			TargetPeriodStrategy.MONTHLY,
-			null
-		)).compose(ignored -> repository.getTargetDefinitionByUid("target-customers"))
-			.compose(found -> repository.ensureTarget(found.get(), may2026Period()))
+		repository.ensureTarget("customers", may2026Period())
 			.compose(target -> repository.updateTargetProvisioningState(new UpdateTargetProvisioningState(
 				target.id(),
 				TargetProvisioningState.FAILED,
 				target.version()
 			))).compose(ignored -> commandService.submit(new SubmitIndexActionsCommand(
-				"target-customers",
-				null,
+				"customers",
 				Instant.parse("2026-05-18T10:15:00Z"),
 				List.of(PutDocumentActionItem.builder()
 					.withUid("42")
@@ -333,16 +313,9 @@ class SubmitIndexActionsCommandTest {
 		RecordingQueue queue = new RecordingQueue();
 		InMemoryCommandService commandService = metadataCommandService(repository, eventBus, queue);
 
-		repository.insertTargetDefinition(new InsertTargetDefinition(
-			"target-customers",
-			"customers",
-			TargetPeriodStrategy.MONTHLY,
-			null
-		)).compose(ignored -> repository.getTargetDefinitionByUid("target-customers"))
-			.compose(found -> repository.ensureTarget(found.get(), may2026Period()))
+		repository.ensureTarget("customers", may2026Period())
 			.compose(target -> commandService.submit(new SubmitIndexActionsCommand(
-				"target-customers",
-				null,
+				"customers",
 				Instant.parse("2026-05-18T10:15:00Z"),
 				List.of(PutDocumentActionItem.builder()
 					.withUid("42")
@@ -371,12 +344,12 @@ class SubmitIndexActionsCommandTest {
 		InMemoryCommandService commandService = new InMemoryCommandService()
 			.register(new SubmitIndexActionsCommandHandler(
 				repository,
+				emptyTargetDefinitionProvider(),
 				eventBus,
 				queue,
 				invalidRouteCache
 			));
 		SubmitIndexActionsCommand command = new SubmitIndexActionsCommand(
-			null,
 			"customers",
 			Instant.parse("2026-05-18T10:15:00Z"),
 			List.of(PutDocumentActionItem.builder()
@@ -425,8 +398,7 @@ class SubmitIndexActionsCommandTest {
 		IllegalArgumentException error = assertThrows(
 			IllegalArgumentException.class,
 			() -> new SubmitIndexActionsCommand(
-				"target-customers",
-				null,
+				"customers",
 				Instant.parse("2026-05-18T10:15:00Z"),
 				List.of(PutDocumentActionItem.builder()
 					.withUid("42")
@@ -451,8 +423,7 @@ class SubmitIndexActionsCommandTest {
 		IllegalArgumentException error = assertThrows(
 			IllegalArgumentException.class,
 			() -> new SubmitIndexActionsCommand(
-				"target-customers",
-				null,
+				"customers",
 				Instant.parse("2026-05-18T10:15:00Z"),
 				List.of(PutDocumentActionItem.builder()
 					.withTargetId(10)
@@ -469,8 +440,7 @@ class SubmitIndexActionsCommandTest {
 		IllegalArgumentException error = assertThrows(
 			IllegalArgumentException.class,
 			() -> new SubmitIndexActionsCommand(
-				"target-customers",
-				null,
+				"customers",
 				Instant.parse("2026-05-18T10:15:00Z"),
 				List.of(CompleteIndexActionItem.builder().build())
 			)
@@ -484,7 +454,6 @@ class SubmitIndexActionsCommandTest {
 			IllegalArgumentException.class,
 			() -> new SubmitIndexActionsCommand(
 				"command-1",
-				null,
 				null,
 				Instant.parse("2026-05-18T10:15:00Z"),
 				List.of(PutDocumentActionItem.builder()
@@ -529,49 +498,15 @@ class SubmitIndexActionsCommandTest {
 		RecordingQueue queue = new RecordingQueue();
 		InMemoryCommandService commandService = metadataCommandService(repository, eventBus, queue);
 
-		repository.insertTargetDefinition(new InsertTargetDefinition(
-			"target-customers",
+		commandService.submit(new SubmitIndexActionsCommand(
 			"customers",
-			TargetPeriodStrategy.MONTHLY,
-			null
-		)).compose(ignored -> commandService.submit(new SubmitIndexActionsCommand(
-			"target-customers",
-			null,
 			null,
 			List.of(PutDocumentActionItem.builder()
 				.withUid("42")
 				.withDocument(new JsonObject().put("name", "Ada"))
 				.build())
-		))).onComplete(testContext.failing(error -> testContext.verify(() -> {
+		)).onComplete(testContext.failing(error -> testContext.verify(() -> {
 			assertEquals("Timestamp is required for target period strategy: MONTHLY", error.getMessage());
-			assertTrue(queue.published.isEmpty());
-			testContext.completeNow();
-		})));
-	}
-
-	@Test
-	void publicTargetCommandRejectsInactiveTargetDefinition(VertxTestContext testContext) {
-		InMemoryDocumentStoreMetadataRepository repository =
-			new InMemoryDocumentStoreMetadataRepository();
-		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
-		RecordingQueue queue = new RecordingQueue();
-		InMemoryCommandService commandService = metadataCommandService(repository, eventBus, queue);
-
-		repository.insertTargetDefinition(new InsertTargetDefinition(
-			"target-customers",
-			"customers",
-			TargetPeriodStrategy.NONE,
-			TargetStatus.NON_ACTIVE
-		)).compose(ignored -> commandService.submit(new SubmitIndexActionsCommand(
-			"target-customers",
-			null,
-			null,
-			List.of(PutDocumentActionItem.builder()
-				.withUid("42")
-				.withDocument(new JsonObject().put("name", "Ada"))
-				.build())
-		))).onComplete(testContext.failing(error -> testContext.verify(() -> {
-			assertEquals("Target definition is not active: 1", error.getMessage());
 			assertTrue(queue.published.isEmpty());
 			testContext.completeNow();
 		})));
@@ -708,7 +643,12 @@ class SubmitIndexActionsCommandTest {
 		RecordingQueue queue
 	) {
 		return new InMemoryCommandService()
-			.register(new SubmitIndexActionsCommandHandler(repository, eventBus, queue));
+			.register(new SubmitIndexActionsCommandHandler(
+				repository,
+				customersMonthlyTargetDefinitionProvider(),
+				eventBus,
+				queue
+			));
 	}
 
 	private void assertConcretePut(
@@ -732,6 +672,16 @@ class SubmitIndexActionsCommandTest {
 			Instant.parse("2026-05-01T00:00:00Z"),
 			Instant.parse("2026-06-01T00:00:00Z")
 		);
+	}
+
+	private StaticTargetDefinitionProvider customersMonthlyTargetDefinitionProvider() {
+		return new StaticTargetDefinitionProvider(List.of(
+			new TargetDefinition("customers", TargetPeriodStrategy.MONTHLY)
+		));
+	}
+
+	private StaticTargetDefinitionProvider emptyTargetDefinitionProvider() {
+		return new StaticTargetDefinitionProvider(List.of());
 	}
 
 	private static class ProvisioningLockConflictRepository

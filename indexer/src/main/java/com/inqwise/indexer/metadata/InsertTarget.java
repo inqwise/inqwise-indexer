@@ -2,7 +2,6 @@ package com.inqwise.indexer.metadata;
 
 public record InsertTarget(
 	String prefix,
-	Integer targetDefinitionId,
 	String targetName,
 	String periodKey,
 	java.time.Instant periodStartInclusive,
@@ -13,7 +12,6 @@ public record InsertTarget(
 	public InsertTarget(String prefix, String targetName, TargetStatus status) {
 		this(
 			prefix == null ? "test" : prefix,
-			null,
 			targetName,
 			null,
 			null,

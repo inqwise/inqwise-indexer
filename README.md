@@ -31,10 +31,9 @@ Vert.x 5.x starter library inspired by `vertx-elastic`, with a modular layout:
 
 Document-store publishing separates public target routing from physical index execution:
 
-- `TargetDefinitionRecord` is the public/base target exposed to API callers. It is resolved by `targetUid` or `targetName`.
+- `TargetDefinition` is provider-owned application/static data, not repository metadata. It is resolved by `targetName`.
 - `TargetRecord` is the concrete target used internally for one period bucket, or the single concrete target when the period strategy is `NONE`.
-- `targetUid` is the public token for a target definition. A separate target-token model is not used yet.
-- `targetName` on a target definition is the logical business target name, such as `customers`.
+- `targetName` is the public route identity and logical business target name, such as `customers`.
 - concrete period target names are encoded as `{baseTargetName}--{periodKey}`, such as `customers--2026-05`.
 - supported period strategies are `NONE`, `MONTHLY`, `HALF_YEARLY`, and `YEARLY`.
 - period routing uses UTC.
@@ -44,9 +43,9 @@ Document-store publishing separates public target routing from physical index ex
 - publication state and mutation state are separate, so a valid physical index can be `PUBLISHED` and `WRITABLE`.
 - multiple indexers may share one physical `indexName` when their roles and ownership make that relationship explicit, for example a `LOAD_WRITER` owner plus an attached `LIVE_WRITER`.
 
-Repository access for document-store metadata is id-first. Identity lookup uses `id` or `uid`, and relationship lookup uses foreign ids such as `targetDefinitionId`, concrete `targetId`, and `indexerId`. Names remain stored for validation, display, and physical execution, but they are not the default repository access path.
+Repository access for document-store metadata is id-first. Identity lookup uses concrete metadata `id` or `uid`, and relationship lookup uses foreign ids such as concrete `targetId` and `indexerId`. Target definitions are resolved through `TargetDefinitionProvider`, so the repository stores concrete targets by `targetName` plus `periodKey` rather than a target-definition foreign key.
 
-Public write requests route by `targetUid` or `targetName` plus a timestamp when the target definition uses period routing. Command orchestration resolves the target definition, resolves the UTC period, ensures the concrete `TargetRecord`, resolves or provisions a writable indexer for that concrete target, expands logical mutations to concrete `IndexerActionItem` payloads, and publishes those concrete actions to each resolved indexer queue. Runtime action items execute by concrete `targetId`, `indexerId`, and `indexName`.
+Public write requests route by `targetName` plus a timestamp when the target definition uses period routing. Command orchestration resolves the target definition from `TargetDefinitionProvider`, resolves the UTC period, ensures the concrete `TargetRecord`, resolves or provisions a writable indexer for that concrete target, expands logical mutations to concrete `IndexerActionItem` payloads, and publishes those concrete actions to each resolved indexer queue. Runtime action items execute by concrete `targetId`, `indexerId`, and `indexName`.
 
 If a concrete target has no writable indexer during public-target submission, the command path attempts to provision the first writable indexer and moves the concrete target through `PROVISIONING` and back to `READY`. Provisioning failure marks the target `FAILED`, so later writes fail fast instead of repeatedly creating indexers.
 
@@ -58,7 +57,7 @@ Hot routing keeps an in-memory view of operational targets and indexers for the 
 
 `HotIndexer` owns final per-indexer acceptance and concrete action expansion. `MetadataHotIndexer` delegates action-specific normalization to `IndexerActionProvider.router()`. Candidate routing skips non-matching indexers; direct routing throws on conflicting concrete fields. This keeps action-specific rules out of the target cache and lets future providers add indexer-specific composition without changing the cache.
 
-`HotIndexActionsService` is the hot-path entry point. It first tries a target-envelope route by `targetUid` or `targetName` plus timestamp, then tries direct concrete routing for actions that carry an `indexerId`, and otherwise submits the original request to the command service. `RoutedIndexActionPublisher` is shared by hot routing and the cold command path for queue publication.
+`HotIndexActionsService` is the hot-path entry point. It first tries a target-envelope route by `targetName` plus timestamp, then tries direct concrete routing for actions that carry an `indexerId`, and otherwise submits the original request to the command service. `RoutedIndexActionPublisher` is shared by hot routing and the cold command path for queue publication.
 
 Hot routing support also includes two standalone guard components. `InvalidRouteCache` stores expiring invalid route signatures for stable cold failures such as missing target definitions, missing concrete targets/indexers, or missing writable indexers. `HotIndexActionsService` checks this cache before falling back to `SubmitIndexActionsCommand`; cached invalid routes fail fast instead of repeatedly entering cold submit. Retryable provisioning states and operator-recovery failures are not cached. `TargetInvalidationRegistry` stores versioned, expiring target invalidation entries for background cache invalidation when event delivery is missed or delayed. The target invalidation registry is not consulted on every hot route.
 
@@ -68,8 +67,8 @@ Broader metadata inspection belongs to an administration layer that can load tar
 
 Indexing uses two paths:
 
-- Hot path: callers submit a `HotIndexActionsRequest` to `HotIndexActionsService`. A normal live-write request carries `targetUid` or `targetName`, a timestamp, and logical document mutation items. If the cached target/indexer snapshot proves the route, the service expands the items to concrete `targetId`, `indexerId`, and `indexName` payloads and publishes them through `RoutedIndexActionPublisher`.
-- Cold/unknown path: callers submit `SubmitIndexActionsCommand`, either directly or through hot-path fallback. The command supports only two routing schemas. Target-envelope mode carries `targetUid` or `targetName`, optional timestamp, and logical document mutation actions with no concrete destination fields. Concrete mode carries no target envelope or timestamp, and every action must include a concrete `targetId` or `indexerId`; internal actions such as complete and catch-up barrier require `indexerId`. The command handler resolves writable metadata indexers by concrete `targetId`, verifies each destination, expands logical actions to concrete `indexerId`/`indexName` payloads, publishes metadata-change wake-ups only for real metadata changes such as auto-provisioned indexers, then publishes the concrete actions through the shared `RoutedIndexActionPublisher`.
+- Hot path: callers submit a `HotIndexActionsRequest` to `HotIndexActionsService`. A normal live-write request carries `targetName`, a timestamp, and logical document mutation items. If the cached target/indexer snapshot proves the route, the service expands the items to concrete `targetId`, `indexerId`, and `indexName` payloads and publishes them through `RoutedIndexActionPublisher`.
+- Cold/unknown path: callers submit `SubmitIndexActionsCommand`, either directly or through hot-path fallback. The command supports only two routing schemas. Target-envelope mode carries `targetName`, optional timestamp, and logical document mutation actions with no concrete destination fields. Concrete mode carries no target envelope or timestamp, and every action must include a concrete `targetId` or `indexerId`; internal actions such as complete and catch-up barrier require `indexerId`. The command handler resolves writable metadata indexers by concrete `targetId`, verifies each destination, expands logical actions to concrete `indexerId`/`indexName` payloads, publishes metadata-change wake-ups only for real metadata changes such as auto-provisioned indexers, then publishes the concrete actions through the shared `RoutedIndexActionPublisher`.
 
 Command completion means that the submitted actions were handed to the indexer queue, not that the documents were already indexed. Runtime processing remains asynchronous.
 

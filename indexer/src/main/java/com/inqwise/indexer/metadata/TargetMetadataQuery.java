@@ -4,13 +4,13 @@ import java.util.List;
 
 public record TargetMetadataQuery(
 	List<Integer> ids,
-	List<Integer> targetDefinitionIds,
+	List<String> targetNames,
 	List<TargetStatus> statuses,
 	List<TargetProvisioningState> provisioningStates
 ) {
 	public TargetMetadataQuery {
 		ids = copy(ids);
-		targetDefinitionIds = copy(targetDefinitionIds);
+		targetNames = copy(targetNames);
 		statuses = copy(statuses);
 		provisioningStates = copy(provisioningStates);
 	}

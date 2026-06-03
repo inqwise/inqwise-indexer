@@ -54,7 +54,6 @@ class InMemoryInvalidRouteCacheTest {
 		cache.record(customers, "missing target");
 		cache.record(orders, "missing target");
 		cache.invalidateMatching(new InvalidRouteInvalidation(
-			null,
 			"customers",
 			null,
 			null,
@@ -76,7 +75,6 @@ class InMemoryInvalidRouteCacheTest {
 
 	private InvalidRouteSignature signature(String targetName, String periodKey) {
 		return new InvalidRouteSignature(
-			null,
 			targetName,
 			periodKey,
 			null,

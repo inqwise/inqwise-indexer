@@ -1,7 +1,7 @@
 package com.inqwise.indexer.metadata;
 
 public record ConcreteTargetKey(
-	Integer targetDefinitionId,
+	String targetName,
 	String periodKey
 ) {
 }

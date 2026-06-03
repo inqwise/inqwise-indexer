@@ -12,7 +12,7 @@
 - Defer action-level deduplication for publish retries. The planned queue-backed command engine retries the whole command, and current document actions should remain idempotent where practical. Add stable `actionId`, `batchId`, or persistent action dedupe only when non-idempotent action effects or operational duplicate suppression require it.
 - Treat publish-readiness as a command/provisioning concern, not an `Indexer` runtime concern. Metadata checks remain first, and production readiness should additionally verify or ensure external queue/topic and document-index resources before publishing. Missing resources should fail closed or trigger provisioning/recovery commands rather than publishing blindly.
 - Add an explicit retry/recovery command for concrete targets whose first writable indexer provisioning failed.
-- Add a target creation command for creating public target definitions and, when requested, initial concrete targets through the generic `CommandService` layer instead of direct repository calls.
+- Add a target creation command for creating concrete targets from provider-owned target definitions and, when requested, initial concrete indexers through the generic `CommandService` layer instead of direct repository calls.
 - Add an indexer creation/provisioning command that resolves static definitions, ensures document index and queue resources, inserts `IndexerRecord` and `ManifestRecord`, and marks the concrete target ready after resources are usable.
 - Finish publication orchestration for load/reload workflows. The accepted direction is `LOAD_WRITER` plus optional linked `LIVE_WRITER`, internal completion/barrier markers, and load metadata keyed by load writer id.
 - Finish the indexer delete workflow after cleanup ownership is finalized. The current command marks the metadata indexer `DELETING` and runtime `NON_ACTIVE` so runtime nodes can clean resources from durable metadata; final repository removal or tombstone handling remains deferred.
@@ -20,7 +20,7 @@
 
 ## Document Store Publishing
 
-- Add query API support for resolving `targetUid` or `targetName` plus a time range into published physical `indexName` values. Queries should skip missing period targets and return empty results when no published indexes exist.
+- Add query API support for resolving `targetName` plus a time range into published physical `indexName` values. Queries should skip missing period targets and return empty results when no published indexes exist.
 - Add target-definition-level control for concrete target auto-creation. The current behavior auto-creates concrete targets on first write.
 - Wire hot routing into the public action submission surface. The core components now exist: `HotIndexActionsService`, `HotMetadataView`, immutable `HotTarget` snapshots, hot-capable indexer providers, shared `RoutedIndexActionPublisher`, `InvalidRouteCache`, and `TargetInvalidationRegistry`.
 - Add background invalidation wiring for `TargetInvalidationRegistry`. Polling nodes should compare entry versions with locally seen versions, invalidate affected hot targets, and invalidate all local hot targets when registry results are truncated.

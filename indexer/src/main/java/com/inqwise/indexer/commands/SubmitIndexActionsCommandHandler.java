@@ -6,6 +6,7 @@ import java.util.Objects;
 import com.inqwise.indexer.IndexerMetadataChanged;
 import com.inqwise.indexer.IndexerLifecycleEventBus;
 import com.inqwise.indexer.IndexerQueueClient;
+import com.inqwise.indexer.definitions.TargetDefinitionProvider;
 import com.inqwise.indexer.hot.InvalidRouteCache;
 import com.inqwise.indexer.hot.InvalidRouteSignature;
 import com.inqwise.indexer.hot.InvalidRouteSignatures;
@@ -21,19 +22,24 @@ public class SubmitIndexActionsCommandHandler implements CommandHandler {
 
 	public SubmitIndexActionsCommandHandler(
 		DocumentStoreMetadataRepository metadataRepository,
+		TargetDefinitionProvider targetDefinitionProvider,
 		IndexerLifecycleEventBus eventBus,
 		IndexerQueueClient queue
 	) {
-		this(metadataRepository, eventBus, queue, null);
+		this(metadataRepository, targetDefinitionProvider, eventBus, queue, null);
 	}
 
 	public SubmitIndexActionsCommandHandler(
 		DocumentStoreMetadataRepository metadataRepository,
+		TargetDefinitionProvider targetDefinitionProvider,
 		IndexerLifecycleEventBus eventBus,
 		IndexerQueueClient queue,
 		InvalidRouteCache invalidRouteCache
 	) {
-		this.metadataRouter = new MetadataSubmitIndexActionRouter(metadataRepository);
+		this.metadataRouter = new MetadataSubmitIndexActionRouter(
+			metadataRepository,
+			targetDefinitionProvider
+		);
 		this.eventBus = Objects.requireNonNull(eventBus, "eventBus");
 		this.publisher = new RoutedIndexActionPublisher(queue);
 		this.invalidRouteCache = invalidRouteCache;

@@ -17,33 +17,19 @@ import com.inqwise.indexer.metadata.TargetPeriodStrategy;
 public class HotTarget {
 	private static final String NONE_PERIOD_KEY = "";
 
-	private final Integer targetDefinitionId;
-	private final String targetUid;
 	private final String targetName;
 	private final TargetPeriodStrategy periodStrategy;
 	private final Map<String, HotConcreteTarget> concreteTargetsByPeriodKey;
 	private final TargetPeriodResolver periodResolver = new TargetPeriodResolver();
 
 	public HotTarget(
-		Integer targetDefinitionId,
-		String targetUid,
 		String targetName,
 		TargetPeriodStrategy periodStrategy,
 		List<HotConcreteTarget> concreteTargets
 	) {
-		this.targetDefinitionId = Objects.requireNonNull(targetDefinitionId, "targetDefinitionId");
-		this.targetUid = targetUid;
 		this.targetName = Objects.requireNonNull(targetName, "targetName");
 		this.periodStrategy = periodStrategy == null ? TargetPeriodStrategy.NONE : periodStrategy;
 		this.concreteTargetsByPeriodKey = concreteTargetsByPeriodKey(concreteTargets);
-	}
-
-	public Integer targetDefinitionId() {
-		return targetDefinitionId;
-	}
-
-	public String targetUid() {
-		return targetUid;
 	}
 
 	public String targetName() {
@@ -129,15 +115,11 @@ public class HotTarget {
 	}
 
 	private boolean matchesTarget(HotIndexActionsRequest request) {
-		if (request.targetUid() != null && targetUid != null && !request.targetUid().equals(targetUid)) {
-			return false;
-		}
-
 		if (request.targetName() != null && !request.targetName().equals(targetName)) {
 			return false;
 		}
 
-		return request.targetUid() != null || request.targetName() != null;
+		return request.targetName() != null;
 	}
 
 	private Map<String, HotConcreteTarget> concreteTargetsByPeriodKey(

@@ -74,9 +74,7 @@ public class HotIndexActionsService {
 	}
 
 	private HotRouteResult routeByTarget(HotIndexActionsRequest request) {
-		Optional<HotTarget> target = request.targetUid() != null
-			? hotMetadataView.findTargetByUid(request.targetUid())
-			: hotMetadataView.findTargetByName(request.targetName());
+		Optional<HotTarget> target = hotMetadataView.findTargetByName(request.targetName());
 
 		return target
 			.<HotRouteResult>map(found -> found.route(request))
@@ -118,7 +116,6 @@ public class HotIndexActionsService {
 	private Future<Void> fallback(HotIndexActionsRequest request) {
 		try {
 			return commandService.submit(new SubmitIndexActionsCommand(
-				request.targetUid(),
 				request.targetName(),
 				request.timestamp(),
 				request.actions()
@@ -133,7 +130,7 @@ public class HotIndexActionsService {
 	}
 
 	private boolean hasTargetEnvelope(HotIndexActionsRequest request) {
-		return request.targetUid() != null || request.targetName() != null;
+		return request.targetName() != null;
 	}
 
 	private Optional<InvalidRouteRecord> findInvalidRoute(HotIndexActionsRequest request) {

@@ -69,23 +69,21 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 	}
 
 	@Test
-	void rejectsNonCanonicalTargetDefinitionName() {
+	void rejectsNonCanonicalTargetName() {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 
-		Future<Integer> uppercase = repository.insertTargetDefinition(new InsertTargetDefinition(
+		Future<Integer> uppercase = repository.insertTarget(new InsertTarget(
 			null,
 			"Customers",
-			null,
 			null
 		));
 		assertTrue(uppercase.failed());
 		assertEquals("Target name is not canonical: Customers", uppercase.cause().getMessage());
 
-		Future<Integer> spaces = repository.insertTargetDefinition(new InsertTargetDefinition(
+		Future<Integer> spaces = repository.insertTarget(new InsertTarget(
 			null,
 			"customer docs",
-			null,
 			null
 		));
 		assertTrue(spaces.failed());
@@ -98,10 +96,9 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 			new InMemoryDocumentStoreMetadataRepository();
 		String targetName = "a".repeat(TargetNameValidator.MAX_TARGET_NAME_LENGTH + 1);
 
-		Future<Integer> inserted = repository.insertTargetDefinition(new InsertTargetDefinition(
+		Future<Integer> inserted = repository.insertTarget(new InsertTarget(
 			null,
 			targetName,
-			null,
 			null
 		));
 		assertTrue(inserted.failed());
@@ -109,34 +106,25 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 	}
 
 	@Test
-	void ensuresConcreteTargetFromDefinitionAndUtcPeriod(VertxTestContext testContext) {
+	void ensuresConcreteTargetFromNameAndUtcPeriod(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 		TargetPeriodResolver resolver = new TargetPeriodResolver();
 
-		repository.insertTargetDefinition(new InsertTargetDefinition(
-			"customers-uid",
-			"customers",
+		TargetPeriod period = resolver.resolve(
 			TargetPeriodStrategy.MONTHLY,
-			null
-		))
-			.compose(repository::getTargetDefinitionById)
-			.compose(found -> {
-				assertTrue(found.isPresent());
-				TargetPeriod period = resolver.resolve(
-					found.get().periodStrategy(),
-					Instant.parse("2026-05-18T10:15:00Z")
-				);
-				return repository.ensureTarget(found.get(), period);
-			})
+			Instant.parse("2026-05-18T10:15:00Z")
+		);
+
+		repository.ensureTarget("customers", period)
 			.compose(target -> repository.getTargetByDefinitionAndPeriod(new ConcreteTargetKey(
-				target.targetDefinitionId(),
+				target.targetName(),
 				target.periodKey()
 			)))
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
 				assertTrue(found.isPresent());
 				TargetRecord target = found.get();
-				assertEquals("customers--2026-05", target.targetName());
+				assertEquals("customers", target.targetName());
 				assertEquals("2026-05", target.periodKey());
 				assertEquals(TargetProvisioningState.READY, target.provisioningState());
 				testContext.completeNow();
