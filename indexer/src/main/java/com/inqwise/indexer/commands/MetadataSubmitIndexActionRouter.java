@@ -36,12 +36,14 @@ import com.inqwise.indexer.metadata.TargetProvisioningState;
 import com.inqwise.indexer.metadata.TargetRecord;
 import com.inqwise.indexer.metadata.TargetStatus;
 import com.inqwise.indexer.metadata.UpdateTargetProvisioningState;
+import com.inqwise.indexer.provisioning.CreateIndexerOperation;
 
 import io.vertx.core.Future;
 
 class MetadataSubmitIndexActionRouter {
 	private final DocumentStoreMetadataRepository repository;
 	private final TargetDefinitionProvider targetDefinitionProvider;
+	private final CreateIndexerOperation createIndexer;
 	private final TargetPeriodResolver periodResolver = new TargetPeriodResolver();
 
 	MetadataSubmitIndexActionRouter(
@@ -53,6 +55,7 @@ class MetadataSubmitIndexActionRouter {
 			targetDefinitionProvider,
 			"targetDefinitionProvider"
 		);
+		this.createIndexer = new CreateIndexerOperation(repository);
 	}
 
 	Future<List<RoutedIndexActions>> route(SubmitIndexActionsCommand submit) {
@@ -240,7 +243,7 @@ class MetadataSubmitIndexActionRouter {
 		)).recover(error -> Future.failedFuture(CommandFailure.retryable(
 			"Target provisioning lock changed: " + target.id(),
 			error
-		))).compose(ignored -> repository.insertIndexer(new InsertIndexer(
+		))).compose(ignored -> createIndexer.create(new InsertIndexer(
 				prefix,
 				target.id(),
 				target.targetName(),
@@ -255,10 +258,6 @@ class MetadataSubmitIndexActionRouter {
 				PublicationState.UNPUBLISHED,
 				MutationState.WRITABLE
 			)))
-			.compose(repository::getIndexerById)
-			.compose(found -> found
-				.map(Future::succeededFuture)
-				.orElseGet(() -> Future.failedFuture("Created indexer not found for target: " + target.id())))
 			.onSuccess(indexer -> routingContext.markMetadataChanged(indexer.id()))
 			.compose(indexer -> repository.getTargetById(target.id())
 				.compose(found -> found

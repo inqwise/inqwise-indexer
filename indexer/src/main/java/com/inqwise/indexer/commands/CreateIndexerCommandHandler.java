@@ -1,23 +1,22 @@
 package com.inqwise.indexer.commands;
 
-import java.util.Objects;
-
 import com.inqwise.indexer.IndexerLifecycleEventBus;
 import com.inqwise.indexer.IndexerMetadataChanged;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.InsertIndexer;
+import com.inqwise.indexer.provisioning.CreateIndexerOperation;
 
 import io.vertx.core.Future;
 
 public class CreateIndexerCommandHandler implements CommandHandler {
-	private final DocumentStoreMetadataRepository repository;
+	private final CreateIndexerOperation createIndexer;
 	private final IndexerLifecycleEventBus eventBus;
 
 	public CreateIndexerCommandHandler(
 		DocumentStoreMetadataRepository repository,
 		IndexerLifecycleEventBus eventBus
 	) {
-		this.repository = Objects.requireNonNull(repository, "repository");
+		this.createIndexer = new CreateIndexerOperation(repository);
 		this.eventBus = eventBus == null ? IndexerLifecycleEventBus.NOOP : eventBus;
 	}
 
@@ -30,7 +29,7 @@ public class CreateIndexerCommandHandler implements CommandHandler {
 	public Future<Void> handle(Command command) {
 		CreateIndexerCommand create = new CreateIndexerCommand(command.toJson());
 
-		return repository.insertIndexer(new InsertIndexer(
+		return createIndexer.create(new InsertIndexer(
 			create.getPrefix(),
 			create.getTargetId(),
 			create.getTargetName(),
@@ -42,10 +41,10 @@ public class CreateIndexerCommandHandler implements CommandHandler {
 			create.getRuntimeState(),
 			create.getPublicationState(),
 			create.getMutationState()
-		)).compose(indexerId -> eventBus.publish(new IndexerMetadataChanged(
-			indexerId,
+		)).compose(indexer -> eventBus.publish(new IndexerMetadataChanged(
+			indexer.id(),
 			getType(),
-			0L
+			indexer.version()
 		)));
 	}
 }
