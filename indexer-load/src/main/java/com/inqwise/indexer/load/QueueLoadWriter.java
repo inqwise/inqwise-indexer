@@ -13,20 +13,20 @@ import io.vertx.core.Future;
 
 public class QueueLoadWriter implements LoadWriter {
 	private final Integer targetId;
-	private final Integer loadIndexerId;
+	private final Integer indexerId;
 	private final String queueName;
 	private final IndexerQueueClient queue;
 	private final IndexerLoadRepository loadRepository;
 
 	public QueueLoadWriter(
 		Integer targetId,
-		Integer loadIndexerId,
+		Integer indexerId,
 		String queueName,
 		IndexerQueueClient queue,
 		IndexerLoadRepository loadRepository
 	) {
 		this.targetId = Objects.requireNonNull(targetId, "targetId");
-		this.loadIndexerId = Objects.requireNonNull(loadIndexerId, "loadIndexerId");
+		this.indexerId = Objects.requireNonNull(indexerId, "indexerId");
 		this.queueName = Objects.requireNonNull(queueName, "queueName");
 		this.queue = Objects.requireNonNull(queue, "queue");
 		this.loadRepository = Objects.requireNonNull(loadRepository, "loadRepository");
@@ -41,23 +41,23 @@ public class QueueLoadWriter implements LoadWriter {
 	public Future<Void> complete(LoadCompletion completion) {
 		return publish(List.of(CompleteIndexActionItem.builder()
 			.withTargetId(targetId)
-			.withIndexerId(loadIndexerId)
+			.withIndexerId(indexerId)
 			.build()));
 	}
 
 	@Override
 	public Future<Void> fail(Throwable error) {
-		return loadRepository.getByLoadIndexerId(loadIndexerId)
+		return loadRepository.getByIndexerId(indexerId)
 			.compose(found -> found
 				.map(load -> loadRepository.markFailed(new UpdateIndexerLoadFailure(
-					loadIndexerId,
+					indexerId,
 					error == null || error.getMessage() == null
 						? "Load provider failed"
 						: error.getMessage(),
 					null,
 					load.version()
 				)))
-				.orElseGet(() -> Future.failedFuture("Indexer load not found: " + loadIndexerId)));
+				.orElseGet(() -> Future.failedFuture("Indexer load not found: " + indexerId)));
 	}
 
 	private Future<Void> publish(List<IndexerActionItem> items) {

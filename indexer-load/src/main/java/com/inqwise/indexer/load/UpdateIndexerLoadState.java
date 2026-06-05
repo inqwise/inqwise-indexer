@@ -1,7 +1,7 @@
 package com.inqwise.indexer.load;
 
 public record UpdateIndexerLoadState(
-	Integer loadIndexerId,
+	Integer indexerId,
 	IndexerLoadState state,
 	long expectedVersion
 ) {

@@ -336,6 +336,106 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 	}
 
 	@Override
+	public synchronized Future<Void> replacePublishedIndexer(ReplacePublishedIndexer replace) {
+		try {
+			require(replace.targetId(), "targetId");
+			IndexerRecord candidate = requireIndexer(
+				replace.candidateIndexerId(),
+				replace.expectedCandidateVersion()
+			);
+			if (!replace.targetId().equals(candidate.targetId())) {
+				throw new IllegalStateException("Candidate target mismatch: " + candidate.id());
+			}
+			if (candidate.publicationState() != PublicationState.UNPUBLISHED) {
+				throw new IllegalStateException("Candidate indexer is not unpublished: " + candidate.id());
+			}
+
+			List<IndexerRecord> published = indexersById.values().stream()
+				.filter(indexer -> replace.targetId().equals(indexer.targetId()))
+				.filter(indexer -> indexer.publicationState() == PublicationState.PUBLISHED)
+				.sorted(Comparator.comparing(IndexerRecord::id))
+				.toList();
+			if (published.size() > 1) {
+				throw new IllegalStateException("Multiple published indexers for target: " + replace.targetId());
+			}
+
+			IndexerRecord previous = published.isEmpty() ? null : published.get(0);
+			if (replace.previousIndexerId() == null) {
+				if (previous != null) {
+					throw new IllegalStateException("Published indexer already exists for target: " + replace.targetId());
+				}
+			} else {
+				if (previous == null || !replace.previousIndexerId().equals(previous.id())) {
+					throw new IllegalStateException("Published indexer mismatch for target: " + replace.targetId());
+				}
+				if (replace.expectedPreviousVersion() == null) {
+					throw new NullPointerException("expectedPreviousVersion");
+				}
+				requireVersion("Indexer", previous.id(), replace.expectedPreviousVersion(), previous.version());
+			}
+
+			IndexerRecord ownershipSource = null;
+			if (replace.ownershipSourceIndexerId() != null) {
+				if (replace.expectedOwnershipSourceVersion() == null) {
+					throw new NullPointerException("expectedOwnershipSourceVersion");
+				}
+				ownershipSource = requireIndexer(
+					replace.ownershipSourceIndexerId(),
+					replace.expectedOwnershipSourceVersion()
+				);
+				if (!replace.targetId().equals(ownershipSource.targetId())
+					|| !candidate.indexName().equals(ownershipSource.indexName())) {
+					throw new IllegalStateException("Ownership source mismatch: " + ownershipSource.id());
+				}
+			}
+
+			if (previous != null) {
+				indexersById.put(previous.id(), copyIndexer(
+					previous,
+					previous.queueName(),
+					previous.role(),
+					previous.indexOwnership(),
+					previous.status(),
+					previous.provisioningState(),
+					previous.runtimeState(),
+					PublicationState.RETIRED,
+					previous.mutationState()
+				));
+			}
+
+			if (ownershipSource != null) {
+				indexersById.put(ownershipSource.id(), copyIndexer(
+					ownershipSource,
+					ownershipSource.queueName(),
+					ownershipSource.role(),
+					IndexResourceOwnership.ATTACHED,
+					ownershipSource.status(),
+					ownershipSource.provisioningState(),
+					ownershipSource.runtimeState(),
+					ownershipSource.publicationState(),
+					ownershipSource.mutationState()
+				));
+			}
+
+			indexersById.put(candidate.id(), copyIndexer(
+				candidate,
+				candidate.queueName(),
+				IndexerRole.LIVE_WRITER,
+				IndexResourceOwnership.OWNER,
+				candidate.status(),
+				candidate.provisioningState(),
+				candidate.runtimeState(),
+				PublicationState.PUBLISHED,
+				candidate.mutationState()
+			));
+
+			return Future.succeededFuture();
+		} catch (RuntimeException error) {
+			return Future.failedFuture(error);
+		}
+	}
+
+	@Override
 	public synchronized Future<Void> updateIndexerMutationState(UpdateIndexerMutationState update) {
 		try {
 			IndexerRecord existing = requireIndexer(update.id(), update.expectedVersion());
@@ -594,6 +694,8 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 	private IndexerRecord copyIndexer(
 		IndexerRecord existing,
 		String queueName,
+		IndexerRole role,
+		IndexResourceOwnership indexOwnership,
 		IndexerStatus status,
 		IndexerProvisioningState provisioningState,
 		IndexerRuntimeState runtimeState,
@@ -608,8 +710,8 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 			existing.indexName(),
 			queueName,
 			existing.type(),
-			existing.role(),
-			existing.indexOwnership(),
+			role,
+			indexOwnership,
 			status,
 			provisioningState,
 			runtimeState,
@@ -618,6 +720,28 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 			existing.createdAt(),
 			Instant.now(),
 			existing.version() + 1
+		);
+	}
+
+	private IndexerRecord copyIndexer(
+		IndexerRecord existing,
+		String queueName,
+		IndexerStatus status,
+		IndexerProvisioningState provisioningState,
+		IndexerRuntimeState runtimeState,
+		PublicationState publicationState,
+		MutationState mutationState
+	) {
+		return copyIndexer(
+			existing,
+			queueName,
+			existing.role(),
+			existing.indexOwnership(),
+			status,
+			provisioningState,
+			runtimeState,
+			publicationState,
+			mutationState
 		);
 	}
 

@@ -26,6 +26,7 @@ Vert.x 5.x starter library inspired by `vertx-elastic`, with a modular layout:
 - `IndexerDocumentStore`: target document-store abstraction. The default document store is in-memory.
 - `DocumentStoreMetadataRepository`: id-first metadata abstraction for targets, indexers, publications, manifests, and mutation state. The default repository is in-memory.
 - `CreateIndexerCommand`: generic command for inserting durable indexer metadata with role and index ownership. Load-specific orchestration composes this primitive rather than introducing a separate load-only create command.
+- `ReplacePublishedIndexer`: metadata primitive for atomically retiring the old published indexer for a target and publishing a replacement indexer.
 
 ### Document Store Publishing Model
 
@@ -49,7 +50,7 @@ Public write requests route by `targetName` plus a timestamp when the target def
 
 If a concrete target has no writable indexer during public-target submission, the command path attempts to provision the first writable indexer and moves the concrete target through `PROVISIONING` and back to `READY`. Provisioning failure marks the target `FAILED`, so later writes fail fast instead of repeatedly creating indexers.
 
-Query routing resolves published indexers by `targetId` and queries only the resulting concrete `indexName` values. A target may have zero published indexes during first build, multiple writable indexes during rebuild, and multiple published indexes when the query model requires it.
+Query routing resolves the published indexer by `targetId` and queries only the resulting concrete `indexName`. A target may have zero published indexes during first build and multiple writable indexes during rebuild, but the first supported query contract allows at most one `PUBLISHED` indexer per target. More than one published indexer is an invariant failure.
 
 Hot routing keeps an in-memory view of operational targets and indexers for the action-item flow. `HotMetadataView` loads a full immutable `HotTarget` snapshot from repository target records and `IndexerProvider` results, indexes it by target name, target uid, concrete target id, and indexer id, and invalidates the whole snapshot rather than patching child indexers in place. The default view uses only active, ready concrete targets and hot-capable live writers.
 
@@ -92,12 +93,20 @@ Durable load/reload orchestration is split between the core `indexer` module and
 
 - `LOAD_WRITER`: finite historical load writer for a target and physical `indexName`.
 - `LIVE_WRITER`: ongoing writer. During reload, a new live writer may be linked to the load workflow and write to the same `indexName` as the load writer.
-- `IndexerLoadRecord`: load-plugin metadata keyed by the load writer id. It tracks load state, optional linked live writer id, timestamp replay window, review requirement, barrier progress, and failure details.
+- `IndexerLoadRecord`: load-plugin metadata keyed by the core `indexerId` of the load writer. It tracks target id, load state, optional linked live writer id, timestamp replay window, review requirement and approval, barrier progress, and failure details. The load repository enforces one active load per target.
 - `LiveWriterPolicy`: live writer creation is explicit. A load may create no live writer, create one immediately, or create one lazily on the first live action when the policy allows it.
 
 `CompleteIndexActionItem` and `CatchUpBarrierActionItem` are internal actions. External loaders should use loader-facing helpers such as `LoadWriter.submit(...)` and `LoadWriter.complete(...)` rather than constructing marker items directly. `QueueLoadWriter.complete(...)` publishes the internal completion marker to the load writer queue.
 
-Historical-only loads publish the `LOAD_WRITER` automatically after successful completion unless review is required. Loads with live support publish the linked `LIVE_WRITER` after historical completion, catch-up barrier processing, and optional review. By default, publishing a replacement live writer should clean up the old live writer and the load writer; document-index deletion follows `IndexResourceOwnership`, not name scanning.
+`CreateLoadCommand` is the first load orchestration command. It ensures the target, creates the core `LOAD_WRITER`, optionally creates an immediate linked `LIVE_WRITER`, stores the provider id and load source fields (`sourceFrom`, `sourceTo`, `sourceQuery`, `sourcePlaybookId`) in `IndexerLoadRecord`, publishes metadata-change wake-ups, and starts the application-level `LoadProvider` resolved from `LoadProviderRegistry`. The `LoadRequest` includes both source fields and concrete callback identities such as `targetId`, `indexerId`, optional `liveIndexerId`, `providerId`, `indexName`, and `queueName`.
+
+Historical-only loads publish the `LOAD_WRITER` after successful completion unless review is required; publication converts that indexer role to `LIVE_WRITER` while preserving physical index ownership. Loads with live support publish the linked `LIVE_WRITER` after historical completion, catch-up barrier processing, and optional review. `PublishLoadCommand` validates the load state, candidate writer state, optional approval, and catch-up barrier before calling the atomic metadata replace primitive. When a linked live writer is published, ownership moves from the load writer to the linked live writer and the old published writer is retired.
+
+`ApproveLoadPublicationCommand` records `approvedAt`, `approvedBy`, and `approvalReason`. If approval makes the load publishable, it submits `PublishLoadCommand` through the command service. Marker handling can also auto-publish non-reviewed loads when a command service is supplied: historical-only loads publish after the completion marker, and linked live loads publish after the catch-up barrier marker.
+
+`CancelLoadCommand` resolves the stored provider id from `IndexerLoadRecord`, stops that provider, marks the load `CANCELLED`, and, when wired with a command service, submits generic delete commands for the load writer and optional linked live writer. Published loads are not cancellable through this command.
+
+When `PublishLoadCommandHandler` is wired with a command service, successful publication submits `CleanupPublishedLoadCommand`. Cleanup reloads current metadata versions and uses the generic `DeleteIndexerCommand` path for the old published writer and, when a linked live writer was published, the load writer. This marks those indexers `DELETING` and `NON_ACTIVE`; runtime resource cleanup still follows `IndexResourceOwnership`, not name scanning.
 
 Timestamp-based live catch-up uses the configured replay window to decide which live actions are copied to the candidate writer. Duplicate/retry safety is assumed only inside the same partition/key ordering scope.
 

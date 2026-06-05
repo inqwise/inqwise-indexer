@@ -1,7 +1,7 @@
 package com.inqwise.indexer.load;
 
 public record LoadStopRequest(
-	Integer loadIndexerId,
+	Integer indexerId,
 	String reason
 ) {
 }

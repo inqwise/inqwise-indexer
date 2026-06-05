@@ -14,7 +14,7 @@
 - Add an explicit retry/recovery command for concrete targets whose first writable indexer provisioning failed.
 - Add a target creation command for creating concrete targets from provider-owned target definitions and, when requested, initial concrete indexers through the generic `CommandService` layer instead of direct repository calls.
 - Add an indexer creation/provisioning command that resolves static definitions, ensures document index and queue resources, inserts `IndexerRecord` and `ManifestRecord`, and marks the concrete target ready after resources are usable.
-- Finish publication orchestration for load/reload workflows. The accepted direction is `LOAD_WRITER` plus optional linked `LIVE_WRITER`, internal completion/barrier markers, and load metadata keyed by load writer id.
+- Finish high-level publication orchestration for load/reload workflows. The core pieces now exist: `LOAD_WRITER` plus optional linked `LIVE_WRITER`, internal completion/barrier markers, load metadata keyed by the core load-writer `indexerId`, source metadata fields, create-load orchestration, and an atomic metadata publish/replace primitive.
 - Finish the indexer delete workflow after cleanup ownership is finalized. The current command marks the metadata indexer `DELETING` and runtime `NON_ACTIVE` so runtime nodes can clean resources from durable metadata; final repository removal or tombstone handling remains deferred.
 - Consider wrapping external queue/topic and document-index provisioning calls with Vert.x Circuit Breaker. Do not encode circuit-breaker behavior in the metadata model.
 
@@ -27,9 +27,8 @@
 - Wire invalid-route cache invalidation to metadata events that can convert a previously invalid route to valid. The cache is now consulted before hot fallback and populated by stable invalid cold failures; invalidation remains event-driven follow-up work.
 - Add an administration metadata loading layer for broader target/indexer inspection and management. Unlike the hot layer, it must support wider status/state scopes and flexible repository queries.
 - Add repository-backed mutation tracking only for the blend window where historical reload data is mixed with live stream mutations.
-- Decide the query-side contract for resolving multiple published indexers by `targetId`, including ordering and conflict behavior when a target has more than one published physical index.
-- Enforce the target publication invariant atomically: at most one indexer may be `PUBLISHED` for a target. Publishing a replacement indexer must not allow either two published indexers under the same target or a transient no-published-indexer state when a previous published indexer exists.
-- Add full load plugin orchestration around external `LoadProvider` implementations, including create/publish/delete composition, review approval, auto-publish for historical-only loads, linked live-writer creation policies, and cooperative provider stop on unexpected failures.
+- Add production-backed enforcement of the target publication invariant. The in-memory repository now atomically replaces the published indexer for a target; production storage must preserve the same at-most-one-published-indexer rule without a transient no-published-indexer state.
+- Add full load plugin orchestration around external `LoadProvider` implementations, including lazy live-writer creation, cooperative provider stop on unexpected failures after start, and final removal/tombstone handling after cancel or post-publish cleanup marks indexers deleting.
 - Define future partition/lane support for catch-up barriers. The first design assumes a single ordered catch-up queue; partitioned catch-up needs one barrier per ordered lane.
 - Deferred: back the id-first `DocumentStoreMetadataRepository` with the production storage engine and preserve the insert/update/delete model split used by the in-memory implementation.
 

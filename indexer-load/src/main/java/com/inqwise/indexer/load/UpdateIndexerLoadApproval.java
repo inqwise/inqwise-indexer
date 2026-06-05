@@ -2,10 +2,11 @@ package com.inqwise.indexer.load;
 
 import java.time.Instant;
 
-public record UpdateIndexerLoadFailure(
+public record UpdateIndexerLoadApproval(
 	Integer indexerId,
-	String failureReason,
-	Instant failedAt,
+	Instant approvedAt,
+	String approvedBy,
+	String approvalReason,
 	long expectedVersion
 ) {
 }

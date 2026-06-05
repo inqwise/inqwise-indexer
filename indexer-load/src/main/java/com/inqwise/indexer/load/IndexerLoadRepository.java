@@ -7,15 +7,19 @@ import io.vertx.core.Future;
 public interface IndexerLoadRepository {
 	Future<Void> insert(InsertIndexerLoad load);
 
-	Future<Optional<IndexerLoadRecord>> getByLoadIndexerId(Integer loadIndexerId);
+	Future<Optional<IndexerLoadRecord>> getByIndexerId(Integer indexerId);
+
+	Future<Optional<IndexerLoadRecord>> getActiveByTargetId(Integer targetId);
 
 	Future<Optional<IndexerLoadRecord>> getActiveByTargetIndexerId(Integer indexerId);
 
 	Future<Void> updateState(UpdateIndexerLoadState update);
 
+	Future<Void> approve(UpdateIndexerLoadApproval update);
+
 	Future<Void> markBarrierReached(UpdateIndexerLoadBarrier update);
 
 	Future<Void> markFailed(UpdateIndexerLoadFailure update);
 
-	Future<Void> delete(Integer loadIndexerId, long expectedVersion);
+	Future<Void> delete(Integer indexerId, long expectedVersion);
 }
