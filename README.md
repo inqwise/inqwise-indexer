@@ -106,6 +106,8 @@ Historical-only loads publish the `LOAD_WRITER` after successful completion unle
 
 `CancelLoadCommand` resolves the stored provider id from `IndexerLoadRecord`, stops that provider, marks the load `CANCELLED`, and, when wired with a command service, submits generic delete commands for the load writer and optional linked live writer. Published loads are not cancellable through this command.
 
+`LoadAwareIndexerEventPublisher` is the load-side runtime failure bridge. It observes `ACTION_ITEM_FAILED` events, finds an active load for the failing indexer id, marks the load `FAILED`, attempts to stop the stored provider, and then delegates the original event. Runtime processing stays generic; load workflow state remains in `indexer-load`.
+
 When `PublishLoadCommandHandler` is wired with a command service, successful publication submits `CleanupPublishedLoadCommand`. Cleanup reloads current metadata versions and uses the generic `DeleteIndexerCommand` path for the old published writer and, when a linked live writer was published, the load writer. This marks those indexers `DELETING` and `NON_ACTIVE`; runtime resource cleanup still follows `IndexResourceOwnership`, not name scanning.
 
 Timestamp-based live catch-up uses the configured replay window to decide which live actions are copied to the candidate writer. Duplicate/retry safety is assumed only inside the same partition/key ordering scope.

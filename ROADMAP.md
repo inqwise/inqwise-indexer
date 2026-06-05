@@ -28,7 +28,7 @@
 - Add an administration metadata loading layer for broader target/indexer inspection and management. Unlike the hot layer, it must support wider status/state scopes and flexible repository queries.
 - Add repository-backed mutation tracking only for the blend window where historical reload data is mixed with live stream mutations.
 - Add production-backed enforcement of the target publication invariant. The in-memory repository now atomically replaces the published indexer for a target; production storage must preserve the same at-most-one-published-indexer rule without a transient no-published-indexer state.
-- Add full load plugin orchestration around external `LoadProvider` implementations, including lazy live-writer creation, cooperative provider stop on unexpected failures after start, and final removal/tombstone handling after cancel or post-publish cleanup marks indexers deleting.
+- Add full load plugin orchestration around external `LoadProvider` implementations, including lazy live-writer creation and final removal/tombstone handling after cancel or post-publish cleanup marks indexers deleting.
 - Define future partition/lane support for catch-up barriers. The first design assumes a single ordered catch-up queue; partitioned catch-up needs one barrier per ordered lane.
 - Deferred: back the id-first `DocumentStoreMetadataRepository` with the production storage engine and preserve the insert/update/delete model split used by the in-memory implementation.
 
