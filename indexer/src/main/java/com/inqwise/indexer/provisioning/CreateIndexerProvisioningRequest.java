@@ -1,0 +1,36 @@
+package com.inqwise.indexer.provisioning;
+
+import java.util.Objects;
+
+import com.inqwise.indexer.IndexResourceOwnership;
+import com.inqwise.indexer.IndexerRuntimeState;
+import com.inqwise.indexer.IndexerRole;
+import com.inqwise.indexer.IndexerType;
+import com.inqwise.indexer.metadata.MutationState;
+import com.inqwise.indexer.metadata.PublicationState;
+
+public record CreateIndexerProvisioningRequest(
+	String prefix,
+	Integer targetId,
+	String targetName,
+	String indexName,
+	String queueName,
+	IndexerType indexerType,
+	IndexerRole role,
+	IndexResourceOwnership indexOwnership,
+	IndexerRuntimeState runtimeState,
+	PublicationState publicationState,
+	MutationState mutationState
+) {
+	public CreateIndexerProvisioningRequest {
+		targetId = Objects.requireNonNull(targetId, "targetId");
+		targetName = Objects.requireNonNull(targetName, "targetName");
+		indexName = Objects.requireNonNull(indexName, "indexName");
+		indexerType = indexerType == null ? IndexerType.INDEX : indexerType;
+		role = role == null ? IndexerRole.LIVE_WRITER : role;
+		indexOwnership = indexOwnership == null ? IndexResourceOwnership.OWNER : indexOwnership;
+		runtimeState = runtimeState == null ? IndexerRuntimeState.NON_ACTIVE : runtimeState;
+		publicationState = publicationState == null ? PublicationState.UNPUBLISHED : publicationState;
+		mutationState = mutationState == null ? MutationState.WRITABLE : mutationState;
+	}
+}

@@ -25,7 +25,8 @@ Vert.x 5.x starter library inspired by `vertx-elastic`, with a modular layout:
 - `IndexerProvider`: indexer-type extension point for loading and composing indexer views. The default metadata-backed provider exposes hot routing capability only for eligible live writers.
 - `IndexerDocumentStore`: target document-store abstraction. The default document store is in-memory.
 - `DocumentStoreMetadataRepository`: id-first metadata abstraction for targets, indexers, publications, manifests, and mutation state. The default repository is in-memory.
-- `CreateIndexerCommand`: generic command for inserting durable indexer metadata with role and index ownership. Load-specific orchestration composes this primitive rather than introducing a separate load-only create command.
+- `CreateTargetCommand`: generic command for creating a concrete target from provider-owned `TargetDefinition` data. It can optionally compose indexer provisioning through a nested `createIndexer` object and marks the target `READY` only after requested indexer readiness or publication succeeds.
+- `CreateIndexerCommand`: generic command for provisioning an indexer from `IndexerDefinitionProvider`. It inserts durable indexer metadata as `PROVISIONING`, ensures document-index and queue resources, inserts manifest/publication metadata, and marks the indexer `READY` or `FAILED`.
 - `ReplacePublishedIndexer`: metadata primitive for atomically retiring the old published indexer for a target and publishing a replacement indexer.
 
 ### Document Store Publishing Model
@@ -48,7 +49,7 @@ Repository access for document-store metadata is id-first. Identity lookup uses 
 
 Public write requests route by `targetName` plus a timestamp when the target definition uses period routing. Command orchestration resolves the target definition from `TargetDefinitionProvider`, resolves the UTC period, ensures the concrete `TargetRecord`, resolves or provisions a writable indexer for that concrete target, expands logical mutations to concrete `IndexerActionItem` payloads, and publishes those concrete actions to each resolved indexer queue. Runtime action items execute by concrete `targetId`, `indexerId`, and `indexName`.
 
-If a concrete target has no writable indexer during public-target submission, the command path attempts to provision the first writable indexer and moves the concrete target through `PROVISIONING` and back to `READY`. Provisioning failure marks the target `FAILED`, so later writes fail fast instead of repeatedly creating indexers.
+If a concrete target has no writable indexer during public-target submission, the command path attempts to provision the first writable indexer and moves the concrete target through `PROVISIONING` and back to `READY`. Provisioning failure marks the target `FAILED`, so later writes fail fast instead of repeatedly creating indexers. Explicit target creation uses `CreateTargetCommand`; when a nested indexer is requested, the nested `initialPublicationMode` is mandatory and can prepare the indexer publication as `READY` or publish it immediately.
 
 Query routing resolves the published indexer by `targetId` and queries only the resulting concrete `indexName`. A target may have zero published indexes during first build and multiple writable indexes during rebuild, but the first supported query contract allows at most one `PUBLISHED` indexer per target. More than one published indexer is an invariant failure.
 
