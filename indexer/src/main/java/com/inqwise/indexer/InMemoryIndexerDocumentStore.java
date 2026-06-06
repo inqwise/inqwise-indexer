@@ -3,11 +3,27 @@ package com.inqwise.indexer;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import com.inqwise.indexer.definitions.IndexDefinition;
+import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
+
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 
-public class InMemoryIndexerDocumentStore implements IndexerDocumentStore {
+public class InMemoryIndexerDocumentStore
+	implements IndexerDocumentStore, IndexerDocumentIndexResourceManager {
 	private final Map<String, Map<String, JsonObject>> indexes = new ConcurrentHashMap<>();
+	private final Map<String, IndexDefinition> definitions = new ConcurrentHashMap<>();
+
+	@Override
+	public Future<Void> ensure(String indexName, IndexDefinition definition) {
+		indexes.computeIfAbsent(indexName, ignored -> new ConcurrentHashMap<>());
+		IndexDefinition current = definitions.putIfAbsent(indexName, definition);
+		if (current == null || current.equals(definition)) {
+			return Future.succeededFuture();
+		}
+
+		return Future.failedFuture("Document index resource already exists with different definition: " + indexName);
+	}
 
 	@Override
 	public Future<Void> put(String indexName, String uid, JsonObject document) {
@@ -27,7 +43,13 @@ public class InMemoryIndexerDocumentStore implements IndexerDocumentStore {
 	@Override
 	public Future<Void> drop(String indexName) {
 		indexes.remove(indexName);
+		definitions.remove(indexName);
 		return Future.succeededFuture();
+	}
+
+	@Override
+	public Future<Void> delete(String indexName) {
+		return drop(indexName);
 	}
 
 	public JsonObject get(String indexName, String uid) {

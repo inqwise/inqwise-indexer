@@ -5,7 +5,10 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.inqwise.indexer.definitions.QueueDefinition;
+
 import io.vertx.core.Future;
+import io.vertx.core.json.JsonObject;
 import io.vertx.core.Handler;
 
 public class InMemoryIndexerQueue implements IndexerQueueClient, IndexerQueueResourceManager {
@@ -51,6 +54,24 @@ public class InMemoryIndexerQueue implements IndexerQueueClient, IndexerQueueRes
 	}
 
 	@Override
+	public Future<Void> ensure(String queueName, QueueDefinition definition) {
+		QueueState state = ensureState(queueName);
+		JsonObject settings = definition == null ? new JsonObject() : definition.settings();
+		synchronized (this) {
+			if (state.settings == null) {
+				state.settings = settings.copy();
+				return Future.succeededFuture();
+			}
+
+			if (state.settings.equals(settings)) {
+				return Future.succeededFuture();
+			}
+		}
+
+		return Future.failedFuture("Queue resource already exists with different settings: " + queueName);
+	}
+
+	@Override
 	public Future<Void> delete(String queueName) {
 		synchronized (this) {
 			QueueState state = queuesByName.remove(queueName);
@@ -74,6 +95,7 @@ public class InMemoryIndexerQueue implements IndexerQueueClient, IndexerQueueRes
 	private static class QueueState {
 		private final Deque<IndexerActionItem> items = new ArrayDeque<>();
 		private InMemoryIndexerQueueConsumer consumer;
+		private JsonObject settings;
 	}
 
 	private class InMemoryIndexerQueuePublisher implements IndexerQueuePublisher {

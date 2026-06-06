@@ -78,7 +78,7 @@ public class IndexerProvisioningService {
 
 	private Future<Void> ensureResources(IndexerRecord indexer, IndexerDefinition definition) {
 		return documentIndexResources.ensure(indexer.indexName(), definition.index())
-			.compose(ignored -> queueResources.ensure(queueName(indexer)));
+			.compose(ignored -> queueResources.ensure(queueName(indexer), definition.queue()));
 	}
 
 	private Future<Integer> insertManifest(IndexerRecord indexer, IndexerDefinition definition) {
