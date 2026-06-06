@@ -16,11 +16,17 @@ import com.inqwise.indexer.commands.CommandFailure;
 import com.inqwise.indexer.commands.InMemoryCommandService;
 import com.inqwise.indexer.commands.SubmitIndexActionsCommand;
 import com.inqwise.indexer.commands.SubmitIndexActionsCommandHandler;
+import com.inqwise.indexer.definitions.IndexDefinition;
+import com.inqwise.indexer.definitions.IndexerDefinition;
+import com.inqwise.indexer.definitions.QueueDefinition;
+import com.inqwise.indexer.definitions.StaticIndexerDefinitionProvider;
 import com.inqwise.indexer.definitions.StaticTargetDefinitionProvider;
 import com.inqwise.indexer.definitions.TargetDefinition;
 import com.inqwise.indexer.hot.InMemoryInvalidRouteCache;
 import com.inqwise.indexer.hot.InvalidRouteSignatures;
 import com.inqwise.indexer.metadata.ConcreteTargetKey;
+import com.inqwise.indexer.metadata.ManifestStatus;
+import com.inqwise.indexer.metadata.ReadinessState;
 import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.metadata.InsertIndexer;
@@ -32,6 +38,7 @@ import com.inqwise.indexer.metadata.TargetPeriodStrategy;
 import com.inqwise.indexer.metadata.TargetProvisioningState;
 import com.inqwise.indexer.metadata.TargetStatus;
 import com.inqwise.indexer.metadata.UpdateTargetProvisioningState;
+import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -235,7 +242,16 @@ class SubmitIndexActionsCommandTest {
 			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		RecordingQueue queue = new RecordingQueue();
-		InMemoryCommandService commandService = metadataCommandService(repository, eventBus, queue);
+		RecordingDocumentIndexResourceManager documentResources =
+			new RecordingDocumentIndexResourceManager();
+		RecordingQueueResourceManager queueResources = new RecordingQueueResourceManager();
+		InMemoryCommandService commandService = metadataCommandService(
+			repository,
+			eventBus,
+			queue,
+			documentResources,
+			queueResources
+		);
 		List<IndexerMetadataChanged> events = new ArrayList<>();
 
 		eventBus.subscribe(events::add)
@@ -258,7 +274,15 @@ class SubmitIndexActionsCommandTest {
 				assertEquals("customers", found.get().targetName());
 				return repository.listWritableIndexersByTargetId(found.get().id());
 			})
-			.onComplete(testContext.succeeding(indexers -> testContext.verify(() -> {
+			.compose(indexers -> repository.getActiveManifestByIndexerId(indexers.get(0).id())
+				.compose(manifest -> repository.getPublicationByIndexerId(indexers.get(0).id())
+					.map(publication -> new ColdProvisionResult(
+						indexers.get(0),
+						manifest.orElseThrow(),
+						publication.orElseThrow()
+					))))
+			.onComplete(testContext.succeeding(result -> testContext.verify(() -> {
+				List<com.inqwise.indexer.metadata.IndexerRecord> indexers = List.of(result.indexer());
 				assertEquals(1, indexers.size());
 				assertEquals(1, queue.published.size());
 				assertEquals(1, events.size());
@@ -268,6 +292,11 @@ class SubmitIndexActionsCommandTest {
 				assertTrue(queue.publishedByQueueName.containsKey(indexers.get(0).queueName()));
 				assertTrue(indexers.get(0).indexName().matches("customers--idx-[a-f0-9-]{36}"));
 				assertTrue(indexers.get(0).queueName().matches("customers--queue-[a-f0-9-]{36}"));
+				assertEquals(List.of(indexers.get(0).indexName()), documentResources.ensured);
+				assertEquals(List.of(indexers.get(0).queueName()), queueResources.ensured);
+				assertEquals(ManifestStatus.ACTIVE, result.manifest().status());
+				assertEquals("customers", result.manifest().schemaName());
+				assertEquals(ReadinessState.PENDING, result.publication().readinessState());
 				assertConcretePut(
 					queue.published.get(0),
 					indexers.get(0).targetId(),
@@ -679,13 +708,44 @@ class SubmitIndexActionsCommandTest {
 		InMemoryIndexerLifecycleEventBus eventBus,
 		RecordingQueue queue
 	) {
+		return metadataCommandService(
+			repository,
+			eventBus,
+			queue,
+			IndexerDocumentIndexResourceManager.NOOP,
+			IndexerQueueResourceManager.NOOP
+		);
+	}
+
+	private InMemoryCommandService metadataCommandService(
+		InMemoryDocumentStoreMetadataRepository repository,
+		InMemoryIndexerLifecycleEventBus eventBus,
+		RecordingQueue queue,
+		IndexerDocumentIndexResourceManager documentResources,
+		IndexerQueueResourceManager queueResources
+	) {
 		return new InMemoryCommandService()
 			.register(new SubmitIndexActionsCommandHandler(
 				repository,
 				customersMonthlyTargetDefinitionProvider(),
+				new StaticIndexerDefinitionProvider(new IndexerDefinition(
+					new IndexDefinition("customers", "v1", new JsonObject(), new JsonObject()),
+					new QueueDefinition(new JsonObject())
+				)),
+				documentResources,
+				queueResources,
 				eventBus,
-				queue
+				queue,
+				null,
+				List.of()
 			));
+	}
+
+	private record ColdProvisionResult(
+		com.inqwise.indexer.metadata.IndexerRecord indexer,
+		com.inqwise.indexer.metadata.ManifestRecord manifest,
+		com.inqwise.indexer.metadata.PublicationRecord publication
+	) {
 	}
 
 	private void assertConcretePut(
@@ -769,5 +829,36 @@ class SubmitIndexActionsCommandTest {
 			return Future.failedFuture("consumer is not expected");
 		}
 
+	}
+
+	private static class RecordingDocumentIndexResourceManager
+		implements IndexerDocumentIndexResourceManager {
+		private final List<String> ensured = new ArrayList<>();
+
+		@Override
+		public Future<Void> ensure(String indexName, IndexDefinition definition) {
+			ensured.add(indexName);
+			return Future.succeededFuture();
+		}
+
+		@Override
+		public Future<Void> delete(String indexName) {
+			return Future.succeededFuture();
+		}
+	}
+
+	private static class RecordingQueueResourceManager implements IndexerQueueResourceManager {
+		private final List<String> ensured = new ArrayList<>();
+
+		@Override
+		public Future<Void> ensure(String queueName) {
+			ensured.add(queueName);
+			return Future.succeededFuture();
+		}
+
+		@Override
+		public Future<Void> delete(String queueName) {
+			return Future.succeededFuture();
+		}
 	}
 }

@@ -13,19 +13,20 @@ import com.inqwise.indexer.CatchUpBarrierActionItem;
 import com.inqwise.indexer.CompleteIndexActionItem;
 import com.inqwise.indexer.IndexResourceOwnership;
 import com.inqwise.indexer.IndexerActionItem;
+import com.inqwise.indexer.IndexerQueueResourceManager;
 import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.IndexerRole;
 import com.inqwise.indexer.IndexerType;
 import com.inqwise.indexer.Actions;
 import com.inqwise.indexer.actions.IndexerActionRouteContext;
 import com.inqwise.indexer.actions.IndexerActionRouteMode;
+import com.inqwise.indexer.definitions.IndexerDefinitionProvider;
 import com.inqwise.indexer.definitions.TargetDefinition;
 import com.inqwise.indexer.definitions.TargetDefinitionProvider;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.IndexerProvisioningState;
 import com.inqwise.indexer.metadata.IndexerRecord;
 import com.inqwise.indexer.metadata.IndexerStatus;
-import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.metadata.MutationState;
 import com.inqwise.indexer.metadata.PublicationState;
 import com.inqwise.indexer.metadata.TargetNameValidator;
@@ -40,7 +41,9 @@ import com.inqwise.indexer.providers.ActionReceiveReadiness;
 import com.inqwise.indexer.providers.IndexerActionReceiveCapability;
 import com.inqwise.indexer.providers.PrepareIndexerForActionsRequest;
 import com.inqwise.indexer.providers.PreparedIndexers;
-import com.inqwise.indexer.provisioning.CreateIndexerOperation;
+import com.inqwise.indexer.provisioning.CreateIndexerProvisioningRequest;
+import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
+import com.inqwise.indexer.provisioning.IndexerProvisioningService;
 
 import io.vertx.core.Future;
 
@@ -48,19 +51,15 @@ class MetadataSubmitIndexActionRouter {
 	private final DocumentStoreMetadataRepository repository;
 	private final TargetDefinitionProvider targetDefinitionProvider;
 	private final List<IndexerActionReceiveCapability> receiveCapabilities;
-	private final CreateIndexerOperation createIndexer;
+	private final IndexerProvisioningService provisioningService;
 	private final TargetPeriodResolver periodResolver = new TargetPeriodResolver();
 
 	MetadataSubmitIndexActionRouter(
 		DocumentStoreMetadataRepository repository,
-		TargetDefinitionProvider targetDefinitionProvider
-	) {
-		this(repository, targetDefinitionProvider, List.of());
-	}
-
-	MetadataSubmitIndexActionRouter(
-		DocumentStoreMetadataRepository repository,
 		TargetDefinitionProvider targetDefinitionProvider,
+		IndexerDefinitionProvider indexerDefinitionProvider,
+		IndexerDocumentIndexResourceManager documentIndexResources,
+		IndexerQueueResourceManager queueResources,
 		List<IndexerActionReceiveCapability> receiveCapabilities
 	) {
 		this.repository = Objects.requireNonNull(repository, "repository");
@@ -72,7 +71,12 @@ class MetadataSubmitIndexActionRouter {
 			receiveCapabilities,
 			"receiveCapabilities"
 		));
-		this.createIndexer = new CreateIndexerOperation(repository);
+		this.provisioningService = new IndexerProvisioningService(
+			repository,
+			indexerDefinitionProvider,
+			documentIndexResources,
+			queueResources
+		);
 	}
 
 	Future<List<RoutedIndexActions>> route(SubmitIndexActionsCommand submit) {
@@ -348,7 +352,7 @@ class MetadataSubmitIndexActionRouter {
 		)).recover(error -> Future.failedFuture(CommandFailure.retryable(
 			"Target provisioning lock changed: " + target.id(),
 			error
-		))).compose(ignored -> createIndexer.create(new InsertIndexer(
+		))).compose(ignored -> provisioningService.createIndexer(new CreateIndexerProvisioningRequest(
 				prefix,
 				target.id(),
 				target.targetName(),
@@ -357,8 +361,6 @@ class MetadataSubmitIndexActionRouter {
 				IndexerType.INDEX,
 				IndexerRole.LIVE_WRITER,
 				IndexResourceOwnership.OWNER,
-				IndexerStatus.AVAILABLE,
-				IndexerProvisioningState.READY,
 				IndexerRuntimeState.ACTIVE,
 				PublicationState.UNPUBLISHED,
 				MutationState.WRITABLE

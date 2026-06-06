@@ -6,12 +6,19 @@ import java.util.Objects;
 import com.inqwise.indexer.IndexerMetadataChanged;
 import com.inqwise.indexer.IndexerLifecycleEventBus;
 import com.inqwise.indexer.IndexerQueueClient;
+import com.inqwise.indexer.IndexerQueueResourceManager;
+import com.inqwise.indexer.definitions.IndexDefinition;
+import com.inqwise.indexer.definitions.IndexerDefinition;
+import com.inqwise.indexer.definitions.IndexerDefinitionProvider;
+import com.inqwise.indexer.definitions.QueueDefinition;
+import com.inqwise.indexer.definitions.StaticIndexerDefinitionProvider;
 import com.inqwise.indexer.definitions.TargetDefinitionProvider;
 import com.inqwise.indexer.hot.InvalidRouteCache;
 import com.inqwise.indexer.hot.InvalidRouteSignature;
 import com.inqwise.indexer.hot.InvalidRouteSignatures;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.providers.IndexerActionReceiveCapability;
+import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 
 import io.vertx.core.Future;
 
@@ -48,9 +55,36 @@ public class SubmitIndexActionsCommandHandler implements CommandHandler {
 		InvalidRouteCache invalidRouteCache,
 		List<IndexerActionReceiveCapability> receiveCapabilities
 	) {
+		this(
+			metadataRepository,
+			targetDefinitionProvider,
+			defaultIndexerDefinitionProvider(),
+			IndexerDocumentIndexResourceManager.NOOP,
+			IndexerQueueResourceManager.NOOP,
+			eventBus,
+			queue,
+			invalidRouteCache,
+			receiveCapabilities
+		);
+	}
+
+	public SubmitIndexActionsCommandHandler(
+		DocumentStoreMetadataRepository metadataRepository,
+		TargetDefinitionProvider targetDefinitionProvider,
+		IndexerDefinitionProvider indexerDefinitionProvider,
+		IndexerDocumentIndexResourceManager documentIndexResources,
+		IndexerQueueResourceManager queueResources,
+		IndexerLifecycleEventBus eventBus,
+		IndexerQueueClient queue,
+		InvalidRouteCache invalidRouteCache,
+		List<IndexerActionReceiveCapability> receiveCapabilities
+	) {
 		this.metadataRouter = new MetadataSubmitIndexActionRouter(
 			metadataRepository,
 			targetDefinitionProvider,
+			indexerDefinitionProvider,
+			documentIndexResources,
+			queueResources,
 			receiveCapabilities
 		);
 		this.eventBus = Objects.requireNonNull(eventBus, "eventBus");
@@ -114,5 +148,12 @@ public class SubmitIndexActionsCommandHandler implements CommandHandler {
 
 	private boolean isStableInvalid(Throwable error) {
 		return error instanceof CommandFailure failure && failure.stableInvalid();
+	}
+
+	private static IndexerDefinitionProvider defaultIndexerDefinitionProvider() {
+		return new StaticIndexerDefinitionProvider(new IndexerDefinition(
+			new IndexDefinition("default", "1", null, null),
+			new QueueDefinition(null)
+		));
 	}
 }
