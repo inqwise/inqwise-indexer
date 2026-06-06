@@ -25,6 +25,7 @@ Vert.x 5.x starter library inspired by `vertx-elastic`, with a modular layout:
 - `IndexerProvider`: indexer-type extension point for loading and composing indexer views. The default metadata-backed provider exposes hot routing capability only for eligible live writers.
 - `IndexerDocumentStore`: target document-store abstraction. The default document store is in-memory.
 - `DocumentStoreMetadataRepository`: id-first metadata abstraction for targets, indexers, publications, manifests, and mutation state. The default repository is in-memory.
+- `DocumentStoreCommandHandlers`: assembly helper for registering the standard document-store lifecycle and provisioning command handlers with an `InMemoryCommandService` while keeping repository, provider, resource-manager, and event-bus dependencies explicit.
 - `CreateTargetCommand`: generic command for creating a concrete target from provider-owned `TargetDefinition` data. It can optionally compose indexer provisioning through a nested `createIndexer` object and marks the target `READY` only after requested indexer readiness or publication succeeds.
 - `CreateIndexerCommand`: generic command for provisioning an indexer from `IndexerDefinitionProvider`. It inserts durable indexer metadata as `PROVISIONING`, ensures document-index and queue resources, inserts manifest/publication metadata, and marks the indexer `READY` or `FAILED`.
 - `ReplacePublishedIndexer`: metadata primitive for atomically retiring the old published indexer for a target and publishing a replacement indexer.
