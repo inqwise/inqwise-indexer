@@ -8,6 +8,7 @@ public record InsertIndexerLoad(
 	Integer indexerId,
 	Integer targetId,
 	Integer liveIndexerId,
+	LiveWriterPolicy liveWriterPolicy,
 	String providerId,
 	IndexerLoadState state,
 	Instant reloadStartAt,

@@ -36,6 +36,10 @@ import com.inqwise.indexer.metadata.TargetProvisioningState;
 import com.inqwise.indexer.metadata.TargetRecord;
 import com.inqwise.indexer.metadata.TargetStatus;
 import com.inqwise.indexer.metadata.UpdateTargetProvisioningState;
+import com.inqwise.indexer.providers.ActionReceiveReadiness;
+import com.inqwise.indexer.providers.IndexerActionReceiveCapability;
+import com.inqwise.indexer.providers.PrepareIndexerForActionsRequest;
+import com.inqwise.indexer.providers.PreparedIndexers;
 import com.inqwise.indexer.provisioning.CreateIndexerOperation;
 
 import io.vertx.core.Future;
@@ -43,6 +47,7 @@ import io.vertx.core.Future;
 class MetadataSubmitIndexActionRouter {
 	private final DocumentStoreMetadataRepository repository;
 	private final TargetDefinitionProvider targetDefinitionProvider;
+	private final List<IndexerActionReceiveCapability> receiveCapabilities;
 	private final CreateIndexerOperation createIndexer;
 	private final TargetPeriodResolver periodResolver = new TargetPeriodResolver();
 
@@ -50,11 +55,23 @@ class MetadataSubmitIndexActionRouter {
 		DocumentStoreMetadataRepository repository,
 		TargetDefinitionProvider targetDefinitionProvider
 	) {
+		this(repository, targetDefinitionProvider, List.of());
+	}
+
+	MetadataSubmitIndexActionRouter(
+		DocumentStoreMetadataRepository repository,
+		TargetDefinitionProvider targetDefinitionProvider,
+		List<IndexerActionReceiveCapability> receiveCapabilities
+	) {
 		this.repository = Objects.requireNonNull(repository, "repository");
 		this.targetDefinitionProvider = Objects.requireNonNull(
 			targetDefinitionProvider,
 			"targetDefinitionProvider"
 		);
+		this.receiveCapabilities = List.copyOf(Objects.requireNonNull(
+			receiveCapabilities,
+			"receiveCapabilities"
+		));
 		this.createIndexer = new CreateIndexerOperation(repository);
 	}
 
@@ -74,7 +91,7 @@ class MetadataSubmitIndexActionRouter {
 			}
 
 			actionsByIndexer = actionsByIndexer.compose(groups ->
-				resolveIndexers(submit, destination, routingContext)
+				resolveIndexers(submit, action, destination, routingContext)
 					.compose(indexers -> {
 						for (IndexerRecord indexer : indexers) {
 							groups.computeIfAbsent(indexer, ignored -> new ArrayList<>())
@@ -98,6 +115,7 @@ class MetadataSubmitIndexActionRouter {
 
 	private Future<List<IndexerRecord>> resolveIndexers(
 		SubmitIndexActionsCommand submit,
+		IndexerActionItem action,
 		ActionDestination destination,
 		MetadataRoutingContext routingContext
 	) {
@@ -115,6 +133,7 @@ class MetadataSubmitIndexActionRouter {
 			return resolveConcreteTarget(submit)
 				.compose(target -> resolveIndexersByTarget(
 					submit,
+					action,
 					destination,
 					target,
 					true,
@@ -136,6 +155,7 @@ class MetadataSubmitIndexActionRouter {
 				)))
 			.compose(target -> resolveIndexersByTarget(
 				submit,
+				action,
 				destination,
 				target,
 				false,
@@ -145,6 +165,7 @@ class MetadataSubmitIndexActionRouter {
 
 	private Future<List<IndexerRecord>> resolveIndexersByTarget(
 		SubmitIndexActionsCommand submit,
+		IndexerActionItem action,
 		ActionDestination destination,
 		TargetRecord target,
 		boolean autoProvision,
@@ -168,22 +189,106 @@ class MetadataSubmitIndexActionRouter {
 
 		return repository.listWritableIndexersByTargetId(target.id())
 			.compose(indexers -> {
-				List<IndexerRecord> matches = indexers.stream()
+				List<IndexerRecord> activeCandidates = indexers.stream()
 					.filter(indexer -> indexer.runtimeState() == IndexerRuntimeState.ACTIVE)
 					.filter(indexer -> destination.indexName() == null
 						|| destination.indexName().equals(indexer.indexName()))
 					.toList();
 
+				List<IndexerRecord> matches = activeCandidates.stream()
+					.filter(indexer -> indexer.role() == IndexerRole.LIVE_WRITER)
+					.toList();
+
 				if (matches.isEmpty()) {
-					return autoProvision
-						? ensureWritableIndexer(target, routingContext).map(List::of)
-						: Future.failedFuture(CommandFailure.stableInvalid(
-							"No writable indexers found for target id: " + target.id()
-						));
+					return prepareReceivers(submit, action, target, activeCandidates, routingContext)
+						.compose(prepared -> {
+							if (!prepared.isEmpty()) {
+								return Future.succeededFuture(prepared);
+							}
+
+							return autoProvision
+								? ensureWritableIndexer(target, routingContext).map(List::of)
+								: Future.failedFuture(CommandFailure.stableInvalid(
+									"No writable indexers found for target id: " + target.id()
+								));
+						});
 				}
 
 				return Future.succeededFuture(matches);
 			});
+	}
+
+	private Future<List<IndexerRecord>> prepareReceivers(
+		SubmitIndexActionsCommand submit,
+		IndexerActionItem action,
+		TargetRecord target,
+		List<IndexerRecord> candidates,
+		MetadataRoutingContext routingContext
+	) {
+		Future<List<IndexerRecord>> prepared = Future.succeededFuture(List.of());
+
+		for (IndexerRecord candidate : candidates) {
+			prepared = prepared.compose(current -> {
+				if (!current.isEmpty()) {
+					return Future.succeededFuture(current);
+				}
+
+				return prepareReceiver(submit, action, target, candidate, routingContext);
+			});
+		}
+
+		return prepared;
+	}
+
+	private Future<List<IndexerRecord>> prepareReceiver(
+		SubmitIndexActionsCommand submit,
+		IndexerActionItem action,
+		TargetRecord target,
+		IndexerRecord candidate,
+		MetadataRoutingContext routingContext
+	) {
+		Future<List<IndexerRecord>> prepared = Future.succeededFuture(List.of());
+
+		for (IndexerActionReceiveCapability capability : receiveCapabilities) {
+			prepared = prepared.compose(current -> {
+				if (!current.isEmpty()) {
+					return Future.succeededFuture(current);
+				}
+
+				return capability.canReceive(candidate, action)
+					.compose(readiness -> {
+						if (readiness == ActionReceiveReadiness.NO) {
+							return Future.succeededFuture(List.of());
+						}
+						if (readiness == ActionReceiveReadiness.YES) {
+							return Future.succeededFuture(List.of(candidate));
+						}
+
+						return capability.prepareToReceive(new PrepareIndexerForActionsRequest(
+							submit.getCommandId(),
+							target,
+							candidate,
+							List.of(action),
+							submit.getTimestamp()
+						)).map(result -> preparedIndexers(result, routingContext));
+					});
+			});
+		}
+
+		return prepared;
+	}
+
+	private List<IndexerRecord> preparedIndexers(
+		PreparedIndexers prepared,
+		MetadataRoutingContext routingContext
+	) {
+		if (prepared.metadataChanged()) {
+			for (IndexerRecord indexer : prepared.indexers()) {
+				routingContext.markMetadataChanged(indexer.id());
+			}
+		}
+
+		return prepared.indexers();
 	}
 
 	private Future<TargetRecord> resolveConcreteTarget(SubmitIndexActionsCommand submit) {

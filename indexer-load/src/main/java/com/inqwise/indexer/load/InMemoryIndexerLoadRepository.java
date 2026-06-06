@@ -27,6 +27,7 @@ public class InMemoryIndexerLoadRepository implements IndexerLoadRepository {
 				load.indexerId(),
 				load.targetId(),
 				load.liveIndexerId(),
+				load.liveWriterPolicy() == null ? LiveWriterPolicy.NONE : load.liveWriterPolicy(),
 				require(load.providerId(), "providerId"),
 				load.state() == null ? IndexerLoadState.CREATED : load.state(),
 				load.reloadStartAt(),
@@ -79,6 +80,7 @@ public class InMemoryIndexerLoadRepository implements IndexerLoadRepository {
 			IndexerLoadRecord existing = requireLoad(update.indexerId(), update.expectedVersion());
 			loadsByIndexerId.put(update.indexerId(), copy(
 				existing,
+				existing.liveIndexerId(),
 				require(update.state(), "state"),
 				existing.approvedAt(),
 				existing.approvedBy(),
@@ -101,10 +103,39 @@ public class InMemoryIndexerLoadRepository implements IndexerLoadRepository {
 			IndexerLoadRecord existing = requireLoad(update.indexerId(), update.expectedVersion());
 			loadsByIndexerId.put(update.indexerId(), copy(
 				existing,
+				existing.liveIndexerId(),
 				IndexerLoadState.APPROVED,
 				update.approvedAt() == null ? Instant.now() : update.approvedAt(),
 				update.approvedBy(),
 				update.approvalReason(),
+				existing.lastBarrierId(),
+				existing.lastBarrierTimestamp(),
+				existing.lastBarrierReachedAt(),
+				existing.failureReason(),
+				existing.failedAt()
+			));
+			return Future.succeededFuture();
+		} catch (RuntimeException error) {
+			return Future.failedFuture(error);
+		}
+	}
+
+	@Override
+	public synchronized Future<Void> attachLiveWriter(UpdateIndexerLoadLiveWriter update) {
+		try {
+			IndexerLoadRecord existing = requireLoad(update.indexerId(), update.expectedVersion());
+			require(update.liveIndexerId(), "liveIndexerId");
+			if (existing.liveIndexerId() != null && !existing.liveIndexerId().equals(update.liveIndexerId())) {
+				throw new IllegalStateException("Indexer load already has live writer: " + update.indexerId());
+			}
+
+			loadsByIndexerId.put(update.indexerId(), copy(
+				existing,
+				update.liveIndexerId(),
+				existing.state(),
+				existing.approvedAt(),
+				existing.approvedBy(),
+				existing.approvalReason(),
 				existing.lastBarrierId(),
 				existing.lastBarrierTimestamp(),
 				existing.lastBarrierReachedAt(),
@@ -123,6 +154,7 @@ public class InMemoryIndexerLoadRepository implements IndexerLoadRepository {
 			IndexerLoadRecord existing = requireLoad(update.indexerId(), update.expectedVersion());
 			loadsByIndexerId.put(update.indexerId(), copy(
 				existing,
+				existing.liveIndexerId(),
 				IndexerLoadState.CATCH_UP_READY,
 				existing.approvedAt(),
 				existing.approvedBy(),
@@ -145,6 +177,7 @@ public class InMemoryIndexerLoadRepository implements IndexerLoadRepository {
 			IndexerLoadRecord existing = requireLoad(update.indexerId(), update.expectedVersion());
 			loadsByIndexerId.put(update.indexerId(), copy(
 				existing,
+				existing.liveIndexerId(),
 				IndexerLoadState.FAILED,
 				existing.approvedAt(),
 				existing.approvedBy(),
@@ -174,6 +207,7 @@ public class InMemoryIndexerLoadRepository implements IndexerLoadRepository {
 
 	private IndexerLoadRecord copy(
 		IndexerLoadRecord existing,
+		Integer liveIndexerId,
 		IndexerLoadState state,
 		Instant approvedAt,
 		String approvedBy,
@@ -187,7 +221,8 @@ public class InMemoryIndexerLoadRepository implements IndexerLoadRepository {
 		return new IndexerLoadRecord(
 			existing.indexerId(),
 			existing.targetId(),
-			existing.liveIndexerId(),
+			liveIndexerId,
+			existing.liveWriterPolicy(),
 			existing.providerId(),
 			state,
 			existing.reloadStartAt(),

@@ -150,6 +150,43 @@ class SubmitIndexActionsCommandTest {
 	}
 
 	@Test
+	void metadataCommandSkipsLoadWritersForTargetAction(VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		RecordingQueue queue = new RecordingQueue();
+		InMemoryCommandService commandService = metadataCommandService(repository, eventBus, queue);
+
+		repository.insertTarget(new InsertTarget(null, "customers", null))
+			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
+				null,
+				targetId,
+				"customers",
+				"customers_load",
+				"queue-customers-load",
+				IndexerType.INDEX,
+				IndexerRole.LOAD_WRITER,
+				IndexResourceOwnership.OWNER,
+				IndexerRuntimeState.ACTIVE,
+				PublicationState.UNPUBLISHED,
+				MutationState.WRITABLE
+			)).compose(ignored -> {
+				PutDocumentActionItem action = PutDocumentActionItem.builder()
+					.withTargetId(targetId)
+					.withUid("42")
+					.withDocument(new JsonObject().put("name", "Ada"))
+					.build();
+
+				return commandService.submit(new SubmitIndexActionsCommand(List.of(action)));
+			}))
+			.onComplete(testContext.failing(error -> testContext.verify(() -> {
+				assertEquals("No writable indexers found for target id: 1", error.getMessage());
+				assertTrue(queue.published.isEmpty());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
 	void metadataCommandPublishesConcreteIndexerActionToOneQueue(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();

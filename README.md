@@ -71,6 +71,10 @@ Indexing uses two paths:
 - Hot path: callers submit a `HotIndexActionsRequest` to `HotIndexActionsService`. A normal live-write request carries `targetName`, a timestamp, and logical document mutation items. If the cached target/indexer snapshot proves the route, the service expands the items to concrete `targetId`, `indexerId`, and `indexName` payloads and publishes them through `RoutedIndexActionPublisher`.
 - Cold/unknown path: callers submit `SubmitIndexActionsCommand`, either directly or through hot-path fallback. The command supports only two routing schemas. Target-envelope mode carries `targetName`, optional timestamp, and logical document mutation actions with no concrete destination fields. Concrete mode carries no target envelope or timestamp, and every action must include a concrete `targetId` or `indexerId`; internal actions such as complete and catch-up barrier require `indexerId`. The command handler resolves writable metadata indexers by concrete `targetId`, verifies each destination, expands logical actions to concrete `indexerId`/`indexName` payloads, publishes metadata-change wake-ups only for real metadata changes such as auto-provisioned indexers, then publishes the concrete actions through the shared `RoutedIndexActionPublisher`.
 
+Cold routing supports indexer preparation through `IndexerActionReceiveCapability`. Core asks capabilities whether a non-live candidate can receive an action with `YES`, `REQUIRES_PREPARE`, or `NO`. `YES` means the candidate is a receiver, `REQUIRES_PREPARE` lets the plugin prepare and return actual receiver indexers, and `NO` skips the candidate. Core remains responsible for forwarding the original action items to the prepared receivers.
+
+`IndexerPlugin` is the core SPI for peer indexer functionality. The initial plugin surface exposes action-receive capabilities through `IndexerPlugins`; application composition constructs plugins explicitly because implementations may need repositories or other runtime dependencies.
+
 Command completion means that the submitted actions were handed to the indexer queue, not that the documents were already indexed. Runtime processing remains asynchronous.
 
 The cold path fails closed. If the command sees an unexpected indexer state or action mismatch, it must not publish actions. Expected/idempotent cases include resolving a writable, available, provisioned, runtime-active metadata indexer and waking runtime consumers that may not be hot yet.
@@ -82,7 +86,7 @@ The current fail-closed guards are:
 - an unavailable or deleting indexer cannot receive new actions;
 - an indexer whose provisioning state is not `READY` cannot receive new actions;
 - a runtime-`NON_ACTIVE` indexer cannot receive new actions;
-- cold concrete-target routing requires either target-envelope document mutations or concrete route fields so writable indexers can be resolved;
+- cold concrete-target routing requires either target-envelope document mutations or concrete route fields so writable live writers can be resolved; load writers are not live-submit destinations;
 - concrete actions with `indexerId` and `indexName` must match the resolved metadata indexer.
 
 Routing identity fields are immutable by definition for normal lifecycle: `targetId`, `targetName`, `indexName`, `queueName`, `role`, and `type`. If these values are wrong, create a replacement indexer instead of mutating the existing record. `ResetIndexerQueueCommand` remains a narrow troubleshooting exception in the current codebase and must not be used as a normal reload/live-writer swap mechanism.
@@ -93,12 +97,16 @@ Durable load/reload orchestration is split between the core `indexer` module and
 
 - `LOAD_WRITER`: finite historical load writer for a target and physical `indexName`.
 - `LIVE_WRITER`: ongoing writer. During reload, a new live writer may be linked to the load workflow and write to the same `indexName` as the load writer.
-- `IndexerLoadRecord`: load-plugin metadata keyed by the core `indexerId` of the load writer. It tracks target id, load state, optional linked live writer id, timestamp replay window, review requirement and approval, barrier progress, and failure details. The load repository enforces one active load per target.
-- `LiveWriterPolicy`: live writer creation is explicit. A load may create no live writer, create one immediately, or create one lazily on the first live action when the policy allows it.
+- `IndexerLoadRecord`: load-plugin metadata keyed by the core `indexerId` of the load writer. It tracks target id, load state, optional linked live writer id, persisted live-writer policy, timestamp replay window, review requirement and approval, barrier progress, and failure details. The load repository enforces one active load per target.
+- `LiveWriterPolicy`: live writer creation is explicit and durable. A load may create no live writer, create one immediately, or create one lazily on the first live action when the policy allows it.
 
 `CompleteIndexActionItem` and `CatchUpBarrierActionItem` are internal actions. External loaders should use loader-facing helpers such as `LoadWriter.submit(...)` and `LoadWriter.complete(...)` rather than constructing marker items directly. `QueueLoadWriter.complete(...)` publishes the internal completion marker to the load writer queue.
 
 `CreateLoadCommand` is the first load orchestration command. It ensures the target, creates the core `LOAD_WRITER`, optionally creates an immediate linked `LIVE_WRITER`, stores the provider id and load source fields (`sourceFrom`, `sourceTo`, `sourceQuery`, `sourcePlaybookId`) in `IndexerLoadRecord`, publishes metadata-change wake-ups, and starts the application-level `LoadProvider` resolved from `LoadProviderRegistry`. The `LoadRequest` includes both source fields and concrete callback identities such as `targetId`, `indexerId`, optional `liveIndexerId`, `providerId`, `indexName`, and `queueName`.
+
+`LoadWriterActionReceiveCapability` is the cold-submit integration for lazy live writers. A `LOAD_WRITER` returns `REQUIRES_PREPARE` for live document actions only while an active load has `LiveWriterPolicy.CREATE_ON_FIRST_LIVE_ACTION` and no linked live writer. Preparation creates and attaches the linked `LIVE_WRITER`, returns that writer as the actual receiver, and the core submit command publishes the original live action items to it. After the live writer is linked, the same `LOAD_WRITER` returns `NO` for live actions and is never a live action receiver.
+
+`LoadIndexerPlugin` exposes load-module peer behavior through the core `IndexerPlugin` SPI. It contributes `LoadWriterActionReceiveCapability` while keeping load metadata and workflow dependencies in `indexer-load`.
 
 Historical-only loads publish the `LOAD_WRITER` after successful completion unless review is required; publication converts that indexer role to `LIVE_WRITER` while preserving physical index ownership. Loads with live support publish the linked `LIVE_WRITER` after historical completion, catch-up barrier processing, and optional review. `PublishLoadCommand` validates the load state, candidate writer state, optional approval, and catch-up barrier before calling the atomic metadata replace primitive. When a linked live writer is published, ownership moves from the load writer to the linked live writer and the old published writer is retired.
 

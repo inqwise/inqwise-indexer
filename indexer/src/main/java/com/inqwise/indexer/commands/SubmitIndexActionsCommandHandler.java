@@ -11,6 +11,7 @@ import com.inqwise.indexer.hot.InvalidRouteCache;
 import com.inqwise.indexer.hot.InvalidRouteSignature;
 import com.inqwise.indexer.hot.InvalidRouteSignatures;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
+import com.inqwise.indexer.providers.IndexerActionReceiveCapability;
 
 import io.vertx.core.Future;
 
@@ -36,9 +37,21 @@ public class SubmitIndexActionsCommandHandler implements CommandHandler {
 		IndexerQueueClient queue,
 		InvalidRouteCache invalidRouteCache
 	) {
+		this(metadataRepository, targetDefinitionProvider, eventBus, queue, invalidRouteCache, List.of());
+	}
+
+	public SubmitIndexActionsCommandHandler(
+		DocumentStoreMetadataRepository metadataRepository,
+		TargetDefinitionProvider targetDefinitionProvider,
+		IndexerLifecycleEventBus eventBus,
+		IndexerQueueClient queue,
+		InvalidRouteCache invalidRouteCache,
+		List<IndexerActionReceiveCapability> receiveCapabilities
+	) {
 		this.metadataRouter = new MetadataSubmitIndexActionRouter(
 			metadataRepository,
-			targetDefinitionProvider
+			targetDefinitionProvider,
+			receiveCapabilities
 		);
 		this.eventBus = Objects.requireNonNull(eventBus, "eventBus");
 		this.publisher = new RoutedIndexActionPublisher(queue);

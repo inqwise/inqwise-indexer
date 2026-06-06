@@ -62,6 +62,7 @@ class CreateLoadCommandTest {
 				assertEquals(IndexerRole.LOAD_WRITER, indexer.role());
 				assertEquals(IndexResourceOwnership.OWNER, indexer.indexOwnership());
 				assertEquals(indexer.id(), created.load().indexerId());
+				assertEquals(LiveWriterPolicy.NONE, created.load().liveWriterPolicy());
 				assertEquals(IndexerLoadState.HISTORICAL_LOADING, created.load().state());
 				assertEquals("vip", created.load().sourceQuery().getString("segment"));
 				assertEquals("customers-history", created.load().sourcePlaybookId());
@@ -154,6 +155,7 @@ class CreateLoadCommandTest {
 				assertEquals(IndexResourceOwnership.ATTACHED, liveWriter.indexOwnership());
 				assertEquals(loadWriter.id(), created.load().indexerId());
 				assertEquals(liveWriter.id(), created.load().liveIndexerId());
+				assertEquals(LiveWriterPolicy.CREATE_IMMEDIATELY, created.load().liveWriterPolicy());
 				assertEquals(liveWriter.id(), provider.request.liveIndexerId());
 				assertEquals("customers--queue-live", liveWriter.queueName());
 				testContext.completeNow();

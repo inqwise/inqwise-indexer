@@ -17,6 +17,8 @@ public interface IndexerLoadRepository {
 
 	Future<Void> approve(UpdateIndexerLoadApproval update);
 
+	Future<Void> attachLiveWriter(UpdateIndexerLoadLiveWriter update);
+
 	Future<Void> markBarrierReached(UpdateIndexerLoadBarrier update);
 
 	Future<Void> markFailed(UpdateIndexerLoadFailure update);

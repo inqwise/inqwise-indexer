@@ -130,6 +130,7 @@ public class CreateLoadCommandHandler implements CommandHandler {
 			loadIndexer.id(),
 			target.id(),
 			liveIndexer == null ? null : liveIndexer.id(),
+			create.getLiveWriterPolicy(),
 			create.getProviderId(),
 			IndexerLoadState.HISTORICAL_LOADING,
 			create.getReloadStartAt(),
