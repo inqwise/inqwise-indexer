@@ -28,6 +28,7 @@ Vert.x 5.x starter library inspired by `vertx-elastic`, with a modular layout:
 - `DocumentStoreCommandHandlers`: assembly helper for registering the standard document-store lifecycle and provisioning command handlers with an `InMemoryCommandService` while keeping repository, provider, resource-manager, and event-bus dependencies explicit.
 - `CreateTargetCommand`: generic command for creating a concrete target from provider-owned `TargetDefinition` data. It can optionally compose indexer provisioning through a nested `createIndexer` object and marks the target `READY` only after requested indexer readiness or publication succeeds.
 - `CreateIndexerCommand`: generic command for provisioning an indexer from `IndexerDefinitionProvider`. It inserts durable indexer metadata as `PROVISIONING`, ensures document-index and queue resources, inserts manifest/publication metadata, and marks the indexer `READY` or `FAILED`.
+- `RecoverTargetProvisioningCommand`: admin command for reopening an `ACTIVE` concrete target whose provisioning state is `FAILED`. It moves the target back to `READY` with expected-version protection so normal explicit indexer creation or cold first-writer provisioning can be retried.
 - `ReplacePublishedIndexer`: metadata primitive for atomically retiring the old published indexer for a target and publishing a replacement indexer.
 
 ### Document Store Publishing Model
@@ -81,7 +82,7 @@ Command completion means that the submitted actions were handed to the indexer q
 
 The cold path fails closed. If the command sees an unexpected indexer state or action mismatch, it must not publish actions. Expected/idempotent cases include resolving a writable, available, provisioned, runtime-active metadata indexer and waking runtime consumers that may not be hot yet.
 
-Cold command failures use typed `CommandFailure` classification where the command layer needs retry decisions. Concurrent provisioning states, including target provisioning already in progress and target provisioning lock/version conflicts, are `RETRYABLE`. Stable invalid routes, including missing target definitions, missing concrete targets/indexers, and missing writable indexers, are `STABLE_INVALID` and may be written to `InvalidRouteCache`. Target provisioning marked `FAILED` is final for the submit command and requires explicit recovery before the same route should be retried.
+Cold command failures use typed `CommandFailure` classification where the command layer needs retry decisions. Concurrent provisioning states, including target provisioning already in progress and target provisioning lock/version conflicts, are `RETRYABLE`. Stable invalid routes, including missing target definitions, missing concrete targets/indexers, and missing writable indexers, are `STABLE_INVALID` and may be written to `InvalidRouteCache`. Target provisioning marked `FAILED` is final for the submit command and requires explicit `RecoverTargetProvisioningCommand` before the same route should be retried.
 
 The current fail-closed guards are:
 

@@ -47,12 +47,13 @@ class DocumentStoreCommandHandlersTest {
 			.map(CommandHandler::getType)
 			.collect(Collectors.toSet());
 
-		assertEquals(9, handlers.size());
+		assertEquals(10, handlers.size());
 		assertTrue(types.contains(CreateTargetCommand.TYPE));
 		assertTrue(types.contains(CreateIndexerCommand.TYPE));
 		assertTrue(types.contains(MarkIndexReadyCommand.TYPE));
 		assertTrue(types.contains(PublishIndexCommand.TYPE));
 		assertTrue(types.contains(RetireIndexCommand.TYPE));
+		assertTrue(types.contains(RecoverTargetProvisioningCommand.TYPE));
 		assertTrue(types.contains(ActivateIndexerCommand.TYPE));
 		assertTrue(types.contains(DeactivateIndexerCommand.TYPE));
 		assertTrue(types.contains(DeleteIndexerCommand.TYPE));

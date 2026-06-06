@@ -36,6 +36,7 @@ public final class DocumentStoreCommandHandlers {
 			new MarkIndexReadyCommandHandler(config.repository()),
 			new PublishIndexCommandHandler(config.repository()),
 			new RetireIndexCommandHandler(config.repository()),
+			new RecoverTargetProvisioningCommandHandler(config.repository()),
 			new ActivateIndexerCommandHandler(config.repository(), config.eventBus()),
 			new DeactivateIndexerCommandHandler(config.repository(), config.eventBus()),
 			new DeleteIndexerCommandHandler(config.repository(), config.eventBus()),
