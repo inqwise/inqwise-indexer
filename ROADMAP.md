@@ -1,5 +1,10 @@
 # Roadmap
 
+## Module Layout
+
+- Discuss and design a module split that moves core indexing primitives out of the current `indexer` module and leaves `indexer` focused on deployment, service communication, node wiring, and external/internal APIs. The likely direction is a core module for runtime/actions/metadata/commands/provisioning primitives plus a deployment-facing module for Vert.x service proxies, service verticles, node container, gateway APIs, internal REST APIs, and OpenAPI wiring.
+- Consider extracting default local/in-memory node composition from `IndexerNode.defaultComponents(...)` into a dedicated factory or bootstrap class. `IndexerNodeComponents` is intentionally explicit, but the default wiring now spans repository, definitions, queue resources, document-index resources, command routing, hot view, runtime, and lifecycle event bus.
+
 ## Index Flow
 
 - Add public API error mapping so internal ids, index names, queue names, and storage details are not exposed directly to external callers.
@@ -23,7 +28,7 @@
 - Wire hot routing into the public action submission surface. The core components now exist: `HotIndexActionsService`, `HotMetadataView`, immutable `HotTarget` snapshots, hot-capable indexer providers, shared `RoutedIndexActionPublisher`, `InvalidRouteCache`, and `TargetInvalidationRegistry`.
 - Add background invalidation wiring for `TargetInvalidationRegistry`. Polling nodes should compare entry versions with locally seen versions, invalidate affected hot targets, and invalidate all local hot targets when registry results are truncated.
 - Wire invalid-route cache invalidation to metadata events that can convert a previously invalid route to valid. The cache is now consulted before hot fallback and populated by stable invalid cold failures; invalidation remains event-driven follow-up work.
-- Add an administration metadata loading layer for broader target/indexer inspection and management. Unlike the hot layer, it must support wider status/state scopes and flexible repository queries.
+- Extend the first `AdminService` slices into a broader administration layer. Target/indexer list/get over flexible repository queries, target creation, standalone indexer creation, failed target-provisioning recovery, indexer activation/deactivation, metadata indexer delete, and indexer queue reset now exist; future admin work should focus on REST/OpenAPI exposure, authorization, command-result review, and production wiring.
 - Add repository-backed mutation tracking only for the blend window where historical reload data is mixed with live stream mutations.
 - Add production-backed enforcement of the target publication invariant. The in-memory repository now atomically replaces the published indexer for a target; production storage must preserve the same at-most-one-published-indexer rule without a transient no-published-indexer state.
 - Add full load plugin orchestration around external `LoadProvider` implementations, including production application wiring for `LoadIndexerPlugin` and final removal/tombstone handling after cancel or post-publish cleanup marks indexers deleting.

@@ -11,6 +11,14 @@ public class IndexerSnapshot {
 		this.queueName = queueName;
 	}
 
+	public IndexerModel getModel() {
+		return model;
+	}
+
+	public String getQueueName() {
+		return queueName;
+	}
+
 	public JsonObject toJson() {
 		return model.toJson().put("resolved_queue_name", queueName);
 	}

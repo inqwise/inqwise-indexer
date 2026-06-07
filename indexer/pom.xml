@@ -53,4 +53,28 @@
 			<scope>test</scope>
 		</dependency>
 	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<configuration>
+					<annotationProcessorPaths>
+						<path>
+							<groupId>io.vertx</groupId>
+							<artifactId>vertx-codegen</artifactId>
+							<version>${vertx.version}</version>
+							<classifier>processor</classifier>
+						</path>
+						<path>
+							<groupId>io.vertx</groupId>
+							<artifactId>vertx-service-proxy</artifactId>
+							<version>${vertx.version}</version>
+						</path>
+					</annotationProcessorPaths>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
 </project>

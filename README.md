@@ -31,6 +31,21 @@ Vert.x 5.x starter library inspired by `vertx-elastic`, with a modular layout:
 - `RecoverTargetProvisioningCommand`: admin command for reopening an `ACTIVE` concrete target whose provisioning state is `FAILED`. It moves the target back to `READY` with expected-version protection so normal explicit indexer creation or cold first-writer provisioning can be retried.
 - `ReplacePublishedIndexer`: metadata primitive for atomically retiring the old published indexer for a target and publishing a replacement indexer.
 
+### Node Envelope And Service Facades
+
+The node envelope is the local Vert.x composition layer for one running indexer node. It owns service deployment, dependency assembly, and local runtime lifecycle, while keeping durable workflow decisions inside command handlers and metadata/repository layers.
+
+- `IndexerNode`: programmatic composition root. It receives `IndexerNodeOptions`, builds or receives `IndexerNodeComponents`, and deploys enabled internal service verticles.
+- `IndexerNodeVerticle`: Vert.x parent verticle wrapper for deploying a node through normal Vert.x deployment APIs. Child service verticles are deployed under this parent deployment scope.
+- `IndexerNodeOptions`: declares which internal services are enabled and how many verticle instances each service should deploy. Instance counts must be at least one when a service is enabled. Runtime service deployment is intentionally singleton per node.
+- `IndexerNodeComponents`: explicit dependency container for node-local runtime services. Production bootstraps can replace in-memory repositories, queues, stores, event buses, command service wiring, and definition providers without changing service APIs.
+- `ServiceProxyVerticle`: shared base for Vert.x Service Proxy service verticles. It centralizes start/stop registration lifecycle while concrete services create their generated proxy handlers explicitly.
+- `AdminService`: internal administration facade for metadata inspection and narrow management operations. The first slices expose target/indexer list/get operations, target creation, standalone indexer creation, failed target-provisioning recovery, indexer activation/deactivation, metadata indexer delete, and indexer queue reset through admin DTOs that hide repository-only fields such as metadata prefixes.
+- `TargetActionService`: internal target/action service facade. It accepts target-envelope or concrete action submissions through typed data objects and delegates execution to `HotIndexActionsService`. Command durability and concrete results remain subject to command/API review.
+- `RuntimeService`: local-node runtime facade. `status()` reports only in-memory runtime indexers on this node, and `reconcileIndexer(...)` is an internal/manual repair hook for reconciling one indexer from metadata.
+
+Service APIs use Vert.x Service Proxy over the event bus, with typed data objects rather than raw `JsonObject` in concrete contracts. Gateway APIs for admin and target/action traffic remain separate from these internal services. Internal REST endpoints and OpenAPI support are planned for direct manual access through tools such as Postman or Insomnia, but are not part of the first service-proxy layer. Mutating admin operations will be added one use case at a time after deciding whether each operation should return a concrete result or durable command acceptance.
+
 ### Document Store Publishing Model
 
 Document-store publishing separates public target routing from physical index execution:

@@ -2,6 +2,7 @@ package com.inqwise.indexer;
 
 import java.util.Map;
 import java.util.Objects;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
@@ -158,6 +159,21 @@ public class IndexerRuntime {
 	protected Future<Void> close(Integer indexerId) {
 		RuntimeEntry entry = indexersById.remove(indexerId);
 		return entry == null ? Future.succeededFuture() : entry.indexer().close();
+	}
+
+	public Future<Void> stop() {
+		Future<Void> stopped = Future.succeededFuture();
+		for (Integer indexerId : List.copyOf(indexersById.keySet())) {
+			stopped = stopped.compose(ignored -> close(indexerId));
+		}
+
+		return stopped;
+	}
+
+	public List<IndexerSnapshot> snapshots() {
+		return indexersById.values().stream()
+			.map(entry -> entry.indexer().status())
+			.toList();
 	}
 
 	protected Future<Void> delete(IndexerRecord indexer) {

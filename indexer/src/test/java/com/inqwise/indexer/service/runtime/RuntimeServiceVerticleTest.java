@@ -1,0 +1,68 @@
+package com.inqwise.indexer.service.runtime;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+
+import com.inqwise.indexer.Indexer;
+import com.inqwise.indexer.IndexerModel;
+import com.inqwise.indexer.IndexerRuntime;
+import com.inqwise.indexer.IndexerRuntimeState;
+import com.inqwise.indexer.IndexerType;
+import com.inqwise.indexer.InMemoryIndexerDocumentStore;
+import com.inqwise.indexer.InMemoryIndexerLifecycleEventBus;
+import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
+import com.inqwise.indexer.metadata.InsertIndexer;
+import com.inqwise.indexer.metadata.InsertTarget;
+import com.inqwise.indexer.metadata.MutationState;
+import com.inqwise.indexer.metadata.PublicationState;
+
+import io.vertx.junit5.VertxExtension;
+import io.vertx.junit5.VertxTestContext;
+import io.vertx.core.Vertx;
+
+@ExtendWith(VertxExtension.class)
+class RuntimeServiceVerticleTest {
+	@Test
+	void reconcilesAndReportsLocalRuntimeStatus(Vertx vertx, VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		InMemoryIndexerDocumentStore documentStore = new InMemoryIndexerDocumentStore();
+		IndexerRuntime runtime = new IndexerRuntime(
+			repository,
+			eventBus,
+			indexer -> new Indexer(
+				vertx,
+				IndexerRuntime.toModel(indexer),
+				documentStore
+			)
+		);
+
+		repository.insertTarget(new InsertTarget(null, "customers", null))
+			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
+				"runtime",
+				targetId,
+				"customers",
+				"customers-index",
+				"customers-queue",
+				IndexerType.INDEX,
+				IndexerRuntimeState.ACTIVE,
+				PublicationState.UNPUBLISHED,
+				MutationState.WRITABLE
+			)))
+			.compose(indexerId -> vertx.deployVerticle(new RuntimeServiceVerticle(runtime))
+				.compose(ignored -> RuntimeServices.proxy(vertx)
+					.reconcileIndexer(new RuntimeReconcileRequest().setIndexerId(indexerId)))
+				.compose(ignored -> RuntimeServices.proxy(vertx).status()))
+			.onComplete(testContext.succeeding(status -> testContext.verify(() -> {
+				assertEquals(1, status.getIndexers().size());
+				RuntimeIndexerStatus indexer = status.getIndexers().get(0);
+				assertEquals("customers", indexer.getTargetName());
+				assertEquals("customers-index", indexer.getIndexName());
+				assertEquals("customers-queue", indexer.getQueueName());
+				testContext.completeNow();
+			})));
+	}
+}
