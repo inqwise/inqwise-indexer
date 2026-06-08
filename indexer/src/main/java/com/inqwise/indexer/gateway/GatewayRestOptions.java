@@ -9,6 +9,7 @@ public class GatewayRestOptions {
 		public static final String HOST = "host";
 		public static final String PORT = "port";
 		public static final String ADMIN_REST_BASE_URI = "admin_rest_base_uri";
+		public static final String REQUEST_TIMEOUT_MS = "request_timeout_ms";
 
 		private Keys() {
 		}
@@ -16,10 +17,12 @@ public class GatewayRestOptions {
 
 	public static final String DEFAULT_HOST = "127.0.0.1";
 	public static final int DEFAULT_PORT = 8082;
+	public static final long DEFAULT_REQUEST_TIMEOUT_MS = 5000L;
 
 	private String host = DEFAULT_HOST;
 	private int port = DEFAULT_PORT;
 	private String adminRestBaseUri;
+	private long requestTimeoutMs = DEFAULT_REQUEST_TIMEOUT_MS;
 
 	public GatewayRestOptions() {
 	}
@@ -28,13 +31,15 @@ public class GatewayRestOptions {
 		this.host = json.getString(Keys.HOST, DEFAULT_HOST);
 		this.port = json.getInteger(Keys.PORT, DEFAULT_PORT);
 		this.adminRestBaseUri = json.getString(Keys.ADMIN_REST_BASE_URI);
+		this.requestTimeoutMs = json.getLong(Keys.REQUEST_TIMEOUT_MS, DEFAULT_REQUEST_TIMEOUT_MS);
 	}
 
 	public JsonObject toJson() {
 		return new JsonObject()
 			.put(Keys.HOST, host)
 			.put(Keys.PORT, port)
-			.put(Keys.ADMIN_REST_BASE_URI, adminRestBaseUri);
+			.put(Keys.ADMIN_REST_BASE_URI, adminRestBaseUri)
+			.put(Keys.REQUEST_TIMEOUT_MS, requestTimeoutMs);
 	}
 
 	public String getHost() {
@@ -61,6 +66,15 @@ public class GatewayRestOptions {
 
 	public GatewayRestOptions setAdminRestBaseUri(String adminRestBaseUri) {
 		this.adminRestBaseUri = adminRestBaseUri;
+		return this;
+	}
+
+	public long getRequestTimeoutMs() {
+		return requestTimeoutMs;
+	}
+
+	public GatewayRestOptions setRequestTimeoutMs(long requestTimeoutMs) {
+		this.requestTimeoutMs = requestTimeoutMs;
 		return this;
 	}
 }

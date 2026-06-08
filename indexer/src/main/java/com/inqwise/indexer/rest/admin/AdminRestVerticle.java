@@ -4,7 +4,6 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Objects;
-import java.util.function.Function;
 
 import com.inqwise.indexer.IndexerRole;
 import com.inqwise.indexer.IndexerRuntimeState;
@@ -17,7 +16,7 @@ import com.inqwise.indexer.metadata.MutationState;
 import com.inqwise.indexer.metadata.PublicationState;
 import com.inqwise.indexer.metadata.TargetProvisioningState;
 import com.inqwise.indexer.metadata.TargetStatus;
-import com.inqwise.indexer.rest.HttpErrorMapper;
+import com.inqwise.indexer.rest.RestOperations;
 import com.inqwise.indexer.service.admin.AdminCreateRequestResolver;
 import com.inqwise.indexer.service.admin.AdminCreateIndexerRequest;
 import com.inqwise.indexer.service.admin.AdminCreateTargetRequest;
@@ -41,7 +40,6 @@ import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.ext.web.openapi.router.RequestExtractor;
@@ -87,23 +85,75 @@ public class AdminRestVerticle extends AbstractVerticle {
 					RequestExtractor.withBodyHandler()
 				);
 				builder.rootHandler(BodyHandler.create());
-				bind(builder, "listTargets", context -> adminService.listTargets(targetQuery(context)));
-				bind(builder, "createTarget", context ->
-					adminService.createTarget(createTargetRequest(context, createResolver)));
-				bind(builder, "getTarget", context -> adminService.getTarget(new AdminTargetGetRequest()
-					.setId(pathInteger(context, "id"))));
-				bind(builder, "recoverTargetProvisioning", context ->
-					adminService.recoverTargetProvisioning(recoverTargetProvisioningRequest(context)));
-				bind(builder, "listIndexers", context -> adminService.listIndexers(indexerQuery(context)));
-				bind(builder, "createIndexer", context -> createIndexerRequest(context, createResolver)
-					.compose(adminService::createIndexer));
-				bind(builder, "getIndexer", context -> adminService.getIndexer(new AdminIndexerGetRequest()
-					.setId(pathInteger(context, "id"))));
-				bind(builder, "activateIndexer", context -> adminService.activateIndexer(indexerLifecycleRequest(context)));
-				bind(builder, "deactivateIndexer", context -> adminService.deactivateIndexer(indexerLifecycleRequest(context)));
-				bind(builder, "resetIndexerQueue", context ->
-					adminService.resetIndexerQueue(resetIndexerQueueRequest(context)));
-				bind(builder, "deleteIndexer", context -> adminService.deleteIndexer(deleteIndexerRequest(context)));
+				RestOperations.bind(
+					builder,
+					"listTargets",
+					context -> adminService.listTargets(targetQuery(context)),
+					AdminRestVerticle::toJson
+				);
+				RestOperations.bind(
+					builder,
+					"createTarget",
+					context -> adminService.createTarget(createTargetRequest(context, createResolver)),
+					AdminRestVerticle::toJson
+				);
+				RestOperations.bind(
+					builder,
+					"getTarget",
+					context -> adminService.getTarget(new AdminTargetGetRequest()
+						.setId(pathInteger(context, "id"))),
+					AdminRestVerticle::toJson
+				);
+				RestOperations.bind(
+					builder,
+					"recoverTargetProvisioning",
+					context -> adminService.recoverTargetProvisioning(recoverTargetProvisioningRequest(context)),
+					AdminRestVerticle::toJson
+				);
+				RestOperations.bind(
+					builder,
+					"listIndexers",
+					context -> adminService.listIndexers(indexerQuery(context)),
+					AdminRestVerticle::toJson
+				);
+				RestOperations.bind(
+					builder,
+					"createIndexer",
+					context -> createIndexerRequest(context, createResolver)
+						.compose(adminService::createIndexer),
+					AdminRestVerticle::toJson
+				);
+				RestOperations.bind(
+					builder,
+					"getIndexer",
+					context -> adminService.getIndexer(new AdminIndexerGetRequest()
+						.setId(pathInteger(context, "id"))),
+					AdminRestVerticle::toJson
+				);
+				RestOperations.bind(
+					builder,
+					"activateIndexer",
+					context -> adminService.activateIndexer(indexerLifecycleRequest(context)),
+					AdminRestVerticle::toJson
+				);
+				RestOperations.bind(
+					builder,
+					"deactivateIndexer",
+					context -> adminService.deactivateIndexer(indexerLifecycleRequest(context)),
+					AdminRestVerticle::toJson
+				);
+				RestOperations.bind(
+					builder,
+					"resetIndexerQueue",
+					context -> adminService.resetIndexerQueue(resetIndexerQueueRequest(context)),
+					AdminRestVerticle::toJson
+				);
+				RestOperations.bind(
+					builder,
+					"deleteIndexer",
+					context -> adminService.deleteIndexer(deleteIndexerRequest(context)),
+					AdminRestVerticle::toJson
+				);
 
 				return builder.createRouter();
 			})
@@ -134,32 +184,6 @@ public class AdminRestVerticle extends AbstractVerticle {
 
 	public int actualPort() {
 		return actualPort;
-	}
-
-	private static <T> void bind(
-		RouterBuilder builder,
-		String operationId,
-		Function<RoutingContext, Future<T>> handler
-	) {
-		builder.getRoute(operationId)
-			.addHandler(context -> handle(context, handler))
-			.addFailureHandler(context -> HttpErrorMapper.write(context, context.failure()));
-	}
-
-	private static <T> void handle(RoutingContext context, Function<RoutingContext, Future<T>> handler) {
-		try {
-			handler.apply(context)
-				.onSuccess(result -> writeJson(context, result))
-				.onFailure(error -> HttpErrorMapper.write(context, error));
-		} catch (Throwable error) {
-			HttpErrorMapper.write(context, error);
-		}
-	}
-
-	private static void writeJson(RoutingContext context, Object result) {
-		context.response()
-			.putHeader("content-type", "application/json")
-			.end(toJson(result).encode());
 	}
 
 	private static JsonObject toJson(Object result) {

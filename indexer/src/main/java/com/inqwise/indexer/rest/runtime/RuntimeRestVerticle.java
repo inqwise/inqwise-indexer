@@ -1,20 +1,16 @@
 package com.inqwise.indexer.rest.runtime;
 
-import java.util.function.Function;
-
 import com.inqwise.indexer.errors.IndexerErrors;
-import com.inqwise.indexer.rest.HttpErrorMapper;
+import com.inqwise.indexer.rest.RestOperations;
 import com.inqwise.indexer.service.runtime.RuntimeReconcileRequest;
 import com.inqwise.indexer.service.runtime.RuntimeService;
 import com.inqwise.indexer.service.runtime.RuntimeServices;
 import com.inqwise.indexer.service.runtime.RuntimeStatusResult;
 
 import io.vertx.core.AbstractVerticle;
-import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.ext.web.openapi.router.RequestExtractor;
@@ -49,11 +45,21 @@ public class RuntimeRestVerticle extends AbstractVerticle {
 					RequestExtractor.withBodyHandler()
 				);
 				builder.rootHandler(BodyHandler.create());
-				bind(builder, "runtimeStatus", context -> runtimeService.status());
-				bind(builder, "reconcileIndexer", context -> runtimeService
-					.reconcileIndexer(new RuntimeReconcileRequest()
-						.setIndexerId(pathInteger(context, "id")))
-					.map(new JsonObject().put("status", "ACCEPTED")));
+				RestOperations.bind(
+					builder,
+					"runtimeStatus",
+					context -> runtimeService.status(),
+					RuntimeRestVerticle::toJson
+				);
+				RestOperations.bind(
+					builder,
+					"reconcileIndexer",
+					context -> runtimeService
+						.reconcileIndexer(new RuntimeReconcileRequest()
+							.setIndexerId(pathInteger(context, "id")))
+						.map(new JsonObject().put("status", "ACCEPTED")),
+					RuntimeRestVerticle::toJson
+				);
 
 				return builder.createRouter();
 			})
@@ -84,32 +90,6 @@ public class RuntimeRestVerticle extends AbstractVerticle {
 
 	public int actualPort() {
 		return actualPort;
-	}
-
-	private static <T> void bind(
-		RouterBuilder builder,
-		String operationId,
-		Function<RoutingContext, Future<T>> handler
-	) {
-		builder.getRoute(operationId)
-			.addHandler(context -> handle(context, handler))
-			.addFailureHandler(context -> HttpErrorMapper.write(context, context.failure()));
-	}
-
-	private static <T> void handle(RoutingContext context, Function<RoutingContext, Future<T>> handler) {
-		try {
-			handler.apply(context)
-				.onSuccess(result -> writeJson(context, result))
-				.onFailure(error -> HttpErrorMapper.write(context, error));
-		} catch (Throwable error) {
-			HttpErrorMapper.write(context, error);
-		}
-	}
-
-	private static void writeJson(RoutingContext context, Object result) {
-		context.response()
-			.putHeader("content-type", "application/json")
-			.end(toJson(result).encode());
 	}
 
 	private static JsonObject toJson(Object result) {

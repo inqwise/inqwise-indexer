@@ -164,11 +164,13 @@ class IndexerNodeOptionsTest {
 			.put(IndexerNodeOptions.Keys.GATEWAY, new JsonObject()
 				.put(GatewayRestOptions.Keys.HOST, "0.0.0.0")
 				.put(GatewayRestOptions.Keys.PORT, 9092)
-				.put(GatewayRestOptions.Keys.ADMIN_REST_BASE_URI, "http://127.0.0.1:8080")));
+				.put(GatewayRestOptions.Keys.ADMIN_REST_BASE_URI, "http://127.0.0.1:8080")
+				.put(GatewayRestOptions.Keys.REQUEST_TIMEOUT_MS, 1000L)));
 
 		assertEquals("0.0.0.0", options.getGatewayOptions().getHost());
 		assertEquals(9092, options.getGatewayOptions().getPort());
 		assertEquals("http://127.0.0.1:8080", options.getGatewayOptions().getAdminRestBaseUri());
+		assertEquals(1000L, options.getGatewayOptions().getRequestTimeoutMs());
 	}
 
 	@Test

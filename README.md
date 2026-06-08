@@ -46,7 +46,7 @@ The node envelope is the local Vert.x composition layer for one running indexer 
 - `AdminRestVerticle`: OpenAPI-backed REST API over `AdminService`. It exposes target/indexer administration endpoints through Vert.x Web while calling the internal service proxy instead of the service implementation directly. It can run standalone or be deployed by `IndexerNode` when the `adminRest` node service is enabled.
 - `TargetActionRestVerticle`: OpenAPI-backed REST API over `TargetActionService`. It exposes target-envelope document mutation submission for internal/manual HTTP access.
 - `RuntimeRestVerticle`: OpenAPI-backed REST API over `RuntimeService`. It exposes local-node runtime status and a manual reconcile hook for one indexer.
-- `GatewayRestVerticle`: external gateway boundary. It is deployed separately from service-level REST APIs and is the planned owner for authentication, authorization, rate limits, external audit logging, and proxying selected public routes to REST APIs.
+- `GatewayRestVerticle`: external gateway boundary. It is deployed separately from service-level REST APIs and is the planned owner for authentication, authorization, rate limits, external audit logging, and proxying selected public routes to REST APIs. The first proxy slice forwards selected admin read traffic to the configured internal admin REST base URI.
 
 Service APIs use Vert.x Service Proxy over the event bus, with typed data objects rather than raw `JsonObject` in concrete contracts. REST APIs provide direct HTTP access for internal callers and tools such as Postman or Insomnia. The gateway is a separate external REST proxy layer in front of those REST APIs. Mutating admin operations will be added one use case at a time after deciding whether each operation should return a concrete result or durable command acceptance.
 
@@ -72,7 +72,7 @@ The first target/action REST contract is stored under `openapi/target-action.yam
 
 The first runtime REST contract is stored under `openapi/runtime.yaml` and exposes `GET /runtime/status` plus `POST /runtime/indexers/{id}/reconcile`. Runtime status is local-node only; broader node-management and cluster status remain separate future infrastructure.
 
-The first gateway slice is intentionally only a deployed boundary. `GatewayRestVerticle` currently exposes `GET /gateway/status` and carries the configured admin REST base URI. Proxy routes, authentication, authorization, rate limiting, and public API contracts will be designed before public routes are added. Target/action submission is not planned for gateway exposure unless a concrete external use case is approved.
+The first gateway proxy slice exposes `GET /gateway/status` and `GET /gateway/admin/targets`. The target-list route proxies to internal `GET /admin/targets`, preserves the query string, forwards the upstream status/body/content type, and uses the configured admin REST base URI plus request timeout. Authentication, authorization, rate limiting, audit policy, and broader public route contracts are still pending. Target/action submission is not planned for gateway exposure unless a concrete external use case is approved.
 
 ### Document Store Publishing Model
 
