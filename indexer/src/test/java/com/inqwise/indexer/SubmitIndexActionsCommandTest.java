@@ -522,6 +522,102 @@ class SubmitIndexActionsCommandTest {
 	}
 
 	@Test
+	void publicTargetCommandInvalidatesStableInvalidRouteAfterRouteSucceeds(
+		VertxTestContext testContext
+	) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		RecordingQueue queue = new RecordingQueue();
+		RecordingDocumentIndexResourceManager documentResources =
+			new RecordingDocumentIndexResourceManager();
+		RecordingQueueResourceManager queueResources = new RecordingQueueResourceManager();
+		InMemoryInvalidRouteCache invalidRouteCache =
+			new InMemoryInvalidRouteCache(Duration.ofMinutes(5));
+		SubmitIndexActionsCommand command = new SubmitIndexActionsCommand(
+			"customers",
+			Instant.parse("2026-05-18T10:15:00Z"),
+			List.of(PutDocumentActionItem.builder()
+				.withUid("42")
+				.withDocument(new JsonObject().put("name", "Ada"))
+				.build())
+		);
+		InMemoryCommandService disabled = metadataCommandService(
+			repository,
+			eventBus,
+			queue,
+			documentResources,
+			queueResources,
+			false,
+			invalidRouteCache
+		);
+		InMemoryCommandService enabled = metadataCommandService(
+			repository,
+			eventBus,
+			queue,
+			documentResources,
+			queueResources,
+			true,
+			invalidRouteCache
+		);
+
+		disabled.submit(command)
+			.recover(error -> {
+				assertTrue(((CommandFailure) error).stableInvalid());
+				assertTrue(invalidRouteCache.find(InvalidRouteSignatures.from(command).get(0)).isPresent());
+				return enabled.submit(command);
+			})
+			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
+				assertEquals(1, queue.published.size());
+				assertTrue(invalidRouteCache.find(InvalidRouteSignatures.from(command).get(0)).isEmpty());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void publicTargetCommandDoesNotCacheRetryableProvisioningFailure(
+		VertxTestContext testContext
+	) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		RecordingQueue queue = new RecordingQueue();
+		InMemoryInvalidRouteCache invalidRouteCache =
+			new InMemoryInvalidRouteCache(Duration.ofMinutes(5));
+		InMemoryCommandService commandService = metadataCommandService(
+			repository,
+			eventBus,
+			queue,
+			IndexerDocumentIndexResourceManager.NOOP,
+			IndexerQueueResourceManager.NOOP,
+			true,
+			invalidRouteCache
+		);
+		SubmitIndexActionsCommand command = new SubmitIndexActionsCommand(
+			"customers",
+			Instant.parse("2026-05-18T10:15:00Z"),
+			List.of(PutDocumentActionItem.builder()
+				.withUid("42")
+				.withDocument(new JsonObject().put("name", "Ada"))
+				.build())
+		);
+
+		repository.ensureTarget("customers", may2026Period())
+			.compose(target -> repository.updateTargetProvisioningState(new UpdateTargetProvisioningState(
+				target.id(),
+				TargetProvisioningState.PROVISIONING,
+				target.version()
+			))).compose(ignored -> commandService.submit(command))
+			.onComplete(testContext.failing(error -> testContext.verify(() -> {
+				CommandFailure failure = (CommandFailure) error;
+				assertTrue(failure.retryable());
+				assertTrue(invalidRouteCache.find(InvalidRouteSignatures.from(command).get(0)).isEmpty());
+				assertTrue(queue.published.isEmpty());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
 	void submitCommandRejectsOversizedActionBatch() {
 		List<IndexerActionItem> actions = new ArrayList<>();
 		for (int i = 0; i <= SubmitIndexActionsCommand.MAX_ACTIONS; i++) {
@@ -836,6 +932,32 @@ class SubmitIndexActionsCommandTest {
 				eventBus,
 				queue,
 				null,
+				List.of()
+			));
+	}
+
+	private InMemoryCommandService metadataCommandService(
+		InMemoryDocumentStoreMetadataRepository repository,
+		InMemoryIndexerLifecycleEventBus eventBus,
+		RecordingQueue queue,
+		IndexerDocumentIndexResourceManager documentResources,
+		IndexerQueueResourceManager queueResources,
+		boolean autoProvisionOnWrite,
+		InMemoryInvalidRouteCache invalidRouteCache
+	) {
+		return new InMemoryCommandService()
+			.register(new SubmitIndexActionsCommandHandler(
+				repository,
+				customersMonthlyTargetDefinitionProvider(autoProvisionOnWrite),
+				new StaticIndexerDefinitionProvider(new IndexerDefinition(
+					new IndexDefinition("customers", "v1", new JsonObject(), new JsonObject()),
+					new QueueDefinition(new JsonObject())
+				)),
+				documentResources,
+				queueResources,
+				eventBus,
+				queue,
+				invalidRouteCache,
 				List.of()
 			));
 	}

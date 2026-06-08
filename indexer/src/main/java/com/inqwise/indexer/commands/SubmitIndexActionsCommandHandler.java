@@ -14,6 +14,7 @@ import com.inqwise.indexer.definitions.QueueDefinition;
 import com.inqwise.indexer.definitions.StaticIndexerDefinitionProvider;
 import com.inqwise.indexer.definitions.TargetDefinitionProvider;
 import com.inqwise.indexer.hot.InvalidRouteCache;
+import com.inqwise.indexer.hot.InvalidRouteInvalidation;
 import com.inqwise.indexer.hot.InvalidRouteSignature;
 import com.inqwise.indexer.hot.InvalidRouteSignatures;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
@@ -102,7 +103,8 @@ public class SubmitIndexActionsCommandHandler implements CommandHandler {
 		SubmitIndexActionsCommand submit = new SubmitIndexActionsCommand(command.toJson());
 
 		return route(submit)
-			.compose(this::publish)
+			.compose(groups -> publish(groups)
+				.onSuccess(ignored -> invalidateRoute(submit)))
 			.recover(error -> {
 				recordStableInvalidRoute(submit, error);
 				return Future.failedFuture(error);
@@ -143,6 +145,22 @@ public class SubmitIndexActionsCommandHandler implements CommandHandler {
 
 		for (InvalidRouteSignature signature : InvalidRouteSignatures.from(submit)) {
 			invalidRouteCache.record(signature, error.getMessage());
+		}
+	}
+
+	private void invalidateRoute(SubmitIndexActionsCommand submit) {
+		if (invalidRouteCache == null) {
+			return;
+		}
+
+		for (InvalidRouteSignature signature : InvalidRouteSignatures.from(submit)) {
+			invalidRouteCache.invalidateMatching(new InvalidRouteInvalidation(
+				signature.targetName(),
+				signature.periodKey(),
+				signature.targetId(),
+				signature.indexerId(),
+				signature.indexName()
+			));
 		}
 	}
 
