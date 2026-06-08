@@ -22,6 +22,7 @@ import com.inqwise.indexer.definitions.StaticIndexerDefinitionProvider;
 import com.inqwise.indexer.definitions.StaticTargetDefinitionProvider;
 import com.inqwise.indexer.definitions.TargetDefinition;
 import com.inqwise.indexer.definitions.TargetDefinitionProvider;
+import com.inqwise.indexer.gateway.GatewayRestVerticle;
 import com.inqwise.indexer.hot.DefaultHotMetadataView;
 import com.inqwise.indexer.hot.HotIndexActionsService;
 import com.inqwise.indexer.hot.HotMetadataView;
@@ -29,6 +30,9 @@ import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.providers.IndexerProviders;
 import com.inqwise.indexer.providers.MetadataIndexerProvider;
+import com.inqwise.indexer.rest.action.TargetActionRestVerticle;
+import com.inqwise.indexer.rest.admin.AdminRestVerticle;
+import com.inqwise.indexer.service.admin.AdminCreateRequestResolver;
 import com.inqwise.indexer.service.admin.AdminServiceVerticle;
 import com.inqwise.indexer.service.action.TargetActionServiceVerticle;
 import com.inqwise.indexer.service.runtime.RuntimeServiceVerticle;
@@ -62,8 +66,11 @@ public class IndexerNode {
 		options.validate();
 		Future<Void> deployed = Future.succeededFuture();
 		deployed = deployed.compose(ignored -> deployAdmin());
+		deployed = deployed.compose(ignored -> deployAdminRest());
 		deployed = deployed.compose(ignored -> deployTargetAction());
+		deployed = deployed.compose(ignored -> deployTargetActionRest());
 		deployed = deployed.compose(ignored -> deployRuntime());
+		deployed = deployed.compose(ignored -> deployGateway());
 		return deployed;
 	}
 
@@ -110,6 +117,21 @@ public class IndexerNode {
 		return deployed;
 	}
 
+	private Future<Void> deployAdminRest() {
+		IndexerServiceDeploymentOptions deployment = options.adminRest();
+		if (!deployment.isEnabled()) {
+			return Future.succeededFuture();
+		}
+
+		return vertx.deployVerticle(
+			new AdminRestVerticle(
+				options.getAdminRestOptions(),
+				new AdminCreateRequestResolver(components.repository())
+			),
+			new DeploymentOptions()
+		).onSuccess(deploymentIds::add).mapEmpty();
+	}
+
 	private Future<Void> deployTargetAction() {
 		IndexerServiceDeploymentOptions deployment = options.targetAction();
 		if (!deployment.isEnabled()) {
@@ -125,6 +147,30 @@ public class IndexerNode {
 		}
 
 		return deployed;
+	}
+
+	private Future<Void> deployTargetActionRest() {
+		IndexerServiceDeploymentOptions deployment = options.targetActionRest();
+		if (!deployment.isEnabled()) {
+			return Future.succeededFuture();
+		}
+
+		return vertx.deployVerticle(
+			new TargetActionRestVerticle(options.getTargetActionRestOptions()),
+			new DeploymentOptions()
+		).onSuccess(deploymentIds::add).mapEmpty();
+	}
+
+	private Future<Void> deployGateway() {
+		IndexerServiceDeploymentOptions deployment = options.gateway();
+		if (!deployment.isEnabled()) {
+			return Future.succeededFuture();
+		}
+
+		return vertx.deployVerticle(
+			new GatewayRestVerticle(options.getGatewayOptions()),
+			new DeploymentOptions()
+		).onSuccess(deploymentIds::add).mapEmpty();
 	}
 
 	private Future<Void> deployRuntime() {

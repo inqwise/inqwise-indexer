@@ -37,14 +37,39 @@ The node envelope is the local Vert.x composition layer for one running indexer 
 
 - `IndexerNode`: programmatic composition root. It receives `IndexerNodeOptions`, builds or receives `IndexerNodeComponents`, and deploys enabled internal service verticles.
 - `IndexerNodeVerticle`: Vert.x parent verticle wrapper for deploying a node through normal Vert.x deployment APIs. Child service verticles are deployed under this parent deployment scope.
-- `IndexerNodeOptions`: declares which internal services are enabled and how many verticle instances each service should deploy. Instance counts must be at least one when a service is enabled. Runtime service deployment is intentionally singleton per node.
+- `IndexerNodeOptions`: declares which internal services, service-level REST APIs, and external gateway are enabled and how many verticle instances each service should deploy. Instance counts must be at least one when a service is enabled. Runtime service, REST APIs, and the gateway are intentionally singleton per node. REST APIs and the gateway are disabled by default and must be enabled explicitly with service options plus their host/port option blocks.
 - `IndexerNodeComponents`: explicit dependency container for node-local runtime services. Production bootstraps can replace in-memory repositories, queues, stores, event buses, command service wiring, and definition providers without changing service APIs.
 - `ServiceProxyVerticle`: shared base for Vert.x Service Proxy service verticles. It centralizes start/stop registration lifecycle while concrete services create their generated proxy handlers explicitly.
 - `AdminService`: internal administration facade for metadata inspection and narrow management operations. The first slices expose target/indexer list/get operations, target creation, standalone indexer creation, failed target-provisioning recovery, indexer activation/deactivation, metadata indexer delete, and indexer queue reset through admin DTOs that hide repository-only fields such as metadata prefixes.
 - `TargetActionService`: internal target/action service facade. It accepts target-envelope or concrete action submissions through typed data objects and delegates execution to `HotIndexActionsService`. Command durability and concrete results remain subject to command/API review.
 - `RuntimeService`: local-node runtime facade. `status()` reports only in-memory runtime indexers on this node, and `reconcileIndexer(...)` is an internal/manual repair hook for reconciling one indexer from metadata.
+- `AdminRestVerticle`: OpenAPI-backed REST API over `AdminService`. It exposes target/indexer administration endpoints through Vert.x Web while calling the internal service proxy instead of the service implementation directly. It can run standalone or be deployed by `IndexerNode` when the `adminRest` node service is enabled.
+- `TargetActionRestVerticle`: OpenAPI-backed REST API over `TargetActionService`. It exposes target-envelope document mutation submission for internal/manual HTTP access.
+- `GatewayRestVerticle`: external gateway boundary. It is deployed separately from service-level REST APIs and is the planned owner for authentication, authorization, rate limits, external audit logging, and proxying selected public routes to REST APIs.
 
-Service APIs use Vert.x Service Proxy over the event bus, with typed data objects rather than raw `JsonObject` in concrete contracts. Gateway APIs for admin and target/action traffic remain separate from these internal services. Internal REST endpoints and OpenAPI support are planned for direct manual access through tools such as Postman or Insomnia, but are not part of the first service-proxy layer. Mutating admin operations will be added one use case at a time after deciding whether each operation should return a concrete result or durable command acceptance.
+Service APIs use Vert.x Service Proxy over the event bus, with typed data objects rather than raw `JsonObject` in concrete contracts. REST APIs provide direct HTTP access for internal callers and tools such as Postman or Insomnia. The gateway is a separate external REST proxy layer in front of those REST APIs. Mutating admin operations will be added one use case at a time after deciding whether each operation should return a concrete result or durable command acceptance.
+
+The first admin REST contract is stored under `openapi/admin.yaml` and currently exposes:
+
+- `GET /admin/targets`
+- `POST /admin/targets`
+- `GET /admin/targets/{id}`
+- `POST /admin/targets/{id}/recover-provisioning`
+- `GET /admin/indexers`
+- `POST /admin/indexers`
+- `GET /admin/indexers/{id}`
+- `DELETE /admin/indexers/{id}`
+- `POST /admin/indexers/{id}/activate`
+- `POST /admin/indexers/{id}/deactivate`
+- `POST /admin/indexers/{id}/reset-queue`
+
+REST handlers translate HTTP path/query parameters into existing admin data objects and normalize service-boundary failures into JSON error tickets at the HTTP boundary. Mutating endpoints are added only when the service already returns a concrete result or after the command/result contract is reviewed. Operational endpoints such as queue reset must remain internal/admin-only unless deliberately exposed through a gateway policy.
+
+Creation endpoints stay definition-driven at the REST boundary. Target creation accepts `target_name`, date-level external time input, and optional `create_indexer` intent. Standalone indexer creation accepts only `target_id`; it loads the target name from metadata instead of accepting redundant target identity fields. `AdminCreateRequestResolver` prepares existing admin create DTOs from these smaller intents, and `IndexerResourceNameGenerator` centralizes generated metadata prefixes plus generated index/queue names so REST handlers do not duplicate durable naming rules.
+
+The first target/action REST contract is stored under `openapi/target-action.yaml` and exposes `POST /targets/{target_name}/actions`. This API is internal/service-level only for now, not a gateway route. The target identity is carried by the path, not duplicated in the body. The body accepts optional `submission_id`, optional ISO timestamp, and document mutation action items (`PUT_DOCUMENT`, `REMOVE_DOCUMENT`) in the same JSON shape used by `IndexerActionItem`. The REST verticle maps this request into `TargetActionSubmitRequest` and calls the `TargetActionService` service proxy.
+
+The first gateway slice is intentionally only a deployed boundary. `GatewayRestVerticle` currently exposes `GET /gateway/status` and carries the configured admin REST base URI. Proxy routes, authentication, authorization, rate limiting, and public API contracts will be designed before public routes are added. Target/action submission is not planned for gateway exposure unless a concrete external use case is approved.
 
 ### Document Store Publishing Model
 

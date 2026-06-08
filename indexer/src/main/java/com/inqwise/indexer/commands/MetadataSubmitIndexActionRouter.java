@@ -7,7 +7,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.UUID;
 
 import com.inqwise.indexer.CatchUpBarrierActionItem;
 import com.inqwise.indexer.CompleteIndexActionItem;
@@ -29,7 +28,6 @@ import com.inqwise.indexer.metadata.IndexerRecord;
 import com.inqwise.indexer.metadata.IndexerStatus;
 import com.inqwise.indexer.metadata.MutationState;
 import com.inqwise.indexer.metadata.PublicationState;
-import com.inqwise.indexer.metadata.TargetNameValidator;
 import com.inqwise.indexer.metadata.TargetPeriod;
 import com.inqwise.indexer.metadata.TargetPeriodResolver;
 import com.inqwise.indexer.metadata.TargetPeriodStrategy;
@@ -42,8 +40,10 @@ import com.inqwise.indexer.providers.IndexerActionReceiveCapability;
 import com.inqwise.indexer.providers.PrepareIndexerForActionsRequest;
 import com.inqwise.indexer.providers.PreparedIndexers;
 import com.inqwise.indexer.provisioning.CreateIndexerProvisioningRequest;
+import com.inqwise.indexer.provisioning.GeneratedIndexerResources;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 import com.inqwise.indexer.provisioning.IndexerProvisioningService;
+import com.inqwise.indexer.provisioning.IndexerResourceNameGenerator;
 
 import io.vertx.core.Future;
 
@@ -339,12 +339,7 @@ class MetadataSubmitIndexActionRouter {
 		TargetRecord target,
 		MetadataRoutingContext routingContext
 	) {
-		String suffix = UUID.randomUUID().toString();
-		String prefix = "i" + suffix.replace("-", "").substring(0, 12);
-		String indexName = target.targetName() + "--idx-" + suffix;
-		String queueName = target.targetName() + "--queue-" + suffix;
-		TargetNameValidator.requireGeneratedResourceName(indexName);
-		TargetNameValidator.requireGeneratedResourceName(queueName);
+		GeneratedIndexerResources resources = IndexerResourceNameGenerator.forTarget(target.targetName());
 		return repository.updateTargetProvisioningState(new UpdateTargetProvisioningState(
 			target.id(),
 			TargetProvisioningState.PROVISIONING,
@@ -353,11 +348,11 @@ class MetadataSubmitIndexActionRouter {
 			"Target provisioning lock changed: " + target.id(),
 			error
 		))).compose(ignored -> provisioningService.createIndexer(new CreateIndexerProvisioningRequest(
-				prefix,
+				resources.prefix(),
 				target.id(),
 				target.targetName(),
-				indexName,
-				queueName,
+				resources.indexName(),
+				resources.queueName(),
 				IndexerType.INDEX,
 				IndexerRole.LIVE_WRITER,
 				IndexResourceOwnership.OWNER,

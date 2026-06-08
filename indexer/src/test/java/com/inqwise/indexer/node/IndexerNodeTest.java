@@ -2,13 +2,21 @@ package com.inqwise.indexer.node;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.io.IOException;
+import java.net.ServerSocket;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+import com.inqwise.indexer.gateway.GatewayRestOptions;
+import com.inqwise.indexer.rest.action.TargetActionRestOptions;
+import com.inqwise.indexer.rest.admin.AdminRestOptions;
 import com.inqwise.indexer.service.admin.AdminServices;
 import com.inqwise.indexer.service.runtime.RuntimeServices;
 
 import io.vertx.core.Vertx;
+import io.vertx.core.http.HttpMethod;
+import io.vertx.core.json.JsonObject;
 import io.vertx.junit5.VertxExtension;
 import io.vertx.junit5.VertxTestContext;
 
@@ -29,5 +37,83 @@ class IndexerNodeTest {
 				return node.stop();
 			})
 			.onComplete(testContext.succeeding(ignored -> testContext.completeNow()));
+	}
+
+	@Test
+	void deploysAdminRestWhenEnabled(Vertx vertx, VertxTestContext testContext) throws IOException {
+		int port = availablePort();
+		IndexerNodeOptions options = new IndexerNodeOptions()
+			.setService(IndexerNodeOptions.Services.ADMIN_REST, new IndexerServiceDeploymentOptions())
+			.setAdminRestOptions(new AdminRestOptions().setPort(port));
+		IndexerNode node = IndexerNode.create(vertx, options);
+
+		node.start()
+			.compose(ignored -> vertx.createHttpClient()
+				.request(HttpMethod.GET, port, "127.0.0.1", "/admin/targets")
+				.compose(request -> request.send())
+				.compose(response -> {
+					assertEquals(200, response.statusCode());
+					return response.body();
+				}))
+			.compose(body -> {
+				assertEquals(0, body.toJsonObject().getJsonArray("targets").size());
+				return node.stop();
+			})
+			.onComplete(testContext.succeeding(ignored -> testContext.completeNow()));
+	}
+
+	@Test
+	void deploysTargetActionRestWhenEnabled(Vertx vertx, VertxTestContext testContext) throws IOException {
+		int port = availablePort();
+		IndexerNodeOptions options = new IndexerNodeOptions()
+			.setService(IndexerNodeOptions.Services.TARGET_ACTION_REST, new IndexerServiceDeploymentOptions())
+			.setTargetActionRestOptions(new TargetActionRestOptions().setPort(port));
+		IndexerNode node = IndexerNode.create(vertx, options);
+
+		node.start()
+			.compose(ignored -> vertx.createHttpClient()
+				.request(HttpMethod.POST, port, "127.0.0.1", "/targets/customers/actions")
+				.compose(request -> request
+					.putHeader("content-type", "application/json")
+					.send(new JsonObject().encode()))
+				.compose(response -> {
+					assertEquals(400, response.statusCode());
+					return response.body();
+				}))
+			.compose(body -> node.stop())
+			.onComplete(testContext.succeeding(ignored -> testContext.completeNow()));
+	}
+
+	@Test
+	void deploysGatewayWhenEnabled(Vertx vertx, VertxTestContext testContext) throws IOException {
+		int port = availablePort();
+		IndexerNodeOptions options = new IndexerNodeOptions()
+			.setService(IndexerNodeOptions.Services.GATEWAY, new IndexerServiceDeploymentOptions())
+			.setGatewayOptions(new GatewayRestOptions()
+				.setPort(port)
+				.setAdminRestBaseUri("http://127.0.0.1:8080"));
+		IndexerNode node = IndexerNode.create(vertx, options);
+
+		node.start()
+			.compose(ignored -> vertx.createHttpClient()
+				.request(HttpMethod.GET, port, "127.0.0.1", "/gateway/status")
+				.compose(request -> request.send())
+				.compose(response -> {
+					assertEquals(200, response.statusCode());
+					return response.body();
+				}))
+			.compose(body -> {
+				JsonObject status = body.toJsonObject();
+				assertEquals("UP", status.getString("status"));
+				assertEquals(true, status.getBoolean("admin_rest_configured"));
+				return node.stop();
+			})
+			.onComplete(testContext.succeeding(ignored -> testContext.completeNow()));
+	}
+
+	private static int availablePort() throws IOException {
+		try (ServerSocket socket = new ServerSocket(0)) {
+			return socket.getLocalPort();
+		}
 	}
 }

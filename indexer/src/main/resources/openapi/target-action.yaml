@@ -1,0 +1,71 @@
+openapi: 3.0.3
+info:
+  title: inqwise-indexer target action API
+  version: 0.1.0
+paths:
+  /targets/{target_name}/actions:
+    post:
+      operationId: submitTargetActions
+      parameters:
+        - name: target_name
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - actions
+              properties:
+                submission_id:
+                  type: string
+                timestamp:
+                  type: string
+                  format: date-time
+                actions:
+                  type: array
+                  minItems: 1
+                  items:
+                    oneOf:
+                      - $ref: '#/components/schemas/PutDocumentAction'
+                      - $ref: '#/components/schemas/RemoveDocumentAction'
+      responses:
+        '200':
+          description: Submitted target actions.
+          content:
+            application/json:
+              schema:
+                type: object
+components:
+  schemas:
+    PutDocumentAction:
+      type: object
+      required:
+        - type
+        - uid
+        - document
+      properties:
+        type:
+          type: string
+          enum:
+            - PUT_DOCUMENT
+        uid:
+          type: string
+        document:
+          type: object
+    RemoveDocumentAction:
+      type: object
+      required:
+        - type
+        - uid
+      properties:
+        type:
+          type: string
+          enum:
+            - REMOVE_DOCUMENT
+        uid:
+          type: string

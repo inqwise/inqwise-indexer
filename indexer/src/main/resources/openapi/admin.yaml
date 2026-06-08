@@ -1,0 +1,278 @@
+openapi: 3.0.3
+info:
+  title: inqwise-indexer admin API
+  version: 0.1.0
+paths:
+  /admin/targets:
+    get:
+      operationId: listTargets
+      parameters:
+        - $ref: '#/components/parameters/IdQuery'
+        - name: target_name
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+        - name: status
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+        - name: provisioning_state
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+      responses:
+        '200':
+          description: Target list.
+          content:
+            application/json:
+              schema:
+                type: object
+    post:
+      operationId: createTarget
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - target_name
+                - date
+              properties:
+                target_name:
+                  type: string
+                date:
+                  type: string
+                  format: date
+                create_indexer:
+                  type: object
+                  required:
+                    - initial_publication_mode
+                  properties:
+                    initial_publication_mode:
+                      type: string
+      responses:
+        '200':
+          description: Created target.
+          content:
+            application/json:
+              schema:
+                type: object
+  /admin/targets/{id}:
+    get:
+      operationId: getTarget
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Target.
+          content:
+            application/json:
+              schema:
+                type: object
+  /admin/targets/{id}/recover-provisioning:
+    post:
+      operationId: recoverTargetProvisioning
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/ExpectedVersionQuery'
+      responses:
+        '200':
+          description: Recovered target.
+          content:
+            application/json:
+              schema:
+                type: object
+  /admin/indexers:
+    get:
+      operationId: listIndexers
+      parameters:
+        - $ref: '#/components/parameters/IdQuery'
+        - name: target_id
+          in: query
+          schema:
+            type: array
+            items:
+              type: integer
+          style: form
+          explode: true
+        - name: type
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+        - name: role
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+        - name: status
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+        - name: provisioning_state
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+        - name: runtime_state
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+        - name: publication_state
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+        - name: mutation_state
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+      responses:
+        '200':
+          description: Indexer list.
+          content:
+            application/json:
+              schema:
+                type: object
+    post:
+      operationId: createIndexer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - target_id
+              properties:
+                target_id:
+                  type: integer
+      responses:
+        '200':
+          description: Created indexer.
+          content:
+            application/json:
+              schema:
+                type: object
+  /admin/indexers/{id}:
+    get:
+      operationId: getIndexer
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Indexer.
+          content:
+            application/json:
+              schema:
+                type: object
+    delete:
+      operationId: deleteIndexer
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/ExpectedVersionQuery'
+      responses:
+        '200':
+          description: Indexer marked for deletion.
+          content:
+            application/json:
+              schema:
+                type: object
+  /admin/indexers/{id}/activate:
+    post:
+      operationId: activateIndexer
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Activated indexer.
+          content:
+            application/json:
+              schema:
+                type: object
+  /admin/indexers/{id}/deactivate:
+    post:
+      operationId: deactivateIndexer
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Deactivated indexer.
+          content:
+            application/json:
+              schema:
+                type: object
+  /admin/indexers/{id}/reset-queue:
+    post:
+      operationId: resetIndexerQueue
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/ExpectedVersionQuery'
+      responses:
+        '200':
+          description: Indexer with reset queue name.
+          content:
+            application/json:
+              schema:
+                type: object
+components:
+  parameters:
+    IdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+    IdQuery:
+      name: id
+      in: query
+      schema:
+        type: array
+        items:
+          type: integer
+      style: form
+      explode: true
+    ExpectedVersionQuery:
+      name: expected_version
+      in: query
+      required: true
+      schema:
+        type: integer
+        format: int64

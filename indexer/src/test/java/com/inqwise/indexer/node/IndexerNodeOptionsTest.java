@@ -6,6 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.Test;
 
+import com.inqwise.indexer.gateway.GatewayRestOptions;
+import com.inqwise.indexer.rest.action.TargetActionRestOptions;
+import com.inqwise.indexer.rest.admin.AdminRestOptions;
+
 import io.vertx.core.json.JsonObject;
 
 class IndexerNodeOptionsTest {
@@ -14,8 +18,14 @@ class IndexerNodeOptionsTest {
 		IndexerNodeOptions options = new IndexerNodeOptions();
 
 		assertEquals(1, options.admin().getInstances());
+		assertFalse(options.adminRest().isEnabled());
+		assertEquals(1, options.adminRest().getInstances());
 		assertEquals(1, options.targetAction().getInstances());
+		assertFalse(options.targetActionRest().isEnabled());
+		assertEquals(1, options.targetActionRest().getInstances());
 		assertEquals(1, options.runtime().getInstances());
+		assertFalse(options.gateway().isEnabled());
+		assertEquals(1, options.gateway().getInstances());
 	}
 
 	@Test
@@ -66,5 +76,82 @@ class IndexerNodeOptionsTest {
 
 		assertFalse(options.runtime().isEnabled());
 		assertEquals(2, options.runtime().getInstances());
+	}
+
+	@Test
+	void rejectsMultipleAdminRestInstancesWhenEnabled() {
+		IllegalArgumentException error = assertThrows(
+			IllegalArgumentException.class,
+			() -> new IndexerNodeOptions(new JsonObject()
+				.put(IndexerNodeOptions.Keys.SERVICES, new JsonObject()
+					.put(IndexerNodeOptions.Services.ADMIN_REST, new JsonObject()
+						.put(IndexerServiceDeploymentOptions.Keys.INSTANCES, 2))))
+		);
+
+		assertEquals("Admin REST service must be deployed with exactly one instance", error.getMessage());
+	}
+
+	@Test
+	void rejectsMultipleTargetActionRestInstancesWhenEnabled() {
+		IllegalArgumentException error = assertThrows(
+			IllegalArgumentException.class,
+			() -> new IndexerNodeOptions(new JsonObject()
+				.put(IndexerNodeOptions.Keys.SERVICES, new JsonObject()
+					.put(IndexerNodeOptions.Services.TARGET_ACTION_REST, new JsonObject()
+						.put(IndexerServiceDeploymentOptions.Keys.INSTANCES, 2))))
+		);
+
+		assertEquals(
+			"Target action REST service must be deployed with exactly one instance",
+			error.getMessage()
+		);
+	}
+
+	@Test
+	void rejectsMultipleGatewayInstancesWhenEnabled() {
+		IllegalArgumentException error = assertThrows(
+			IllegalArgumentException.class,
+			() -> new IndexerNodeOptions(new JsonObject()
+				.put(IndexerNodeOptions.Keys.SERVICES, new JsonObject()
+					.put(IndexerNodeOptions.Services.GATEWAY, new JsonObject()
+						.put(IndexerServiceDeploymentOptions.Keys.INSTANCES, 2))))
+		);
+
+		assertEquals("Gateway service must be deployed with exactly one instance", error.getMessage());
+	}
+
+	@Test
+	void readsAdminRestOptionsFromJson() {
+		IndexerNodeOptions options = new IndexerNodeOptions(new JsonObject()
+			.put(IndexerNodeOptions.Keys.ADMIN_REST, new JsonObject()
+				.put(AdminRestOptions.Keys.HOST, "0.0.0.0")
+				.put(AdminRestOptions.Keys.PORT, 9090)));
+
+		assertEquals("0.0.0.0", options.getAdminRestOptions().getHost());
+		assertEquals(9090, options.getAdminRestOptions().getPort());
+	}
+
+	@Test
+	void readsTargetActionRestOptionsFromJson() {
+		IndexerNodeOptions options = new IndexerNodeOptions(new JsonObject()
+			.put(IndexerNodeOptions.Keys.TARGET_ACTION_REST, new JsonObject()
+				.put(TargetActionRestOptions.Keys.HOST, "0.0.0.0")
+				.put(TargetActionRestOptions.Keys.PORT, 9091)));
+
+		assertEquals("0.0.0.0", options.getTargetActionRestOptions().getHost());
+		assertEquals(9091, options.getTargetActionRestOptions().getPort());
+	}
+
+	@Test
+	void readsGatewayOptionsFromJson() {
+		IndexerNodeOptions options = new IndexerNodeOptions(new JsonObject()
+			.put(IndexerNodeOptions.Keys.GATEWAY, new JsonObject()
+				.put(GatewayRestOptions.Keys.HOST, "0.0.0.0")
+				.put(GatewayRestOptions.Keys.PORT, 9092)
+				.put(GatewayRestOptions.Keys.ADMIN_REST_BASE_URI, "http://127.0.0.1:8080")));
+
+		assertEquals("0.0.0.0", options.getGatewayOptions().getHost());
+		assertEquals(9092, options.getGatewayOptions().getPort());
+		assertEquals("http://127.0.0.1:8080", options.getGatewayOptions().getAdminRestBaseUri());
 	}
 }
