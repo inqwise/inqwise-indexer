@@ -7,6 +7,7 @@ import java.util.Set;
 import com.inqwise.indexer.gateway.GatewayRestOptions;
 import com.inqwise.indexer.rest.action.TargetActionRestOptions;
 import com.inqwise.indexer.rest.admin.AdminRestOptions;
+import com.inqwise.indexer.rest.runtime.RuntimeRestOptions;
 
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
@@ -17,6 +18,7 @@ public class IndexerNodeOptions {
 		public static final String SERVICES = "services";
 		public static final String ADMIN_REST = "admin_rest";
 		public static final String TARGET_ACTION_REST = "target_action_rest";
+		public static final String RUNTIME_REST = "runtime_rest";
 		public static final String GATEWAY = "gateway";
 
 		private Keys() {
@@ -29,6 +31,7 @@ public class IndexerNodeOptions {
 		public static final String TARGET_ACTION = "targetAction";
 		public static final String TARGET_ACTION_REST = "targetActionRest";
 		public static final String RUNTIME = "runtime";
+		public static final String RUNTIME_REST = "runtimeRest";
 		public static final String GATEWAY = "gateway";
 
 		private static final Set<String> ALL = Set.of(
@@ -37,6 +40,7 @@ public class IndexerNodeOptions {
 			TARGET_ACTION,
 			TARGET_ACTION_REST,
 			RUNTIME,
+			RUNTIME_REST,
 			GATEWAY
 		);
 
@@ -47,6 +51,7 @@ public class IndexerNodeOptions {
 	private final Map<String, IndexerServiceDeploymentOptions> services = new LinkedHashMap<>();
 	private AdminRestOptions adminRestOptions = new AdminRestOptions();
 	private TargetActionRestOptions targetActionRestOptions = new TargetActionRestOptions();
+	private RuntimeRestOptions runtimeRestOptions = new RuntimeRestOptions();
 	private GatewayRestOptions gatewayOptions = new GatewayRestOptions();
 
 	public IndexerNodeOptions() {
@@ -69,6 +74,9 @@ public class IndexerNodeOptions {
 		this.targetActionRestOptions = new TargetActionRestOptions(
 			json.getJsonObject(Keys.TARGET_ACTION_REST, new JsonObject())
 		);
+		this.runtimeRestOptions = new RuntimeRestOptions(
+			json.getJsonObject(Keys.RUNTIME_REST, new JsonObject())
+		);
 		this.gatewayOptions = new GatewayRestOptions(json.getJsonObject(Keys.GATEWAY, new JsonObject()));
 		validate();
 	}
@@ -83,6 +91,7 @@ public class IndexerNodeOptions {
 			.put(Keys.SERVICES, serviceJson)
 			.put(Keys.ADMIN_REST, adminRestOptions.toJson())
 			.put(Keys.TARGET_ACTION_REST, targetActionRestOptions.toJson())
+			.put(Keys.RUNTIME_REST, runtimeRestOptions.toJson())
 			.put(Keys.GATEWAY, gatewayOptions.toJson());
 	}
 
@@ -109,6 +118,10 @@ public class IndexerNodeOptions {
 
 	public IndexerServiceDeploymentOptions runtime() {
 		return service(Services.RUNTIME);
+	}
+
+	public IndexerServiceDeploymentOptions runtimeRest() {
+		return service(Services.RUNTIME_REST);
 	}
 
 	public IndexerServiceDeploymentOptions gateway() {
@@ -143,6 +156,15 @@ public class IndexerNodeOptions {
 
 	public GatewayRestOptions getGatewayOptions() {
 		return gatewayOptions;
+	}
+
+	public RuntimeRestOptions getRuntimeRestOptions() {
+		return runtimeRestOptions;
+	}
+
+	public IndexerNodeOptions setRuntimeRestOptions(RuntimeRestOptions runtimeRestOptions) {
+		this.runtimeRestOptions = runtimeRestOptions == null ? new RuntimeRestOptions() : runtimeRestOptions;
+		return this;
 	}
 
 	public IndexerNodeOptions setGatewayOptions(GatewayRestOptions gatewayOptions) {
@@ -188,6 +210,11 @@ public class IndexerNodeOptions {
 			);
 		}
 
+		IndexerServiceDeploymentOptions runtimeRest = runtimeRest();
+		if (runtimeRest.isEnabled() && runtimeRest.getInstances() != 1) {
+			throw new IllegalArgumentException("Runtime REST service must be deployed with exactly one instance");
+		}
+
 		IndexerServiceDeploymentOptions gateway = gateway();
 		if (gateway.isEnabled() && gateway.getInstances() != 1) {
 			throw new IllegalArgumentException("Gateway service must be deployed with exactly one instance");
@@ -202,6 +229,7 @@ public class IndexerNodeOptions {
 		services.put(Services.TARGET_ACTION, new IndexerServiceDeploymentOptions());
 		services.put(Services.TARGET_ACTION_REST, new IndexerServiceDeploymentOptions().setEnabled(false));
 		services.put(Services.RUNTIME, new IndexerServiceDeploymentOptions());
+		services.put(Services.RUNTIME_REST, new IndexerServiceDeploymentOptions().setEnabled(false));
 		services.put(Services.GATEWAY, new IndexerServiceDeploymentOptions().setEnabled(false));
 	}
 

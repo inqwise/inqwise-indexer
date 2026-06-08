@@ -32,6 +32,7 @@ import com.inqwise.indexer.providers.IndexerProviders;
 import com.inqwise.indexer.providers.MetadataIndexerProvider;
 import com.inqwise.indexer.rest.action.TargetActionRestVerticle;
 import com.inqwise.indexer.rest.admin.AdminRestVerticle;
+import com.inqwise.indexer.rest.runtime.RuntimeRestVerticle;
 import com.inqwise.indexer.service.admin.AdminCreateRequestResolver;
 import com.inqwise.indexer.service.admin.AdminServiceVerticle;
 import com.inqwise.indexer.service.action.TargetActionServiceVerticle;
@@ -70,6 +71,7 @@ public class IndexerNode {
 		deployed = deployed.compose(ignored -> deployTargetAction());
 		deployed = deployed.compose(ignored -> deployTargetActionRest());
 		deployed = deployed.compose(ignored -> deployRuntime());
+		deployed = deployed.compose(ignored -> deployRuntimeRest());
 		deployed = deployed.compose(ignored -> deployGateway());
 		return deployed;
 	}
@@ -181,6 +183,18 @@ public class IndexerNode {
 
 		return vertx.deployVerticle(
 			new RuntimeServiceVerticle(components.runtime()),
+			new DeploymentOptions()
+		).onSuccess(deploymentIds::add).mapEmpty();
+	}
+
+	private Future<Void> deployRuntimeRest() {
+		IndexerServiceDeploymentOptions deployment = options.runtimeRest();
+		if (!deployment.isEnabled()) {
+			return Future.succeededFuture();
+		}
+
+		return vertx.deployVerticle(
+			new RuntimeRestVerticle(options.getRuntimeRestOptions()),
 			new DeploymentOptions()
 		).onSuccess(deploymentIds::add).mapEmpty();
 	}

@@ -1,0 +1,31 @@
+openapi: 3.0.3
+info:
+  title: inqwise-indexer runtime API
+  version: 0.1.0
+paths:
+  /runtime/status:
+    get:
+      operationId: runtimeStatus
+      responses:
+        '200':
+          description: Local node runtime status.
+          content:
+            application/json:
+              schema:
+                type: object
+  /runtime/indexers/{id}/reconcile:
+    post:
+      operationId: reconcileIndexer
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Reconcile request accepted.
+          content:
+            application/json:
+              schema:
+                type: object

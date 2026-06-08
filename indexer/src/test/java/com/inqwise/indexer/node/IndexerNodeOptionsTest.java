@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import com.inqwise.indexer.gateway.GatewayRestOptions;
 import com.inqwise.indexer.rest.action.TargetActionRestOptions;
 import com.inqwise.indexer.rest.admin.AdminRestOptions;
+import com.inqwise.indexer.rest.runtime.RuntimeRestOptions;
 
 import io.vertx.core.json.JsonObject;
 
@@ -26,6 +27,8 @@ class IndexerNodeOptionsTest {
 		assertEquals(1, options.runtime().getInstances());
 		assertFalse(options.gateway().isEnabled());
 		assertEquals(1, options.gateway().getInstances());
+		assertFalse(options.runtimeRest().isEnabled());
+		assertEquals(1, options.runtimeRest().getInstances());
 	}
 
 	@Test
@@ -121,6 +124,19 @@ class IndexerNodeOptionsTest {
 	}
 
 	@Test
+	void rejectsMultipleRuntimeRestInstancesWhenEnabled() {
+		IllegalArgumentException error = assertThrows(
+			IllegalArgumentException.class,
+			() -> new IndexerNodeOptions(new JsonObject()
+				.put(IndexerNodeOptions.Keys.SERVICES, new JsonObject()
+					.put(IndexerNodeOptions.Services.RUNTIME_REST, new JsonObject()
+						.put(IndexerServiceDeploymentOptions.Keys.INSTANCES, 2))))
+		);
+
+		assertEquals("Runtime REST service must be deployed with exactly one instance", error.getMessage());
+	}
+
+	@Test
 	void readsAdminRestOptionsFromJson() {
 		IndexerNodeOptions options = new IndexerNodeOptions(new JsonObject()
 			.put(IndexerNodeOptions.Keys.ADMIN_REST, new JsonObject()
@@ -153,5 +169,16 @@ class IndexerNodeOptionsTest {
 		assertEquals("0.0.0.0", options.getGatewayOptions().getHost());
 		assertEquals(9092, options.getGatewayOptions().getPort());
 		assertEquals("http://127.0.0.1:8080", options.getGatewayOptions().getAdminRestBaseUri());
+	}
+
+	@Test
+	void readsRuntimeRestOptionsFromJson() {
+		IndexerNodeOptions options = new IndexerNodeOptions(new JsonObject()
+			.put(IndexerNodeOptions.Keys.RUNTIME_REST, new JsonObject()
+				.put(RuntimeRestOptions.Keys.HOST, "0.0.0.0")
+				.put(RuntimeRestOptions.Keys.PORT, 9093)));
+
+		assertEquals("0.0.0.0", options.getRuntimeRestOptions().getHost());
+		assertEquals(9093, options.getRuntimeRestOptions().getPort());
 	}
 }

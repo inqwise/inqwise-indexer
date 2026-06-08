@@ -11,6 +11,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import com.inqwise.indexer.gateway.GatewayRestOptions;
 import com.inqwise.indexer.rest.action.TargetActionRestOptions;
 import com.inqwise.indexer.rest.admin.AdminRestOptions;
+import com.inqwise.indexer.rest.runtime.RuntimeRestOptions;
 import com.inqwise.indexer.service.admin.AdminServices;
 import com.inqwise.indexer.service.runtime.RuntimeServices;
 
@@ -106,6 +107,29 @@ class IndexerNodeTest {
 				JsonObject status = body.toJsonObject();
 				assertEquals("UP", status.getString("status"));
 				assertEquals(true, status.getBoolean("admin_rest_configured"));
+				return node.stop();
+			})
+			.onComplete(testContext.succeeding(ignored -> testContext.completeNow()));
+	}
+
+	@Test
+	void deploysRuntimeRestWhenEnabled(Vertx vertx, VertxTestContext testContext) throws IOException {
+		int port = availablePort();
+		IndexerNodeOptions options = new IndexerNodeOptions()
+			.setService(IndexerNodeOptions.Services.RUNTIME_REST, new IndexerServiceDeploymentOptions())
+			.setRuntimeRestOptions(new RuntimeRestOptions().setPort(port));
+		IndexerNode node = IndexerNode.create(vertx, options);
+
+		node.start()
+			.compose(ignored -> vertx.createHttpClient()
+				.request(HttpMethod.GET, port, "127.0.0.1", "/runtime/status")
+				.compose(request -> request.send())
+				.compose(response -> {
+					assertEquals(200, response.statusCode());
+					return response.body();
+				}))
+			.compose(body -> {
+				assertEquals(0, body.toJsonObject().getJsonArray("indexers").size());
 				return node.stop();
 			})
 			.onComplete(testContext.succeeding(ignored -> testContext.completeNow()));
