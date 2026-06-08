@@ -22,6 +22,7 @@ import com.inqwise.indexer.actions.IndexerActionRouteMode;
 import com.inqwise.indexer.definitions.IndexerDefinitionProvider;
 import com.inqwise.indexer.definitions.TargetDefinition;
 import com.inqwise.indexer.definitions.TargetDefinitionProvider;
+import com.inqwise.indexer.metadata.ConcreteTargetKey;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.IndexerProvisioningState;
 import com.inqwise.indexer.metadata.IndexerRecord;
@@ -139,8 +140,8 @@ class MetadataSubmitIndexActionRouter {
 					submit,
 					action,
 					destination,
-					target,
-					true,
+					target.record(),
+					target.autoProvisionOnWrite(),
 					routingContext
 				));
 		}
@@ -295,7 +296,7 @@ class MetadataSubmitIndexActionRouter {
 		return prepared.indexers();
 	}
 
-	private Future<TargetRecord> resolveConcreteTarget(SubmitIndexActionsCommand submit) {
+	private Future<ResolvedTarget> resolveConcreteTarget(SubmitIndexActionsCommand submit) {
 		return resolveTargetDefinition(submit)
 			.compose(targetDefinition -> {
 				if (targetDefinition.periodStrategy() != TargetPeriodStrategy.NONE
@@ -316,7 +317,25 @@ class MetadataSubmitIndexActionRouter {
 					return Future.failedFuture(error);
 				}
 
-				return repository.ensureTarget(targetDefinition.targetName(), period);
+				return repository.getTargetByDefinitionAndPeriod(new ConcreteTargetKey(
+					targetDefinition.targetName(),
+					period.key()
+				)).compose(found -> found
+					.map(target -> Future.succeededFuture(new ResolvedTarget(
+						target,
+						targetDefinition.autoProvisionOnWrite()
+					)))
+					.orElseGet(() -> {
+						if (!targetDefinition.autoProvisionOnWrite()) {
+							return Future.failedFuture(CommandFailure.stableInvalid(
+								"Auto provisioning is disabled for target: "
+									+ targetDefinition.targetName()
+							));
+						}
+
+						return repository.ensureTarget(targetDefinition.targetName(), period)
+							.map(target -> new ResolvedTarget(target, true));
+					}));
 			});
 	}
 
@@ -496,5 +515,11 @@ class MetadataSubmitIndexActionRouter {
 		private boolean metadataChanged(Integer indexerId) {
 			return metadataChangedIndexerIds.contains(indexerId);
 		}
+	}
+
+	private record ResolvedTarget(
+		TargetRecord record,
+		boolean autoProvisionOnWrite
+	) {
 	}
 }

@@ -24,7 +24,6 @@
 ## Document Store Publishing
 
 - Add query API support for resolving `targetName` plus a time range into published physical `indexName` values. Queries should skip missing period targets and return empty results when no published indexes exist.
-- Add target-definition-level control for concrete target auto-creation. The current behavior auto-creates concrete targets on first write.
 - Wire hot routing into the service-level action submission surface. The core components now exist: `HotIndexActionsService`, `HotMetadataView`, immutable `HotTarget` snapshots, hot-capable indexer providers, shared `RoutedIndexActionPublisher`, `InvalidRouteCache`, and `TargetInvalidationRegistry`.
 - Add background invalidation wiring for `TargetInvalidationRegistry`. Polling nodes should compare entry versions with locally seen versions, invalidate affected hot targets, and invalidate all local hot targets when registry results are truncated.
 - Wire invalid-route cache invalidation to metadata events that can convert a previously invalid route to valid. The cache is now consulted before hot fallback and populated by stable invalid cold failures; invalidation remains event-driven follow-up work.

@@ -308,6 +308,87 @@ class SubmitIndexActionsCommandTest {
 	}
 
 	@Test
+	void publicTargetCommandFailsWhenAutoProvisioningIsDisabledAndTargetIsMissing(
+		VertxTestContext testContext
+	) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		RecordingQueue queue = new RecordingQueue();
+		RecordingDocumentIndexResourceManager documentResources =
+			new RecordingDocumentIndexResourceManager();
+		RecordingQueueResourceManager queueResources = new RecordingQueueResourceManager();
+		InMemoryCommandService commandService = metadataCommandService(
+			repository,
+			eventBus,
+			queue,
+			documentResources,
+			queueResources,
+			false
+		);
+
+		commandService.submit(new SubmitIndexActionsCommand(
+			"customers",
+			Instant.parse("2026-05-18T10:15:00Z"),
+			List.of(PutDocumentActionItem.builder()
+				.withUid("42")
+				.withDocument(new JsonObject().put("name", "Ada"))
+				.build())
+		)).onComplete(testContext.failing(error -> testContext.verify(() -> {
+			CommandFailure failure = (CommandFailure) error;
+			assertTrue(failure.stableInvalid());
+			assertEquals("Auto provisioning is disabled for target: customers", failure.getMessage());
+			assertTrue(queue.published.isEmpty());
+			assertTrue(documentResources.ensured.isEmpty());
+			assertTrue(queueResources.ensured.isEmpty());
+			repository.getTargetByDefinitionAndPeriod(new ConcreteTargetKey("customers", "2026-05"))
+				.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
+					assertTrue(found.isEmpty());
+					testContext.completeNow();
+				})));
+		})));
+	}
+
+	@Test
+	void publicTargetCommandFailsWhenAutoProvisioningIsDisabledAndTargetHasNoWriter(
+		VertxTestContext testContext
+	) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		RecordingQueue queue = new RecordingQueue();
+		RecordingDocumentIndexResourceManager documentResources =
+			new RecordingDocumentIndexResourceManager();
+		RecordingQueueResourceManager queueResources = new RecordingQueueResourceManager();
+		InMemoryCommandService commandService = metadataCommandService(
+			repository,
+			eventBus,
+			queue,
+			documentResources,
+			queueResources,
+			false
+		);
+
+		repository.ensureTarget("customers", may2026Period())
+			.compose(ignored -> commandService.submit(new SubmitIndexActionsCommand(
+				"customers",
+				Instant.parse("2026-05-18T10:15:00Z"),
+				List.of(PutDocumentActionItem.builder()
+					.withUid("42")
+					.withDocument(new JsonObject().put("name", "Ada"))
+					.build())
+			))).onComplete(testContext.failing(error -> testContext.verify(() -> {
+				CommandFailure failure = (CommandFailure) error;
+				assertTrue(failure.stableInvalid());
+				assertEquals("No writable indexers found for target id: 1", failure.getMessage());
+				assertTrue(queue.published.isEmpty());
+				assertTrue(documentResources.ensured.isEmpty());
+				assertTrue(queueResources.ensured.isEmpty());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
 	void publicTargetCommandFailsRetryableWhenTargetProvisioningInProgress(
 		VertxTestContext testContext
 	) {
@@ -724,10 +805,28 @@ class SubmitIndexActionsCommandTest {
 		IndexerDocumentIndexResourceManager documentResources,
 		IndexerQueueResourceManager queueResources
 	) {
+		return metadataCommandService(
+			repository,
+			eventBus,
+			queue,
+			documentResources,
+			queueResources,
+			true
+		);
+	}
+
+	private InMemoryCommandService metadataCommandService(
+		InMemoryDocumentStoreMetadataRepository repository,
+		InMemoryIndexerLifecycleEventBus eventBus,
+		RecordingQueue queue,
+		IndexerDocumentIndexResourceManager documentResources,
+		IndexerQueueResourceManager queueResources,
+		boolean autoProvisionOnWrite
+	) {
 		return new InMemoryCommandService()
 			.register(new SubmitIndexActionsCommandHandler(
 				repository,
-				customersMonthlyTargetDefinitionProvider(),
+				customersMonthlyTargetDefinitionProvider(autoProvisionOnWrite),
 				new StaticIndexerDefinitionProvider(new IndexerDefinition(
 					new IndexDefinition("customers", "v1", new JsonObject(), new JsonObject()),
 					new QueueDefinition(new JsonObject())
@@ -772,8 +871,14 @@ class SubmitIndexActionsCommandTest {
 	}
 
 	private StaticTargetDefinitionProvider customersMonthlyTargetDefinitionProvider() {
+		return customersMonthlyTargetDefinitionProvider(true);
+	}
+
+	private StaticTargetDefinitionProvider customersMonthlyTargetDefinitionProvider(
+		boolean autoProvisionOnWrite
+	) {
 		return new StaticTargetDefinitionProvider(List.of(
-			new TargetDefinition("customers", TargetPeriodStrategy.MONTHLY)
+			new TargetDefinition("customers", TargetPeriodStrategy.MONTHLY, autoProvisionOnWrite)
 		));
 	}
 
