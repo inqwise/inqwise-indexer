@@ -1,6 +1,7 @@
 package com.inqwise.indexer.node;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -8,7 +9,16 @@ import java.net.ServerSocket;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+import com.inqwise.indexer.IndexerActionType;
+import com.inqwise.indexer.IndexerMetadataChanged;
+import com.inqwise.indexer.IndexerRuntimeState;
+import com.inqwise.indexer.IndexerType;
 import com.inqwise.indexer.gateway.GatewayRestOptions;
+import com.inqwise.indexer.hot.InvalidRouteSignature;
+import com.inqwise.indexer.metadata.InsertIndexer;
+import com.inqwise.indexer.metadata.InsertTarget;
+import com.inqwise.indexer.metadata.MutationState;
+import com.inqwise.indexer.metadata.PublicationState;
 import com.inqwise.indexer.rest.action.TargetActionRestOptions;
 import com.inqwise.indexer.rest.admin.AdminRestOptions;
 import com.inqwise.indexer.rest.runtime.RuntimeRestOptions;
@@ -35,6 +45,50 @@ class IndexerNodeTest {
 			})
 			.compose(status -> {
 				assertEquals(0, status.getIndexers().size());
+				return node.stop();
+			})
+			.onComplete(testContext.succeeding(ignored -> testContext.completeNow()));
+	}
+
+	@Test
+	void defaultNodeInvalidatesRouteCacheFromMetadataEvents(
+		Vertx vertx,
+		VertxTestContext testContext
+	) {
+		IndexerNode node = IndexerNode.create(vertx, new IndexerNodeOptions());
+		InvalidRouteSignature route = new InvalidRouteSignature(
+			"customers",
+			null,
+			null,
+			null,
+			null,
+			IndexerActionType.PUT_DOCUMENT
+		);
+
+		node.components().invalidRouteCache().record(route, "missing target");
+		node.start()
+			.compose(ignored -> node.components().repository()
+				.insertTarget(new InsertTarget(null, "customers", null)))
+			.compose(targetId -> node.components().repository()
+				.insertIndexer(new InsertIndexer(
+					null,
+					targetId,
+					"customers",
+					"customers_1",
+					"queue-customers-1",
+					IndexerType.INDEX,
+					IndexerRuntimeState.ACTIVE,
+					PublicationState.UNPUBLISHED,
+					MutationState.WRITABLE
+				)))
+			.compose(indexerId -> node.components().lifecycleEventBus()
+				.publish(new IndexerMetadataChanged(
+					indexerId,
+					"indexer.changed",
+					0L
+				)))
+			.compose(ignored -> {
+				assertTrue(node.components().invalidRouteCache().find(route).isEmpty());
 				return node.stop();
 			})
 			.onComplete(testContext.succeeding(ignored -> testContext.completeNow()));

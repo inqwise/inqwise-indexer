@@ -6,6 +6,8 @@ import com.inqwise.indexer.IndexerQueueResourceManager;
 import com.inqwise.indexer.definitions.IndexerDefinitionProvider;
 import com.inqwise.indexer.definitions.TargetDefinitionProvider;
 import com.inqwise.indexer.hot.HotIndexActionsService;
+import com.inqwise.indexer.hot.InvalidRouteCache;
+import com.inqwise.indexer.hot.InvalidRouteMetadataChangeListener;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 
@@ -17,6 +19,8 @@ public record IndexerNodeComponents(
 	IndexerQueueResourceManager queueResources,
 	TargetDefinitionProvider targetDefinitionProvider,
 	IndexerDefinitionProvider indexerDefinitionProvider,
-	IndexerDocumentIndexResourceManager documentIndexResources
+	IndexerDocumentIndexResourceManager documentIndexResources,
+	InvalidRouteCache invalidRouteCache,
+	InvalidRouteMetadataChangeListener invalidRouteMetadataChangeListener
 ) {
 }

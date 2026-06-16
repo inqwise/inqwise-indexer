@@ -3,7 +3,7 @@
 ## Module Layout
 
 - Discuss and design a module split that moves core indexing primitives out of the current `indexer` module and leaves `indexer` focused on deployment, service communication, node wiring, and external/internal APIs. The likely direction is a core module for runtime/actions/metadata/commands/provisioning primitives plus a deployment-facing module for Vert.x service proxies, service verticles, node container, gateway APIs, internal REST APIs, and OpenAPI wiring.
-- Consider extracting default local/in-memory node composition from `IndexerNode.defaultComponents(...)` into a dedicated factory or bootstrap class. `IndexerNodeComponents` is intentionally explicit, but the default wiring now spans repository, definitions, queue resources, document-index resources, command routing, hot view, runtime, and lifecycle event bus.
+- Consider extracting default local/in-memory node composition from `IndexerNode.defaultComponents(...)` into a dedicated factory or bootstrap class. `IndexerNodeComponents` is intentionally explicit, but the default wiring now spans repository, definitions, queue resources, document-index resources, command routing, hot view, invalid-route cache/listener, runtime, and lifecycle event bus.
 
 ## Index Flow
 

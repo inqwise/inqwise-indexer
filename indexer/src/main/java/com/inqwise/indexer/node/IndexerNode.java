@@ -1,5 +1,6 @@
 package com.inqwise.indexer.node;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -26,6 +27,9 @@ import com.inqwise.indexer.gateway.GatewayRestVerticle;
 import com.inqwise.indexer.hot.DefaultHotMetadataView;
 import com.inqwise.indexer.hot.HotIndexActionsService;
 import com.inqwise.indexer.hot.HotMetadataView;
+import com.inqwise.indexer.hot.InMemoryInvalidRouteCache;
+import com.inqwise.indexer.hot.InvalidRouteCache;
+import com.inqwise.indexer.hot.InvalidRouteMetadataChangeListener;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.providers.IndexerProviders;
@@ -66,6 +70,7 @@ public class IndexerNode {
 	public Future<Void> start() {
 		options.validate();
 		Future<Void> deployed = Future.succeededFuture();
+		deployed = deployed.compose(ignored -> startInvalidRouteMetadataChangeListener());
 		deployed = deployed.compose(ignored -> deployAdmin());
 		deployed = deployed.compose(ignored -> deployAdminRest());
 		deployed = deployed.compose(ignored -> deployTargetAction());
@@ -74,6 +79,12 @@ public class IndexerNode {
 		deployed = deployed.compose(ignored -> deployRuntimeRest());
 		deployed = deployed.compose(ignored -> deployGateway());
 		return deployed;
+	}
+
+	private Future<Void> startInvalidRouteMetadataChangeListener() {
+		InvalidRouteMetadataChangeListener listener =
+			components.invalidRouteMetadataChangeListener();
+		return listener == null ? Future.succeededFuture() : listener.start();
 	}
 
 	public Future<Void> stop() {
@@ -212,6 +223,8 @@ public class IndexerNode {
 		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
 		InMemoryIndexerDocumentStore documentStore = new InMemoryIndexerDocumentStore();
 		IndexerLifecycleEventBus lifecycleEventBus = new InMemoryIndexerLifecycleEventBus();
+		InvalidRouteCache invalidRouteCache =
+			new InMemoryInvalidRouteCache(Duration.ofMinutes(5));
 		IndexerProviders indexerProviders = new IndexerProviders(List.of(
 			new MetadataIndexerProvider(repository)
 		));
@@ -225,13 +238,21 @@ public class IndexerNode {
 				repository,
 				targetDefinitionProvider,
 				lifecycleEventBus,
-				queue
+				queue,
+				invalidRouteCache
 			));
 		HotIndexActionsService hotIndexActionsService = new HotIndexActionsService(
 			hotMetadataView,
 			new RoutedIndexActionPublisher(queue),
-			commandService
+			commandService,
+			invalidRouteCache
 		);
+		InvalidRouteMetadataChangeListener invalidRouteMetadataChangeListener =
+			new InvalidRouteMetadataChangeListener(
+				repository,
+				lifecycleEventBus,
+				invalidRouteCache
+			);
 		IndexerRuntime runtime = new IndexerRuntime(
 			vertx,
 			repository,
@@ -250,7 +271,9 @@ public class IndexerNode {
 			queue,
 			targetDefinitionProvider,
 			indexerDefinitionProvider,
-			documentStore
+			documentStore,
+			invalidRouteCache,
+			invalidRouteMetadataChangeListener
 		);
 	}
 }
