@@ -52,7 +52,10 @@ public class AdminServiceImpl implements AdminService {
 		this.eventBus = Objects.requireNonNull(eventBus, "eventBus");
 		Objects.requireNonNull(queueResources, "queueResources");
 		Objects.requireNonNull(targetDefinitionProvider, "targetDefinitionProvider");
-		this.recoverTargetProvisioning = new RecoverTargetProvisioningCommandHandler(repository);
+		this.recoverTargetProvisioning = new RecoverTargetProvisioningCommandHandler(
+			repository,
+			eventBus
+		);
 		this.activateIndexer = new ActivateIndexerCommandHandler(repository, eventBus);
 		this.deactivateIndexer = new DeactivateIndexerCommandHandler(repository, eventBus);
 		this.deleteIndexer = new DeleteIndexerCommandHandler(repository, eventBus);

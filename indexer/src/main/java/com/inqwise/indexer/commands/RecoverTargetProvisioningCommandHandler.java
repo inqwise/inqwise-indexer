@@ -2,6 +2,8 @@ package com.inqwise.indexer.commands;
 
 import java.util.Objects;
 
+import com.inqwise.indexer.IndexerLifecycleEventBus;
+import com.inqwise.indexer.TargetMetadataChanged;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.TargetProvisioningState;
 import com.inqwise.indexer.metadata.TargetRecord;
@@ -12,11 +14,20 @@ import io.vertx.core.Future;
 
 public class RecoverTargetProvisioningCommandHandler implements CommandHandler {
 	private final DocumentStoreMetadataRepository repository;
+	private final IndexerLifecycleEventBus eventBus;
 
 	public RecoverTargetProvisioningCommandHandler(
 		DocumentStoreMetadataRepository repository
 	) {
+		this(repository, IndexerLifecycleEventBus.NOOP);
+	}
+
+	public RecoverTargetProvisioningCommandHandler(
+		DocumentStoreMetadataRepository repository,
+		IndexerLifecycleEventBus eventBus
+	) {
 		this.repository = Objects.requireNonNull(repository, "repository");
+		this.eventBus = eventBus == null ? IndexerLifecycleEventBus.NOOP : eventBus;
 	}
 
 	@Override
@@ -57,6 +68,13 @@ public class RecoverTargetProvisioningCommandHandler implements CommandHandler {
 			target.id(),
 			TargetProvisioningState.READY,
 			recover.getExpectedVersion()
-		));
+		)).compose(ignored -> repository.getTargetById(target.id()))
+			.compose(found -> found
+				.map(current -> eventBus.publish(new TargetMetadataChanged(
+					current.id(),
+					RecoverTargetProvisioningCommand.TYPE,
+					current.version()
+				)))
+				.orElseGet(() -> Future.succeededFuture()));
 	}
 }

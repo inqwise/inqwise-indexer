@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+import com.inqwise.indexer.InMemoryIndexerLifecycleEventBus;
 import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.metadata.TargetProvisioningState;
@@ -21,7 +22,8 @@ class RecoverTargetProvisioningCommandTest {
 	void recoversFailedActiveTargetToReady(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
-		InMemoryCommandService commands = commandService(repository);
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		InMemoryCommandService commands = commandService(repository, eventBus);
 
 		repository.insertTarget(new InsertTarget(
 			"target-customers",
@@ -38,6 +40,8 @@ class RecoverTargetProvisioningCommandTest {
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
 				assertEquals(TargetProvisioningState.READY, found.orElseThrow().provisioningState());
 				assertEquals(1L, found.orElseThrow().version());
+				assertEquals(1, eventBus.targetEvents().size());
+				assertEquals(found.orElseThrow().id(), eventBus.targetEvents().get(0).getTargetId());
 				testContext.completeNow();
 			})));
 	}
@@ -126,7 +130,14 @@ class RecoverTargetProvisioningCommandTest {
 	private InMemoryCommandService commandService(
 		InMemoryDocumentStoreMetadataRepository repository
 	) {
+		return commandService(repository, new InMemoryIndexerLifecycleEventBus());
+	}
+
+	private InMemoryCommandService commandService(
+		InMemoryDocumentStoreMetadataRepository repository,
+		InMemoryIndexerLifecycleEventBus eventBus
+	) {
 		return new InMemoryCommandService()
-			.register(new RecoverTargetProvisioningCommandHandler(repository));
+			.register(new RecoverTargetProvisioningCommandHandler(repository, eventBus));
 	}
 }

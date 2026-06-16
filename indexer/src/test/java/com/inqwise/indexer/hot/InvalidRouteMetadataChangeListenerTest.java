@@ -8,6 +8,7 @@ import com.inqwise.indexer.IndexerMetadataChanged;
 import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.IndexerType;
 import com.inqwise.indexer.InMemoryIndexerLifecycleEventBus;
+import com.inqwise.indexer.TargetMetadataChanged;
 import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.metadata.InsertTarget;
@@ -157,6 +158,57 @@ class InvalidRouteMetadataChangeListenerTest {
 			)))
 			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
 				assertTrue(cache.find(route).isPresent());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void invalidatesTargetRoutesWhenTargetMetadataChanges(
+		VertxTestContext testContext
+	) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		InMemoryInvalidRouteCache cache =
+			new InMemoryInvalidRouteCache(Duration.ofMinutes(5));
+
+		repository.insertTarget(new InsertTarget(null, "customers", null))
+			.compose(targetId -> {
+				InvalidRouteSignature targetNameRoute = new InvalidRouteSignature(
+					"customers",
+					null,
+					null,
+					null,
+					null,
+					com.inqwise.indexer.IndexerActionType.PUT_DOCUMENT
+				);
+				InvalidRouteSignature targetIdRoute = new InvalidRouteSignature(
+					null,
+					null,
+					targetId,
+					null,
+					null,
+					com.inqwise.indexer.IndexerActionType.PUT_DOCUMENT
+				);
+				cache.record(targetNameRoute, "missing target");
+				cache.record(targetIdRoute, "missing target");
+
+				return new InvalidRouteMetadataChangeListener(
+					repository,
+					eventBus,
+					cache
+				).start().compose(ignored -> eventBus.publish(new TargetMetadataChanged(
+					targetId,
+					"target.changed",
+					0L
+				))).map(ignored -> new InvalidRouteSignature[] {
+					targetNameRoute,
+					targetIdRoute
+				});
+			})
+			.onComplete(testContext.succeeding(routes -> testContext.verify(() -> {
+				assertTrue(cache.find(routes[0]).isEmpty());
+				assertTrue(cache.find(routes[1]).isEmpty());
 				testContext.completeNow();
 			})));
 	}

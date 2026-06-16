@@ -11,6 +11,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 import com.inqwise.indexer.IndexerMetadataChanged;
 import com.inqwise.indexer.IndexerLifecycleEventBus;
+import com.inqwise.indexer.TargetMetadataChanged;
 import com.inqwise.indexer.IndexerQueueResourceManager;
 import com.inqwise.indexer.IndexerType;
 import com.inqwise.indexer.InMemoryIndexerLifecycleEventBus;
@@ -242,7 +243,17 @@ class ResetIndexerQueueCommandTest {
 		}
 
 		@Override
+		public Future<Void> publish(TargetMetadataChanged event) {
+			return Future.succeededFuture();
+		}
+
+		@Override
 		public Future<Void> subscribe(Handler<IndexerMetadataChanged> handler) {
+			return Future.succeededFuture();
+		}
+
+		@Override
+		public Future<Void> subscribeTarget(Handler<TargetMetadataChanged> handler) {
 			return Future.succeededFuture();
 		}
 	}

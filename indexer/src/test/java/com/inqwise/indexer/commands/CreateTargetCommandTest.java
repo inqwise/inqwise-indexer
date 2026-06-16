@@ -43,7 +43,13 @@ class CreateTargetCommandTest {
 	void createsConcreteTargetWithoutIndexer(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
-		InMemoryCommandService commandService = commandService(repository);
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		InMemoryCommandService commandService = commandService(
+			repository,
+			new RecordingDocumentIndexResourceManager(),
+			new RecordingQueueResourceManager(),
+			eventBus
+		);
 
 		commandService.submit(new CreateTargetCommand(
 			"target-customers",
@@ -56,6 +62,8 @@ class CreateTargetCommandTest {
 			assertTrue(found.isPresent());
 			assertEquals(TargetProvisioningState.READY, found.get().provisioningState());
 			assertEquals(1L, found.get().version());
+			assertEquals(1, eventBus.targetEvents().size());
+			assertEquals(found.get().id(), eventBus.targetEvents().get(0).getTargetId());
 			testContext.completeNow();
 		})));
 	}
@@ -115,6 +123,7 @@ class CreateTargetCommandTest {
 				assertEquals(ReadinessState.READY, result.publication().readinessState());
 				assertEquals(List.of("customers-index"), documentResources.ensured);
 				assertEquals(List.of("customers-queue"), queueResources.ensured);
+				assertEquals(1, eventBus.targetEvents().size());
 				assertEquals(1, eventBus.events().size());
 				testContext.completeNow();
 			})));

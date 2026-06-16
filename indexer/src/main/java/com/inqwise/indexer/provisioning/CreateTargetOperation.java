@@ -5,6 +5,7 @@ import java.util.Objects;
 import com.inqwise.indexer.IndexerLifecycleEventBus;
 import com.inqwise.indexer.IndexerMetadataChanged;
 import com.inqwise.indexer.IndexerQueueResourceManager;
+import com.inqwise.indexer.TargetMetadataChanged;
 import com.inqwise.indexer.commands.CreateTargetCommand;
 import com.inqwise.indexer.commands.InitialPublicationMode;
 import com.inqwise.indexer.commands.PublishIndexCommand;
@@ -68,10 +69,13 @@ public class CreateTargetOperation {
 					.compose(ignored -> insertTarget(create, definition, period))))
 			.compose(target -> create.getCreateIndexer() == null
 				? markTargetReady(target)
+					.compose(readyTarget -> publishTargetMetadataChanged(readyTarget)
+						.map(readyTarget))
 				: provisionIndexer(create.getCreateIndexer(), target)
 					.compose(indexer -> preparePublication(indexer, create.getCreateIndexer())
 						.compose(preparedIndexer -> markTargetReady(target)
-							.compose(readyTarget -> publishMetadataChanged(preparedIndexer)
+							.compose(readyTarget -> publishTargetMetadataChanged(readyTarget)
+								.compose(ignored -> publishMetadataChanged(preparedIndexer))
 								.map(readyTarget))))
 					.recover(error -> markTargetFailed(target).compose(ignored -> Future.failedFuture(error))));
 	}
@@ -202,6 +206,14 @@ public class CreateTargetOperation {
 			indexer.id(),
 			CreateTargetCommand.TYPE,
 			indexer.version()
+		));
+	}
+
+	private Future<Void> publishTargetMetadataChanged(TargetRecord target) {
+		return eventBus.publish(new TargetMetadataChanged(
+			target.id(),
+			CreateTargetCommand.TYPE,
+			target.version()
 		));
 	}
 

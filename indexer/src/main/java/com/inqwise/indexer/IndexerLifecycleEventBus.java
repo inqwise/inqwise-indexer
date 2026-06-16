@@ -11,12 +11,26 @@ public interface IndexerLifecycleEventBus {
 		}
 
 		@Override
+		public Future<Void> publish(TargetMetadataChanged event) {
+			return Future.succeededFuture();
+		}
+
+		@Override
 		public Future<Void> subscribe(Handler<IndexerMetadataChanged> handler) {
+			return Future.succeededFuture();
+		}
+
+		@Override
+		public Future<Void> subscribeTarget(Handler<TargetMetadataChanged> handler) {
 			return Future.succeededFuture();
 		}
 	};
 
 	Future<Void> publish(IndexerMetadataChanged event);
 
+	Future<Void> publish(TargetMetadataChanged event);
+
 	Future<Void> subscribe(Handler<IndexerMetadataChanged> handler);
+
+	Future<Void> subscribeTarget(Handler<TargetMetadataChanged> handler);
 }
