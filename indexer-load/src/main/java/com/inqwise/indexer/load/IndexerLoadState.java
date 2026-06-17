@@ -2,6 +2,7 @@ package com.inqwise.indexer.load;
 
 public enum IndexerLoadState {
 	CREATED,
+	STARTING,
 	HISTORICAL_LOADING,
 	HISTORICAL_COMPLETE,
 	CATCH_UP_BARRIER_REQUESTED,

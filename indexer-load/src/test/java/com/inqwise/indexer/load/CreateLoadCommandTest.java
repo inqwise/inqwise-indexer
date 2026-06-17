@@ -78,6 +78,40 @@ class CreateLoadCommandTest {
 	}
 
 	@Test
+	void createsLoadWithoutStartCommandWiringAndLeavesProviderUnstarted(VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository metadata = new InMemoryDocumentStoreMetadataRepository();
+		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
+		InMemoryCommandService commands = new InMemoryCommandService()
+			.register(new CreateLoadCommandHandler(
+				metadata,
+				loads,
+				new InMemoryIndexerLifecycleEventBus()
+			));
+
+		commands.submit(new CreateLoadCommand(
+			"load",
+			"default",
+			"customers",
+			"customers--idx-load",
+			"customers--queue-load",
+			LiveWriterPolicy.NONE,
+			null,
+			Instant.parse("2026-06-05T10:00:00Z"),
+			null,
+			null,
+			null,
+			null,
+			null,
+			false
+		)).compose(ignored -> metadata.listTargets(null)
+			.compose(targets -> loads.getActiveByTargetId(targets.get(0).id())))
+			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
+				assertEquals(IndexerLoadState.CREATED, found.orElseThrow().state());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
 	void usesProviderRegistryAndStoresProviderId(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository metadata = new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
@@ -263,14 +297,14 @@ class CreateLoadCommandTest {
 		InMemoryIndexerLoadRepository loads,
 		LoadProvider provider
 	) {
-		return new InMemoryCommandService()
-			.register(new CreateLoadCommandHandler(
-				metadata,
-				loads,
-				new InMemoryIndexerQueue(),
-				provider,
-				new InMemoryIndexerLifecycleEventBus()
-			));
+		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		InMemoryLoadProviderRegistry registry = new InMemoryLoadProviderRegistry()
+			.register("default", provider);
+		InMemoryCommandService commands = new InMemoryCommandService();
+		return commands
+			.register(new StartLoadCommandHandler(metadata, loads, queue, registry, eventBus))
+			.register(new CreateLoadCommandHandler(metadata, loads, eventBus, commands));
 	}
 
 	private InMemoryCommandService commandService(
@@ -278,14 +312,12 @@ class CreateLoadCommandTest {
 		InMemoryIndexerLoadRepository loads,
 		LoadProviderRegistry registry
 	) {
-		return new InMemoryCommandService()
-			.register(new CreateLoadCommandHandler(
-				metadata,
-				loads,
-				new InMemoryIndexerQueue(),
-				registry,
-				new InMemoryIndexerLifecycleEventBus()
-			));
+		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		InMemoryCommandService commands = new InMemoryCommandService();
+		return commands
+			.register(new StartLoadCommandHandler(metadata, loads, queue, registry, eventBus))
+			.register(new CreateLoadCommandHandler(metadata, loads, eventBus, commands));
 	}
 
 	private record Created(

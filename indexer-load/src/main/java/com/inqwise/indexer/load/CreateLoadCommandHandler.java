@@ -5,12 +5,12 @@ import java.util.Objects;
 import com.inqwise.indexer.IndexResourceOwnership;
 import com.inqwise.indexer.IndexerLifecycleEventBus;
 import com.inqwise.indexer.IndexerMetadataChanged;
-import com.inqwise.indexer.IndexerQueueClient;
 import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.IndexerRole;
 import com.inqwise.indexer.IndexerType;
 import com.inqwise.indexer.commands.Command;
 import com.inqwise.indexer.commands.CommandHandler;
+import com.inqwise.indexer.commands.CommandService;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.IndexerRecord;
 import com.inqwise.indexer.metadata.InsertIndexer;
@@ -20,45 +20,38 @@ import com.inqwise.indexer.metadata.TargetRecord;
 import com.inqwise.indexer.provisioning.CreateIndexerOperation;
 
 import io.vertx.core.Future;
-import io.vertx.core.json.JsonObject;
 
 public class CreateLoadCommandHandler implements CommandHandler {
 	private final DocumentStoreMetadataRepository metadataRepository;
 	private final IndexerLoadRepository loadRepository;
-	private final IndexerQueueClient queueClient;
-	private final LoadProviderRegistry loadProviderRegistry;
 	private final IndexerLifecycleEventBus eventBus;
 	private final CreateIndexerOperation createIndexer;
+	private final CommandService commandService;
 
 	public CreateLoadCommandHandler(
 		DocumentStoreMetadataRepository metadataRepository,
 		IndexerLoadRepository loadRepository,
-		IndexerQueueClient queueClient,
-		LoadProvider loadProvider,
 		IndexerLifecycleEventBus eventBus
 	) {
 		this(
 			metadataRepository,
 			loadRepository,
-			queueClient,
-			new InMemoryLoadProviderRegistry().register("default", loadProvider),
-			eventBus
+			eventBus,
+			null
 		);
 	}
 
 	public CreateLoadCommandHandler(
 		DocumentStoreMetadataRepository metadataRepository,
 		IndexerLoadRepository loadRepository,
-		IndexerQueueClient queueClient,
-		LoadProviderRegistry loadProviderRegistry,
-		IndexerLifecycleEventBus eventBus
+		IndexerLifecycleEventBus eventBus,
+		CommandService commandService
 	) {
 		this.metadataRepository = Objects.requireNonNull(metadataRepository, "metadataRepository");
 		this.loadRepository = Objects.requireNonNull(loadRepository, "loadRepository");
-		this.queueClient = Objects.requireNonNull(queueClient, "queueClient");
-		this.loadProviderRegistry = Objects.requireNonNull(loadProviderRegistry, "loadProviderRegistry");
 		this.eventBus = eventBus == null ? IndexerLifecycleEventBus.NOOP : eventBus;
 		this.createIndexer = new CreateIndexerOperation(metadataRepository);
+		this.commandService = commandService;
 	}
 
 	@Override
@@ -81,7 +74,7 @@ public class CreateLoadCommandHandler implements CommandHandler {
 				.compose(loadIndexer -> createLiveIndexer(create, target)
 					.compose(liveIndexer -> insertLoad(create, target, loadIndexer, liveIndexer)
 						.compose(ignored -> publishCreatedEvents(loadIndexer, liveIndexer))
-						.compose(ignored -> startProvider(create, target, loadIndexer, liveIndexer)))));
+						.compose(ignored -> startLoad(loadIndexer)))));
 	}
 
 	private Future<IndexerRecord> createLoadIndexer(CreateLoadCommand create, TargetRecord target) {
@@ -132,7 +125,7 @@ public class CreateLoadCommandHandler implements CommandHandler {
 			liveIndexer == null ? null : liveIndexer.id(),
 			create.getLiveWriterPolicy(),
 			create.getProviderId(),
-			IndexerLoadState.HISTORICAL_LOADING,
+			IndexerLoadState.CREATED,
 			create.getReloadStartAt(),
 			create.getLiveReplayFrom(),
 			create.getSourceFrom(),
@@ -161,62 +154,17 @@ public class CreateLoadCommandHandler implements CommandHandler {
 		return published;
 	}
 
-	private Future<Void> startProvider(
-		CreateLoadCommand create,
-		TargetRecord target,
-		IndexerRecord loadIndexer,
-		IndexerRecord liveIndexer
-	) {
-		QueueLoadWriter writer = new QueueLoadWriter(
-			target.id(),
-			loadIndexer.id(),
-			loadIndexer.queueName(),
-			queueClient,
-			loadRepository
-		);
-		LoadRequest request = new LoadRequest(
-			loadIndexer.id(),
-			target.id(),
-			liveIndexer == null ? null : liveIndexer.id(),
-			create.getProviderId(),
-			target.targetName(),
-			loadIndexer.indexName(),
-			loadIndexer.queueName(),
-			create.getReloadStartAt(),
-			create.getLiveReplayFrom(),
-			create.getSourceFrom(),
-			create.getSourceTo(),
-			copy(create.getSourceQuery()),
-			create.getSourcePlaybookId()
-		);
+	private Future<Void> startLoad(IndexerRecord loadIndexer) {
+		if (commandService == null) {
+			return Future.succeededFuture();
+		}
 
-		return loadProviderRegistry.get(create.getProviderId())
-			.compose(provider -> provider.start(request, writer))
-			.recover(error -> markProviderStartFailed(loadIndexer.id(), error)
-				.compose(ignored -> Future.failedFuture(error)));
-	}
-
-	private Future<Void> markProviderStartFailed(Integer indexerId, Throwable error) {
-		return loadRepository.getByIndexerId(indexerId)
-			.compose(found -> found
-				.map(load -> loadRepository.markFailed(new UpdateIndexerLoadFailure(
-					indexerId,
-					error == null || error.getMessage() == null
-						? "Load provider failed to start"
-						: error.getMessage(),
-					null,
-					load.version()
-				)))
-				.orElseGet(() -> Future.failedFuture("Indexer load not found: " + indexerId)));
+		return commandService.submit(new StartLoadCommand(loadIndexer.id(), 0L));
 	}
 
 	private String liveQueueName(CreateLoadCommand create) {
 		return create.getLiveQueueName() == null
 			? create.getQueueName() + "--live"
 			: create.getLiveQueueName();
-	}
-
-	private JsonObject copy(JsonObject json) {
-		return json == null ? null : json.copy();
 	}
 }
