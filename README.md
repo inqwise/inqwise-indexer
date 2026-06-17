@@ -121,6 +121,8 @@ Cold routing supports indexer preparation through `IndexerActionReceiveCapabilit
 
 `IndexerPlugin` is the core SPI for peer indexer functionality. The initial plugin surface exposes action-receive capabilities through `IndexerPlugins`; application composition constructs plugins explicitly because implementations may need repositories or other runtime dependencies.
 
+Applications that enable load behavior should pass their plugin aggregator into `SubmitIndexActionsCommandHandler`, for example `new IndexerPlugins(List.of(new LoadIndexerPlugin(metadataRepository, loadRepository)))`. Core defaults use `IndexerPlugins.empty()`.
+
 Command completion means that the submitted actions were handed to the indexer queue, not that the documents were already indexed. Runtime processing remains asynchronous.
 
 The cold path fails closed. If the command sees an unexpected indexer state or action mismatch, it must not publish actions. Expected/idempotent cases include resolving a writable, available, provisioned, runtime-active metadata indexer and waking runtime consumers that may not be hot yet.

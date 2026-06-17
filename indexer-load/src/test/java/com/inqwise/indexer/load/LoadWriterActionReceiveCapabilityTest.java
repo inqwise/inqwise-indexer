@@ -24,6 +24,7 @@ import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.IndexerRole;
 import com.inqwise.indexer.IndexerType;
 import com.inqwise.indexer.PutDocumentActionItem;
+import com.inqwise.indexer.TargetMetadataChanged;
 import com.inqwise.indexer.commands.InMemoryCommandService;
 import com.inqwise.indexer.commands.SubmitIndexActionsCommand;
 import com.inqwise.indexer.commands.SubmitIndexActionsCommandHandler;
@@ -61,7 +62,7 @@ class LoadWriterActionReceiveCapabilityTest {
 				eventBus,
 				queue,
 				null,
-				plugins.actionReceiveCapabilities()
+				plugins
 			));
 
 		insertLazyLoad(metadata, loads)
@@ -188,7 +189,17 @@ class LoadWriterActionReceiveCapabilityTest {
 		}
 
 		@Override
+		public Future<Void> publish(TargetMetadataChanged event) {
+			return Future.succeededFuture();
+		}
+
+		@Override
 		public Future<Void> subscribe(Handler<IndexerMetadataChanged> handler) {
+			return Future.succeededFuture();
+		}
+
+		@Override
+		public Future<Void> subscribeTarget(Handler<TargetMetadataChanged> handler) {
 			return Future.succeededFuture();
 		}
 	}
