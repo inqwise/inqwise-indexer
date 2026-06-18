@@ -189,6 +189,16 @@ class IndexerNodeTest {
 				}))
 			.compose(body -> {
 				assertEquals(0, body.toJsonObject().getJsonArray("targets").size());
+				return vertx.createHttpClient()
+					.request(HttpMethod.GET, gatewayPort, "127.0.0.1", "/gateway/admin/indexers")
+					.compose(request -> request.send())
+					.compose(response -> {
+						assertEquals(200, response.statusCode());
+						return response.body();
+					});
+			})
+			.compose(body -> {
+				assertEquals(0, body.toJsonObject().getJsonArray("indexers").size());
 				return node.stop();
 			})
 			.onComplete(testContext.succeeding(ignored -> testContext.completeNow()));

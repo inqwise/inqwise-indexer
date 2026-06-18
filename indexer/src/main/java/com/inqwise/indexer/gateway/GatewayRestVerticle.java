@@ -68,6 +68,17 @@ public class GatewayRestVerticle extends AbstractVerticle {
 							"/admin/targets"
 						)
 					));
+				builder.getRoute("gatewayListIndexers")
+					.addHandler(context -> handle(
+						context,
+						"gatewayListIndexers",
+						() -> GatewayProxyOperations.proxyAdminGet(
+							context,
+							client,
+							options,
+							"/admin/indexers"
+						)
+					));
 
 				return builder.createRouter();
 			})

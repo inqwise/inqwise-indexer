@@ -49,6 +49,82 @@ paths:
             application/json:
               schema:
                 type: object
+  /gateway/admin/indexers:
+    get:
+      operationId: gatewayListIndexers
+      parameters:
+        - $ref: '#/components/parameters/IdQuery'
+        - name: target_id
+          in: query
+          schema:
+            type: array
+            items:
+              type: integer
+          style: form
+          explode: true
+        - name: type
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+        - name: role
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+        - name: status
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+        - name: provisioning_state
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+        - name: runtime_state
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+        - name: publication_state
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+        - name: mutation_state
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+      responses:
+        '200':
+          description: Indexer list.
+          content:
+            application/json:
+              schema:
+                type: object
 components:
   parameters:
     IdQuery:
