@@ -118,10 +118,37 @@ class GatewayRestVerticleTest {
 				.compose(response -> {
 					assertEquals(503, response.statusCode());
 					return response.body();
-				}))
+			}))
 			.onComplete(testContext.succeeding(body -> testContext.verify(() -> {
-				JsonObject error = body.toJsonObject().getJsonObject("error");
-				assertEquals("ADMIN_REST_NOT_CONFIGURED", error.getString("code"));
+				JsonObject error = body.toJsonObject();
+				assertEquals(GatewayErrorCodes.AdminRestNotConfigured.name(), error.getString("code"));
+				assertEquals(GatewayErrorCodes.GROUP, error.getString("group"));
+				assertEquals(503, error.getInteger("status"));
+				assertEquals("Gateway upstream is not configured", error.getString("detail"));
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void returnsSafeUnavailableErrorWhenAdminRestCannotBeReached(Vertx vertx, VertxTestContext testContext) {
+		GatewayRestVerticle gateway = new GatewayRestVerticle(new GatewayRestOptions()
+			.setPort(0)
+			.setAdminRestBaseUri("http://127.0.0.1:1"));
+
+		vertx.deployVerticle(gateway)
+			.compose(ignored -> vertx.createHttpClient()
+				.request(HttpMethod.GET, gateway.actualPort(), "127.0.0.1", "/gateway/admin/targets")
+				.compose(request -> request.send())
+				.compose(response -> {
+					assertEquals(502, response.statusCode());
+					return response.body();
+			}))
+			.onComplete(testContext.succeeding(body -> testContext.verify(() -> {
+				JsonObject error = body.toJsonObject();
+				assertEquals(GatewayErrorCodes.UpstreamUnavailable.name(), error.getString("code"));
+				assertEquals(GatewayErrorCodes.GROUP, error.getString("group"));
+				assertEquals(502, error.getInteger("status"));
+				assertEquals("Upstream service unavailable", error.getString("detail"));
 				testContext.completeNow();
 			})));
 	}
@@ -256,11 +283,42 @@ class GatewayRestVerticleTest {
 				.compose(response -> {
 					assertEquals(403, response.statusCode());
 					return response.body();
-				}))
+			}))
 			.onComplete(testContext.succeeding(body -> testContext.verify(() -> {
-				JsonObject error = body.toJsonObject().getJsonObject("error");
-				assertEquals("GATEWAY_REQUEST_REJECTED", error.getString("code"));
+				JsonObject error = body.toJsonObject();
+				assertEquals(GatewayErrorCodes.GatewayRequestRejected.name(), error.getString("code"));
+				assertEquals(GatewayErrorCodes.GROUP, error.getString("group"));
+				assertEquals(403, error.getInteger("status"));
+				assertEquals("Gateway request rejected", error.getString("detail"));
 				assertEquals(1, auditFailures.get());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void mapsTypedGatewayHookFailuresToPublicErrorContract(Vertx vertx, VertxTestContext testContext) {
+		GatewayRequestHooks hooks = new GatewayRequestHooks() {
+			@Override
+			public Future<Void> authenticate(RoutingContext context, String operationId) {
+				return Future.failedFuture(GatewayErrorResponses.unauthenticated());
+			}
+		};
+		GatewayRestVerticle gateway = new GatewayRestVerticle(new GatewayRestOptions().setPort(0), hooks);
+
+		vertx.deployVerticle(gateway)
+			.compose(ignored -> vertx.createHttpClient()
+				.request(HttpMethod.GET, gateway.actualPort(), "127.0.0.1", "/gateway/status")
+				.compose(request -> request.send())
+				.compose(response -> {
+					assertEquals(401, response.statusCode());
+					return response.body();
+			}))
+			.onComplete(testContext.succeeding(body -> testContext.verify(() -> {
+				JsonObject error = body.toJsonObject();
+				assertEquals(GatewayErrorCodes.Unauthenticated.name(), error.getString("code"));
+				assertEquals(GatewayErrorCodes.GROUP, error.getString("group"));
+				assertEquals(401, error.getInteger("status"));
+				assertEquals("Authentication is required", error.getString("detail"));
 				testContext.completeNow();
 			})));
 	}

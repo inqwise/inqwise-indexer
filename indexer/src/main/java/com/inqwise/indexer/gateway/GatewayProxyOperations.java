@@ -9,7 +9,6 @@ import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientRequest;
 import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.http.HttpMethod;
-import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 
 final class GatewayProxyOperations {
@@ -26,7 +25,7 @@ final class GatewayProxyOperations {
 		try {
 			baseUri = adminRestBaseUri(options);
 		} catch (IllegalArgumentException error) {
-			writeJsonError(context, 503, "ADMIN_REST_NOT_CONFIGURED", error.getMessage());
+			GatewayErrorResponses.adminRestNotConfigured(context);
 			return Future.failedFuture(error);
 		}
 
@@ -36,7 +35,7 @@ final class GatewayProxyOperations {
 			.compose(GatewayProxyOperations::bodyWithResponse)
 			.compose(upstream -> writeProxyResponse(context, upstream))
 			.recover(error -> {
-				writeJsonError(context, 502, "UPSTREAM_UNAVAILABLE", error.getMessage());
+				GatewayErrorResponses.upstreamUnavailable(context);
 				return Future.failedFuture(error);
 			});
 	}
@@ -97,22 +96,6 @@ final class GatewayProxyOperations {
 		return context.response()
 			.setStatusCode(upstream.statusCode())
 			.end(upstream.body());
-	}
-
-	static void writeJsonError(
-		RoutingContext context,
-		int statusCode,
-		String code,
-		String message
-	) {
-		context.response()
-			.setStatusCode(statusCode)
-			.putHeader("content-type", "application/json")
-			.end(new JsonObject()
-				.put("error", new JsonObject()
-					.put("code", code)
-					.put("message", message))
-				.encode());
 	}
 
 	private record UpstreamResponse(int statusCode, String contentType, Buffer body) {

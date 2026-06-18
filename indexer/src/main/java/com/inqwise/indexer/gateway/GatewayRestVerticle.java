@@ -135,12 +135,7 @@ public class GatewayRestVerticle extends AbstractVerticle {
 			.onFailure(error -> {
 				hooks.auditFailure(context, operationId, error);
 				if (!context.response().ended()) {
-					GatewayProxyOperations.writeJsonError(
-						context,
-						403,
-						"GATEWAY_REQUEST_REJECTED",
-						error.getMessage()
-					);
+					GatewayErrorResponses.requestRejected(context, error);
 				}
 			});
 	}
