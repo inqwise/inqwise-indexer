@@ -87,6 +87,52 @@ class QueueLoadWriterTest {
 	}
 
 	@Test
+	void completePublishesMarkerForHistoricalLoadingLoad() {
+		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
+		RecordingQueue queue = new RecordingQueue();
+		QueueLoadWriter writer = writer(loads, queue);
+
+		loads.insert(load(IndexerLoadState.HISTORICAL_LOADING));
+
+		var completed = writer.complete(new LoadCompletion("source-audit-1"));
+
+		assertTrue(completed.succeeded());
+		assertEquals(1, queue.items.size());
+		CompleteIndexActionItem marker =
+			assertInstanceOf(CompleteIndexActionItem.class, queue.items.get(0));
+		assertEquals(10, marker.getTargetId());
+		assertEquals(20, marker.getIndexerId());
+	}
+
+	@Test
+	void completeDoesNotRepublishMarkerForAlreadyCompletedLoad() {
+		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
+		RecordingQueue queue = new RecordingQueue();
+		QueueLoadWriter writer = writer(loads, queue);
+
+		loads.insert(load(IndexerLoadState.HISTORICAL_COMPLETE));
+
+		var completed = writer.complete(new LoadCompletion("source-audit-1"));
+
+		assertTrue(completed.succeeded());
+		assertEquals(0, queue.items.size());
+	}
+
+	@Test
+	void completeDoesNotPublishMarkerForTerminalLoad() {
+		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
+		RecordingQueue queue = new RecordingQueue();
+		QueueLoadWriter writer = writer(loads, queue);
+
+		loads.insert(load(IndexerLoadState.CANCELLED));
+
+		var completed = writer.complete(new LoadCompletion("source-audit-1"));
+
+		assertTrue(completed.succeeded());
+		assertEquals(0, queue.items.size());
+	}
+
+	@Test
 	void failMarksActiveLoadFailed() {
 		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
 		QueueLoadWriter writer = writer(loads);

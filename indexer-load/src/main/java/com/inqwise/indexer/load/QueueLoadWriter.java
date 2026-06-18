@@ -50,10 +50,10 @@ public class QueueLoadWriter implements LoadWriter {
 
 	@Override
 	public Future<Void> complete(LoadCompletion completion) {
-		return publish(List.of(CompleteIndexActionItem.builder()
-			.withTargetId(targetId)
-			.withIndexerId(indexerId)
-			.build()));
+		return loadRepository.getByIndexerId(indexerId)
+			.compose(found -> found
+				.map(this::completeIfActive)
+				.orElseGet(() -> Future.failedFuture("Indexer load not found: " + indexerId)));
 	}
 
 	@Override
@@ -79,6 +79,17 @@ public class QueueLoadWriter implements LoadWriter {
 			null,
 			load.version()
 		));
+	}
+
+	private Future<Void> completeIfActive(IndexerLoadRecord load) {
+		if (load.state() != IndexerLoadState.HISTORICAL_LOADING) {
+			return Future.succeededFuture();
+		}
+
+		return publish(List.of(CompleteIndexActionItem.builder()
+			.withTargetId(targetId)
+			.withIndexerId(indexerId)
+			.build()));
 	}
 
 	private Future<Void> publish(List<IndexerActionItem> items) {
