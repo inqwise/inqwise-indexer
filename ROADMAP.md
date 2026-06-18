@@ -36,6 +36,7 @@
 - Add production-backed enforcement of the target publication invariant. The in-memory repository now atomically replaces the published indexer for a target; production storage must preserve the same at-most-one-published-indexer rule without a transient no-published-indexer state.
 - Add full load plugin orchestration around external `LoadProvider` implementations, including application-owned composition examples for `LoadIndexerPlugin` and final removal/tombstone handling after cancel or post-publish cleanup marks indexers deleting. Core node JSON options should remain plugin-free; load-enabled applications own the shared repository and plugin instances they pass through `IndexerNodeComponents`.
 - Add a concurrency-safe lazy live-writer preparation claim for production storage. Concurrent cold submissions for the same lazy load should not create multiple attached-or-orphan live writers; production should use an atomic claim, deterministic uniqueness, or cleanup of losing prepared writers.
+- Defer a standalone load-fail command until failures must be reported by a separate process that does not hold a `LoadWriter`. Provider-owned asynchronous failures should use `LoadWriter.fail(...)`.
 - Define future partition/lane support for catch-up barriers. The first design assumes a single ordered catch-up queue; partitioned catch-up needs one barrier per ordered lane.
 - Deferred: back the id-first `DocumentStoreMetadataRepository` with the production storage engine and preserve the insert/update/delete model split used by the in-memory implementation.
 

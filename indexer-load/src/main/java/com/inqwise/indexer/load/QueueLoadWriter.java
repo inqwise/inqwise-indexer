@@ -49,15 +49,25 @@ public class QueueLoadWriter implements LoadWriter {
 	public Future<Void> fail(Throwable error) {
 		return loadRepository.getByIndexerId(indexerId)
 			.compose(found -> found
-				.map(load -> loadRepository.markFailed(new UpdateIndexerLoadFailure(
-					indexerId,
-					error == null || error.getMessage() == null
-						? "Load provider failed"
-						: error.getMessage(),
-					null,
-					load.version()
-				)))
+				.map(load -> markFailedIfActive(load, error))
 				.orElseGet(() -> Future.failedFuture("Indexer load not found: " + indexerId)));
+	}
+
+	private Future<Void> markFailedIfActive(IndexerLoadRecord load, Throwable error) {
+		if (load.state() == IndexerLoadState.FAILED
+			|| load.state() == IndexerLoadState.CANCELLED
+			|| load.state() == IndexerLoadState.PUBLISHED) {
+			return Future.succeededFuture();
+		}
+
+		return loadRepository.markFailed(new UpdateIndexerLoadFailure(
+			indexerId,
+			error == null || error.getMessage() == null
+				? "Load provider failed"
+				: error.getMessage(),
+			null,
+			load.version()
+		));
 	}
 
 	private Future<Void> publish(List<IndexerActionItem> items) {
