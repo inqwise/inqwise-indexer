@@ -112,6 +112,56 @@ class CreateLoadCommandTest {
 	}
 
 	@Test
+	void startingLoadCanRetryProviderStartUsingIndexerIdIdentity(VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository metadata = new InMemoryDocumentStoreMetadataRepository();
+		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
+		CapturingLoadProvider provider = new CapturingLoadProvider();
+		InMemoryLoadProviderRegistry registry = new InMemoryLoadProviderRegistry()
+			.register("default", provider);
+		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		InMemoryCommandService commands = createOnlyCommandService(metadata, loads)
+			.register(new StartLoadCommandHandler(metadata, loads, queue, registry, eventBus));
+
+		commands.submit(new CreateLoadCommand(
+			"load",
+			"default",
+			"customers",
+			"customers--idx-load",
+			"customers--queue-load",
+			LiveWriterPolicy.NONE,
+			null,
+			Instant.parse("2026-06-05T10:00:00Z"),
+			null,
+			null,
+			null,
+			null,
+			null,
+			false
+		)).compose(ignored -> metadata.listTargets(null)
+			.compose(targets -> loads.getActiveByTargetId(targets.get(0).id())))
+			.compose(found -> {
+				IndexerLoadRecord load = found.orElseThrow();
+				return loads.updateState(new UpdateIndexerLoadState(
+					load.indexerId(),
+					IndexerLoadState.STARTING,
+					load.version()
+				)).compose(ignored -> commands.submit(new StartLoadCommand(
+					load.indexerId(),
+					0L
+				))).compose(ignored -> loads.getByIndexerId(load.indexerId()));
+			})
+			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
+				IndexerLoadRecord load = found.orElseThrow();
+				assertEquals(IndexerLoadState.HISTORICAL_LOADING, load.state());
+				assertEquals(1, provider.startCount);
+				assertNotNull(provider.request);
+				assertEquals(load.indexerId(), provider.request.indexerId());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
 	void usesProviderRegistryAndStoresProviderId(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository metadata = new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
@@ -454,9 +504,11 @@ class CreateLoadCommandTest {
 	private static class CapturingLoadProvider implements LoadProvider {
 		private LoadRequest request;
 		private LoadStopRequest stopRequest;
+		private int startCount;
 
 		@Override
 		public Future<Void> start(LoadRequest request, LoadWriter writer) {
+			startCount++;
 			this.request = request;
 			return Future.succeededFuture();
 		}
