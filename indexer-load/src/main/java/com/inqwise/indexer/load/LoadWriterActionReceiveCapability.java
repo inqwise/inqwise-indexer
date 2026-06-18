@@ -111,11 +111,30 @@ public class LoadWriterActionReceiveCapability implements IndexerActionReceiveCa
 			IndexerRuntimeState.ACTIVE,
 			PublicationState.UNPUBLISHED,
 			MutationState.WRITABLE
-		)).compose(liveWriter -> loadRepository.attachLiveWriter(new UpdateIndexerLoadLiveWriter(
+		)).compose(liveWriter -> loadRepository.attachLiveWriterIfAbsent(new AttachLiveWriterRequest(
 			load.indexerId(),
 			liveWriter.id(),
 			load.version()
-		)).map(new PreparedIndexers(java.util.List.of(liveWriter), true)));
+		)).compose(attached -> preparedLiveWriter(liveWriter, attached)));
+	}
+
+	private Future<PreparedIndexers> preparedLiveWriter(
+		IndexerRecord candidate,
+		AttachLiveWriterResult attached
+	) {
+		if (attached.liveIndexerId().equals(candidate.id())) {
+			return Future.succeededFuture(new PreparedIndexers(java.util.List.of(candidate), true));
+		}
+
+		return metadataRepository.getIndexerById(attached.liveIndexerId())
+			.compose(found -> found
+				.map(winner -> Future.succeededFuture(new PreparedIndexers(
+					java.util.List.of(winner),
+					false
+				)))
+				.orElseGet(() -> Future.failedFuture(
+					"Linked live writer not found: " + attached.liveIndexerId()
+				)));
 	}
 
 	private boolean isLiveAction(IndexerActionItem action) {

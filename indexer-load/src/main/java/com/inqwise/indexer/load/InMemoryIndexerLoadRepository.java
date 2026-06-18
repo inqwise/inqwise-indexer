@@ -121,17 +121,27 @@ public class InMemoryIndexerLoadRepository implements IndexerLoadRepository {
 	}
 
 	@Override
-	public synchronized Future<Void> attachLiveWriter(UpdateIndexerLoadLiveWriter update) {
+	public synchronized Future<AttachLiveWriterResult> attachLiveWriterIfAbsent(
+		AttachLiveWriterRequest request
+	) {
 		try {
-			IndexerLoadRecord existing = requireLoad(update.indexerId(), update.expectedVersion());
-			require(update.liveIndexerId(), "liveIndexerId");
-			if (existing.liveIndexerId() != null && !existing.liveIndexerId().equals(update.liveIndexerId())) {
-				throw new IllegalStateException("Indexer load already has live writer: " + update.indexerId());
+			IndexerLoadRecord existing = requireLoad(request.indexerId());
+			require(request.liveIndexerId(), "liveIndexerId");
+			if (!isActive(existing.state())) {
+				throw new IllegalStateException("Indexer load is not active: " + existing.state());
 			}
+			if (existing.liveIndexerId() != null) {
+				return Future.succeededFuture(new AttachLiveWriterResult(
+					existing.liveIndexerId().equals(request.liveIndexerId()),
+					existing.liveIndexerId(),
+					existing.version()
+				));
+			}
+			requireVersion(existing, request.expectedVersion());
 
-			loadsByIndexerId.put(update.indexerId(), copy(
+			IndexerLoadRecord updated = copy(
 				existing,
-				update.liveIndexerId(),
+				request.liveIndexerId(),
 				existing.state(),
 				existing.approvedAt(),
 				existing.approvedBy(),
@@ -141,8 +151,13 @@ public class InMemoryIndexerLoadRepository implements IndexerLoadRepository {
 				existing.lastBarrierReachedAt(),
 				existing.failureReason(),
 				existing.failedAt()
+			);
+			loadsByIndexerId.put(request.indexerId(), updated);
+			return Future.succeededFuture(new AttachLiveWriterResult(
+				true,
+				request.liveIndexerId(),
+				updated.version()
 			));
-			return Future.succeededFuture();
 		} catch (RuntimeException error) {
 			return Future.failedFuture(error);
 		}
@@ -247,17 +262,26 @@ public class InMemoryIndexerLoadRepository implements IndexerLoadRepository {
 	}
 
 	private IndexerLoadRecord requireLoad(Integer indexerId, long expectedVersion) {
+		IndexerLoadRecord existing = requireLoad(indexerId);
+		requireVersion(existing, expectedVersion);
+		return existing;
+	}
+
+	private IndexerLoadRecord requireLoad(Integer indexerId) {
 		IndexerLoadRecord existing = loadsByIndexerId.get(indexerId);
 		if (existing == null) {
 			throw new IllegalStateException("Indexer load not found: " + indexerId);
 		}
+		return existing;
+	}
+
+	private void requireVersion(IndexerLoadRecord existing, long expectedVersion) {
 		if (existing.version() != expectedVersion) {
 			throw new IllegalStateException(
-				"Indexer load version conflict for id " + indexerId + ": expected "
+				"Indexer load version conflict for id " + existing.indexerId() + ": expected "
 					+ expectedVersion + " but was " + existing.version()
 			);
 		}
-		return existing;
 	}
 
 	private boolean isActive(IndexerLoadState state) {
