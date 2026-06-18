@@ -8,6 +8,7 @@ import com.inqwise.indexer.IndexerActionType;
 import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.IndexerRole;
 import com.inqwise.indexer.IndexerType;
+import com.inqwise.indexer.errors.RetryableStaleStateException;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.IndexerRecord;
 import com.inqwise.indexer.metadata.InsertIndexer;
@@ -70,12 +71,13 @@ public class LoadWriterActionReceiveCapability implements IndexerActionReceiveCa
 			.compose(found -> found
 				.map(Future::succeededFuture)
 				.orElseGet(() -> Future.failedFuture("Indexer load not found: " + loadIndexer.id())))
-			.compose(load -> prepare(load, loadIndexer));
+			.compose(load -> prepare(load, loadIndexer, true));
 	}
 
 	private Future<PreparedIndexers> prepare(
 		IndexerLoadRecord load,
-		IndexerRecord loadIndexer
+		IndexerRecord loadIndexer,
+		boolean retryStaleState
 	) {
 		if (load.liveIndexerId() != null) {
 			return metadataRepository.getIndexerById(load.liveIndexerId())
@@ -111,11 +113,45 @@ public class LoadWriterActionReceiveCapability implements IndexerActionReceiveCa
 			IndexerRuntimeState.ACTIVE,
 			PublicationState.UNPUBLISHED,
 			MutationState.WRITABLE
-		)).compose(liveWriter -> loadRepository.attachLiveWriterIfAbsent(new AttachLiveWriterRequest(
+		)).compose(liveWriter -> attachPreparedLiveWriter(load, loadIndexer, liveWriter, retryStaleState));
+	}
+
+	private Future<PreparedIndexers> attachPreparedLiveWriter(
+		IndexerLoadRecord load,
+		IndexerRecord loadIndexer,
+		IndexerRecord liveWriter,
+		boolean retryStaleState
+	) {
+		return loadRepository.attachLiveWriterIfAbsent(new AttachLiveWriterRequest(
 			load.indexerId(),
 			liveWriter.id(),
 			load.version()
-		)).compose(attached -> preparedLiveWriter(liveWriter, attached)));
+		)).compose(attached -> preparedLiveWriter(liveWriter, attached))
+			.recover(error -> recoverStaleState(load, loadIndexer, retryStaleState, error));
+	}
+
+	private Future<PreparedIndexers> recoverStaleState(
+		IndexerLoadRecord load,
+		IndexerRecord loadIndexer,
+		boolean retryStaleState,
+		Throwable error
+	) {
+		if (!isVersionConflict(error)) {
+			return Future.failedFuture(error);
+		}
+
+		if (!retryStaleState) {
+			return Future.failedFuture(new RetryableStaleStateException(
+				"Indexer load changed while preparing live writer: " + load.indexerId(),
+				error
+			));
+		}
+
+		return loadRepository.getByIndexerId(load.indexerId())
+			.compose(found -> found
+				.map(Future::succeededFuture)
+				.orElseGet(() -> Future.failedFuture("Indexer load not found: " + load.indexerId())))
+			.compose(reloaded -> prepare(reloaded, loadIndexer, false));
 	}
 
 	private Future<PreparedIndexers> preparedLiveWriter(
@@ -146,6 +182,10 @@ public class LoadWriterActionReceiveCapability implements IndexerActionReceiveCa
 		return state != IndexerLoadState.PUBLISHED
 			&& state != IndexerLoadState.FAILED
 			&& state != IndexerLoadState.CANCELLED;
+	}
+
+	private boolean isVersionConflict(Throwable error) {
+		return error.getMessage() != null && error.getMessage().contains("version conflict");
 	}
 
 	private String liveQueueName(IndexerRecord loadIndexer) {

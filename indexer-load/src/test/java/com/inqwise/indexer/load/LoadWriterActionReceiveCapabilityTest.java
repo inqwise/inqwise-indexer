@@ -1,6 +1,7 @@
 package com.inqwise.indexer.load;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Instant;
@@ -29,6 +30,7 @@ import com.inqwise.indexer.commands.InMemoryCommandService;
 import com.inqwise.indexer.commands.SubmitIndexActionsCommand;
 import com.inqwise.indexer.commands.SubmitIndexActionsCommandHandler;
 import com.inqwise.indexer.definitions.StaticTargetDefinitionProvider;
+import com.inqwise.indexer.errors.RetryableStaleStateException;
 import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.IndexerRecord;
 import com.inqwise.indexer.metadata.InsertIndexer;
@@ -135,6 +137,63 @@ class LoadWriterActionReceiveCapabilityTest {
 			})));
 	}
 
+	@Test
+	void prepareRetriesOnceAfterVersionConflict(VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository metadata = new InMemoryDocumentStoreMetadataRepository();
+		OneTimeVersionConflictLoadRepository loads = new OneTimeVersionConflictLoadRepository();
+		LoadWriterActionReceiveCapability capability =
+			new LoadWriterActionReceiveCapability(metadata, loads);
+
+		insertLazyLoad(metadata, loads)
+			.compose(load -> metadata.getIndexerById(load.indexerId())
+				.compose(loadWriter -> capability.prepareToReceive(new com.inqwise.indexer.providers.PrepareIndexerForActionsRequest(
+					"command-1",
+					null,
+					loadWriter.orElseThrow(),
+					List.of(PutDocumentActionItem.builder()
+						.withTargetId(load.targetId())
+						.withUid("42")
+						.withDocument(new JsonObject().put("name", "Ada"))
+						.build()),
+					null
+				)).compose(prepared -> loads.getByIndexerId(load.indexerId())
+					.map(updated -> new PrepareResult(prepared, updated.orElseThrow())))))
+			.onComplete(testContext.succeeding(result -> testContext.verify(() -> {
+				assertEquals(1, result.prepared().indexers().size());
+				assertEquals(IndexerRole.LIVE_WRITER, result.prepared().indexers().get(0).role());
+				assertEquals(result.prepared().indexers().get(0).id(), result.load().liveIndexerId());
+				assertEquals(2L, result.load().version());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void prepareFailsWithRetryableStaleStateAfterSecondVersionConflict(VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository metadata = new InMemoryDocumentStoreMetadataRepository();
+		AlwaysVersionConflictLoadRepository loads = new AlwaysVersionConflictLoadRepository();
+		LoadWriterActionReceiveCapability capability =
+			new LoadWriterActionReceiveCapability(metadata, loads);
+
+		insertLazyLoad(metadata, loads)
+			.compose(load -> metadata.getIndexerById(load.indexerId())
+				.compose(loadWriter -> capability.prepareToReceive(new com.inqwise.indexer.providers.PrepareIndexerForActionsRequest(
+					"command-1",
+					null,
+					loadWriter.orElseThrow(),
+					List.of(PutDocumentActionItem.builder()
+						.withTargetId(load.targetId())
+						.withUid("42")
+						.withDocument(new JsonObject().put("name", "Ada"))
+						.build()),
+					null
+				))))
+			.onComplete(testContext.failing(error -> testContext.verify(() -> {
+				assertInstanceOf(RetryableStaleStateException.class, error);
+				assertEquals("Indexer load changed while preparing live writer: 1", error.getMessage());
+				testContext.completeNow();
+			})));
+	}
+
 	private Future<IndexerLoadRecord> insertLazyLoad(
 		InMemoryDocumentStoreMetadataRepository metadata,
 		InMemoryIndexerLoadRepository loads
@@ -236,5 +295,52 @@ class LoadWriterActionReceiveCapabilityTest {
 		IndexerLoadRecord load,
 		IndexerRecord liveWriter
 	) {
+	}
+
+	private record PrepareResult(
+		com.inqwise.indexer.providers.PreparedIndexers prepared,
+		IndexerLoadRecord load
+	) {
+	}
+
+	private static class OneTimeVersionConflictLoadRepository extends InMemoryIndexerLoadRepository {
+		private boolean conflictInjected;
+
+		@Override
+		public synchronized Future<AttachLiveWriterResult> attachLiveWriterIfAbsent(
+			AttachLiveWriterRequest request
+		) {
+			if (!conflictInjected) {
+				conflictInjected = true;
+				Future<Void> updated = updateState(new UpdateIndexerLoadState(
+					request.indexerId(),
+					IndexerLoadState.HISTORICAL_LOADING,
+					request.expectedVersion()
+				));
+				if (updated.failed()) {
+					return Future.failedFuture(updated.cause());
+				}
+			}
+
+			return super.attachLiveWriterIfAbsent(request);
+		}
+	}
+
+	private static class AlwaysVersionConflictLoadRepository extends InMemoryIndexerLoadRepository {
+		@Override
+		public synchronized Future<AttachLiveWriterResult> attachLiveWriterIfAbsent(
+			AttachLiveWriterRequest request
+		) {
+			Future<Void> updated = updateState(new UpdateIndexerLoadState(
+				request.indexerId(),
+				IndexerLoadState.HISTORICAL_LOADING,
+				request.expectedVersion()
+			));
+			if (updated.failed()) {
+				return Future.failedFuture(updated.cause());
+			}
+
+			return super.attachLiveWriterIfAbsent(request);
+		}
 	}
 }
