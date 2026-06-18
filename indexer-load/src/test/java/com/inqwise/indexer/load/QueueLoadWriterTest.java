@@ -1,15 +1,91 @@
 package com.inqwise.indexer.load;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import com.inqwise.indexer.CompleteIndexActionItem;
+import com.inqwise.indexer.IndexerActionItem;
+import com.inqwise.indexer.IndexerQueueClient;
+import com.inqwise.indexer.IndexerQueueConsumer;
+import com.inqwise.indexer.IndexerQueueConsumerOptions;
+import com.inqwise.indexer.IndexerQueuePublisher;
 import com.inqwise.indexer.InMemoryIndexerQueue;
+import com.inqwise.indexer.PutDocumentActionItem;
+import com.inqwise.indexer.RemoveDocumentActionItem;
+
+import io.vertx.core.Future;
+import io.vertx.core.json.JsonObject;
 
 class QueueLoadWriterTest {
+	@Test
+	void submitNormalizesDocumentActionsToLoadWriterIdentity() {
+		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
+		RecordingQueue queue = new RecordingQueue();
+		QueueLoadWriter writer = writer(loads, queue);
+
+		var submitted = writer.submit(List.of(
+			PutDocumentActionItem.builder()
+				.withUid("42")
+				.withDocument(new JsonObject().put("name", "Ada"))
+				.build(),
+			RemoveDocumentActionItem.builder()
+				.withUid("43")
+				.build()
+		));
+
+		assertTrue(submitted.succeeded());
+		assertEquals(2, queue.items.size());
+		PutDocumentActionItem put = assertInstanceOf(PutDocumentActionItem.class, queue.items.get(0));
+		assertEquals(10, put.getTargetId());
+		assertEquals(20, put.getIndexerId());
+		assertEquals("customers--idx-load", put.getIndexName());
+		assertEquals("42", put.getUid());
+		RemoveDocumentActionItem remove = assertInstanceOf(RemoveDocumentActionItem.class, queue.items.get(1));
+		assertEquals(10, remove.getTargetId());
+		assertEquals(20, remove.getIndexerId());
+		assertEquals("customers--idx-load", remove.getIndexName());
+		assertEquals("43", remove.getUid());
+	}
+
+	@Test
+	void submitRejectsMismatchedConcreteAction() {
+		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
+		QueueLoadWriter writer = writer(loads);
+
+		var submitted = writer.submit(List.of(PutDocumentActionItem.builder()
+			.withTargetId(11)
+			.withUid("42")
+			.withDocument(new JsonObject())
+			.build()));
+
+		assertTrue(submitted.failed());
+		assertEquals("Action target id mismatch", submitted.cause().getMessage());
+	}
+
+	@Test
+	void submitRejectsInternalMarkers() {
+		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
+		QueueLoadWriter writer = writer(loads);
+
+		var submitted = writer.submit(List.of(CompleteIndexActionItem.builder()
+			.withTargetId(10)
+			.withIndexerId(20)
+			.build()));
+
+		assertTrue(submitted.failed());
+		assertEquals(
+			"LoadWriter.submit does not accept internal marker action: COMPLETE",
+			submitted.cause().getMessage()
+		);
+	}
+
 	@Test
 	void failMarksActiveLoadFailed() {
 		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
@@ -54,11 +130,16 @@ class QueueLoadWriterTest {
 	}
 
 	private QueueLoadWriter writer(InMemoryIndexerLoadRepository loads) {
+		return writer(loads, new InMemoryIndexerQueue());
+	}
+
+	private QueueLoadWriter writer(InMemoryIndexerLoadRepository loads, IndexerQueueClient queue) {
 		return new QueueLoadWriter(
 			10,
 			20,
+			"customers--idx-load",
 			"customers--queue-load",
-			new InMemoryIndexerQueue(),
+			queue,
 			loads
 		);
 	}
@@ -79,5 +160,30 @@ class QueueLoadWriterTest {
 			null,
 			false
 		);
+	}
+
+	private static class RecordingQueue implements IndexerQueueClient {
+		private final List<IndexerActionItem> items = new ArrayList<>();
+
+		@Override
+		public Future<IndexerQueuePublisher> publisher(String queueName) {
+			return Future.succeededFuture(new IndexerQueuePublisher() {
+				@Override
+				public Future<Void> publish(IndexerActionItem item) {
+					items.add(item);
+					return Future.succeededFuture();
+				}
+
+				@Override
+				public Future<Void> close() {
+					return Future.succeededFuture();
+				}
+			});
+		}
+
+		@Override
+		public Future<IndexerQueueConsumer> consumer(IndexerQueueConsumerOptions options) {
+			return Future.failedFuture("consumer is not expected");
+		}
 	}
 }

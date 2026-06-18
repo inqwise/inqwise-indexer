@@ -159,6 +159,7 @@ public class StartLoadCommandHandler implements CommandHandler {
 		return new QueueLoadWriter(
 			load.targetId(),
 			load.indexerId(),
+			loadWriter.indexName(),
 			loadWriter.queueName(),
 			queueClient,
 			loadRepository

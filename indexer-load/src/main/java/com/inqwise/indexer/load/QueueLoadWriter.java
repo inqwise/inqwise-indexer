@@ -4,16 +4,21 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
+import com.inqwise.indexer.Actions;
 import com.inqwise.indexer.CompleteIndexActionItem;
 import com.inqwise.indexer.IndexerActionItem;
 import com.inqwise.indexer.IndexerQueueClient;
 import com.inqwise.indexer.IndexerQueuePublisher;
+import com.inqwise.indexer.IndexerRole;
+import com.inqwise.indexer.actions.IndexerActionRouteContext;
+import com.inqwise.indexer.actions.IndexerActionRouteMode;
 
 import io.vertx.core.Future;
 
 public class QueueLoadWriter implements LoadWriter {
 	private final Integer targetId;
 	private final Integer indexerId;
+	private final String indexName;
 	private final String queueName;
 	private final IndexerQueueClient queue;
 	private final IndexerLoadRepository loadRepository;
@@ -21,12 +26,14 @@ public class QueueLoadWriter implements LoadWriter {
 	public QueueLoadWriter(
 		Integer targetId,
 		Integer indexerId,
+		String indexName,
 		String queueName,
 		IndexerQueueClient queue,
 		IndexerLoadRepository loadRepository
 	) {
 		this.targetId = Objects.requireNonNull(targetId, "targetId");
 		this.indexerId = Objects.requireNonNull(indexerId, "indexerId");
+		this.indexName = Objects.requireNonNull(indexName, "indexName");
 		this.queueName = Objects.requireNonNull(queueName, "queueName");
 		this.queue = Objects.requireNonNull(queue, "queue");
 		this.loadRepository = Objects.requireNonNull(loadRepository, "loadRepository");
@@ -34,7 +41,11 @@ public class QueueLoadWriter implements LoadWriter {
 
 	@Override
 	public Future<Void> submit(List<IndexerActionItem> items) {
-		return publish(List.copyOf(Objects.requireNonNull(items, "items")));
+		try {
+			return publish(normalize(List.copyOf(Objects.requireNonNull(items, "items"))));
+		} catch (RuntimeException error) {
+			return Future.failedFuture(error);
+		}
 	}
 
 	@Override
@@ -83,5 +94,32 @@ public class QueueLoadWriter implements LoadWriter {
 			published = published.compose(ignored -> publisher.publish(item));
 		}
 		return published;
+	}
+
+	private List<IndexerActionItem> normalize(List<IndexerActionItem> items) {
+		List<IndexerActionItem> normalized = new ArrayList<>(items.size());
+		for (IndexerActionItem item : items) {
+			normalized.add(normalize(item));
+		}
+		return normalized;
+	}
+
+	private IndexerActionItem normalize(IndexerActionItem item) {
+		return switch (item.getActionType()) {
+			case PUT_DOCUMENT, REMOVE_DOCUMENT -> Actions.getProvider(item.getActionType())
+				.router()
+				.route(new IndexerActionRouteContext(
+					targetId,
+					indexerId,
+					null,
+					indexName,
+					queueName,
+					IndexerRole.LOAD_WRITER
+				), item, IndexerActionRouteMode.DIRECT)
+				.orElseThrow(() -> new IllegalArgumentException("Action is not accepted by load writer"));
+			case COMPLETE, CATCH_UP_BARRIER -> throw new IllegalArgumentException(
+				"LoadWriter.submit does not accept internal marker action: " + item.getActionType()
+			);
+		};
 	}
 }
