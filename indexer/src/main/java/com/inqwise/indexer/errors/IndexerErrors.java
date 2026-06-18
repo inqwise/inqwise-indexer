@@ -30,6 +30,10 @@ public final class IndexerErrors {
 			return fromCommandFailure(failure);
 		}
 
+		if (error instanceof RetryableStaleStateException staleState) {
+			return staleState.toErrorTicket();
+		}
+
 		return ErrorTicket.propagate(error, builder -> builder.withError(IndexerErrorCodes.InternalError));
 	}
 
