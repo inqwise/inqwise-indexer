@@ -1,0 +1,62 @@
+openapi: 3.0.3
+info:
+  title: inqwise-indexer gateway API
+  version: 0.1.0
+paths:
+  /gateway/status:
+    get:
+      operationId: gatewayStatus
+      responses:
+        '200':
+          description: Gateway status.
+          content:
+            application/json:
+              schema:
+                type: object
+  /gateway/admin/targets:
+    get:
+      operationId: gatewayListTargets
+      parameters:
+        - $ref: '#/components/parameters/IdQuery'
+        - name: target_name
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+        - name: status
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+        - name: provisioning_state
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+      responses:
+        '200':
+          description: Target list.
+          content:
+            application/json:
+              schema:
+                type: object
+components:
+  parameters:
+    IdQuery:
+      name: id
+      in: query
+      schema:
+        type: array
+        items:
+          type: integer
+      style: form
+      explode: true

@@ -2,14 +2,20 @@ package com.inqwise.indexer.gateway;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
+import io.vertx.ext.web.RoutingContext;
 import io.vertx.junit5.VertxExtension;
 import io.vertx.junit5.VertxTestContext;
 
@@ -73,6 +79,86 @@ class GatewayRestVerticleTest {
 			.onComplete(testContext.succeeding(body -> testContext.verify(() -> {
 				JsonObject error = body.toJsonObject().getJsonObject("error");
 				assertEquals("ADMIN_REST_NOT_CONFIGURED", error.getString("code"));
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void appliesGatewayHooksAroundSuccessfulOperation(Vertx vertx, VertxTestContext testContext) {
+		List<String> calls = new ArrayList<>();
+		GatewayRequestHooks hooks = new GatewayRequestHooks() {
+			@Override
+			public Future<Void> authenticate(RoutingContext context, String operationId) {
+				calls.add("authenticate:" + operationId);
+				return Future.succeededFuture();
+			}
+
+			@Override
+			public Future<Void> authorize(RoutingContext context, String operationId) {
+				calls.add("authorize:" + operationId);
+				return Future.succeededFuture();
+			}
+
+			@Override
+			public Future<Void> rateLimit(RoutingContext context, String operationId) {
+				calls.add("rateLimit:" + operationId);
+				return Future.succeededFuture();
+			}
+
+			@Override
+			public void auditSuccess(RoutingContext context, String operationId) {
+				calls.add("auditSuccess:" + operationId);
+			}
+		};
+		GatewayRestVerticle gateway = new GatewayRestVerticle(new GatewayRestOptions().setPort(0), hooks);
+
+		vertx.deployVerticle(gateway)
+			.compose(ignored -> vertx.createHttpClient()
+				.request(HttpMethod.GET, gateway.actualPort(), "127.0.0.1", "/gateway/status")
+				.compose(request -> request.send())
+				.compose(response -> {
+					assertEquals(200, response.statusCode());
+					return response.body();
+				}))
+			.onComplete(testContext.succeeding(body -> testContext.verify(() -> {
+				assertEquals(List.of(
+					"authenticate:gatewayStatus",
+					"authorize:gatewayStatus",
+					"rateLimit:gatewayStatus",
+					"auditSuccess:gatewayStatus"
+				), calls);
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void rejectsGatewayOperationWhenHookFails(Vertx vertx, VertxTestContext testContext) {
+		AtomicInteger auditFailures = new AtomicInteger();
+		GatewayRequestHooks hooks = new GatewayRequestHooks() {
+			@Override
+			public Future<Void> authorize(RoutingContext context, String operationId) {
+				return Future.failedFuture("denied");
+			}
+
+			@Override
+			public void auditFailure(RoutingContext context, String operationId, Throwable error) {
+				auditFailures.incrementAndGet();
+			}
+		};
+		GatewayRestVerticle gateway = new GatewayRestVerticle(new GatewayRestOptions().setPort(0), hooks);
+
+		vertx.deployVerticle(gateway)
+			.compose(ignored -> vertx.createHttpClient()
+				.request(HttpMethod.GET, gateway.actualPort(), "127.0.0.1", "/gateway/status")
+				.compose(request -> request.send())
+				.compose(response -> {
+					assertEquals(403, response.statusCode());
+					return response.body();
+				}))
+			.onComplete(testContext.succeeding(body -> testContext.verify(() -> {
+				JsonObject error = body.toJsonObject().getJsonObject("error");
+				assertEquals("GATEWAY_REQUEST_REJECTED", error.getString("code"));
+				assertEquals(1, auditFailures.get());
 				testContext.completeNow();
 			})));
 	}

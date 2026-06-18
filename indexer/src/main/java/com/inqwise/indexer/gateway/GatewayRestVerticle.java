@@ -1,32 +1,39 @@
 package com.inqwise.indexer.gateway;
 
-import java.net.URI;
-import java.net.URISyntaxException;
+import java.util.function.Supplier;
 
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.Future;
 import io.vertx.core.Promise;
-import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpClient;
-import io.vertx.core.http.HttpClientRequest;
-import io.vertx.core.http.HttpClientResponse;
-import io.vertx.core.http.HttpMethod;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
+import io.vertx.ext.web.handler.BodyHandler;
+import io.vertx.ext.web.openapi.router.RequestExtractor;
+import io.vertx.ext.web.openapi.router.RouterBuilder;
+import io.vertx.openapi.contract.OpenAPIContract;
 
 public class GatewayRestVerticle extends AbstractVerticle {
 	private final GatewayRestOptions configuredOptions;
+	private final GatewayRequestHooks hooks;
 	private HttpServer server;
 	private HttpClient client;
 	private int actualPort = -1;
 
 	public GatewayRestVerticle() {
 		this.configuredOptions = null;
+		this.hooks = GatewayRequestHooks.NOOP;
 	}
 
 	public GatewayRestVerticle(GatewayRestOptions options) {
 		this.configuredOptions = options;
+		this.hooks = GatewayRequestHooks.NOOP;
+	}
+
+	public GatewayRestVerticle(GatewayRestOptions options, GatewayRequestHooks hooks) {
+		this.configuredOptions = options;
+		this.hooks = hooks == null ? GatewayRequestHooks.NOOP : hooks;
 	}
 
 	@Override
@@ -35,22 +42,45 @@ public class GatewayRestVerticle extends AbstractVerticle {
 			? new GatewayRestOptions(config())
 			: configuredOptions;
 		client = vertx.createHttpClient();
-		Router router = Router.router(vertx);
-		router.get("/gateway/status").handler(context -> context.response()
-			.putHeader("content-type", "application/json")
-			.end(status(options).encode()));
-		router.get("/gateway/admin/targets").handler(context ->
-			proxyAdminGet(context, options, "/admin/targets"));
 
-		vertx.createHttpServer()
-			.requestHandler(router)
-			.listen(options.getPort(), options.getHost())
+		OpenAPIContract.from(vertx, options.getOpenApiPath())
+			.map(contract -> {
+				RouterBuilder builder = RouterBuilder.create(
+					vertx,
+					contract,
+					RequestExtractor.withBodyHandler()
+				);
+				builder.rootHandler(BodyHandler.create());
+				builder.getRoute("gatewayStatus")
+					.addHandler(context -> handle(
+						context,
+						"gatewayStatus",
+						() -> writeJson(context, status(options))
+					));
+				builder.getRoute("gatewayListTargets")
+					.addHandler(context -> handle(
+						context,
+						"gatewayListTargets",
+						() -> GatewayProxyOperations.proxyAdminGet(
+							context,
+							client,
+							options,
+							"/admin/targets"
+						)
+					));
+
+				return builder.createRouter();
+			})
+			.compose(router -> vertx.createHttpServer()
+				.requestHandler(router)
+				.listen(options.getPort(), options.getHost()))
 			.onComplete(result -> {
 				if (result.succeeded()) {
 					server = result.result();
 					actualPort = server.actualPort();
 					startPromise.complete();
 				} else {
+					closeClient();
 					startPromise.fail(result.cause());
 				}
 			});
@@ -81,95 +111,33 @@ public class GatewayRestVerticle extends AbstractVerticle {
 			.put("admin_rest_configured", options.getAdminRestBaseUri() != null);
 	}
 
-	private void proxyAdminGet(RoutingContext context, GatewayRestOptions options, String upstreamPath) {
-		URI baseUri;
-		try {
-			baseUri = adminRestBaseUri(options);
-		} catch (IllegalArgumentException error) {
-			writeJsonError(context, 503, "ADMIN_REST_NOT_CONFIGURED", error.getMessage());
-			return;
-		}
-
-		String requestUri = upstreamPathWithQuery(context, upstreamPath);
-		client.request(HttpMethod.GET, upstreamPort(baseUri), baseUri.getHost(), requestUri)
-			.compose(request -> send(request, options))
-			.compose(this::bodyWithResponse)
-			.onSuccess(upstream -> writeProxyResponse(context, upstream))
-			.onFailure(error -> writeJsonError(context, 502, "UPSTREAM_UNAVAILABLE", error.getMessage()));
-	}
-
-	private static URI adminRestBaseUri(GatewayRestOptions options) {
-		String value = options.getAdminRestBaseUri();
-		if (value == null || value.isBlank()) {
-			throw new IllegalArgumentException("Admin REST base URI is not configured");
-		}
-
-		URI uri;
-		try {
-			uri = new URI(value);
-		} catch (URISyntaxException error) {
-			throw new IllegalArgumentException("Admin REST base URI is invalid", error);
-		}
-
-		if (!"http".equals(uri.getScheme()) || uri.getHost() == null) {
-			throw new IllegalArgumentException("Admin REST base URI must be an http URI with host");
-		}
-
-		return uri;
-	}
-
-	private static int upstreamPort(URI baseUri) {
-		return baseUri.getPort() < 0 ? 80 : baseUri.getPort();
-	}
-
-	private static String upstreamPathWithQuery(RoutingContext context, String upstreamPath) {
-		String query = context.request().query();
-		if (query == null || query.isBlank()) {
-			return upstreamPath;
-		}
-
-		return upstreamPath + "?" + query;
-	}
-
-	private static io.vertx.core.Future<HttpClientResponse> send(
-		HttpClientRequest request,
-		GatewayRestOptions options
-	) {
-		return request
-			.idleTimeout(options.getRequestTimeoutMs())
-			.putHeader("accept", "application/json")
-			.send();
-	}
-
-	private io.vertx.core.Future<UpstreamResponse> bodyWithResponse(HttpClientResponse response) {
-		return response.body()
-			.map(body -> new UpstreamResponse(response.statusCode(), response.getHeader("content-type"), body));
-	}
-
-	private static void writeProxyResponse(RoutingContext context, UpstreamResponse upstream) {
-		if (upstream.contentType() != null) {
-			context.response().putHeader("content-type", upstream.contentType());
-		}
-
-		context.response()
-			.setStatusCode(upstream.statusCode())
-			.end(upstream.body());
-	}
-
-	private static void writeJsonError(
+	private void handle(
 		RoutingContext context,
-		int statusCode,
-		String code,
-		String message
+		String operationId,
+		Supplier<Future<Void>> operation
 	) {
-		context.response()
-			.setStatusCode(statusCode)
+		hooks.authenticate(context, operationId)
+			.compose(ignored -> hooks.authorize(context, operationId))
+			.compose(ignored -> hooks.rateLimit(context, operationId))
+			.compose(ignored -> operation.get())
+			.onSuccess(ignored -> hooks.auditSuccess(context, operationId))
+			.onFailure(error -> {
+				hooks.auditFailure(context, operationId, error);
+				if (!context.response().ended()) {
+					GatewayProxyOperations.writeJsonError(
+						context,
+						403,
+						"GATEWAY_REQUEST_REJECTED",
+						error.getMessage()
+					);
+				}
+			});
+	}
+
+	private static Future<Void> writeJson(RoutingContext context, JsonObject body) {
+		return context.response()
 			.putHeader("content-type", "application/json")
-			.end(new JsonObject()
-				.put("error", new JsonObject()
-					.put("code", code)
-					.put("message", message))
-				.encode());
+			.end(body.encode());
 	}
 
 	private void closeClient() {
@@ -177,8 +145,5 @@ public class GatewayRestVerticle extends AbstractVerticle {
 			client.close();
 			client = null;
 		}
-	}
-
-	private record UpstreamResponse(int statusCode, String contentType, Buffer body) {
 	}
 }
