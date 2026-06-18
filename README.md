@@ -165,7 +165,7 @@ Historical-only loads publish the `LOAD_WRITER` after successful completion unle
 
 `ApproveLoadPublicationCommand` records `approvedAt`, `approvedBy`, and `approvalReason`. If approval makes the load publishable, it submits `PublishLoadCommand` through the command service. Marker handling can also auto-publish non-reviewed loads when a command service is supplied: historical-only loads publish after the completion marker, and linked live loads publish after the catch-up barrier marker.
 
-`CancelLoadCommand` resolves the stored provider id from `IndexerLoadRecord`, stops that provider, marks the load `CANCELLED`, and, when wired with a command service, submits generic delete commands for the load writer and optional linked live writer. Published loads are not cancellable through this command.
+`CancelLoadCommand` marks the load `CANCELLED` and, when wired with a command service, submits generic delete commands for the load writer and optional linked live writer. A `CREATED` load has not been accepted by a provider yet, so cancel skips provider stop. `STARTING` and later active states resolve the stored provider id from `IndexerLoadRecord` and stop that provider before cancellation. Published loads are not cancellable through this command.
 
 `LoadAwareIndexerEventPublisher` is the load-side runtime failure bridge. It observes `ACTION_ITEM_FAILED` events, finds an active load for the failing indexer id, marks the load `FAILED`, attempts to stop the stored provider, and then delegates the original event. Runtime processing stays generic; load workflow state remains in `indexer-load`.
 

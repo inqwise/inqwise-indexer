@@ -74,8 +74,7 @@ public class CancelLoadCommandHandler implements CommandHandler {
 			return cleanup(load);
 		}
 
-		return loadProviderRegistry.get(load.providerId())
-			.compose(provider -> provider.stop(new LoadStopRequest(load.indexerId(), cancel.getReason())))
+		return stopProviderIfStarted(load, cancel)
 			.compose(ignored -> loadRepository.updateState(new UpdateIndexerLoadState(
 				load.indexerId(),
 				IndexerLoadState.CANCELLED,
@@ -85,6 +84,15 @@ public class CancelLoadCommandHandler implements CommandHandler {
 			.compose(updated -> updated
 				.map(this::cleanup)
 				.orElseGet(() -> Future.failedFuture("Indexer load not found: " + load.indexerId())));
+	}
+
+	private Future<Void> stopProviderIfStarted(IndexerLoadRecord load, CancelLoadCommand cancel) {
+		if (load.state() == IndexerLoadState.CREATED) {
+			return Future.succeededFuture();
+		}
+
+		return loadProviderRegistry.get(load.providerId())
+			.compose(provider -> provider.stop(new LoadStopRequest(load.indexerId(), cancel.getReason())));
 	}
 
 	private Future<Void> cleanup(IndexerLoadRecord load) {
