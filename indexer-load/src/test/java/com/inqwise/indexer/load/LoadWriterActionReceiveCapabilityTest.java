@@ -2,6 +2,7 @@ package com.inqwise.indexer.load;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Instant;
@@ -13,6 +14,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+import com.inqwise.events.RecordingEventPublisher;
 import com.inqwise.indexer.IndexResourceOwnership;
 import com.inqwise.indexer.IndexerActionItem;
 import com.inqwise.indexer.IndexerLifecycleEventBus;
@@ -26,6 +28,9 @@ import com.inqwise.indexer.IndexerRole;
 import com.inqwise.indexer.IndexerType;
 import com.inqwise.indexer.PutDocumentActionItem;
 import com.inqwise.indexer.TargetMetadataChanged;
+import com.inqwise.indexer.commands.Command;
+import com.inqwise.indexer.commands.CommandService;
+import com.inqwise.indexer.commands.DeleteIndexerCommand;
 import com.inqwise.indexer.commands.InMemoryCommandService;
 import com.inqwise.indexer.commands.SubmitIndexActionsCommand;
 import com.inqwise.indexer.commands.SubmitIndexActionsCommandHandler;
@@ -42,6 +47,7 @@ import com.inqwise.indexer.providers.IndexerPlugins;
 
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
+import io.vertx.core.Promise;
 import io.vertx.core.json.JsonObject;
 import io.vertx.junit5.VertxExtension;
 import io.vertx.junit5.VertxTestContext;
@@ -138,11 +144,62 @@ class LoadWriterActionReceiveCapabilityTest {
 	}
 
 	@Test
+	void concurrentPreparationSharesOneLocalFlow(VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository metadata = new InMemoryDocumentStoreMetadataRepository();
+		BlockingAttachLoadRepository loads = new BlockingAttachLoadRepository();
+		LoadWriterActionReceiveCapability capability =
+			new LoadWriterActionReceiveCapability(metadata, loads);
+
+		insertLazyLoad(metadata, loads)
+			.compose(load -> metadata.getIndexerById(load.indexerId())
+				.compose(loadWriter -> {
+					com.inqwise.indexer.providers.PrepareIndexerForActionsRequest firstRequest =
+						new com.inqwise.indexer.providers.PrepareIndexerForActionsRequest(
+							"command-1",
+							null,
+							loadWriter.orElseThrow(),
+							List.of(),
+							null
+						);
+					com.inqwise.indexer.providers.PrepareIndexerForActionsRequest secondRequest =
+						new com.inqwise.indexer.providers.PrepareIndexerForActionsRequest(
+							"command-2",
+							null,
+							loadWriter.orElseThrow(),
+							List.of(),
+							null
+						);
+
+					Future<com.inqwise.indexer.providers.PreparedIndexers> first =
+						capability.prepareToReceive(firstRequest);
+					Future<com.inqwise.indexer.providers.PreparedIndexers> second =
+						capability.prepareToReceive(secondRequest);
+					assertEquals(1, loads.attachCalls);
+					loads.completeAttach();
+					return Future.all(first, second);
+				}))
+			.onComplete(testContext.succeeding(results -> testContext.verify(() -> {
+				com.inqwise.indexer.providers.PreparedIndexers first = results.resultAt(0);
+				com.inqwise.indexer.providers.PreparedIndexers second = results.resultAt(1);
+				assertEquals(first.indexers().get(0).id(), second.indexers().get(0).id());
+				assertEquals(first, second);
+				assertEquals(1, loads.attachCalls);
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
 	void prepareRetriesOnceAfterVersionConflict(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository metadata = new InMemoryDocumentStoreMetadataRepository();
 		OneTimeVersionConflictLoadRepository loads = new OneTimeVersionConflictLoadRepository();
+		List<Command> submittedCommands = new ArrayList<>();
+		CommandService commands = command -> {
+			submittedCommands.add(command);
+			return Future.succeededFuture();
+		};
+		RecordingEventPublisher events = new RecordingEventPublisher();
 		LoadWriterActionReceiveCapability capability =
-			new LoadWriterActionReceiveCapability(metadata, loads);
+			new LoadWriterActionReceiveCapability(metadata, loads, commands, events);
 
 		insertLazyLoad(metadata, loads)
 			.compose(load -> metadata.getIndexerById(load.indexerId())
@@ -163,6 +220,117 @@ class LoadWriterActionReceiveCapabilityTest {
 				assertEquals(IndexerRole.LIVE_WRITER, result.prepared().indexers().get(0).role());
 				assertEquals(result.prepared().indexers().get(0).id(), result.load().liveIndexerId());
 				assertEquals(2L, result.load().version());
+				assertEquals(1, submittedCommands.size());
+				DeleteIndexerCommand cleanup = assertInstanceOf(
+					DeleteIndexerCommand.class,
+					submittedCommands.get(0)
+				);
+				assertEquals(0L, cleanup.getExpectedVersion());
+				assertEquals(1, events.publishedEvents().size());
+				LazyLiveWriterPreparationConflictEvent event = assertInstanceOf(
+					LazyLiveWriterPreparationConflictEvent.class,
+					events.publishedEvents().get(0).event().payload()
+				);
+				assertEquals(LazyLiveWriterPreparationConflictReason.VERSION_CONFLICT, event.reason());
+				assertEquals(cleanup.getIndexerId(), event.candidateLiveIndexerId());
+				assertTrue(event.cleanupSubmitted());
+				assertNull(event.cleanupSucceeded());
+				assertEquals("command-1", events.publishedEvents().get(0).event().correlationId());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void attachLoserReturnsWinnerAndSubmitsCandidateCleanup(VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository metadata = new InMemoryDocumentStoreMetadataRepository();
+		WinnerAttachLoadRepository loads = new WinnerAttachLoadRepository();
+		List<Command> submittedCommands = new ArrayList<>();
+		RecordingEventPublisher events = new RecordingEventPublisher();
+		LoadWriterActionReceiveCapability capability = new LoadWriterActionReceiveCapability(
+			metadata,
+			loads,
+			command -> {
+				submittedCommands.add(command);
+				return Future.succeededFuture();
+			},
+			events
+		);
+
+		insertLazyLoad(metadata, loads)
+			.compose(load -> metadata.getIndexerById(load.indexerId())
+				.compose(loadWriter -> metadata.insertIndexer(new InsertIndexer(
+					"winner",
+					load.targetId(),
+					loadWriter.orElseThrow().targetName(),
+					loadWriter.orElseThrow().indexName(),
+					"customers--queue-winner",
+					IndexerType.INDEX,
+					IndexerRole.LIVE_WRITER,
+					IndexResourceOwnership.ATTACHED,
+					IndexerRuntimeState.ACTIVE,
+					PublicationState.UNPUBLISHED,
+					MutationState.WRITABLE
+				)).compose(winnerId -> {
+					loads.winnerId = winnerId;
+					return capability.prepareToReceive(
+						new com.inqwise.indexer.providers.PrepareIndexerForActionsRequest(
+							"command-2",
+							null,
+							loadWriter.orElseThrow(),
+							List.of(),
+							null
+						)
+					).map(prepared -> new WinnerResult(prepared, winnerId));
+				})))
+			.onComplete(testContext.succeeding(result -> testContext.verify(() -> {
+				assertEquals(result.winnerId(), result.prepared().indexers().get(0).id());
+				assertEquals(false, result.prepared().metadataChanged());
+				assertEquals(1, submittedCommands.size());
+				LazyLiveWriterPreparationConflictEvent event = assertInstanceOf(
+					LazyLiveWriterPreparationConflictEvent.class,
+					events.publishedEvents().get(0).event().payload()
+				);
+				assertEquals(LazyLiveWriterPreparationConflictReason.ATTACH_LOST, event.reason());
+				assertEquals(result.winnerId(), event.winnerLiveIndexerId());
+				assertTrue(event.cleanupSubmitted());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void cleanupSubmissionFailureIsVisibleWithoutBlockingStaleRetry(
+		VertxTestContext testContext
+	) {
+		InMemoryDocumentStoreMetadataRepository metadata = new InMemoryDocumentStoreMetadataRepository();
+		OneTimeVersionConflictLoadRepository loads = new OneTimeVersionConflictLoadRepository();
+		RecordingEventPublisher events = new RecordingEventPublisher();
+		LoadWriterActionReceiveCapability capability = new LoadWriterActionReceiveCapability(
+			metadata,
+			loads,
+			command -> Future.failedFuture("cleanup transport unavailable"),
+			events
+		);
+
+		insertLazyLoad(metadata, loads)
+			.compose(load -> metadata.getIndexerById(load.indexerId())
+				.compose(loadWriter -> capability.prepareToReceive(
+					new com.inqwise.indexer.providers.PrepareIndexerForActionsRequest(
+						"command-3",
+						null,
+						loadWriter.orElseThrow(),
+						List.of(),
+						null
+					)
+				)))
+			.onComplete(testContext.succeeding(prepared -> testContext.verify(() -> {
+				assertEquals(1, prepared.indexers().size());
+				LazyLiveWriterPreparationConflictEvent event = assertInstanceOf(
+					LazyLiveWriterPreparationConflictEvent.class,
+					events.publishedEvents().get(0).event().payload()
+				);
+				assertEquals(LazyLiveWriterPreparationConflictReason.CLEANUP_FAILED, event.reason());
+				assertEquals(false, event.cleanupSubmitted());
+				assertEquals(false, event.cleanupSucceeded());
 				testContext.completeNow();
 			})));
 	}
@@ -303,6 +471,12 @@ class LoadWriterActionReceiveCapabilityTest {
 	) {
 	}
 
+	private record WinnerResult(
+		com.inqwise.indexer.providers.PreparedIndexers prepared,
+		Integer winnerId
+	) {
+	}
+
 	private static class OneTimeVersionConflictLoadRepository extends InMemoryIndexerLoadRepository {
 		private boolean conflictInjected;
 
@@ -341,6 +515,41 @@ class LoadWriterActionReceiveCapabilityTest {
 			}
 
 			return super.attachLiveWriterIfAbsent(request);
+		}
+	}
+
+	private static class WinnerAttachLoadRepository extends InMemoryIndexerLoadRepository {
+		private Integer winnerId;
+
+		@Override
+		public Future<AttachLiveWriterResult> attachLiveWriterIfAbsent(
+			AttachLiveWriterRequest request
+		) {
+			return Future.succeededFuture(new AttachLiveWriterResult(
+				false,
+				winnerId,
+				request.expectedVersion()
+			));
+		}
+	}
+
+	private static class BlockingAttachLoadRepository extends InMemoryIndexerLoadRepository {
+		private int attachCalls;
+		private AttachLiveWriterRequest pendingRequest;
+		private Promise<AttachLiveWriterResult> pendingResult;
+
+		@Override
+		public synchronized Future<AttachLiveWriterResult> attachLiveWriterIfAbsent(
+			AttachLiveWriterRequest request
+		) {
+			attachCalls++;
+			pendingRequest = request;
+			pendingResult = Promise.promise();
+			return pendingResult.future();
+		}
+
+		private synchronized void completeAttach() {
+			super.attachLiveWriterIfAbsent(pendingRequest).onComplete(pendingResult);
 		}
 	}
 }

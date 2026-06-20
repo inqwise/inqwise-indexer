@@ -18,6 +18,8 @@
 
 	<modules>
 		<module>indexer-common</module>
+		<module>indexer-events</module>
+		<module>indexer-coordination</module>
 		<module>indexer</module>
 		<module>indexer-load</module>
 	</modules>
