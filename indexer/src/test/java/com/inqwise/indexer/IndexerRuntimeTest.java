@@ -12,8 +12,9 @@ import com.inqwise.indexer.commands.DeactivateIndexerCommand;
 import com.inqwise.indexer.commands.DeactivateIndexerCommandHandler;
 import com.inqwise.indexer.commands.DeleteIndexerCommand;
 import com.inqwise.indexer.commands.DeleteIndexerCommandHandler;
+import com.inqwise.indexer.commands.CleanupDeletingIndexerCommandHandler;
 import com.inqwise.indexer.commands.InMemoryCommandService;
-import com.inqwise.indexer.metadata.DeleteIndexer;
+import com.inqwise.indexer.metadata.FinalizeIndexerDeletion;
 import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.metadata.InsertIndexer;
@@ -21,6 +22,8 @@ import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.metadata.MutationState;
 import com.inqwise.indexer.metadata.PublicationState;
 import com.inqwise.indexer.metadata.UpdateIndexerQueueName;
+import com.inqwise.indexer.operations.IndexerOperations;
+import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -259,7 +262,16 @@ class IndexerRuntimeTest {
 
 		insertIndexer(repository, IndexerRuntimeState.ACTIVE, MutationState.WRITABLE)
 			.compose(id -> runtime.reconcile(id)
-				.compose(ignored -> repository.deleteIndexer(new DeleteIndexer(id, 0L)))
+				.compose(ignored -> repository.updateIndexerMutationState(
+					new com.inqwise.indexer.metadata.UpdateIndexerMutationState(
+						id,
+						MutationState.DELETING,
+						0L
+					)
+				))
+				.compose(ignored -> repository.finalizeIndexerDeletion(
+					new FinalizeIndexerDeletion(id, 1L)
+				))
 				.compose(ignored -> runtime.reconcile(id)))
 			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
 				assertEquals(1, activated.get());
@@ -270,7 +282,7 @@ class IndexerRuntimeTest {
 	}
 
 	@Test
-	void deleteCommandClosesLocalIndexerBeforeCleaningResources(
+	void deleteCommandClosesLocalIndexer(
 		Vertx vertx,
 		VertxTestContext testContext
 	) {
@@ -281,7 +293,6 @@ class IndexerRuntimeTest {
 		AtomicInteger activated = new AtomicInteger();
 		AtomicInteger unregistered = new AtomicInteger();
 		AtomicInteger closed = new AtomicInteger();
-		AtomicInteger cleaned = new AtomicInteger();
 		IndexerRuntime runtime = new IndexerRuntime(
 			repository,
 			eventBus,
@@ -291,13 +302,7 @@ class IndexerRuntimeTest {
 				activated,
 				unregistered,
 				closed
-			),
-			model -> {
-				assertEquals(1, closed.get());
-				assertEquals("customers_1", model.getIndexName());
-				cleaned.incrementAndGet();
-				return Future.succeededFuture();
-			}
+			)
 		);
 
 		insertIndexer(repository, IndexerRuntimeState.ACTIVE, MutationState.WRITABLE)
@@ -306,83 +311,51 @@ class IndexerRuntimeTest {
 				.compose(ignored -> commandService.submit(new DeleteIndexerCommand(id, 0L)))
 				.compose(ignored -> repository.getIndexerById(id)))
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
-				assertTrue(found.isPresent());
-				assertEquals(MutationState.DELETING, found.get().mutationState());
-				assertEquals(IndexerRuntimeState.NON_ACTIVE, found.get().runtimeState());
+				assertTrue(found.isEmpty());
 				assertEquals(1, activated.get());
 				assertEquals(0, unregistered.get());
 				assertEquals(1, closed.get());
-				assertEquals(1, cleaned.get());
 				testContext.completeNow();
 			})));
 	}
 
 	@Test
-	void deletedReconcileWithoutLocalIndexerStillCleansResources(
+	void deletingReconcileWithoutLocalIndexerIsNoop(
 		VertxTestContext testContext
 	) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
-		AtomicInteger cleaned = new AtomicInteger();
 		IndexerRuntime runtime = new IndexerRuntime(
 			repository,
 			eventBus,
 			indexer -> {
 				throw new AssertionError("Deleted reconcile must not activate");
-			},
-			model -> {
-				assertEquals("customers_1", model.getIndexName());
-				cleaned.incrementAndGet();
-				return Future.succeededFuture();
 			}
 		);
 
 		insertIndexer(repository, IndexerRuntimeState.NON_ACTIVE, MutationState.DELETING)
 			.compose(runtime::reconcile)
-			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
-				assertEquals(1, cleaned.get());
-				testContext.completeNow();
-			})));
-	}
-
-	@Test
-	void cleanerFailureFailsDeletedReconcileForRetry(
-		VertxTestContext testContext
-	) {
-		InMemoryDocumentStoreMetadataRepository repository =
-			new InMemoryDocumentStoreMetadataRepository();
-		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
-		AtomicInteger cleaned = new AtomicInteger();
-		IndexerRuntime runtime = new IndexerRuntime(
-			repository,
-			eventBus,
-			indexer -> {
-				throw new AssertionError("Deleted reconcile must not activate");
-			},
-			model -> {
-				cleaned.incrementAndGet();
-				return Future.failedFuture("cleanup failed");
-			}
-		);
-
-		insertIndexer(repository, IndexerRuntimeState.NON_ACTIVE, MutationState.DELETING)
-			.compose(runtime::reconcile)
-			.onComplete(testContext.failing(error -> testContext.verify(() -> {
-				assertTrue(error.getMessage().contains("cleanup failed"));
-				assertEquals(1, cleaned.get());
-				testContext.completeNow();
-			})));
+			.onComplete(testContext.succeeding(ignored -> testContext.completeNow()));
 	}
 
 	private InMemoryCommandService commandService(
 		InMemoryDocumentStoreMetadataRepository repository,
 		InMemoryIndexerLifecycleEventBus eventBus
 	) {
-		return new InMemoryCommandService()
+		InMemoryCommandService commandService = new InMemoryCommandService();
+		return commandService
 			.register(new ActivateIndexerCommandHandler(repository, eventBus))
 			.register(new DeactivateIndexerCommandHandler(repository, eventBus))
-			.register(new DeleteIndexerCommandHandler(repository, eventBus));
+			.register(new CleanupDeletingIndexerCommandHandler(
+				repository,
+				IndexerQueueResourceManager.NOOP,
+				IndexerDocumentIndexResourceManager.NOOP
+			))
+			.register(new DeleteIndexerCommandHandler(
+				new IndexerOperations(repository, eventBus),
+				commandService
+			));
 	}
 
 	private Future<Integer> insertIndexer(

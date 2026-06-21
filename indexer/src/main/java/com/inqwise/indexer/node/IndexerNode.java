@@ -13,6 +13,7 @@ import com.inqwise.indexer.InMemoryIndexerLifecycleEventBus;
 import com.inqwise.indexer.InMemoryIndexerQueue;
 import com.inqwise.indexer.IndexerEventPublisher;
 import com.inqwise.indexer.commands.InMemoryCommandService;
+import com.inqwise.indexer.commands.DocumentStoreCommandHandlers;
 import com.inqwise.indexer.commands.RoutedIndexActionPublisher;
 import com.inqwise.indexer.commands.SubmitIndexActionsCommandHandler;
 import com.inqwise.indexer.definitions.IndexDefinition;
@@ -32,6 +33,7 @@ import com.inqwise.indexer.hot.InvalidRouteCache;
 import com.inqwise.indexer.hot.InvalidRouteMetadataChangeListener;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
+import com.inqwise.indexer.operations.IndexerOperations;
 import com.inqwise.indexer.providers.IndexerProviders;
 import com.inqwise.indexer.providers.MetadataIndexerProvider;
 import com.inqwise.indexer.rest.action.TargetActionRestVerticle;
@@ -121,7 +123,9 @@ public class IndexerNode {
 					components.queueResources(),
 					components.targetDefinitionProvider(),
 					components.indexerDefinitionProvider(),
-					components.documentIndexResources()
+					components.documentIndexResources(),
+					components.commandService(),
+					components.indexerOperations()
 				),
 				new DeploymentOptions()
 			).onSuccess(deploymentIds::add).mapEmpty());
@@ -233,8 +237,24 @@ public class IndexerNode {
 			targetDefinitionProvider,
 			indexerProviders
 		);
-		InMemoryCommandService commandService = new InMemoryCommandService()
-			.register(new SubmitIndexActionsCommandHandler(
+		IndexerOperations indexerOperations = new IndexerOperations(
+			repository,
+			lifecycleEventBus
+		);
+		InMemoryCommandService commandService = new InMemoryCommandService();
+		DocumentStoreCommandHandlers.register(
+			commandService,
+			new DocumentStoreCommandHandlers.Config(
+				repository,
+				targetDefinitionProvider,
+				indexerDefinitionProvider,
+				documentStore,
+				queue,
+				lifecycleEventBus,
+				indexerOperations
+			)
+		);
+		commandService.register(new SubmitIndexActionsCommandHandler(
 				repository,
 				targetDefinitionProvider,
 				lifecycleEventBus,
@@ -266,6 +286,8 @@ public class IndexerNode {
 		return new IndexerNodeComponents(
 			hotIndexActionsService,
 			runtime,
+			commandService,
+			indexerOperations,
 			repository,
 			lifecycleEventBus,
 			queue,

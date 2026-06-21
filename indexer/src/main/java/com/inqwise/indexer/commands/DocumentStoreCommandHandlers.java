@@ -8,14 +8,19 @@ import com.inqwise.indexer.IndexerQueueResourceManager;
 import com.inqwise.indexer.definitions.IndexerDefinitionProvider;
 import com.inqwise.indexer.definitions.TargetDefinitionProvider;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
+import com.inqwise.indexer.operations.IndexerOperations;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 
 public final class DocumentStoreCommandHandlers {
 	private DocumentStoreCommandHandlers() {
 	}
 
-	public static List<CommandHandler> create(Config config) {
+	public static List<CommandHandler> create(
+		Config config,
+		CommandService commandService
+	) {
 		Objects.requireNonNull(config, "config");
+		Objects.requireNonNull(commandService, "commandService");
 
 		return List.of(
 			new CreateTargetCommandHandler(
@@ -39,7 +44,12 @@ public final class DocumentStoreCommandHandlers {
 			new RecoverTargetProvisioningCommandHandler(config.repository(), config.eventBus()),
 			new ActivateIndexerCommandHandler(config.repository(), config.eventBus()),
 			new DeactivateIndexerCommandHandler(config.repository(), config.eventBus()),
-			new DeleteIndexerCommandHandler(config.repository(), config.eventBus()),
+			new CleanupDeletingIndexerCommandHandler(
+				config.repository(),
+				config.queueResources(),
+				config.documentIndexResources()
+			),
+			new DeleteIndexerCommandHandler(config.indexerOperations(), commandService),
 			new ResetIndexerQueueCommandHandler(
 				config.repository(),
 				config.eventBus(),
@@ -53,7 +63,7 @@ public final class DocumentStoreCommandHandlers {
 		Config config
 	) {
 		Objects.requireNonNull(commandService, "commandService");
-		create(config).forEach(commandService::register);
+		create(config, commandService).forEach(commandService::register);
 		return commandService;
 	}
 
@@ -63,7 +73,8 @@ public final class DocumentStoreCommandHandlers {
 		IndexerDefinitionProvider indexerDefinitionProvider,
 		IndexerDocumentIndexResourceManager documentIndexResources,
 		IndexerQueueResourceManager queueResources,
-		IndexerLifecycleEventBus eventBus
+		IndexerLifecycleEventBus eventBus,
+		IndexerOperations indexerOperations
 	) {
 		public Config {
 			Objects.requireNonNull(repository, "repository");
@@ -72,6 +83,7 @@ public final class DocumentStoreCommandHandlers {
 			Objects.requireNonNull(documentIndexResources, "documentIndexResources");
 			Objects.requireNonNull(queueResources, "queueResources");
 			eventBus = eventBus == null ? IndexerLifecycleEventBus.NOOP : eventBus;
+			Objects.requireNonNull(indexerOperations, "indexerOperations");
 		}
 	}
 }

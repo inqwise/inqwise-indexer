@@ -1,0 +1,72 @@
+package com.inqwise.indexer.commands;
+
+import java.util.Objects;
+
+import com.inqwise.indexer.IndexResourceOwnership;
+import com.inqwise.indexer.IndexerQueueResourceManager;
+import com.inqwise.indexer.errors.RetryableStaleStateException;
+import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
+import com.inqwise.indexer.metadata.FinalizeIndexerDeletion;
+import com.inqwise.indexer.metadata.IndexerRecord;
+import com.inqwise.indexer.metadata.MutationState;
+import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
+
+import io.vertx.core.Future;
+
+public final class CleanupDeletingIndexerCommandHandler implements CommandHandler {
+	private final DocumentStoreMetadataRepository repository;
+	private final IndexerQueueResourceManager queueResources;
+	private final IndexerDocumentIndexResourceManager documentIndexResources;
+
+	public CleanupDeletingIndexerCommandHandler(
+		DocumentStoreMetadataRepository repository,
+		IndexerQueueResourceManager queueResources,
+		IndexerDocumentIndexResourceManager documentIndexResources
+	) {
+		this.repository = Objects.requireNonNull(repository, "repository");
+		this.queueResources = Objects.requireNonNull(queueResources, "queueResources");
+		this.documentIndexResources = Objects.requireNonNull(
+			documentIndexResources,
+			"documentIndexResources"
+		);
+	}
+
+	@Override
+	public String getType() {
+		return CleanupDeletingIndexerCommand.TYPE;
+	}
+
+	@Override
+	public Future<Void> handle(Command command) {
+		CleanupDeletingIndexerCommand cleanup =
+			new CleanupDeletingIndexerCommand(command.toJson());
+
+		return repository.getIndexerById(cleanup.getIndexerId())
+			.compose(found -> found
+				.map(indexer -> cleanup(indexer, cleanup.getExpectedVersion()))
+				.orElseGet(Future::succeededFuture));
+	}
+
+	private Future<Void> cleanup(IndexerRecord indexer, long expectedVersion) {
+		if (indexer.mutationState() != MutationState.DELETING) {
+			return Future.failedFuture("Indexer is not deleting: " + indexer.id());
+		}
+		if (indexer.version() != expectedVersion) {
+			return Future.failedFuture(new RetryableStaleStateException(
+				"Indexer changed while cleaning resources: " + indexer.id()
+			));
+		}
+
+		return queueResources.delete(indexer.queueName())
+			.compose(ignored -> deleteDocumentIndex(indexer))
+			.compose(ignored -> repository.finalizeIndexerDeletion(
+				new FinalizeIndexerDeletion(indexer.id(), expectedVersion)
+			));
+	}
+
+	private Future<Void> deleteDocumentIndex(IndexerRecord indexer) {
+		return indexer.indexOwnership() == IndexResourceOwnership.OWNER
+			? documentIndexResources.delete(indexer.indexName())
+			: Future.succeededFuture();
+	}
+}

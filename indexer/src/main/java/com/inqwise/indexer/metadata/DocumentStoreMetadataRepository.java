@@ -52,7 +52,7 @@ public interface DocumentStoreMetadataRepository {
 
 	Future<Void> updateIndexerQueueName(UpdateIndexerQueueName update);
 
-	Future<Void> deleteIndexer(DeleteIndexer delete);
+	Future<Void> finalizeIndexerDeletion(FinalizeIndexerDeletion finalizeDeletion);
 
 	Future<Integer> insertPublication(InsertPublication publication);
 

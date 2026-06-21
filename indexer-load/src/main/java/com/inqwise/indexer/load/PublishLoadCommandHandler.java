@@ -205,7 +205,7 @@ public class PublishLoadCommandHandler implements CommandHandler {
 		}
 
 		IndexerRecord oldPublished = previous.isEmpty() ? null : previous.get(0);
-		return commandService.submit(new CleanupPublishedLoadCommand(
+		return commandService.submit(new CleanupLoadCommand(
 			load.indexerId(),
 			oldPublished == null ? null : oldPublished.id()
 		));

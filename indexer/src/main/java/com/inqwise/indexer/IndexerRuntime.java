@@ -19,7 +19,6 @@ public class IndexerRuntime {
 	private final DocumentStoreMetadataRepository repository;
 	private final IndexerLifecycleEventBus lifecycleEventBus;
 	private final Function<IndexerRecord, Indexer> indexerFactory;
-	private final IndexerResourceCleaner resourceCleaner;
 	private final Map<Integer, RuntimeEntry> indexersById = new ConcurrentHashMap<>();
 
 	public IndexerRuntime(
@@ -27,7 +26,9 @@ public class IndexerRuntime {
 		IndexerLifecycleEventBus lifecycleEventBus,
 		Function<IndexerRecord, Indexer> indexerFactory
 	) {
-		this(repository, lifecycleEventBus, indexerFactory, IndexerResourceCleaner.NOOP);
+		this.repository = Objects.requireNonNull(repository, "repository");
+		this.lifecycleEventBus = Objects.requireNonNull(lifecycleEventBus, "lifecycleEventBus");
+		this.indexerFactory = Objects.requireNonNull(indexerFactory, "indexerFactory");
 	}
 
 	public IndexerRuntime(
@@ -49,46 +50,8 @@ public class IndexerRuntime {
 				documentStore,
 				options,
 				eventPublisher
-			),
-			IndexerResourceCleaner.NOOP
+			)
 		);
-	}
-
-	public IndexerRuntime(
-		Vertx vertx,
-		DocumentStoreMetadataRepository repository,
-		IndexerLifecycleEventBus lifecycleEventBus,
-		IndexerQueueClient queue,
-		IndexerDocumentStore documentStore,
-		IndexerOptions options,
-		IndexerEventPublisher eventPublisher,
-		IndexerResourceCleaner resourceCleaner
-	) {
-		this(
-			repository,
-			lifecycleEventBus,
-			indexer -> createVerticleBackedIndexer(
-				vertx,
-				toModel(indexer),
-				queue,
-				documentStore,
-				options,
-				eventPublisher
-			),
-			resourceCleaner
-		);
-	}
-
-	public IndexerRuntime(
-		DocumentStoreMetadataRepository repository,
-		IndexerLifecycleEventBus lifecycleEventBus,
-		Function<IndexerRecord, Indexer> indexerFactory,
-		IndexerResourceCleaner resourceCleaner
-	) {
-		this.repository = Objects.requireNonNull(repository, "repository");
-		this.lifecycleEventBus = Objects.requireNonNull(lifecycleEventBus, "lifecycleEventBus");
-		this.indexerFactory = Objects.requireNonNull(indexerFactory, "indexerFactory");
-		this.resourceCleaner = Objects.requireNonNull(resourceCleaner, "resourceCleaner");
 	}
 
 	public Future<Void> start() {
@@ -122,7 +85,7 @@ public class IndexerRuntime {
 	private Future<Void> reconcile(IndexerRecord indexer) {
 		if (indexer.status() != IndexerStatus.AVAILABLE
 			|| indexer.mutationState() == MutationState.DELETING) {
-			return delete(indexer);
+			return close(indexer.id());
 		}
 
 		if (indexer.provisioningState() == IndexerProvisioningState.READY
@@ -174,11 +137,6 @@ public class IndexerRuntime {
 		return indexersById.values().stream()
 			.map(entry -> entry.indexer().status())
 			.toList();
-	}
-
-	protected Future<Void> delete(IndexerRecord indexer) {
-		return close(indexer.id())
-			.compose(ignored -> resourceCleaner.clean(toModel(indexer)));
 	}
 
 	public static IndexerModel toModel(IndexerRecord indexer) {

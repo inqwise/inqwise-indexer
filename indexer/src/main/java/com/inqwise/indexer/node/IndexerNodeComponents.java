@@ -3,17 +3,21 @@ package com.inqwise.indexer.node;
 import com.inqwise.indexer.IndexerRuntime;
 import com.inqwise.indexer.IndexerLifecycleEventBus;
 import com.inqwise.indexer.IndexerQueueResourceManager;
+import com.inqwise.indexer.commands.CommandService;
 import com.inqwise.indexer.definitions.IndexerDefinitionProvider;
 import com.inqwise.indexer.definitions.TargetDefinitionProvider;
 import com.inqwise.indexer.hot.HotIndexActionsService;
 import com.inqwise.indexer.hot.InvalidRouteCache;
 import com.inqwise.indexer.hot.InvalidRouteMetadataChangeListener;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
+import com.inqwise.indexer.operations.IndexerOperations;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 
 public record IndexerNodeComponents(
 	HotIndexActionsService hotIndexActionsService,
 	IndexerRuntime runtime,
+	CommandService commandService,
+	IndexerOperations indexerOperations,
 	DocumentStoreMetadataRepository repository,
 	IndexerLifecycleEventBus lifecycleEventBus,
 	IndexerQueueResourceManager queueResources,

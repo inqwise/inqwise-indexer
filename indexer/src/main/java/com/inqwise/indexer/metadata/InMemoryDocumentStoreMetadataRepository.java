@@ -476,10 +476,27 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 	}
 
 	@Override
-	public synchronized Future<Void> deleteIndexer(DeleteIndexer delete) {
+	public synchronized Future<Void> finalizeIndexerDeletion(
+		FinalizeIndexerDeletion finalizeDeletion
+	) {
 		try {
-			requireIndexer(delete.id(), delete.expectedVersion());
-			indexersById.remove(delete.id());
+			IndexerRecord existing = indexersById.get(finalizeDeletion.indexerId());
+			if (existing == null) {
+				return Future.succeededFuture();
+			}
+
+			requireIndexer(finalizeDeletion.indexerId(), finalizeDeletion.expectedVersion());
+			if (existing.mutationState() != MutationState.DELETING) {
+				throw new IllegalStateException(
+					"Indexer is not deleting: " + finalizeDeletion.indexerId()
+				);
+			}
+
+			publicationsById.entrySet().removeIf(entry ->
+				finalizeDeletion.indexerId().equals(entry.getValue().indexerId()));
+			manifestsById.entrySet().removeIf(entry ->
+				finalizeDeletion.indexerId().equals(entry.getValue().indexerId()));
+			indexersById.remove(finalizeDeletion.indexerId());
 			return Future.succeededFuture();
 		} catch (RuntimeException error) {
 			return Future.failedFuture(error);

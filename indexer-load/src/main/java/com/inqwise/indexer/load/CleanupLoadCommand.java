@@ -6,18 +6,18 @@ import com.inqwise.indexer.commands.Command;
 
 import io.vertx.core.json.JsonObject;
 
-public class CleanupPublishedLoadCommand implements Command {
-	public static final String TYPE = "indexer.load.cleanup-published";
+public final class CleanupLoadCommand implements Command {
+	public static final String TYPE = "indexer.load.cleanup";
 
 	private final Integer indexerId;
 	private final Integer oldPublishedIndexerId;
 
-	public CleanupPublishedLoadCommand(Integer indexerId, Integer oldPublishedIndexerId) {
+	public CleanupLoadCommand(Integer indexerId, Integer oldPublishedIndexerId) {
 		this.indexerId = Objects.requireNonNull(indexerId, "indexerId");
 		this.oldPublishedIndexerId = oldPublishedIndexerId;
 	}
 
-	public CleanupPublishedLoadCommand(JsonObject json) {
+	public CleanupLoadCommand(JsonObject json) {
 		this(json.getInteger("indexer_id"), json.getInteger("old_published_indexer_id"));
 	}
 
@@ -36,13 +36,10 @@ public class CleanupPublishedLoadCommand implements Command {
 
 	@Override
 	public JsonObject toJson() {
-		JsonObject json = new JsonObject()
-			.put("indexer_id", indexerId);
-
+		JsonObject json = new JsonObject().put("indexer_id", indexerId);
 		if (oldPublishedIndexerId != null) {
 			json.put("old_published_indexer_id", oldPublishedIndexerId);
 		}
-
 		return json;
 	}
 }

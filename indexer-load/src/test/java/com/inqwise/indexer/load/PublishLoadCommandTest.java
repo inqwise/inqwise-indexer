@@ -12,6 +12,8 @@ import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.IndexerRole;
 import com.inqwise.indexer.IndexerType;
 import com.inqwise.indexer.InMemoryIndexerLifecycleEventBus;
+import com.inqwise.indexer.IndexerQueueResourceManager;
+import com.inqwise.indexer.commands.CleanupDeletingIndexerCommandHandler;
 import com.inqwise.indexer.commands.DeleteIndexerCommandHandler;
 import com.inqwise.indexer.commands.InMemoryCommandService;
 import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
@@ -19,6 +21,8 @@ import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.metadata.MutationState;
 import com.inqwise.indexer.metadata.PublicationState;
+import com.inqwise.indexer.operations.IndexerOperations;
+import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 
 import io.vertx.core.Future;
 import io.vertx.junit5.VertxExtension;
@@ -175,14 +179,12 @@ class PublishLoadCommandTest {
 				.compose(load -> commands.submit(new PublishLoadCommand(loadId, load.version())))
 				.compose(ignored -> collect(metadata, loads, oldId, loadId, liveId))))))
 			.onComplete(testContext.succeeding(result -> testContext.verify(() -> {
-				assertEquals(MutationState.DELETING, result.oldPublished().mutationState());
-				assertEquals(IndexerRuntimeState.NON_ACTIVE, result.oldPublished().runtimeState());
-				assertEquals(MutationState.DELETING, result.loadWriter().mutationState());
-				assertEquals(IndexerRuntimeState.NON_ACTIVE, result.loadWriter().runtimeState());
+				assertEquals(null, result.oldPublished());
+				assertEquals(null, result.loadWriter());
 				assertEquals(PublicationState.PUBLISHED, result.liveWriter().publicationState());
 				assertEquals(IndexResourceOwnership.OWNER, result.liveWriter().indexOwnership());
 				assertEquals(MutationState.WRITABLE, result.liveWriter().mutationState());
-				assertEquals(IndexerLoadState.PUBLISHED, result.load().state());
+				assertEquals(null, result.load());
 				testContext.completeNow();
 			})));
 	}
@@ -284,10 +286,10 @@ class PublishLoadCommandTest {
 				.compose(loadWriter -> metadata.getIndexerById(liveId)
 					.compose(liveWriter -> loads.getByIndexerId(loadId)
 						.map(load -> new LinkedResult(
-							old.orElseThrow(),
-							loadWriter.orElseThrow(),
+							old.orElse(null),
+							loadWriter.orElse(null),
 							liveWriter.orElseThrow(),
-							load.orElseThrow()
+							load.orElse(null)
 						)))));
 	}
 
@@ -310,8 +312,16 @@ class PublishLoadCommandTest {
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		InMemoryCommandService commands = new InMemoryCommandService();
 		commands
-			.register(new DeleteIndexerCommandHandler(metadata, eventBus))
-			.register(new CleanupPublishedLoadCommandHandler(metadata, loads, commands))
+			.register(new CleanupDeletingIndexerCommandHandler(
+				metadata,
+				IndexerQueueResourceManager.NOOP,
+				IndexerDocumentIndexResourceManager.NOOP
+			))
+			.register(new DeleteIndexerCommandHandler(
+				new IndexerOperations(metadata, eventBus),
+				commands
+			))
+			.register(new CleanupLoadCommandHandler(metadata, loads, commands))
 			.register(new PublishLoadCommandHandler(metadata, loads, eventBus, commands));
 		return commands;
 	}

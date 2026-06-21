@@ -9,10 +9,10 @@ import com.inqwise.indexer.IndexerQueueResourceManager;
 import com.inqwise.indexer.commands.ActivateIndexerCommand;
 import com.inqwise.indexer.commands.ActivateIndexerCommandHandler;
 import com.inqwise.indexer.commands.CreateIndexerCommand;
+import com.inqwise.indexer.commands.CleanupDeletingIndexerCommand;
+import com.inqwise.indexer.commands.CommandService;
 import com.inqwise.indexer.commands.DeactivateIndexerCommand;
 import com.inqwise.indexer.commands.DeactivateIndexerCommandHandler;
-import com.inqwise.indexer.commands.DeleteIndexerCommand;
-import com.inqwise.indexer.commands.DeleteIndexerCommandHandler;
 import com.inqwise.indexer.commands.RecoverTargetProvisioningCommand;
 import com.inqwise.indexer.commands.RecoverTargetProvisioningCommandHandler;
 import com.inqwise.indexer.commands.ResetIndexerQueueCommand;
@@ -23,6 +23,8 @@ import com.inqwise.indexer.errors.IndexerErrors;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.IndexerRecord;
 import com.inqwise.indexer.metadata.TargetRecord;
+import com.inqwise.indexer.operations.IndexerOperations;
+import com.inqwise.indexer.operations.MarkIndexerDeletingRequest;
 import com.inqwise.indexer.provisioning.CreateTargetOperation;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 import com.inqwise.indexer.provisioning.IndexerProvisioningService;
@@ -35,7 +37,8 @@ public class AdminServiceImpl implements AdminService {
 	private final RecoverTargetProvisioningCommandHandler recoverTargetProvisioning;
 	private final ActivateIndexerCommandHandler activateIndexer;
 	private final DeactivateIndexerCommandHandler deactivateIndexer;
-	private final DeleteIndexerCommandHandler deleteIndexer;
+	private final CommandService commandService;
+	private final IndexerOperations indexerOperations;
 	private final ResetIndexerQueueCommandHandler resetIndexerQueue;
 	private final CreateTargetOperation createTarget;
 	private final IndexerProvisioningService indexerProvisioning;
@@ -46,7 +49,9 @@ public class AdminServiceImpl implements AdminService {
 		IndexerQueueResourceManager queueResources,
 		TargetDefinitionProvider targetDefinitionProvider,
 		IndexerDefinitionProvider indexerDefinitionProvider,
-		IndexerDocumentIndexResourceManager documentIndexResources
+		IndexerDocumentIndexResourceManager documentIndexResources,
+		CommandService commandService,
+		IndexerOperations indexerOperations
 	) {
 		this.repository = Objects.requireNonNull(repository, "repository");
 		this.eventBus = Objects.requireNonNull(eventBus, "eventBus");
@@ -58,7 +63,8 @@ public class AdminServiceImpl implements AdminService {
 		);
 		this.activateIndexer = new ActivateIndexerCommandHandler(repository, eventBus);
 		this.deactivateIndexer = new DeactivateIndexerCommandHandler(repository, eventBus);
-		this.deleteIndexer = new DeleteIndexerCommandHandler(repository, eventBus);
+		this.commandService = Objects.requireNonNull(commandService, "commandService");
+		this.indexerOperations = Objects.requireNonNull(indexerOperations, "indexerOperations");
 		this.resetIndexerQueue = new ResetIndexerQueueCommandHandler(
 			repository,
 			eventBus,
@@ -187,13 +193,24 @@ public class AdminServiceImpl implements AdminService {
 			if (request == null || request.getIndexerId() == null) {
 				throw IndexerErrors.invalidRequest("Indexer id is required");
 			}
+			if (request.getExpectedVersion() == null) {
+				throw IndexerErrors.invalidRequest("Expected version is required");
+			}
 
 			Integer indexerId = request.getIndexerId();
-			return deleteIndexer.handle(new DeleteIndexerCommand(
+			return indexerOperations.markDeleting(new MarkIndexerDeletingRequest(
 				indexerId,
 				request.getExpectedVersion()
-			))
-				.compose(ignored -> loadIndexerResult(indexerId))
+			)).compose(marked -> marked
+				.map(indexer -> commandService.submit(new CleanupDeletingIndexerCommand(
+					indexer.id(),
+					indexer.version()
+				)).map(ignored -> new AdminIndexerResult().setIndexer(
+					AdminIndexerView.from(indexer)
+				)))
+				.orElseGet(() -> Future.failedFuture(IndexerErrors.notFound(
+					"Indexer not found"
+				))))
 				.recover(error -> Future.failedFuture(IndexerErrors.normalize(error)));
 		} catch (Throwable error) {
 			return Future.failedFuture(IndexerErrors.normalize(error));

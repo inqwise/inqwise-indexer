@@ -1,7 +1,7 @@
 package com.inqwise.indexer.metadata;
 
-public record DeleteIndexer(
-	Integer id,
+public record FinalizeIndexerDeletion(
+	Integer indexerId,
 	long expectedVersion
 ) {
 }

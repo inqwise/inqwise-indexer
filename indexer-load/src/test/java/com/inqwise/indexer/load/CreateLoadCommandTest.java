@@ -16,11 +16,15 @@ import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.IndexerRole;
 import com.inqwise.indexer.InMemoryIndexerLifecycleEventBus;
 import com.inqwise.indexer.InMemoryIndexerQueue;
+import com.inqwise.indexer.IndexerQueueResourceManager;
+import com.inqwise.indexer.commands.CleanupDeletingIndexerCommandHandler;
 import com.inqwise.indexer.commands.DeleteIndexerCommandHandler;
 import com.inqwise.indexer.commands.InMemoryCommandService;
 import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.IndexerRecord;
 import com.inqwise.indexer.metadata.MutationState;
+import com.inqwise.indexer.operations.IndexerOperations;
+import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
@@ -297,9 +301,8 @@ class CreateLoadCommandTest {
 			.register("default", defaultProvider)
 			.register("history", provider);
 		InMemoryCommandService commands = commandService(metadata, loads, registry);
-		commands
-			.register(new DeleteIndexerCommandHandler(metadata, new InMemoryIndexerLifecycleEventBus()))
-			.register(new CancelLoadCommandHandler(metadata, loads, registry, commands));
+		registerCleanupHandlers(commands, metadata, loads);
+		commands.register(new CancelLoadCommandHandler(loads, registry, commands));
 
 		commands.submit(new CreateLoadCommand(
 			"load",
@@ -323,21 +326,18 @@ class CreateLoadCommandTest {
 					load.indexerId(),
 					"operator cancel",
 					load.version()
-				));
+				)).map(load);
 			})
-			.compose(ignored -> loads.getByIndexerId(provider.request.indexerId()))
-			.compose(found -> metadata.listIndexersByTargetId(provider.request.targetId())
-				.map(indexers -> new Created(indexers, found.orElseThrow())))
+			.compose(load -> loads.getByIndexerId(load.indexerId())
+				.compose(found -> metadata.listIndexersByTargetId(load.targetId())
+					.map(indexers -> new Created(indexers, load, found.isPresent()))))
 			.onComplete(testContext.succeeding(created -> testContext.verify(() -> {
-				assertEquals(IndexerLoadState.CANCELLED, created.load().state());
+				assertEquals(false, created.loadPresent());
 				assertNull(defaultProvider.stopRequest);
 				assertNotNull(provider.stopRequest);
 				assertEquals(created.load().indexerId(), provider.stopRequest.indexerId());
 				assertEquals("operator cancel", provider.stopRequest.reason());
-				for (IndexerRecord indexer : created.indexers()) {
-					assertEquals(MutationState.DELETING, indexer.mutationState());
-					assertEquals(IndexerRuntimeState.NON_ACTIVE, indexer.runtimeState());
-				}
+				assertTrue(created.indexers().isEmpty());
 				testContext.completeNow();
 			})));
 	}
@@ -350,9 +350,8 @@ class CreateLoadCommandTest {
 		InMemoryLoadProviderRegistry registry = new InMemoryLoadProviderRegistry()
 			.register("default", provider);
 		InMemoryCommandService commands = createOnlyCommandService(metadata, loads);
-		commands
-			.register(new DeleteIndexerCommandHandler(metadata, new InMemoryIndexerLifecycleEventBus()))
-			.register(new CancelLoadCommandHandler(metadata, loads, registry, commands));
+		registerCleanupHandlers(commands, metadata, loads);
+		commands.register(new CancelLoadCommandHandler(loads, registry, commands));
 
 		commands.submit(new CreateLoadCommand(
 			"load",
@@ -382,14 +381,11 @@ class CreateLoadCommandTest {
 			})
 			.compose(load -> loads.getByIndexerId(load.indexerId())
 				.compose(found -> metadata.listIndexersByTargetId(load.targetId())
-					.map(indexers -> new Created(indexers, found.orElseThrow()))))
+					.map(indexers -> new Created(indexers, load, found.isPresent()))))
 			.onComplete(testContext.succeeding(created -> testContext.verify(() -> {
-				assertEquals(IndexerLoadState.CANCELLED, created.load().state());
+				assertEquals(false, created.loadPresent());
 				assertNull(provider.stopRequest);
-				for (IndexerRecord indexer : created.indexers()) {
-					assertEquals(MutationState.DELETING, indexer.mutationState());
-					assertEquals(IndexerRuntimeState.NON_ACTIVE, indexer.runtimeState());
-				}
+				assertTrue(created.indexers().isEmpty());
 				testContext.completeNow();
 			})));
 	}
@@ -402,9 +398,8 @@ class CreateLoadCommandTest {
 		InMemoryLoadProviderRegistry registry = new InMemoryLoadProviderRegistry()
 			.register("default", provider);
 		InMemoryCommandService commands = createOnlyCommandService(metadata, loads);
-		commands
-			.register(new DeleteIndexerCommandHandler(metadata, new InMemoryIndexerLifecycleEventBus()))
-			.register(new CancelLoadCommandHandler(metadata, loads, registry, commands));
+		registerCleanupHandlers(commands, metadata, loads);
+		commands.register(new CancelLoadCommandHandler(loads, registry, commands));
 
 		commands.submit(new CreateLoadCommand(
 			"load",
@@ -441,16 +436,13 @@ class CreateLoadCommandTest {
 			})
 			.compose(load -> loads.getByIndexerId(load.indexerId())
 				.compose(found -> metadata.listIndexersByTargetId(load.targetId())
-					.map(indexers -> new Created(indexers, found.orElseThrow()))))
+					.map(indexers -> new Created(indexers, load, found.isPresent()))))
 			.onComplete(testContext.succeeding(created -> testContext.verify(() -> {
-				assertEquals(IndexerLoadState.CANCELLED, created.load().state());
+				assertEquals(false, created.loadPresent());
 				assertNotNull(provider.stopRequest);
 				assertEquals(created.load().indexerId(), provider.stopRequest.indexerId());
 				assertEquals("operator cancel", provider.stopRequest.reason());
-				for (IndexerRecord indexer : created.indexers()) {
-					assertEquals(MutationState.DELETING, indexer.mutationState());
-					assertEquals(IndexerRuntimeState.NON_ACTIVE, indexer.runtimeState());
-				}
+				assertTrue(created.indexers().isEmpty());
 				testContext.completeNow();
 			})));
 	}
@@ -465,6 +457,25 @@ class CreateLoadCommandTest {
 				loads,
 				new InMemoryIndexerLifecycleEventBus()
 			));
+	}
+
+	private void registerCleanupHandlers(
+		InMemoryCommandService commands,
+		InMemoryDocumentStoreMetadataRepository metadata,
+		InMemoryIndexerLoadRepository loads
+	) {
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		commands
+			.register(new CleanupDeletingIndexerCommandHandler(
+				metadata,
+				IndexerQueueResourceManager.NOOP,
+				IndexerDocumentIndexResourceManager.NOOP
+			))
+			.register(new DeleteIndexerCommandHandler(
+				new IndexerOperations(metadata, eventBus),
+				commands
+			))
+			.register(new CleanupLoadCommandHandler(metadata, loads, commands));
 	}
 
 	private InMemoryCommandService commandService(
@@ -497,8 +508,12 @@ class CreateLoadCommandTest {
 
 	private record Created(
 		List<IndexerRecord> indexers,
-		IndexerLoadRecord load
+		IndexerLoadRecord load,
+		boolean loadPresent
 	) {
+		private Created(List<IndexerRecord> indexers, IndexerLoadRecord load) {
+			this(indexers, load, true);
+		}
 	}
 
 	private static class CapturingLoadProvider implements LoadProvider {

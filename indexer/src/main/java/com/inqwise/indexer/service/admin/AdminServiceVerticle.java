@@ -4,9 +4,11 @@ import java.util.Objects;
 
 import com.inqwise.indexer.IndexerLifecycleEventBus;
 import com.inqwise.indexer.IndexerQueueResourceManager;
+import com.inqwise.indexer.commands.CommandService;
 import com.inqwise.indexer.definitions.IndexerDefinitionProvider;
 import com.inqwise.indexer.definitions.TargetDefinitionProvider;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
+import com.inqwise.indexer.operations.IndexerOperations;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 import com.inqwise.indexer.service.ServiceProxyVerticle;
 
@@ -21,7 +23,9 @@ public class AdminServiceVerticle extends ServiceProxyVerticle<AdminService> {
 		IndexerQueueResourceManager queueResources,
 		TargetDefinitionProvider targetDefinitionProvider,
 		IndexerDefinitionProvider indexerDefinitionProvider,
-		IndexerDocumentIndexResourceManager documentIndexResources
+		IndexerDocumentIndexResourceManager documentIndexResources,
+		CommandService commandService,
+		IndexerOperations indexerOperations
 	) {
 		this.service = new AdminServiceImpl(
 			Objects.requireNonNull(repository, "repository"),
@@ -29,7 +33,9 @@ public class AdminServiceVerticle extends ServiceProxyVerticle<AdminService> {
 			Objects.requireNonNull(queueResources, "queueResources"),
 			Objects.requireNonNull(targetDefinitionProvider, "targetDefinitionProvider"),
 			Objects.requireNonNull(indexerDefinitionProvider, "indexerDefinitionProvider"),
-			Objects.requireNonNull(documentIndexResources, "documentIndexResources")
+			Objects.requireNonNull(documentIndexResources, "documentIndexResources"),
+			Objects.requireNonNull(commandService, "commandService"),
+			Objects.requireNonNull(indexerOperations, "indexerOperations")
 		);
 	}
 

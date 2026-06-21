@@ -12,6 +12,8 @@ import com.inqwise.indexer.InMemoryIndexerLifecycleEventBus;
 import com.inqwise.indexer.InMemoryIndexerQueue;
 import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.IndexerType;
+import com.inqwise.indexer.commands.CleanupDeletingIndexerCommandHandler;
+import com.inqwise.indexer.commands.InMemoryCommandService;
 import com.inqwise.indexer.definitions.IndexDefinition;
 import com.inqwise.indexer.definitions.IndexerDefinition;
 import com.inqwise.indexer.definitions.QueueDefinition;
@@ -26,6 +28,7 @@ import com.inqwise.indexer.metadata.PublicationState;
 import com.inqwise.indexer.metadata.TargetPeriodStrategy;
 import com.inqwise.indexer.metadata.TargetProvisioningState;
 import com.inqwise.indexer.metadata.TargetStatus;
+import com.inqwise.indexer.operations.IndexerOperations;
 import com.inqwise.indexer.service.admin.AdminCreateRequestResolver;
 import com.inqwise.indexer.service.admin.AdminServiceVerticle;
 
@@ -331,6 +334,14 @@ class AdminRestVerticleTest {
 		InMemoryIndexerLifecycleEventBus eventBus,
 		InMemoryIndexerQueue queue
 	) {
+		InMemoryIndexerDocumentStore documentStore = new InMemoryIndexerDocumentStore();
+		IndexerOperations indexerOperations = new IndexerOperations(repository, eventBus);
+		InMemoryCommandService commandService = new InMemoryCommandService()
+			.register(new CleanupDeletingIndexerCommandHandler(
+				repository,
+				queue,
+				documentStore
+			));
 		return new AdminServiceVerticle(
 			repository,
 			eventBus,
@@ -342,7 +353,9 @@ class AdminRestVerticleTest {
 				new IndexDefinition("customers", "v1", new JsonObject(), new JsonObject()),
 				new QueueDefinition(new JsonObject())
 			)),
-			new InMemoryIndexerDocumentStore()
+			documentStore,
+			commandService,
+			indexerOperations
 		);
 	}
 }

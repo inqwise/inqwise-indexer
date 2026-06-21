@@ -29,6 +29,7 @@ import com.inqwise.indexer.metadata.MutationState;
 import com.inqwise.indexer.metadata.PublicationState;
 import com.inqwise.indexer.metadata.TargetPeriodStrategy;
 import com.inqwise.indexer.metadata.TargetProvisioningState;
+import com.inqwise.indexer.operations.IndexerOperations;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 
 import io.vertx.core.json.JsonObject;
@@ -39,15 +40,17 @@ import io.vertx.junit5.VertxTestContext;
 class DocumentStoreCommandHandlersTest {
 	@Test
 	void createsStandardLifecycleAndProvisioningHandlers() {
-		List<CommandHandler> handlers = DocumentStoreCommandHandlers.create(config(
-			new InMemoryDocumentStoreMetadataRepository()
-		));
+		InMemoryCommandService commandService = new InMemoryCommandService();
+		List<CommandHandler> handlers = DocumentStoreCommandHandlers.create(
+			config(new InMemoryDocumentStoreMetadataRepository()),
+			commandService
+		);
 
 		Set<String> types = handlers.stream()
 			.map(CommandHandler::getType)
 			.collect(Collectors.toSet());
 
-		assertEquals(10, handlers.size());
+		assertEquals(11, handlers.size());
 		assertTrue(types.contains(CreateTargetCommand.TYPE));
 		assertTrue(types.contains(CreateIndexerCommand.TYPE));
 		assertTrue(types.contains(MarkIndexReadyCommand.TYPE));
@@ -57,6 +60,7 @@ class DocumentStoreCommandHandlersTest {
 		assertTrue(types.contains(ActivateIndexerCommand.TYPE));
 		assertTrue(types.contains(DeactivateIndexerCommand.TYPE));
 		assertTrue(types.contains(DeleteIndexerCommand.TYPE));
+		assertTrue(types.contains(CleanupDeletingIndexerCommand.TYPE));
 		assertTrue(types.contains(ResetIndexerQueueCommand.TYPE));
 	}
 
@@ -98,6 +102,7 @@ class DocumentStoreCommandHandlersTest {
 	private DocumentStoreCommandHandlers.Config config(
 		InMemoryDocumentStoreMetadataRepository repository
 	) {
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		return new DocumentStoreCommandHandlers.Config(
 			repository,
 			new StaticTargetDefinitionProvider(List.of(
@@ -109,7 +114,8 @@ class DocumentStoreCommandHandlersTest {
 			)),
 			IndexerDocumentIndexResourceManager.NOOP,
 			IndexerQueueResourceManager.NOOP,
-			new InMemoryIndexerLifecycleEventBus()
+			eventBus,
+			new IndexerOperations(repository, eventBus)
 		);
 	}
 }

@@ -18,7 +18,7 @@
 - Treat publish-readiness as a command/provisioning concern, not an `Indexer` runtime concern. Metadata checks remain first, and production readiness should additionally verify or ensure external queue/topic and document-index resources before publishing. Missing resources should fail closed or trigger provisioning/recovery commands rather than publishing blindly.
 - Add cleanup/retry admin commands for failed concrete indexers left by provisioning failures. Target-level reopening is handled by `RecoverTargetProvisioningCommand`; failed physical indexer retry/replacement still needs ownership-aware cleanup rules.
 - Finish high-level publication orchestration for load/reload workflows. The core pieces now exist: `LOAD_WRITER` plus optional linked `LIVE_WRITER`, internal completion/barrier markers, load metadata keyed by the core load-writer `indexerId`, source metadata fields, create-load orchestration, and an atomic metadata publish/replace primitive.
-- Finish the indexer delete workflow after cleanup ownership is finalized. The current command marks the metadata indexer `DELETING` and runtime `NON_ACTIVE` so runtime nodes can clean resources from durable metadata; final repository removal or tombstone handling remains deferred.
+- Add production repository support for atomic `finalizeIndexerDeletion(...)` and production queue/document resource managers for `CleanupDeletingIndexerCommandHandler`.
 - Consider wrapping external queue/topic and document-index provisioning calls with Vert.x Circuit Breaker. Do not encode circuit-breaker behavior in the metadata model.
 
 ## Document Store Publishing
@@ -67,4 +67,4 @@
 - Add a smart consumer recovery mechanism for broken or unhealthy runtime consumers. Candidate indicators include stale lifecycle version, no progress while assigned to an active queue, repeated processing failures, excessive event-loop delay, high CPU pressure, low memory pressure, or missed heartbeat windows. Recovery should stop the local consumer, reload the latest metadata model, and reconcile from durable desired state rather than trusting stale local runtime state.
 - Implement production-backed `IndexerQueueResourceManager` behavior for idempotent Kafka topic ensure/delete, using provider-owned `QueueDefinition` settings.
 - Implement production-backed `IndexerDocumentIndexResourceManager` behavior for idempotent document-index ensure/delete, using provider-owned `IndexDefinition` settings and mappings.
-- Define production document-index cleanup behavior through `IndexerResourceCleaner`.
+- Define production document-index cleanup behavior through `CleanupDeletingIndexerCommandHandler` and `IndexerDocumentIndexResourceManager`, preserving idempotent missing-resource semantics.

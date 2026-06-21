@@ -18,6 +18,8 @@ import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.metadata.MutationState;
 import com.inqwise.indexer.metadata.PublicationState;
+import com.inqwise.indexer.operations.IndexerOperations;
+import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 
 import io.vertx.core.Future;
 import io.vertx.junit5.VertxExtension;
@@ -26,7 +28,7 @@ import io.vertx.junit5.VertxTestContext;
 @ExtendWith(VertxExtension.class)
 class MetadataDeleteIndexerCommandTest {
 	@Test
-	void metadataDeleteMarksIndexerDeletingAndNonActive(VertxTestContext testContext) {
+	void metadataDeleteFinalizesIndexerAfterCleanup(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
@@ -38,10 +40,7 @@ class MetadataDeleteIndexerCommandTest {
 			.compose(indexerId -> commandService.submit(new DeleteIndexerCommand(indexerId, 0L))
 				.compose(ignored -> repository.getIndexerById(indexerId)))
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
-				assertTrue(found.isPresent());
-				assertEquals(MutationState.DELETING, found.get().mutationState());
-				assertEquals(IndexerRuntimeState.NON_ACTIVE, found.get().runtimeState());
-				assertEquals(2L, found.get().version());
+				assertTrue(found.isEmpty());
 				assertEquals(1, events.size());
 				assertEquals(DeleteIndexerCommand.TYPE, events.get(0).getCommandType());
 				assertEquals(2L, events.get(0).getVersion());
@@ -84,8 +83,17 @@ class MetadataDeleteIndexerCommandTest {
 		InMemoryDocumentStoreMetadataRepository repository,
 		InMemoryIndexerLifecycleEventBus eventBus
 	) {
-		return new InMemoryCommandService()
-			.register(new DeleteIndexerCommandHandler(repository, eventBus));
+		InMemoryCommandService commandService = new InMemoryCommandService();
+		return commandService
+			.register(new CleanupDeletingIndexerCommandHandler(
+				repository,
+				com.inqwise.indexer.IndexerQueueResourceManager.NOOP,
+				IndexerDocumentIndexResourceManager.NOOP
+			))
+			.register(new DeleteIndexerCommandHandler(
+				new IndexerOperations(repository, eventBus),
+				commandService
+			));
 	}
 
 	private Future<Integer> insertIndexer(InMemoryDocumentStoreMetadataRepository repository) {
