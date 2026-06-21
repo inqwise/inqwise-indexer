@@ -16,24 +16,24 @@ import io.vertx.openapi.contract.OpenAPIContract;
 
 public class GatewayRestVerticle extends AbstractVerticle {
 	private final GatewayRestOptions configuredOptions;
-	private final GatewayRequestHooks hooks;
+	private final GatewayRequestHooks configuredHooks;
 	private HttpServer server;
 	private HttpClient client;
 	private int actualPort = -1;
 
 	public GatewayRestVerticle() {
 		this.configuredOptions = null;
-		this.hooks = GatewayRequestHooks.NOOP;
+		this.configuredHooks = null;
 	}
 
 	public GatewayRestVerticle(GatewayRestOptions options) {
 		this.configuredOptions = options;
-		this.hooks = GatewayRequestHooks.NOOP;
+		this.configuredHooks = null;
 	}
 
 	public GatewayRestVerticle(GatewayRestOptions options, GatewayRequestHooks hooks) {
 		this.configuredOptions = options;
-		this.hooks = hooks == null ? GatewayRequestHooks.NOOP : hooks;
+		this.configuredHooks = hooks;
 	}
 
 	@Override
@@ -41,6 +41,9 @@ public class GatewayRestVerticle extends AbstractVerticle {
 		GatewayRestOptions options = configuredOptions == null
 			? new GatewayRestOptions(config())
 			: configuredOptions;
+		GatewayRequestHooks hooks = configuredHooks == null
+			? hooks(options)
+			: configuredHooks;
 		client = vertx.createHttpClient();
 
 		OpenAPIContract.from(vertx, options.getOpenApiPath())
@@ -54,12 +57,14 @@ public class GatewayRestVerticle extends AbstractVerticle {
 				builder.getRoute("gatewayStatus")
 					.addHandler(context -> handle(
 						context,
+						hooks,
 						"gatewayStatus",
 						() -> writeJson(context, status(options))
 					));
 				builder.getRoute("gatewayListTargets")
 					.addHandler(context -> handle(
 						context,
+						hooks,
 						"gatewayListTargets",
 						() -> GatewayProxyOperations.proxyAdminGet(
 							context,
@@ -71,6 +76,7 @@ public class GatewayRestVerticle extends AbstractVerticle {
 				builder.getRoute("gatewayListIndexers")
 					.addHandler(context -> handle(
 						context,
+						hooks,
 						"gatewayListIndexers",
 						() -> GatewayProxyOperations.proxyAdminGet(
 							context,
@@ -122,8 +128,18 @@ public class GatewayRestVerticle extends AbstractVerticle {
 			.put("admin_rest_configured", options.getAdminRestBaseUri() != null);
 	}
 
+	private static GatewayRequestHooks hooks(GatewayRestOptions options) {
+		if ((options.getApiKey() == null || options.getApiKey().isBlank())
+			&& options.getRateLimitRequests() <= 0) {
+			return GatewayRequestHooks.NOOP;
+		}
+
+		return new GatewayBuiltInRequestHooks(options);
+	}
+
 	private void handle(
 		RoutingContext context,
+		GatewayRequestHooks hooks,
 		String operationId,
 		Supplier<Future<Void>> operation
 	) {

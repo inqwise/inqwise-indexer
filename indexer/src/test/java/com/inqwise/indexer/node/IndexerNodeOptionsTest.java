@@ -166,13 +166,21 @@ class IndexerNodeOptionsTest {
 				.put(GatewayRestOptions.Keys.PORT, 9092)
 				.put(GatewayRestOptions.Keys.OPEN_API_PATH, "openapi/custom-gateway.yaml")
 				.put(GatewayRestOptions.Keys.ADMIN_REST_BASE_URI, "http://127.0.0.1:8080")
-				.put(GatewayRestOptions.Keys.REQUEST_TIMEOUT_MS, 1000L)));
+				.put(GatewayRestOptions.Keys.REQUEST_TIMEOUT_MS, 1000L)
+				.put(GatewayRestOptions.Keys.API_KEY, "secret")
+				.put(GatewayRestOptions.Keys.API_KEY_HEADER, "x-indexer-key")
+				.put(GatewayRestOptions.Keys.RATE_LIMIT_REQUESTS, 10)
+				.put(GatewayRestOptions.Keys.RATE_LIMIT_WINDOW_MS, 1000L)));
 
 		assertEquals("0.0.0.0", options.getGatewayOptions().getHost());
 		assertEquals(9092, options.getGatewayOptions().getPort());
 		assertEquals("openapi/custom-gateway.yaml", options.getGatewayOptions().getOpenApiPath());
 		assertEquals("http://127.0.0.1:8080", options.getGatewayOptions().getAdminRestBaseUri());
 		assertEquals(1000L, options.getGatewayOptions().getRequestTimeoutMs());
+		assertEquals("secret", options.getGatewayOptions().getApiKey());
+		assertEquals("x-indexer-key", options.getGatewayOptions().getApiKeyHeader());
+		assertEquals(10, options.getGatewayOptions().getRateLimitRequests());
+		assertEquals(1000L, options.getGatewayOptions().getRateLimitWindowMs());
 	}
 
 	@Test

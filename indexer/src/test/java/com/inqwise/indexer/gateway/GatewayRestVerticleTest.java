@@ -1,6 +1,7 @@
 package com.inqwise.indexer.gateway;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -151,6 +152,98 @@ class GatewayRestVerticleTest {
 				assertEquals("Upstream service unavailable", error.getString("detail"));
 				testContext.completeNow();
 			})));
+	}
+
+	@Test
+	void rejectsGatewayRequestWhenConfiguredApiKeyIsMissing(Vertx vertx, VertxTestContext testContext) {
+		GatewayRestVerticle gateway = new GatewayRestVerticle(new GatewayRestOptions()
+			.setPort(0)
+			.setApiKey("secret"));
+
+		vertx.deployVerticle(gateway)
+			.compose(ignored -> vertx.createHttpClient()
+				.request(HttpMethod.GET, gateway.actualPort(), "127.0.0.1", "/gateway/status")
+				.compose(request -> request.send())
+				.compose(response -> {
+					assertEquals(401, response.statusCode());
+					return response.body();
+				}))
+			.onComplete(testContext.succeeding(body -> testContext.verify(() -> {
+				JsonObject error = body.toJsonObject();
+				assertEquals(GatewayErrorCodes.Unauthenticated.name(), error.getString("code"));
+				assertEquals(GatewayErrorCodes.GROUP, error.getString("group"));
+				assertEquals(401, error.getInteger("status"));
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void acceptsGatewayRequestWhenConfiguredApiKeyMatches(Vertx vertx, VertxTestContext testContext) {
+		GatewayRestVerticle gateway = new GatewayRestVerticle(new GatewayRestOptions()
+			.setPort(0)
+			.setApiKey("secret")
+			.setApiKeyHeader("x-indexer-key"));
+
+		vertx.deployVerticle(gateway)
+			.compose(ignored -> vertx.createHttpClient()
+				.request(HttpMethod.GET, gateway.actualPort(), "127.0.0.1", "/gateway/status")
+				.compose(request -> request
+					.putHeader("x-indexer-key", "secret")
+					.send())
+				.compose(response -> {
+					assertEquals(200, response.statusCode());
+					return response.body();
+				}))
+			.onComplete(testContext.succeeding(body -> testContext.verify(() -> {
+				JsonObject status = body.toJsonObject();
+				assertEquals("UP", status.getString("status"));
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void rateLimitsGatewayRequestWhenConfiguredLimitIsExceeded(Vertx vertx, VertxTestContext testContext) {
+		GatewayRestVerticle gateway = new GatewayRestVerticle(new GatewayRestOptions()
+			.setPort(0)
+			.setRateLimitRequests(1)
+			.setRateLimitWindowMs(60000L));
+
+		vertx.deployVerticle(gateway)
+			.compose(ignored -> vertx.createHttpClient()
+				.request(HttpMethod.GET, gateway.actualPort(), "127.0.0.1", "/gateway/status")
+				.compose(request -> request.send()))
+			.compose(response -> {
+				assertEquals(200, response.statusCode());
+				return vertx.createHttpClient()
+					.request(HttpMethod.GET, gateway.actualPort(), "127.0.0.1", "/gateway/status")
+					.compose(request -> request.send());
+			})
+			.compose(response -> {
+				assertEquals(429, response.statusCode());
+				return response.body();
+			})
+			.onComplete(testContext.succeeding(body -> testContext.verify(() -> {
+				JsonObject error = body.toJsonObject();
+				assertEquals(GatewayErrorCodes.RateLimited.name(), error.getString("code"));
+				assertEquals(GatewayErrorCodes.GROUP, error.getString("group"));
+				assertEquals(429, error.getInteger("status"));
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void doesNotExposeConfiguredApiKeyInOptionsJson() {
+		JsonObject json = new GatewayRestOptions()
+			.setApiKey("secret")
+			.setApiKeyHeader("x-indexer-key")
+			.setRateLimitRequests(10)
+			.setRateLimitWindowMs(1000L)
+			.toJson();
+
+		assertFalse(json.containsKey(GatewayRestOptions.Keys.API_KEY));
+		assertEquals("x-indexer-key", json.getString(GatewayRestOptions.Keys.API_KEY_HEADER));
+		assertEquals(10, json.getInteger(GatewayRestOptions.Keys.RATE_LIMIT_REQUESTS));
+		assertEquals(1000L, json.getLong(GatewayRestOptions.Keys.RATE_LIMIT_WINDOW_MS));
 	}
 
 	@Test
