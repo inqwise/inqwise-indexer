@@ -27,7 +27,7 @@ class IndexPublicationCommandTest {
 	void markIndexReadyUpdatesPublicationReadiness(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
-		InMemoryCommandService commandService = commandService(repository);
+		InMemoryCommandEngine commandService = commandService(repository);
 
 		insertPublication(repository, ReadinessState.PENDING)
 			.compose(publicationId -> commandService.submit(new MarkIndexReadyCommand(
@@ -48,7 +48,7 @@ class IndexPublicationCommandTest {
 	void publishFailsWhenIndexIsNotReady(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
-		InMemoryCommandService commandService = commandService(repository);
+		InMemoryCommandEngine commandService = commandService(repository);
 
 		insertPublishableIndexer(repository, MutationState.WRITABLE, ReadinessState.PENDING)
 			.compose(indexerId -> commandService.submit(new PublishIndexCommand(indexerId, 0L)))
@@ -62,7 +62,7 @@ class IndexPublicationCommandTest {
 	void publishChangesIndexerPublicationState(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
-		InMemoryCommandService commandService = commandService(repository);
+		InMemoryCommandEngine commandService = commandService(repository);
 
 		insertPublishableIndexer(repository, MutationState.WRITABLE, ReadinessState.READY)
 			.compose(indexerId -> commandService.submit(new PublishIndexCommand(indexerId, 0L))
@@ -79,7 +79,7 @@ class IndexPublicationCommandTest {
 	void publishFailsWhenIndexerIsDeleting(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
-		InMemoryCommandService commandService = commandService(repository);
+		InMemoryCommandEngine commandService = commandService(repository);
 
 		insertPublishableIndexer(repository, MutationState.DELETING, ReadinessState.READY)
 			.compose(indexerId -> commandService.submit(new PublishIndexCommand(indexerId, 0L)))
@@ -93,7 +93,7 @@ class IndexPublicationCommandTest {
 	void retireChangesPublicationStateToRetired(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
-		InMemoryCommandService commandService = commandService(repository);
+		InMemoryCommandEngine commandService = commandService(repository);
 
 		insertPublishedIndexer(repository)
 			.compose(indexerId -> commandService.submit(new RetireIndexCommand(indexerId, 0L))
@@ -105,8 +105,8 @@ class IndexPublicationCommandTest {
 			})));
 	}
 
-	private InMemoryCommandService commandService(InMemoryDocumentStoreMetadataRepository repository) {
-		return new InMemoryCommandService()
+	private InMemoryCommandEngine commandService(InMemoryDocumentStoreMetadataRepository repository) {
+		return new InMemoryCommandEngine()
 			.register(new MarkIndexReadyCommandHandler(repository))
 			.register(new PublishIndexCommandHandler(repository))
 			.register(new RetireIndexCommandHandler(repository));

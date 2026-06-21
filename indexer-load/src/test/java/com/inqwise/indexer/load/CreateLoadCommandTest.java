@@ -19,7 +19,7 @@ import com.inqwise.indexer.InMemoryIndexerQueue;
 import com.inqwise.indexer.IndexerQueueResourceManager;
 import com.inqwise.indexer.commands.CleanupDeletingIndexerCommandHandler;
 import com.inqwise.indexer.commands.DeleteIndexerCommandHandler;
-import com.inqwise.indexer.commands.InMemoryCommandService;
+import com.inqwise.indexer.commands.InMemoryCommandEngine;
 import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.IndexerRecord;
 import com.inqwise.indexer.metadata.MutationState;
@@ -38,7 +38,7 @@ class CreateLoadCommandTest {
 		InMemoryDocumentStoreMetadataRepository metadata = new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
 		CapturingLoadProvider provider = new CapturingLoadProvider();
-		InMemoryCommandService commands = commandService(metadata, loads, provider);
+		InMemoryCommandEngine commands = commandService(metadata, loads, provider);
 		JsonObject sourceQuery = new JsonObject().put("segment", "vip");
 
 		commands.submit(new CreateLoadCommand(
@@ -85,7 +85,7 @@ class CreateLoadCommandTest {
 	void createsLoadWithoutStartCommandWiringAndLeavesProviderUnstarted(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository metadata = new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
-		InMemoryCommandService commands = new InMemoryCommandService()
+		InMemoryCommandEngine commands = new InMemoryCommandEngine()
 			.register(new CreateLoadCommandHandler(
 				metadata,
 				loads,
@@ -124,7 +124,7 @@ class CreateLoadCommandTest {
 			.register("default", provider);
 		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
-		InMemoryCommandService commands = createOnlyCommandService(metadata, loads)
+		InMemoryCommandEngine commands = createOnlyCommandService(metadata, loads)
 			.register(new StartLoadCommandHandler(metadata, loads, queue, registry, eventBus));
 
 		commands.submit(new CreateLoadCommand(
@@ -174,7 +174,7 @@ class CreateLoadCommandTest {
 		InMemoryLoadProviderRegistry registry = new InMemoryLoadProviderRegistry()
 			.register("default", defaultProvider)
 			.register("history", historyProvider);
-		InMemoryCommandService commands = commandService(metadata, loads, registry);
+		InMemoryCommandEngine commands = commandService(metadata, loads, registry);
 
 		commands.submit(new CreateLoadCommand(
 			"load",
@@ -208,7 +208,7 @@ class CreateLoadCommandTest {
 		InMemoryDocumentStoreMetadataRepository metadata = new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
 		CapturingLoadProvider provider = new CapturingLoadProvider();
-		InMemoryCommandService commands = commandService(metadata, loads, provider);
+		InMemoryCommandEngine commands = commandService(metadata, loads, provider);
 
 		commands.submit(new CreateLoadCommand(
 			"load",
@@ -254,7 +254,7 @@ class CreateLoadCommandTest {
 	void marksLoadFailedWhenProviderStartFails(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository metadata = new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
-		InMemoryCommandService commands = commandService(
+		InMemoryCommandEngine commands = commandService(
 			metadata,
 			loads,
 			new FailingLoadProvider()
@@ -300,7 +300,7 @@ class CreateLoadCommandTest {
 		InMemoryLoadProviderRegistry registry = new InMemoryLoadProviderRegistry()
 			.register("default", defaultProvider)
 			.register("history", provider);
-		InMemoryCommandService commands = commandService(metadata, loads, registry);
+		InMemoryCommandEngine commands = commandService(metadata, loads, registry);
 		registerCleanupHandlers(commands, metadata, loads);
 		commands.register(new CancelLoadCommandHandler(loads, registry, commands));
 
@@ -349,7 +349,7 @@ class CreateLoadCommandTest {
 		CapturingLoadProvider provider = new CapturingLoadProvider();
 		InMemoryLoadProviderRegistry registry = new InMemoryLoadProviderRegistry()
 			.register("default", provider);
-		InMemoryCommandService commands = createOnlyCommandService(metadata, loads);
+		InMemoryCommandEngine commands = createOnlyCommandService(metadata, loads);
 		registerCleanupHandlers(commands, metadata, loads);
 		commands.register(new CancelLoadCommandHandler(loads, registry, commands));
 
@@ -397,7 +397,7 @@ class CreateLoadCommandTest {
 		CapturingLoadProvider provider = new CapturingLoadProvider();
 		InMemoryLoadProviderRegistry registry = new InMemoryLoadProviderRegistry()
 			.register("default", provider);
-		InMemoryCommandService commands = createOnlyCommandService(metadata, loads);
+		InMemoryCommandEngine commands = createOnlyCommandService(metadata, loads);
 		registerCleanupHandlers(commands, metadata, loads);
 		commands.register(new CancelLoadCommandHandler(loads, registry, commands));
 
@@ -447,11 +447,11 @@ class CreateLoadCommandTest {
 			})));
 	}
 
-	private InMemoryCommandService createOnlyCommandService(
+	private InMemoryCommandEngine createOnlyCommandService(
 		InMemoryDocumentStoreMetadataRepository metadata,
 		InMemoryIndexerLoadRepository loads
 	) {
-		return new InMemoryCommandService()
+		return new InMemoryCommandEngine()
 			.register(new CreateLoadCommandHandler(
 				metadata,
 				loads,
@@ -460,7 +460,7 @@ class CreateLoadCommandTest {
 	}
 
 	private void registerCleanupHandlers(
-		InMemoryCommandService commands,
+		InMemoryCommandEngine commands,
 		InMemoryDocumentStoreMetadataRepository metadata,
 		InMemoryIndexerLoadRepository loads
 	) {
@@ -478,7 +478,7 @@ class CreateLoadCommandTest {
 			.register(new CleanupLoadCommandHandler(metadata, loads, commands));
 	}
 
-	private InMemoryCommandService commandService(
+	private InMemoryCommandEngine commandService(
 		InMemoryDocumentStoreMetadataRepository metadata,
 		InMemoryIndexerLoadRepository loads,
 		LoadProvider provider
@@ -487,20 +487,20 @@ class CreateLoadCommandTest {
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		InMemoryLoadProviderRegistry registry = new InMemoryLoadProviderRegistry()
 			.register("default", provider);
-		InMemoryCommandService commands = new InMemoryCommandService();
+		InMemoryCommandEngine commands = new InMemoryCommandEngine();
 		return commands
 			.register(new StartLoadCommandHandler(metadata, loads, queue, registry, eventBus))
 			.register(new CreateLoadCommandHandler(metadata, loads, eventBus, commands));
 	}
 
-	private InMemoryCommandService commandService(
+	private InMemoryCommandEngine commandService(
 		InMemoryDocumentStoreMetadataRepository metadata,
 		InMemoryIndexerLoadRepository loads,
 		LoadProviderRegistry registry
 	) {
 		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
-		InMemoryCommandService commands = new InMemoryCommandService();
+		InMemoryCommandEngine commands = new InMemoryCommandEngine();
 		return commands
 			.register(new StartLoadCommandHandler(metadata, loads, queue, registry, eventBus))
 			.register(new CreateLoadCommandHandler(metadata, loads, eventBus, commands));

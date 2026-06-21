@@ -26,7 +26,7 @@ class CreateIndexerCommandTest {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
-		InMemoryCommandService commandService = new InMemoryCommandService()
+		InMemoryCommandEngine commandService = new InMemoryCommandEngine()
 			.register(new CreateIndexerCommandHandler(repository, eventBus));
 
 		repository.insertTarget(new InsertTarget(null, "customers", null))

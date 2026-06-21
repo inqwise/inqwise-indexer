@@ -58,13 +58,13 @@ public final class DocumentStoreCommandHandlers {
 		);
 	}
 
-	public static InMemoryCommandService register(
-		InMemoryCommandService commandService,
+	public static <T extends CommandEngine> T register(
+		T commandEngine,
 		Config config
 	) {
-		Objects.requireNonNull(commandService, "commandService");
-		create(config, commandService).forEach(commandService::register);
-		return commandService;
+		Objects.requireNonNull(commandEngine, "commandEngine");
+		create(config, commandEngine).forEach(commandEngine::register);
+		return commandEngine;
 	}
 
 	public record Config(

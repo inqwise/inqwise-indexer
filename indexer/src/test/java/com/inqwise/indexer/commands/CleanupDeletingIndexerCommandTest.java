@@ -46,7 +46,7 @@ class CleanupDeletingIndexerCommandTest {
 			new InMemoryDocumentStoreMetadataRepository();
 		RecordingQueueResources queues = new RecordingQueueResources();
 		RecordingIndexResources indexes = new RecordingIndexResources();
-		InMemoryCommandService commands = commandService(repository, queues, indexes);
+		InMemoryCommandEngine commands = commandService(repository, queues, indexes);
 
 		insertIndexer(repository, IndexResourceOwnership.OWNER)
 			.compose(indexer -> repository.insertPublication(new InsertPublication(
@@ -90,7 +90,7 @@ class CleanupDeletingIndexerCommandTest {
 			new InMemoryDocumentStoreMetadataRepository();
 		RecordingQueueResources queues = new RecordingQueueResources();
 		RecordingIndexResources indexes = new RecordingIndexResources();
-		InMemoryCommandService commands = commandService(repository, queues, indexes);
+		InMemoryCommandEngine commands = commandService(repository, queues, indexes);
 
 		insertIndexer(repository, IndexResourceOwnership.ATTACHED)
 			.compose(indexer -> commands.submit(new DeleteIndexerCommand(indexer.indexerId(), 0L)))
@@ -139,12 +139,12 @@ class CleanupDeletingIndexerCommandTest {
 			})));
 	}
 
-	private InMemoryCommandService commandService(
+	private InMemoryCommandEngine commandService(
 		InMemoryDocumentStoreMetadataRepository repository,
 		IndexerQueueResourceManager queues,
 		IndexerDocumentIndexResourceManager indexes
 	) {
-		InMemoryCommandService commands = new InMemoryCommandService();
+		InMemoryCommandEngine commands = new InMemoryCommandEngine();
 		return commands
 			.register(new CleanupDeletingIndexerCommandHandler(repository, queues, indexes))
 			.register(new DeleteIndexerCommandHandler(

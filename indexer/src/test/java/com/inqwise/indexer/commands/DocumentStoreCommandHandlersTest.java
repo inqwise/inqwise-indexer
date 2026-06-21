@@ -40,7 +40,7 @@ import io.vertx.junit5.VertxTestContext;
 class DocumentStoreCommandHandlersTest {
 	@Test
 	void createsStandardLifecycleAndProvisioningHandlers() {
-		InMemoryCommandService commandService = new InMemoryCommandService();
+		InMemoryCommandEngine commandService = new InMemoryCommandEngine();
 		List<CommandHandler> handlers = DocumentStoreCommandHandlers.create(
 			config(new InMemoryDocumentStoreMetadataRepository()),
 			commandService
@@ -68,8 +68,8 @@ class DocumentStoreCommandHandlersTest {
 	void registersTargetCreationHandlerWithCommandService(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
-		InMemoryCommandService commandService = DocumentStoreCommandHandlers.register(
-			new InMemoryCommandService(),
+		InMemoryCommandEngine commandService = DocumentStoreCommandHandlers.register(
+			new InMemoryCommandEngine(),
 			config(repository)
 		);
 

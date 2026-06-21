@@ -33,7 +33,7 @@ class MetadataDeleteIndexerCommandTest {
 			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		List<IndexerMetadataChanged> events = new ArrayList<>();
-		InMemoryCommandService commandService = commandService(repository, eventBus);
+		InMemoryCommandEngine commandService = commandService(repository, eventBus);
 
 		eventBus.subscribe(events::add)
 			.compose(ignored -> insertIndexer(repository))
@@ -53,7 +53,7 @@ class MetadataDeleteIndexerCommandTest {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
-		InMemoryCommandService commandService = commandService(repository, eventBus);
+		InMemoryCommandEngine commandService = commandService(repository, eventBus);
 
 		insertIndexer(repository)
 			.compose(indexerId -> commandService.submit(new DeleteIndexerCommand(indexerId)))
@@ -69,7 +69,7 @@ class MetadataDeleteIndexerCommandTest {
 			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		List<IndexerMetadataChanged> events = new ArrayList<>();
-		InMemoryCommandService commandService = commandService(repository, eventBus);
+		InMemoryCommandEngine commandService = commandService(repository, eventBus);
 
 		eventBus.subscribe(events::add)
 			.compose(ignored -> commandService.submit(new DeleteIndexerCommand(404, 0L)))
@@ -79,11 +79,11 @@ class MetadataDeleteIndexerCommandTest {
 			})));
 	}
 
-	private InMemoryCommandService commandService(
+	private InMemoryCommandEngine commandService(
 		InMemoryDocumentStoreMetadataRepository repository,
 		InMemoryIndexerLifecycleEventBus eventBus
 	) {
-		InMemoryCommandService commandService = new InMemoryCommandService();
+		InMemoryCommandEngine commandService = new InMemoryCommandEngine();
 		return commandService
 			.register(new CleanupDeletingIndexerCommandHandler(
 				repository,

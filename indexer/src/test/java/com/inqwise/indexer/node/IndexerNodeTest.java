@@ -1,6 +1,7 @@
 package com.inqwise.indexer.node;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -13,6 +14,7 @@ import com.inqwise.indexer.IndexerActionType;
 import com.inqwise.indexer.IndexerMetadataChanged;
 import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.IndexerType;
+import com.inqwise.indexer.commands.InMemoryCommandEngine;
 import com.inqwise.indexer.gateway.GatewayRestOptions;
 import com.inqwise.indexer.hot.InvalidRouteSignature;
 import com.inqwise.indexer.metadata.InsertIndexer;
@@ -33,6 +35,25 @@ import io.vertx.junit5.VertxTestContext;
 
 @ExtendWith(VertxExtension.class)
 class IndexerNodeTest {
+	@Test
+	void startsAndStopsCommandEngineWithoutDeployments(
+		Vertx vertx,
+		VertxTestContext testContext
+	) {
+		IndexerNode node = IndexerNode.create(vertx, disabledServices());
+		InMemoryCommandEngine engine = (InMemoryCommandEngine) node.components().commandEngine();
+
+		node.start()
+			.compose(ignored -> {
+				assertTrue(engine.isStarted());
+				return node.stop();
+			})
+			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
+				assertFalse(engine.isStarted());
+				testContext.completeNow();
+			})));
+	}
+
 	@Test
 	void deploysEnabledServices(Vertx vertx, VertxTestContext testContext) {
 		IndexerNode node = IndexerNode.create(vertx, new IndexerNodeOptions());
@@ -231,5 +252,16 @@ class IndexerNodeTest {
 		try (ServerSocket socket = new ServerSocket(0)) {
 			return socket.getLocalPort();
 		}
+	}
+
+	private static IndexerNodeOptions disabledServices() {
+		IndexerNodeOptions options = new IndexerNodeOptions();
+		for (String service : options.getServices().keySet()) {
+			options.setService(
+				service,
+				new IndexerServiceDeploymentOptions().setEnabled(false)
+			);
+		}
+		return options;
 	}
 }

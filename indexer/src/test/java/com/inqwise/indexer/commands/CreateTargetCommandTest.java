@@ -44,7 +44,7 @@ class CreateTargetCommandTest {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
-		InMemoryCommandService commandService = commandService(
+		InMemoryCommandEngine commandService = commandService(
 			repository,
 			new RecordingDocumentIndexResourceManager(),
 			new RecordingQueueResourceManager(),
@@ -72,7 +72,7 @@ class CreateTargetCommandTest {
 	void failsWhenConcreteTargetAlreadyExists(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
-		InMemoryCommandService commandService = commandService(repository);
+		InMemoryCommandEngine commandService = commandService(repository);
 
 		commandService.submit(new CreateTargetCommand(
 			"target-customers",
@@ -98,7 +98,7 @@ class CreateTargetCommandTest {
 			new RecordingDocumentIndexResourceManager();
 		RecordingQueueResourceManager queueResources = new RecordingQueueResourceManager();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
-		InMemoryCommandService commandService = commandService(
+		InMemoryCommandEngine commandService = commandService(
 			repository,
 			documentResources,
 			queueResources,
@@ -133,7 +133,7 @@ class CreateTargetCommandTest {
 	void createsTargetWithPublishedIndexer(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
-		InMemoryCommandService commandService = commandService(repository);
+		InMemoryCommandEngine commandService = commandService(repository);
 
 		commandService.submit(new CreateTargetCommand(
 			"target-customers",
@@ -157,7 +157,7 @@ class CreateTargetCommandTest {
 		RecordingDocumentIndexResourceManager documentResources =
 			new RecordingDocumentIndexResourceManager();
 		documentResources.failure = new IllegalStateException("index create failed");
-		InMemoryCommandService commandService = commandService(
+		InMemoryCommandEngine commandService = commandService(
 			repository,
 			documentResources,
 			new RecordingQueueResourceManager(),
@@ -179,7 +179,7 @@ class CreateTargetCommandTest {
 		})))));
 	}
 
-	private InMemoryCommandService commandService(InMemoryDocumentStoreMetadataRepository repository) {
+	private InMemoryCommandEngine commandService(InMemoryDocumentStoreMetadataRepository repository) {
 		return commandService(
 			repository,
 			new RecordingDocumentIndexResourceManager(),
@@ -188,13 +188,13 @@ class CreateTargetCommandTest {
 		);
 	}
 
-	private InMemoryCommandService commandService(
+	private InMemoryCommandEngine commandService(
 		InMemoryDocumentStoreMetadataRepository repository,
 		RecordingDocumentIndexResourceManager documentResources,
 		RecordingQueueResourceManager queueResources,
 		InMemoryIndexerLifecycleEventBus eventBus
 	) {
-		return new InMemoryCommandService()
+		return new InMemoryCommandEngine()
 			.register(new CreateTargetCommandHandler(
 				repository,
 				new StaticTargetDefinitionProvider(List.of(

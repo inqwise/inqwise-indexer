@@ -23,7 +23,7 @@ class RecoverTargetProvisioningCommandTest {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
-		InMemoryCommandService commands = commandService(repository, eventBus);
+		InMemoryCommandEngine commands = commandService(repository, eventBus);
 
 		repository.insertTarget(new InsertTarget(
 			"target-customers",
@@ -50,7 +50,7 @@ class RecoverTargetProvisioningCommandTest {
 	void failsWhenTargetIsNotFailed(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
-		InMemoryCommandService commands = commandService(repository);
+		InMemoryCommandEngine commands = commandService(repository);
 
 		repository.insertTarget(new InsertTarget("target-customers", "customers", null))
 			.compose(targetId -> commands.submit(new RecoverTargetProvisioningCommand(
@@ -66,7 +66,7 @@ class RecoverTargetProvisioningCommandTest {
 	void failsWhenTargetIsNotActive(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
-		InMemoryCommandService commands = commandService(repository);
+		InMemoryCommandEngine commands = commandService(repository);
 
 		repository.insertTarget(new InsertTarget(
 			"target-customers",
@@ -93,7 +93,7 @@ class RecoverTargetProvisioningCommandTest {
 	void failsOnExpectedVersionConflict(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
-		InMemoryCommandService commands = commandService(repository);
+		InMemoryCommandEngine commands = commandService(repository);
 
 		repository.insertTarget(new InsertTarget(
 			"target-customers",
@@ -127,17 +127,17 @@ class RecoverTargetProvisioningCommandTest {
 		})));
 	}
 
-	private InMemoryCommandService commandService(
+	private InMemoryCommandEngine commandService(
 		InMemoryDocumentStoreMetadataRepository repository
 	) {
 		return commandService(repository, new InMemoryIndexerLifecycleEventBus());
 	}
 
-	private InMemoryCommandService commandService(
+	private InMemoryCommandEngine commandService(
 		InMemoryDocumentStoreMetadataRepository repository,
 		InMemoryIndexerLifecycleEventBus eventBus
 	) {
-		return new InMemoryCommandService()
+		return new InMemoryCommandEngine()
 			.register(new RecoverTargetProvisioningCommandHandler(repository, eventBus));
 	}
 }

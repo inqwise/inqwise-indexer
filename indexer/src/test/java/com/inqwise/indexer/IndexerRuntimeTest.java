@@ -13,7 +13,7 @@ import com.inqwise.indexer.commands.DeactivateIndexerCommandHandler;
 import com.inqwise.indexer.commands.DeleteIndexerCommand;
 import com.inqwise.indexer.commands.DeleteIndexerCommandHandler;
 import com.inqwise.indexer.commands.CleanupDeletingIndexerCommandHandler;
-import com.inqwise.indexer.commands.InMemoryCommandService;
+import com.inqwise.indexer.commands.InMemoryCommandEngine;
 import com.inqwise.indexer.metadata.FinalizeIndexerDeletion;
 import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.IndexerRuntimeState;
@@ -43,7 +43,7 @@ class IndexerRuntimeTest {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
-		InMemoryCommandService commandService = commandService(repository, eventBus);
+		InMemoryCommandEngine commandService = commandService(repository, eventBus);
 		AtomicInteger started = new AtomicInteger();
 		IndexerRuntime runtime = new IndexerRuntime(
 			repository,
@@ -84,7 +84,7 @@ class IndexerRuntimeTest {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
-		InMemoryCommandService commandService = commandService(repository, eventBus);
+		InMemoryCommandEngine commandService = commandService(repository, eventBus);
 		AtomicInteger stopped = new AtomicInteger();
 		IndexerRuntime runtime = new IndexerRuntime(
 			repository,
@@ -289,7 +289,7 @@ class IndexerRuntimeTest {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
-		InMemoryCommandService commandService = commandService(repository, eventBus);
+		InMemoryCommandEngine commandService = commandService(repository, eventBus);
 		AtomicInteger activated = new AtomicInteger();
 		AtomicInteger unregistered = new AtomicInteger();
 		AtomicInteger closed = new AtomicInteger();
@@ -339,11 +339,11 @@ class IndexerRuntimeTest {
 			.onComplete(testContext.succeeding(ignored -> testContext.completeNow()));
 	}
 
-	private InMemoryCommandService commandService(
+	private InMemoryCommandEngine commandService(
 		InMemoryDocumentStoreMetadataRepository repository,
 		InMemoryIndexerLifecycleEventBus eventBus
 	) {
-		InMemoryCommandService commandService = new InMemoryCommandService();
+		InMemoryCommandEngine commandService = new InMemoryCommandEngine();
 		return commandService
 			.register(new ActivateIndexerCommandHandler(repository, eventBus))
 			.register(new DeactivateIndexerCommandHandler(repository, eventBus))

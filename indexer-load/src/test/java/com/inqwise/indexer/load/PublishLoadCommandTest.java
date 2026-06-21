@@ -15,7 +15,7 @@ import com.inqwise.indexer.InMemoryIndexerLifecycleEventBus;
 import com.inqwise.indexer.IndexerQueueResourceManager;
 import com.inqwise.indexer.commands.CleanupDeletingIndexerCommandHandler;
 import com.inqwise.indexer.commands.DeleteIndexerCommandHandler;
-import com.inqwise.indexer.commands.InMemoryCommandService;
+import com.inqwise.indexer.commands.InMemoryCommandEngine;
 import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.metadata.InsertTarget;
@@ -34,7 +34,7 @@ class PublishLoadCommandTest {
 	void publishesHistoricalOnlyLoadAsLiveWriter(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository metadata = new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
-		InMemoryCommandService commands = commandService(metadata, loads);
+		InMemoryCommandEngine commands = commandService(metadata, loads);
 
 		metadata.insertTarget(new InsertTarget(null, "customers", null))
 			.compose(targetId -> metadata.insertIndexer(new InsertIndexer(
@@ -80,7 +80,7 @@ class PublishLoadCommandTest {
 	void publishesLinkedLiveWriterAndTransfersOwnership(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository metadata = new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
-		InMemoryCommandService commands = commandService(metadata, loads);
+		InMemoryCommandEngine commands = commandService(metadata, loads);
 
 		metadata.insertTarget(new InsertTarget(null, "customers", null))
 			.compose(targetId -> metadata.insertIndexer(new InsertIndexer(
@@ -136,7 +136,7 @@ class PublishLoadCommandTest {
 	void cleanupAfterLinkedPublishDeletesOldAndLoadWriters(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository metadata = new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
-		InMemoryCommandService commands = cleanupCommandService(metadata, loads);
+		InMemoryCommandEngine commands = cleanupCommandService(metadata, loads);
 
 		metadata.insertTarget(new InsertTarget(null, "customers", null))
 			.compose(targetId -> metadata.insertIndexer(new InsertIndexer(
@@ -193,7 +193,7 @@ class PublishLoadCommandTest {
 	void approvalPublishesReadyReviewedLoad(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository metadata = new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
-		InMemoryCommandService commands = commandService(metadata, loads);
+		InMemoryCommandEngine commands = commandService(metadata, loads);
 		commands.register(new ApproveLoadPublicationCommandHandler(
 			loads,
 			new InMemoryIndexerLifecycleEventBus(),
@@ -293,11 +293,11 @@ class PublishLoadCommandTest {
 						)))));
 	}
 
-	private InMemoryCommandService commandService(
+	private InMemoryCommandEngine commandService(
 		InMemoryDocumentStoreMetadataRepository metadata,
 		InMemoryIndexerLoadRepository loads
 	) {
-		return new InMemoryCommandService()
+		return new InMemoryCommandEngine()
 			.register(new PublishLoadCommandHandler(
 				metadata,
 				loads,
@@ -305,12 +305,12 @@ class PublishLoadCommandTest {
 			));
 	}
 
-	private InMemoryCommandService cleanupCommandService(
+	private InMemoryCommandEngine cleanupCommandService(
 		InMemoryDocumentStoreMetadataRepository metadata,
 		InMemoryIndexerLoadRepository loads
 	) {
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
-		InMemoryCommandService commands = new InMemoryCommandService();
+		InMemoryCommandEngine commands = new InMemoryCommandEngine();
 		commands
 			.register(new CleanupDeletingIndexerCommandHandler(
 				metadata,

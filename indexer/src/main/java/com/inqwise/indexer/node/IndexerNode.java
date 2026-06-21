@@ -12,7 +12,7 @@ import com.inqwise.indexer.InMemoryIndexerDocumentStore;
 import com.inqwise.indexer.InMemoryIndexerLifecycleEventBus;
 import com.inqwise.indexer.InMemoryIndexerQueue;
 import com.inqwise.indexer.IndexerEventPublisher;
-import com.inqwise.indexer.commands.InMemoryCommandService;
+import com.inqwise.indexer.commands.InMemoryCommandEngine;
 import com.inqwise.indexer.commands.DocumentStoreCommandHandlers;
 import com.inqwise.indexer.commands.RoutedIndexActionPublisher;
 import com.inqwise.indexer.commands.SubmitIndexActionsCommandHandler;
@@ -72,6 +72,7 @@ public class IndexerNode {
 	public Future<Void> start() {
 		options.validate();
 		Future<Void> deployed = Future.succeededFuture();
+		deployed = deployed.compose(ignored -> components.commandEngine().start());
 		deployed = deployed.compose(ignored -> startInvalidRouteMetadataChangeListener());
 		deployed = deployed.compose(ignored -> deployAdmin());
 		deployed = deployed.compose(ignored -> deployAdminRest());
@@ -97,7 +98,9 @@ public class IndexerNode {
 				.recover(error -> Future.succeededFuture()));
 		}
 
-		return stopped.onComplete(ignored -> deploymentIds.clear());
+		return stopped
+			.compose(ignored -> components.commandEngine().stop())
+			.onComplete(ignored -> deploymentIds.clear());
 	}
 
 	public List<String> deploymentIds() {
@@ -124,7 +127,7 @@ public class IndexerNode {
 					components.targetDefinitionProvider(),
 					components.indexerDefinitionProvider(),
 					components.documentIndexResources(),
-					components.commandService(),
+					components.commandEngine(),
 					components.indexerOperations()
 				),
 				new DeploymentOptions()
@@ -241,9 +244,9 @@ public class IndexerNode {
 			repository,
 			lifecycleEventBus
 		);
-		InMemoryCommandService commandService = new InMemoryCommandService();
+		InMemoryCommandEngine commandEngine = new InMemoryCommandEngine();
 		DocumentStoreCommandHandlers.register(
-			commandService,
+			commandEngine,
 			new DocumentStoreCommandHandlers.Config(
 				repository,
 				targetDefinitionProvider,
@@ -254,7 +257,7 @@ public class IndexerNode {
 				indexerOperations
 			)
 		);
-		commandService.register(new SubmitIndexActionsCommandHandler(
+		commandEngine.register(new SubmitIndexActionsCommandHandler(
 				repository,
 				targetDefinitionProvider,
 				lifecycleEventBus,
@@ -264,7 +267,7 @@ public class IndexerNode {
 		HotIndexActionsService hotIndexActionsService = new HotIndexActionsService(
 			hotMetadataView,
 			new RoutedIndexActionPublisher(queue),
-			commandService,
+			commandEngine,
 			invalidRouteCache
 		);
 		InvalidRouteMetadataChangeListener invalidRouteMetadataChangeListener =
@@ -286,7 +289,7 @@ public class IndexerNode {
 		return new IndexerNodeComponents(
 			hotIndexActionsService,
 			runtime,
-			commandService,
+			commandEngine,
 			indexerOperations,
 			repository,
 			lifecycleEventBus,

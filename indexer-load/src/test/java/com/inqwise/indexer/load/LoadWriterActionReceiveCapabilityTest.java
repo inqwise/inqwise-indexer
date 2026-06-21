@@ -31,7 +31,7 @@ import com.inqwise.indexer.TargetMetadataChanged;
 import com.inqwise.indexer.commands.Command;
 import com.inqwise.indexer.commands.CommandService;
 import com.inqwise.indexer.commands.DeleteIndexerCommand;
-import com.inqwise.indexer.commands.InMemoryCommandService;
+import com.inqwise.indexer.commands.InMemoryCommandEngine;
 import com.inqwise.indexer.commands.SubmitIndexActionsCommand;
 import com.inqwise.indexer.commands.SubmitIndexActionsCommandHandler;
 import com.inqwise.indexer.definitions.StaticTargetDefinitionProvider;
@@ -63,7 +63,7 @@ class LoadWriterActionReceiveCapabilityTest {
 		IndexerPlugins plugins = new IndexerPlugins(List.of(new LoadIndexerPlugin(metadata, loads)));
 		RecordingEventBus eventBus = new RecordingEventBus();
 		RecordingQueue queue = new RecordingQueue();
-		InMemoryCommandService commands = new InMemoryCommandService()
+		InMemoryCommandEngine commands = new InMemoryCommandEngine()
 			.register(new SubmitIndexActionsCommandHandler(
 				metadata,
 				new StaticTargetDefinitionProvider(List.of()),

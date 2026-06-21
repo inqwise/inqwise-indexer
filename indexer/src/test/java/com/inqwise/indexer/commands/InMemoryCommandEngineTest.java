@@ -1,7 +1,9 @@
 package com.inqwise.indexer.commands;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -14,12 +16,52 @@ import io.vertx.junit5.VertxExtension;
 import io.vertx.junit5.VertxTestContext;
 
 @ExtendWith(VertxExtension.class)
-class InMemoryCommandServiceTest {
+class InMemoryCommandEngineTest {
+	@Test
+	void dispatchesThroughInjectedHandlerRegistry(VertxTestContext testContext) {
+		TestCommand command = new TestCommand("test.registry", new JsonObject());
+		AtomicReference<Command> received = new AtomicReference<>();
+		CommandHandlerRegistry handlers = new CommandHandlerRegistry()
+			.register(new CommandHandler() {
+				@Override
+				public String getType() {
+					return "test.registry";
+				}
+
+				@Override
+				public Future<Void> handle(Command command) {
+					received.set(command);
+					return Future.succeededFuture();
+				}
+			});
+
+		new InMemoryCommandEngine(handlers).submit(command)
+			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
+				assertSame(command, received.get());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void lifecycleIsImmediatelyAvailable(VertxTestContext testContext) {
+		InMemoryCommandEngine engine = new InMemoryCommandEngine();
+
+		engine.start()
+			.compose(ignored -> {
+				assertTrue(engine.isStarted());
+				return engine.stop();
+			})
+			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
+				assertFalse(engine.isStarted());
+				testContext.completeNow();
+			})));
+	}
+
 	@Test
 	void dispatchesCommandToRegisteredHandler(VertxTestContext testContext) {
 		TestCommand command = new TestCommand("test.echo", new JsonObject().put("value", "ok"));
 		AtomicReference<Command> received = new AtomicReference<>();
-		InMemoryCommandService service = new InMemoryCommandService()
+		InMemoryCommandEngine service = new InMemoryCommandEngine()
 			.register(new CommandHandler() {
 				@Override
 				public String getType() {
@@ -43,7 +85,7 @@ class InMemoryCommandServiceTest {
 	@Test
 	void failsWhenHandlerIsMissing(VertxTestContext testContext) {
 		TestCommand command = new TestCommand("test.missing", new JsonObject());
-		InMemoryCommandService service = new InMemoryCommandService();
+		InMemoryCommandEngine service = new InMemoryCommandEngine();
 
 		service.submit(command)
 			.onComplete(testContext.failing(error -> testContext.verify(() -> {

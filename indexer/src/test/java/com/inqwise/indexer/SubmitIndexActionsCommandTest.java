@@ -13,7 +13,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.inqwise.indexer.commands.CommandFailure;
-import com.inqwise.indexer.commands.InMemoryCommandService;
+import com.inqwise.indexer.commands.InMemoryCommandEngine;
 import com.inqwise.indexer.commands.SubmitIndexActionsCommand;
 import com.inqwise.indexer.commands.SubmitIndexActionsCommandHandler;
 import com.inqwise.indexer.definitions.IndexDefinition;
@@ -56,7 +56,7 @@ class SubmitIndexActionsCommandTest {
 			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		RecordingQueue queue = new RecordingQueue();
-		InMemoryCommandService commandService = metadataCommandService(repository, eventBus, queue);
+		InMemoryCommandEngine commandService = metadataCommandService(repository, eventBus, queue);
 		List<IndexerMetadataChanged> events = new ArrayList<>();
 
 		repository.insertTarget(new InsertTarget(null, "customers", null))
@@ -117,7 +117,7 @@ class SubmitIndexActionsCommandTest {
 			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		RecordingQueue queue = new RecordingQueue();
-		InMemoryCommandService commandService = metadataCommandService(repository, eventBus, queue);
+		InMemoryCommandEngine commandService = metadataCommandService(repository, eventBus, queue);
 
 		repository.insertTarget(new InsertTarget(null, "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
@@ -162,7 +162,7 @@ class SubmitIndexActionsCommandTest {
 			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		RecordingQueue queue = new RecordingQueue();
-		InMemoryCommandService commandService = metadataCommandService(repository, eventBus, queue);
+		InMemoryCommandEngine commandService = metadataCommandService(repository, eventBus, queue);
 
 		repository.insertTarget(new InsertTarget(null, "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
@@ -199,7 +199,7 @@ class SubmitIndexActionsCommandTest {
 			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		RecordingQueue queue = new RecordingQueue();
-		InMemoryCommandService commandService = metadataCommandService(repository, eventBus, queue);
+		InMemoryCommandEngine commandService = metadataCommandService(repository, eventBus, queue);
 
 		repository.insertTarget(new InsertTarget(null, "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
@@ -245,7 +245,7 @@ class SubmitIndexActionsCommandTest {
 		RecordingDocumentIndexResourceManager documentResources =
 			new RecordingDocumentIndexResourceManager();
 		RecordingQueueResourceManager queueResources = new RecordingQueueResourceManager();
-		InMemoryCommandService commandService = metadataCommandService(
+		InMemoryCommandEngine commandService = metadataCommandService(
 			repository,
 			eventBus,
 			queue,
@@ -318,7 +318,7 @@ class SubmitIndexActionsCommandTest {
 		RecordingDocumentIndexResourceManager documentResources =
 			new RecordingDocumentIndexResourceManager();
 		RecordingQueueResourceManager queueResources = new RecordingQueueResourceManager();
-		InMemoryCommandService commandService = metadataCommandService(
+		InMemoryCommandEngine commandService = metadataCommandService(
 			repository,
 			eventBus,
 			queue,
@@ -360,7 +360,7 @@ class SubmitIndexActionsCommandTest {
 		RecordingDocumentIndexResourceManager documentResources =
 			new RecordingDocumentIndexResourceManager();
 		RecordingQueueResourceManager queueResources = new RecordingQueueResourceManager();
-		InMemoryCommandService commandService = metadataCommandService(
+		InMemoryCommandEngine commandService = metadataCommandService(
 			repository,
 			eventBus,
 			queue,
@@ -396,7 +396,7 @@ class SubmitIndexActionsCommandTest {
 			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		RecordingQueue queue = new RecordingQueue();
-		InMemoryCommandService commandService = metadataCommandService(repository, eventBus, queue);
+		InMemoryCommandEngine commandService = metadataCommandService(repository, eventBus, queue);
 
 		repository.ensureTarget("customers", may2026Period())
 			.compose(target -> repository.updateTargetProvisioningState(new UpdateTargetProvisioningState(
@@ -427,7 +427,7 @@ class SubmitIndexActionsCommandTest {
 			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		RecordingQueue queue = new RecordingQueue();
-		InMemoryCommandService commandService = metadataCommandService(repository, eventBus, queue);
+		InMemoryCommandEngine commandService = metadataCommandService(repository, eventBus, queue);
 
 		repository.ensureTarget("customers", may2026Period())
 			.compose(target -> repository.updateTargetProvisioningState(new UpdateTargetProvisioningState(
@@ -458,7 +458,7 @@ class SubmitIndexActionsCommandTest {
 			new ProvisioningLockConflictRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		RecordingQueue queue = new RecordingQueue();
-		InMemoryCommandService commandService = metadataCommandService(repository, eventBus, queue);
+		InMemoryCommandEngine commandService = metadataCommandService(repository, eventBus, queue);
 
 		repository.ensureTarget("customers", may2026Period())
 			.compose(target -> commandService.submit(new SubmitIndexActionsCommand(
@@ -488,7 +488,7 @@ class SubmitIndexActionsCommandTest {
 		RecordingQueue queue = new RecordingQueue();
 		InMemoryInvalidRouteCache invalidRouteCache =
 			new InMemoryInvalidRouteCache(Duration.ofMinutes(5));
-		InMemoryCommandService commandService = new InMemoryCommandService()
+		InMemoryCommandEngine commandService = new InMemoryCommandEngine()
 			.register(new SubmitIndexActionsCommandHandler(
 				repository,
 				emptyTargetDefinitionProvider(),
@@ -542,7 +542,7 @@ class SubmitIndexActionsCommandTest {
 				.withDocument(new JsonObject().put("name", "Ada"))
 				.build())
 		);
-		InMemoryCommandService disabled = metadataCommandService(
+		InMemoryCommandEngine disabled = metadataCommandService(
 			repository,
 			eventBus,
 			queue,
@@ -551,7 +551,7 @@ class SubmitIndexActionsCommandTest {
 			false,
 			invalidRouteCache
 		);
-		InMemoryCommandService enabled = metadataCommandService(
+		InMemoryCommandEngine enabled = metadataCommandService(
 			repository,
 			eventBus,
 			queue,
@@ -584,7 +584,7 @@ class SubmitIndexActionsCommandTest {
 		RecordingQueue queue = new RecordingQueue();
 		InMemoryInvalidRouteCache invalidRouteCache =
 			new InMemoryInvalidRouteCache(Duration.ofMinutes(5));
-		InMemoryCommandService commandService = metadataCommandService(
+		InMemoryCommandEngine commandService = metadataCommandService(
 			repository,
 			eventBus,
 			queue,
@@ -739,7 +739,7 @@ class SubmitIndexActionsCommandTest {
 			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		RecordingQueue queue = new RecordingQueue();
-		InMemoryCommandService commandService = metadataCommandService(repository, eventBus, queue);
+		InMemoryCommandEngine commandService = metadataCommandService(repository, eventBus, queue);
 
 		commandService.submit(new SubmitIndexActionsCommand(
 			"customers",
@@ -763,7 +763,7 @@ class SubmitIndexActionsCommandTest {
 			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		RecordingQueue queue = new RecordingQueue();
-		InMemoryCommandService commandService = metadataCommandService(repository, eventBus, queue);
+		InMemoryCommandEngine commandService = metadataCommandService(repository, eventBus, queue);
 
 		repository.insertTarget(new InsertTarget(null, "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
@@ -802,7 +802,7 @@ class SubmitIndexActionsCommandTest {
 			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		RecordingQueue queue = new RecordingQueue();
-		InMemoryCommandService commandService = metadataCommandService(repository, eventBus, queue);
+		InMemoryCommandEngine commandService = metadataCommandService(repository, eventBus, queue);
 
 		repository.insertTarget(new InsertTarget(null, "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
@@ -839,7 +839,7 @@ class SubmitIndexActionsCommandTest {
 			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		RecordingQueue queue = new RecordingQueue();
-		InMemoryCommandService commandService = metadataCommandService(repository, eventBus, queue);
+		InMemoryCommandEngine commandService = metadataCommandService(repository, eventBus, queue);
 
 		repository.insertTarget(new InsertTarget(null, "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
@@ -880,7 +880,7 @@ class SubmitIndexActionsCommandTest {
 		assertEquals("Concrete action destination is required", error.getMessage());
 	}
 
-	private InMemoryCommandService metadataCommandService(
+	private InMemoryCommandEngine metadataCommandService(
 		InMemoryDocumentStoreMetadataRepository repository,
 		InMemoryIndexerLifecycleEventBus eventBus,
 		RecordingQueue queue
@@ -894,7 +894,7 @@ class SubmitIndexActionsCommandTest {
 		);
 	}
 
-	private InMemoryCommandService metadataCommandService(
+	private InMemoryCommandEngine metadataCommandService(
 		InMemoryDocumentStoreMetadataRepository repository,
 		InMemoryIndexerLifecycleEventBus eventBus,
 		RecordingQueue queue,
@@ -911,7 +911,7 @@ class SubmitIndexActionsCommandTest {
 		);
 	}
 
-	private InMemoryCommandService metadataCommandService(
+	private InMemoryCommandEngine metadataCommandService(
 		InMemoryDocumentStoreMetadataRepository repository,
 		InMemoryIndexerLifecycleEventBus eventBus,
 		RecordingQueue queue,
@@ -919,7 +919,7 @@ class SubmitIndexActionsCommandTest {
 		IndexerQueueResourceManager queueResources,
 		boolean autoProvisionOnWrite
 	) {
-		return new InMemoryCommandService()
+		return new InMemoryCommandEngine()
 			.register(new SubmitIndexActionsCommandHandler(
 				repository,
 				customersMonthlyTargetDefinitionProvider(autoProvisionOnWrite),
@@ -936,7 +936,7 @@ class SubmitIndexActionsCommandTest {
 			));
 	}
 
-	private InMemoryCommandService metadataCommandService(
+	private InMemoryCommandEngine metadataCommandService(
 		InMemoryDocumentStoreMetadataRepository repository,
 		InMemoryIndexerLifecycleEventBus eventBus,
 		RecordingQueue queue,
@@ -945,7 +945,7 @@ class SubmitIndexActionsCommandTest {
 		boolean autoProvisionOnWrite,
 		InMemoryInvalidRouteCache invalidRouteCache
 	) {
-		return new InMemoryCommandService()
+		return new InMemoryCommandEngine()
 			.register(new SubmitIndexActionsCommandHandler(
 				repository,
 				customersMonthlyTargetDefinitionProvider(autoProvisionOnWrite),

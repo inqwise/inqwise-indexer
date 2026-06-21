@@ -32,7 +32,7 @@ class MetadataIndexerLifecycleCommandTest {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
-		InMemoryCommandService commandService = commandService(repository, eventBus);
+		InMemoryCommandEngine commandService = commandService(repository, eventBus);
 		List<IndexerMetadataChanged> events = new ArrayList<>();
 
 		eventBus.subscribe(events::add)
@@ -57,7 +57,7 @@ class MetadataIndexerLifecycleCommandTest {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
-		InMemoryCommandService commandService = commandService(repository, eventBus);
+		InMemoryCommandEngine commandService = commandService(repository, eventBus);
 		List<IndexerMetadataChanged> events = new ArrayList<>();
 
 		eventBus.subscribe(events::add)
@@ -87,7 +87,7 @@ class MetadataIndexerLifecycleCommandTest {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
-		InMemoryCommandService commandService = commandService(repository, eventBus);
+		InMemoryCommandEngine commandService = commandService(repository, eventBus);
 
 		insertIndexer(repository, IndexerRuntimeState.NON_ACTIVE, MutationState.DELETING)
 			.compose(indexerId -> commandService.submit(new ActivateIndexerCommand(indexerId)))
@@ -97,11 +97,11 @@ class MetadataIndexerLifecycleCommandTest {
 			})));
 	}
 
-	private InMemoryCommandService commandService(
+	private InMemoryCommandEngine commandService(
 		InMemoryDocumentStoreMetadataRepository repository,
 		InMemoryIndexerLifecycleEventBus eventBus
 	) {
-		return new InMemoryCommandService()
+		return new InMemoryCommandEngine()
 			.register(new ActivateIndexerCommandHandler(repository, eventBus))
 			.register(new DeactivateIndexerCommandHandler(repository, eventBus));
 	}
