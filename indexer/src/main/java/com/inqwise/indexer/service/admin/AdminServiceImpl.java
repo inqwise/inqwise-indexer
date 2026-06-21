@@ -203,8 +203,7 @@ public class AdminServiceImpl implements AdminService {
 				request.getExpectedVersion()
 			)).compose(marked -> marked
 				.map(indexer -> commandService.submit(new CleanupDeletingIndexerCommand(
-					indexer.id(),
-					indexer.version()
+					indexer.id()
 				)).map(ignored -> new AdminIndexerResult().setIndexer(
 					AdminIndexerView.from(indexer)
 				)))

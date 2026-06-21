@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,7 +28,7 @@ import com.inqwise.indexer.metadata.ManifestStatus;
 import com.inqwise.indexer.metadata.MutationState;
 import com.inqwise.indexer.metadata.PublicationState;
 import com.inqwise.indexer.metadata.ReadinessState;
-import com.inqwise.indexer.metadata.UpdateIndexerQueueName;
+import com.inqwise.indexer.metadata.UpdateIndexerRuntimeState;
 import com.inqwise.indexer.operations.IndexerOperations;
 import com.inqwise.indexer.operations.MarkIndexerDeletingRequest;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
@@ -101,31 +102,39 @@ class CleanupDeletingIndexerCommandTest {
 	}
 
 	@Test
-	void cleanupRejectsUnexpectedDeletingVersion(VertxTestContext testContext) {
+	void cleanupRetryReloadsAfterFinalizationVersionConflict(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
-		RecordingQueueResources queues = new RecordingQueueResources();
-		CleanupDeletingIndexerCommandHandler cleanup = new CleanupDeletingIndexerCommandHandler(
-			repository,
-			queues,
-			new RecordingIndexResources()
-		);
 
 		insertIndexer(repository, IndexResourceOwnership.OWNER)
 			.compose(indexer -> new IndexerOperations(repository, eventBus)
 				.markDeleting(new MarkIndexerDeletingRequest(indexer.indexerId(), 0L)))
-			.compose(marked -> repository.updateIndexerQueueName(new UpdateIndexerQueueName(
-				marked.orElseThrow().id(),
-				"changed-queue",
-				marked.orElseThrow().version()
-			)).compose(ignored -> cleanup.handle(new CleanupDeletingIndexerCommand(
-				marked.orElseThrow().id(),
-				marked.orElseThrow().version()
-			))))
-			.onComplete(testContext.failing(error -> testContext.verify(() -> {
-				assertInstanceOf(RetryableStaleStateException.class, error);
-				assertTrue(queues.deleted.isEmpty());
+			.compose(marked -> {
+				Integer indexerId = marked.orElseThrow().id();
+				VersionChangingQueueResources queues = new VersionChangingQueueResources(
+					repository,
+					indexerId
+				);
+				CleanupDeletingIndexerCommandHandler cleanup =
+					new CleanupDeletingIndexerCommandHandler(
+						repository,
+						queues,
+						new RecordingIndexResources()
+					);
+				CleanupDeletingIndexerCommand command =
+					new CleanupDeletingIndexerCommand(indexerId);
+
+				return cleanup.handle(command).transform(first -> {
+					assertTrue(first.failed());
+					assertInstanceOf(RetryableStaleStateException.class, first.cause());
+					return cleanup.handle(command);
+				}).compose(ignored -> repository.getIndexerById(indexerId)
+					.map(found -> new RetryResult(found, queues.deletedQueues())));
+			})
+			.onComplete(testContext.succeeding(result -> testContext.verify(() -> {
+				assertTrue(result.indexer().isEmpty());
+				assertEquals(List.of("customers-queue", "customers-queue"), result.deletedQueues());
 				testContext.completeNow();
 			})));
 	}
@@ -177,6 +186,41 @@ class CleanupDeletingIndexerCommandTest {
 			deleted.add(queueName);
 			return Future.succeededFuture();
 		}
+
+		protected List<String> deletedQueues() {
+			return List.copyOf(deleted);
+		}
+	}
+
+	private static class VersionChangingQueueResources extends RecordingQueueResources {
+		private final InMemoryDocumentStoreMetadataRepository repository;
+		private final Integer indexerId;
+		private final AtomicBoolean changeVersion = new AtomicBoolean(true);
+
+		private VersionChangingQueueResources(
+			InMemoryDocumentStoreMetadataRepository repository,
+			Integer indexerId
+		) {
+			this.repository = repository;
+			this.indexerId = indexerId;
+		}
+
+		@Override
+		public Future<Void> delete(String queueName) {
+			super.delete(queueName);
+			if (!changeVersion.compareAndSet(true, false)) {
+				return Future.succeededFuture();
+			}
+
+			return repository.getIndexerById(indexerId)
+				.compose(found -> repository.updateIndexerRuntimeState(
+					new UpdateIndexerRuntimeState(
+						indexerId,
+						IndexerRuntimeState.ACTIVE,
+						found.orElseThrow().version()
+					)
+				));
+		}
 	}
 
 	private static class RecordingIndexResources implements IndexerDocumentIndexResourceManager {
@@ -201,6 +245,12 @@ class CleanupDeletingIndexerCommandTest {
 		java.util.Optional<com.inqwise.indexer.metadata.IndexerRecord> indexer,
 		java.util.Optional<com.inqwise.indexer.metadata.PublicationRecord> publication,
 		java.util.Optional<com.inqwise.indexer.metadata.ManifestRecord> manifest
+	) {
+	}
+
+	private record RetryResult(
+		java.util.Optional<com.inqwise.indexer.metadata.IndexerRecord> indexer,
+		List<String> deletedQueues
 	) {
 	}
 }

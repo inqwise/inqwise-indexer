@@ -46,12 +46,32 @@ public interface DocumentStoreMetadataRepository {
 
 	Future<Void> updateIndexerPublicationState(UpdateIndexerPublicationState update);
 
+	/**
+	 * Atomically replaces the published indexer and optionally transfers physical-index
+	 * ownership. Candidate, previous, and ownership-source indexers must not be deleting;
+	 * ownership is immutable after deletion begins.
+	 */
 	Future<Void> replacePublishedIndexer(ReplacePublishedIndexer replace);
 
+	/**
+	 * Updates indexer mutation state. {@link MutationState#DELETING} is terminal and
+	 * cannot transition back to a writable or read-only state.
+	 */
 	Future<Void> updateIndexerMutationState(UpdateIndexerMutationState update);
 
+	/**
+	 * Updates queue identity before deletion starts. Queue identity is immutable while
+	 * the indexer is {@link MutationState#DELETING} so physical cleanup can be retried
+	 * from a fresh metadata snapshot.
+	 */
 	Future<Void> updateIndexerQueueName(UpdateIndexerQueueName update);
 
+	/**
+	 * Atomically removes a deleting indexer and all publication and manifest metadata.
+	 * Missing indexers are successful idempotent cleanup misses. Existing indexers must
+	 * match the expected version and be in {@link MutationState#DELETING}; version
+	 * conflicts fail with a retryable stale-state error.
+	 */
 	Future<Void> finalizeIndexerDeletion(FinalizeIndexerDeletion finalizeDeletion);
 
 	Future<Integer> insertPublication(InsertPublication publication);

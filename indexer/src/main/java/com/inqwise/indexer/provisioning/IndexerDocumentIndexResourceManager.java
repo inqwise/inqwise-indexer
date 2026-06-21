@@ -19,5 +19,10 @@ public interface IndexerDocumentIndexResourceManager {
 
 	Future<Void> ensure(String indexName, IndexDefinition definition);
 
+	/**
+	 * Requests durable deletion of one concrete physical index. Missing resources and
+	 * repeated deletion are successful idempotent cleanup misses. Implementations must
+	 * reject wildcard, multi-index, and all-index identities and must not expand aliases.
+	 */
 	Future<Void> delete(String indexName);
 }

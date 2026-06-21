@@ -13,6 +13,7 @@ import com.inqwise.indexer.IndexResourceOwnership;
 import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.IndexerRole;
 import com.inqwise.indexer.IndexerType;
+import com.inqwise.indexer.errors.RetryableStaleStateException;
 
 import io.vertx.core.Future;
 
@@ -346,6 +347,7 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 			if (!replace.targetId().equals(candidate.targetId())) {
 				throw new IllegalStateException("Candidate target mismatch: " + candidate.id());
 			}
+			requireNotDeleting("Candidate", candidate);
 			if (candidate.publicationState() != PublicationState.UNPUBLISHED) {
 				throw new IllegalStateException("Candidate indexer is not unpublished: " + candidate.id());
 			}
@@ -372,6 +374,7 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 					throw new NullPointerException("expectedPreviousVersion");
 				}
 				requireVersion("Indexer", previous.id(), replace.expectedPreviousVersion(), previous.version());
+				requireNotDeleting("Previous", previous);
 			}
 
 			IndexerRecord ownershipSource = null;
@@ -387,6 +390,7 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 					|| !candidate.indexName().equals(ownershipSource.indexName())) {
 					throw new IllegalStateException("Ownership source mismatch: " + ownershipSource.id());
 				}
+				requireNotDeleting("Ownership source", ownershipSource);
 			}
 
 			if (previous != null) {
@@ -439,6 +443,12 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 	public synchronized Future<Void> updateIndexerMutationState(UpdateIndexerMutationState update) {
 		try {
 			IndexerRecord existing = requireIndexer(update.id(), update.expectedVersion());
+			if (existing.mutationState() == MutationState.DELETING
+				&& update.mutationState() != MutationState.DELETING) {
+				throw new IllegalStateException(
+					"Deleting indexer mutation state is terminal: " + existing.id()
+				);
+			}
 			indexersById.put(update.id(), copyIndexer(
 				existing,
 				existing.queueName(),
@@ -459,6 +469,11 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 	public synchronized Future<Void> updateIndexerQueueName(UpdateIndexerQueueName update) {
 		try {
 			IndexerRecord existing = requireIndexer(update.id(), update.expectedVersion());
+			if (existing.mutationState() == MutationState.DELETING) {
+				throw new IllegalStateException(
+					"Deleting indexer queue identity is immutable: " + existing.id()
+				);
+			}
 			indexersById.put(update.id(), copyIndexer(
 				existing,
 				require(update.queueName(), "queueName"),
@@ -485,7 +500,13 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 				return Future.succeededFuture();
 			}
 
-			requireIndexer(finalizeDeletion.indexerId(), finalizeDeletion.expectedVersion());
+			if (existing.version() != finalizeDeletion.expectedVersion()) {
+				throw new RetryableStaleStateException(
+					"Indexer version conflict for id " + finalizeDeletion.indexerId()
+						+ ": expected " + finalizeDeletion.expectedVersion()
+						+ " but was " + existing.version()
+				);
+			}
 			if (existing.mutationState() != MutationState.DELETING) {
 				throw new IllegalStateException(
 					"Indexer is not deleting: " + finalizeDeletion.indexerId()
@@ -827,6 +848,14 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 			throw new IllegalStateException(
 				type + " version conflict for id " + id + ": expected "
 					+ expectedVersion + " but was " + actualVersion
+			);
+		}
+	}
+
+	private void requireNotDeleting(String role, IndexerRecord indexer) {
+		if (indexer.mutationState() == MutationState.DELETING) {
+			throw new IllegalStateException(
+				role + " indexer is deleting: " + indexer.id()
 			);
 		}
 	}

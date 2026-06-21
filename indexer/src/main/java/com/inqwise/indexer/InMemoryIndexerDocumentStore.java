@@ -4,6 +4,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.inqwise.indexer.definitions.IndexDefinition;
+import com.inqwise.indexer.provisioning.DocumentIndexNameValidator;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 
 import io.vertx.core.Future;
@@ -16,6 +17,7 @@ public class InMemoryIndexerDocumentStore
 
 	@Override
 	public Future<Void> ensure(String indexName, IndexDefinition definition) {
+		DocumentIndexNameValidator.requireConcrete(indexName);
 		indexes.computeIfAbsent(indexName, ignored -> new ConcurrentHashMap<>());
 		IndexDefinition current = definitions.putIfAbsent(indexName, definition);
 		if (current == null || current.equals(definition)) {
@@ -49,7 +51,7 @@ public class InMemoryIndexerDocumentStore
 
 	@Override
 	public Future<Void> delete(String indexName) {
-		return drop(indexName);
+		return drop(DocumentIndexNameValidator.requireConcrete(indexName));
 	}
 
 	public JsonObject get(String indexName, String uid) {

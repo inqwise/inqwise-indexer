@@ -4,7 +4,6 @@ import java.util.Objects;
 
 import com.inqwise.indexer.IndexResourceOwnership;
 import com.inqwise.indexer.IndexerQueueResourceManager;
-import com.inqwise.indexer.errors.RetryableStaleStateException;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.FinalizeIndexerDeletion;
 import com.inqwise.indexer.metadata.IndexerRecord;
@@ -43,24 +42,19 @@ public final class CleanupDeletingIndexerCommandHandler implements CommandHandle
 
 		return repository.getIndexerById(cleanup.getIndexerId())
 			.compose(found -> found
-				.map(indexer -> cleanup(indexer, cleanup.getExpectedVersion()))
+				.map(this::cleanup)
 				.orElseGet(Future::succeededFuture));
 	}
 
-	private Future<Void> cleanup(IndexerRecord indexer, long expectedVersion) {
+	private Future<Void> cleanup(IndexerRecord indexer) {
 		if (indexer.mutationState() != MutationState.DELETING) {
 			return Future.failedFuture("Indexer is not deleting: " + indexer.id());
-		}
-		if (indexer.version() != expectedVersion) {
-			return Future.failedFuture(new RetryableStaleStateException(
-				"Indexer changed while cleaning resources: " + indexer.id()
-			));
 		}
 
 		return queueResources.delete(indexer.queueName())
 			.compose(ignored -> deleteDocumentIndex(indexer))
 			.compose(ignored -> repository.finalizeIndexerDeletion(
-				new FinalizeIndexerDeletion(indexer.id(), expectedVersion)
+				new FinalizeIndexerDeletion(indexer.id(), indexer.version())
 			));
 	}
 
