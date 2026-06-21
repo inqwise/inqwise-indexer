@@ -7,6 +7,7 @@ import io.vertx.core.Future;
 
 public class InMemoryCommandEngine implements CommandEngine {
 	private final CommandHandlerRegistry handlers;
+	private final CommandProcessor processor;
 	private final AtomicBoolean started = new AtomicBoolean();
 
 	public InMemoryCommandEngine() {
@@ -14,7 +15,15 @@ public class InMemoryCommandEngine implements CommandEngine {
 	}
 
 	public InMemoryCommandEngine(CommandHandlerRegistry handlers) {
+		this(handlers, new CommandFailureClassifier());
+	}
+
+	public InMemoryCommandEngine(
+		CommandHandlerRegistry handlers,
+		CommandFailureClassifier failureClassifier
+	) {
 		this.handlers = Objects.requireNonNull(handlers, "handlers");
+		this.processor = new CommandProcessor(handlers, failureClassifier);
 	}
 
 	@Override
@@ -27,11 +36,10 @@ public class InMemoryCommandEngine implements CommandEngine {
 	public Future<Void> submit(Command command) {
 		Objects.requireNonNull(command, "command");
 
-		return handlers.find(command.getType())
-			.map(handler -> handler.handle(command))
-			.orElseGet(() -> Future.failedFuture(
-				"No command handler for type: " + command.getType()
-			));
+		return processor.execute(command)
+			.compose(outcome -> outcome instanceof CommandExecutionOutcome.Failed failed
+				? Future.failedFuture(failed.error())
+				: Future.succeededFuture());
 	}
 
 	@Override
