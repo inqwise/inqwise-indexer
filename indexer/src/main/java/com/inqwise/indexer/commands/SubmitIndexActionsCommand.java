@@ -18,7 +18,7 @@ public class SubmitIndexActionsCommand implements Command {
 	public static final int MAX_ACTIONS = 1000;
 	public static final int MAX_DOCUMENT_BYTES = 1024 * 1024;
 
-	private final String commandId;
+	private final String correlationId;
 	private final String targetName;
 	private final Instant timestamp;
 	private final List<IndexerActionItem> actions;
@@ -30,10 +30,10 @@ public class SubmitIndexActionsCommand implements Command {
 	}
 
 	public SubmitIndexActionsCommand(
-		String commandId,
+		String correlationId,
 		List<IndexerActionItem> actions
 	) {
-		this(commandId, null, null, actions);
+		this(correlationId, null, null, actions);
 	}
 
 	public SubmitIndexActionsCommand(
@@ -45,20 +45,20 @@ public class SubmitIndexActionsCommand implements Command {
 	}
 
 	public SubmitIndexActionsCommand(
-		String commandId,
+		String correlationId,
 		String targetName,
 		Instant timestamp,
 		List<IndexerActionItem> actions
 	) {
-		this.commandId = Objects.requireNonNull(commandId, "commandId");
+		this.correlationId = Objects.requireNonNull(correlationId, "correlationId");
 		this.targetName = targetName;
 		this.timestamp = timestamp;
 		this.actions = validateActions(actions);
 	}
 
-	public SubmitIndexActionsCommand(JsonObject json) {
+	public SubmitIndexActionsCommand(JsonObject json, String correlationId) {
 		this(
-			json.getString("command_id"),
+			correlationId,
 			json.getString("target_name"),
 			json.getString("timestamp") == null ? null : Instant.parse(json.getString("timestamp")),
 			json.getJsonArray("actions", new JsonArray()).stream()
@@ -73,8 +73,9 @@ public class SubmitIndexActionsCommand implements Command {
 		return TYPE;
 	}
 
-	public String getCommandId() {
-		return commandId;
+	@Override
+	public String getCorrelationId() {
+		return correlationId;
 	}
 
 	public String getTargetName() {
@@ -92,7 +93,6 @@ public class SubmitIndexActionsCommand implements Command {
 	@Override
 	public JsonObject toJson() {
 		return new JsonObject()
-			.put("command_id", commandId)
 			.put("target_name", targetName)
 			.put("timestamp", timestamp == null ? null : timestamp.toString())
 			.put("actions", new JsonArray(actions.stream()

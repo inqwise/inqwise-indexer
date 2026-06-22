@@ -82,7 +82,7 @@ class MetadataSubmitIndexActionRouter {
 
 	Future<List<RoutedIndexActions>> route(SubmitIndexActionsCommand submit) {
 		if (submit.getActions().isEmpty()) {
-			return Future.failedFuture("No actions submitted for command " + submit.getCommandId());
+			return Future.failedFuture("No actions submitted for command " + submit.getCorrelationId());
 		}
 
 		MetadataRoutingContext routingContext = new MetadataRoutingContext();
@@ -92,7 +92,7 @@ class MetadataSubmitIndexActionRouter {
 		for (IndexerActionItem action : submit.getActions()) {
 			ActionDestination destination = ActionDestination.from(action);
 			if (destination.isEmpty() && !hasPublicTarget(submit)) {
-				return Future.failedFuture("Action destination is missing for command " + submit.getCommandId());
+				return Future.failedFuture("Action destination is missing for command " + submit.getCorrelationId());
 			}
 
 			actionsByIndexer = actionsByIndexer.compose(groups ->
@@ -148,7 +148,7 @@ class MetadataSubmitIndexActionRouter {
 
 		if (destination.targetId() == null) {
 			return Future.failedFuture(
-				"Action target id is required for metadata routing in command " + submit.getCommandId()
+				"Action target id is required for metadata routing in command " + submit.getCorrelationId()
 			);
 		}
 
@@ -270,7 +270,7 @@ class MetadataSubmitIndexActionRouter {
 						}
 
 						return capability.prepareToReceive(new PrepareIndexerForActionsRequest(
-							submit.getCommandId(),
+							submit.getCorrelationId(),
 							target,
 							candidate,
 							List.of(action),
@@ -342,7 +342,7 @@ class MetadataSubmitIndexActionRouter {
 	private Future<TargetDefinition> resolveTargetDefinition(SubmitIndexActionsCommand submit) {
 		return submit.getTargetName() == null
 			? Future.failedFuture(CommandFailure.stableInvalid(
-				"Target reference is missing for command " + submit.getCommandId()
+				"Target reference is missing for command " + submit.getCorrelationId()
 			))
 			: targetDefinitionProvider.getByName(submit.getTargetName())
 				.compose(found -> found

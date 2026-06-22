@@ -2,7 +2,6 @@ package com.inqwise.indexer.commands;
 
 import java.time.Instant;
 import java.util.Objects;
-import java.util.UUID;
 
 import com.inqwise.indexer.IndexResourceOwnership;
 import com.inqwise.indexer.IndexerRuntimeState;
@@ -16,7 +15,6 @@ import io.vertx.core.json.JsonObject;
 public class CreateTargetCommand implements Command {
 	public static final String TYPE = "target.create";
 
-	private final String commandId;
 	private final String prefix;
 	private final String targetName;
 	private final Instant timestamp;
@@ -28,17 +26,6 @@ public class CreateTargetCommand implements Command {
 		Instant timestamp,
 		CreateIndexer createIndexer
 	) {
-		this(UUID.randomUUID().toString(), prefix, targetName, timestamp, createIndexer);
-	}
-
-	public CreateTargetCommand(
-		String commandId,
-		String prefix,
-		String targetName,
-		Instant timestamp,
-		CreateIndexer createIndexer
-	) {
-		this.commandId = Objects.requireNonNull(commandId, "commandId");
 		this.prefix = prefix;
 		this.targetName = Objects.requireNonNull(targetName, "targetName");
 		this.timestamp = timestamp;
@@ -47,7 +34,6 @@ public class CreateTargetCommand implements Command {
 
 	public CreateTargetCommand(JsonObject json) {
 		this(
-			json.getString("command_id"),
 			json.getString("prefix"),
 			json.getString("target_name"),
 			json.getString("timestamp") == null ? null : Instant.parse(json.getString("timestamp")),
@@ -60,10 +46,6 @@ public class CreateTargetCommand implements Command {
 	@Override
 	public String getType() {
 		return TYPE;
-	}
-
-	public String getCommandId() {
-		return commandId;
 	}
 
 	public String getPrefix() {
@@ -85,7 +67,6 @@ public class CreateTargetCommand implements Command {
 	@Override
 	public JsonObject toJson() {
 		JsonObject json = new JsonObject()
-			.put("command_id", commandId)
 			.put("prefix", prefix)
 			.put("target_name", targetName)
 			.put("timestamp", timestamp == null ? null : timestamp.toString());
