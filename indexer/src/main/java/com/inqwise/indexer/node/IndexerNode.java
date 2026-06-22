@@ -31,6 +31,11 @@ import com.inqwise.indexer.hot.HotMetadataView;
 import com.inqwise.indexer.hot.InMemoryInvalidRouteCache;
 import com.inqwise.indexer.hot.InvalidRouteCache;
 import com.inqwise.indexer.hot.InvalidRouteMetadataChangeListener;
+import com.inqwise.indexer.hot.InMemoryTargetInvalidationRegistry;
+import com.inqwise.indexer.hot.TargetInvalidationMetadataChangeListener;
+import com.inqwise.indexer.hot.TargetInvalidationPoller;
+import com.inqwise.indexer.hot.TargetInvalidationRegistry;
+import com.inqwise.indexer.hot.TargetInvalidationRegistryOptions;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.operations.IndexerOperations;
@@ -74,6 +79,8 @@ public class IndexerNode {
 		Future<Void> deployed = Future.succeededFuture();
 		deployed = deployed.compose(ignored -> components.commandEngine().start());
 		deployed = deployed.compose(ignored -> startInvalidRouteMetadataChangeListener());
+		deployed = deployed.compose(ignored -> startTargetInvalidationMetadataChangeListener());
+		deployed = deployed.compose(ignored -> startTargetInvalidationPoller());
 		deployed = deployed.compose(ignored -> deployAdmin());
 		deployed = deployed.compose(ignored -> deployAdminRest());
 		deployed = deployed.compose(ignored -> deployTargetAction());
@@ -90,6 +97,17 @@ public class IndexerNode {
 		return listener == null ? Future.succeededFuture() : listener.start();
 	}
 
+	private Future<Void> startTargetInvalidationMetadataChangeListener() {
+		TargetInvalidationMetadataChangeListener listener =
+			components.targetInvalidationMetadataChangeListener();
+		return listener == null ? Future.succeededFuture() : listener.start();
+	}
+
+	private Future<Void> startTargetInvalidationPoller() {
+		TargetInvalidationPoller poller = components.targetInvalidationPoller();
+		return poller == null ? Future.succeededFuture() : poller.start();
+	}
+
 	public Future<Void> stop() {
 		Future<Void> stopped = Future.succeededFuture();
 		for (int i = deploymentIds.size() - 1; i >= 0; i--) {
@@ -99,6 +117,10 @@ public class IndexerNode {
 		}
 
 		return stopped
+			.compose(ignored -> {
+				TargetInvalidationPoller poller = components.targetInvalidationPoller();
+				return poller == null ? Future.succeededFuture() : poller.stop();
+			})
 			.compose(ignored -> components.commandEngine().stop())
 			.onComplete(ignored -> deploymentIds.clear());
 	}
@@ -232,6 +254,10 @@ public class IndexerNode {
 		IndexerLifecycleEventBus lifecycleEventBus = new InMemoryIndexerLifecycleEventBus();
 		InvalidRouteCache invalidRouteCache =
 			new InMemoryInvalidRouteCache(Duration.ofMinutes(5));
+		TargetInvalidationRegistryOptions targetInvalidationOptions =
+			new TargetInvalidationRegistryOptions(Duration.ofSeconds(30), 3, 10_000);
+		TargetInvalidationRegistry targetInvalidationRegistry =
+			new InMemoryTargetInvalidationRegistry(targetInvalidationOptions);
 		IndexerProviders indexerProviders = new IndexerProviders(List.of(
 			new MetadataIndexerProvider(repository)
 		));
@@ -276,6 +302,19 @@ public class IndexerNode {
 				lifecycleEventBus,
 				invalidRouteCache
 			);
+		TargetInvalidationMetadataChangeListener targetInvalidationMetadataChangeListener =
+			new TargetInvalidationMetadataChangeListener(
+				repository,
+				lifecycleEventBus,
+				hotMetadataView,
+				targetInvalidationRegistry
+			);
+		TargetInvalidationPoller targetInvalidationPoller = new TargetInvalidationPoller(
+			vertx,
+			targetInvalidationRegistry,
+			hotMetadataView,
+			targetInvalidationOptions
+		);
 		IndexerRuntime runtime = new IndexerRuntime(
 			vertx,
 			repository,
@@ -298,7 +337,10 @@ public class IndexerNode {
 			indexerDefinitionProvider,
 			documentStore,
 			invalidRouteCache,
-			invalidRouteMetadataChangeListener
+			invalidRouteMetadataChangeListener,
+			targetInvalidationRegistry,
+			targetInvalidationMetadataChangeListener,
+			targetInvalidationPoller
 		);
 	}
 }

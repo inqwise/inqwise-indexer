@@ -14,4 +14,6 @@ public interface HotMetadataView {
 	void invalidateHotTargetByConcreteTargetId(Integer targetId);
 
 	void invalidateHotTargetByIndexerId(Integer indexerId);
+
+	void invalidateAllHotTargets();
 }

@@ -90,6 +90,14 @@ public class DefaultHotMetadataView implements HotMetadataView {
 		indexersById.remove(indexerId);
 	}
 
+	@Override
+	public synchronized void invalidateAllHotTargets() {
+		targetsByName.clear();
+		targetsByConcreteTargetId.clear();
+		indexersById.clear();
+		targetsByIndexerId.clear();
+	}
+
 	private Future<Void> refreshHotTarget(TargetRecord concreteTarget) {
 		return targetDefinitionProvider.getByName(concreteTarget.targetName())
 			.compose(found -> found

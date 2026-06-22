@@ -46,10 +46,12 @@ class IndexerNodeTest {
 		node.start()
 			.compose(ignored -> {
 				assertTrue(engine.isStarted());
+				assertTrue(node.components().targetInvalidationPoller().isStarted());
 				return node.stop();
 			})
 			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
 				assertFalse(engine.isStarted());
+				assertFalse(node.components().targetInvalidationPoller().isStarted());
 				testContext.completeNow();
 			})));
 	}

@@ -5,20 +5,26 @@ import java.util.Objects;
 
 public record TargetInvalidationRegistryOptions(
 	Duration pollInterval,
-	int retentionFactor
+	int retentionFactor,
+	int maxTargets
 ) {
 	public static final int MIN_RETENTION_FACTOR = 2;
 
 	public TargetInvalidationRegistryOptions {
 		Objects.requireNonNull(pollInterval, "pollInterval");
-		if (pollInterval.isZero() || pollInterval.isNegative()) {
-			throw new IllegalArgumentException("pollInterval must be positive");
+		if (pollInterval.isZero() || pollInterval.isNegative()
+			|| pollInterval.toMillis() == 0L) {
+			throw new IllegalArgumentException("pollInterval must be at least one millisecond");
 		}
 
 		if (retentionFactor < MIN_RETENTION_FACTOR) {
 			throw new IllegalArgumentException(
 				"retentionFactor must be at least " + MIN_RETENTION_FACTOR
 			);
+		}
+
+		if (maxTargets <= 0) {
+			throw new IllegalArgumentException("maxTargets must be positive");
 		}
 	}
 

@@ -1,7 +1,9 @@
 package com.inqwise.indexer.hot;
 
-public interface TargetInvalidationRegistry {
-	void markInvalidated(Integer concreteTargetId);
+import io.vertx.core.Future;
 
-	TargetInvalidationEntries listInvalidations(int maxTargets);
+public interface TargetInvalidationRegistry {
+	Future<Void> markInvalidated(Integer concreteTargetId);
+
+	Future<TargetInvalidationEntries> listInvalidations(int maxTargets);
 }

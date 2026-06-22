@@ -10,6 +10,8 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+import io.vertx.core.Future;
+
 public class InMemoryTargetInvalidationRegistry implements TargetInvalidationRegistry {
 	private final Duration ttl;
 	private final Clock clock;
@@ -30,7 +32,7 @@ public class InMemoryTargetInvalidationRegistry implements TargetInvalidationReg
 	}
 
 	@Override
-	public void markInvalidated(Integer concreteTargetId) {
+	public Future<Void> markInvalidated(Integer concreteTargetId) {
 		Objects.requireNonNull(concreteTargetId, "concreteTargetId");
 		Instant now = clock.instant();
 		entriesByTargetId.compute(concreteTargetId, (ignored, existing) -> {
@@ -43,12 +45,13 @@ public class InMemoryTargetInvalidationRegistry implements TargetInvalidationReg
 				now.plus(ttl)
 			);
 		});
+		return Future.succeededFuture();
 	}
 
 	@Override
-	public TargetInvalidationEntries listInvalidations(int maxTargets) {
+	public Future<TargetInvalidationEntries> listInvalidations(int maxTargets) {
 		if (maxTargets <= 0) {
-			throw new IllegalArgumentException("maxTargets must be positive");
+			return Future.failedFuture("maxTargets must be positive");
 		}
 
 		removeExpired();
@@ -59,10 +62,10 @@ public class InMemoryTargetInvalidationRegistry implements TargetInvalidationReg
 			.sorted(Comparator.comparing(TargetInvalidationEntry::concreteTargetId))
 			.toList();
 
-		return new TargetInvalidationEntries(
+		return Future.succeededFuture(new TargetInvalidationEntries(
 			entries,
 			entriesByTargetId.size() > maxTargets
-		);
+		));
 	}
 
 	private void removeExpired() {

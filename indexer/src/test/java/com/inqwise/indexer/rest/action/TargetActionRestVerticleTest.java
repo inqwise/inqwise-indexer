@@ -117,6 +117,10 @@ class TargetActionRestVerticleTest {
 		@Override
 		public void invalidateHotTargetByIndexerId(Integer indexerId) {
 		}
+
+		@Override
+		public void invalidateAllHotTargets() {
+		}
 	}
 
 	private static class NoopQueue implements IndexerQueueClient {

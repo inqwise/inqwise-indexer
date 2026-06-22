@@ -98,6 +98,23 @@ class DefaultHotMetadataViewTest {
 	}
 
 	@Test
+	void invalidateAllRemovesEveryLookup(VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		DefaultHotMetadataView view = view(repository);
+
+		insertReadyMonthlyTargetWithIndexer(repository)
+			.compose(target -> view.refreshHotTargetByConcreteTargetId(target.id()))
+			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
+				view.invalidateAllHotTargets();
+
+				assertTrue(view.findTargetByName("customers").isEmpty());
+				assertTrue(view.findIndexerById(1).isEmpty());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
 	void refreshMissingTargetInvalidatesExistingSnapshot(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
