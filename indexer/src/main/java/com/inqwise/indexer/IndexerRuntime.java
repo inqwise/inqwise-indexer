@@ -11,6 +11,7 @@ import com.inqwise.indexer.metadata.IndexerProvisioningState;
 import com.inqwise.indexer.metadata.IndexerRecord;
 import com.inqwise.indexer.metadata.IndexerStatus;
 import com.inqwise.indexer.metadata.MutationState;
+import com.inqwise.indexer.providers.IndexerPlugins;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
@@ -41,6 +42,28 @@ public class IndexerRuntime {
 		IndexerEventPublisher eventPublisher
 	) {
 		this(
+			vertx,
+			repository,
+			lifecycleEventBus,
+			queue,
+			documentStore,
+			options,
+			eventPublisher,
+			IndexerPlugins.empty()
+		);
+	}
+
+	public IndexerRuntime(
+		Vertx vertx,
+		DocumentStoreMetadataRepository repository,
+		IndexerLifecycleEventBus lifecycleEventBus,
+		IndexerQueueClient queue,
+		IndexerDocumentStore documentStore,
+		IndexerOptions options,
+		IndexerEventPublisher eventPublisher,
+		IndexerPlugins plugins
+	) {
+		this(
 			repository,
 			lifecycleEventBus,
 			indexer -> createVerticleBackedIndexer(
@@ -49,9 +72,18 @@ public class IndexerRuntime {
 				queue,
 				documentStore,
 				options,
-				eventPublisher
+				eventPublisher,
+				markerHandler(plugins, indexer)
 			)
 		);
+	}
+
+	private static IndexerMarkerHandler markerHandler(
+		IndexerPlugins plugins,
+		IndexerRecord indexer
+	) {
+		return (plugins == null ? IndexerPlugins.empty() : plugins)
+			.markerHandler(toModel(indexer));
 	}
 
 	public Future<Void> start() {
@@ -161,7 +193,8 @@ public class IndexerRuntime {
 		IndexerQueueClient queue,
 		IndexerDocumentStore documentStore,
 		IndexerOptions options,
-		IndexerEventPublisher eventPublisher
+		IndexerEventPublisher eventPublisher,
+		IndexerMarkerHandler markerHandler
 	) {
 		IndexerOptions resolvedOptions = options == null ? new IndexerOptions() : options;
 		IndexerEventPublisher resolvedPublisher = eventPublisher == null
@@ -185,7 +218,8 @@ public class IndexerRuntime {
 						processHandler,
 						processorEventPublisher
 					)
-				)
+				),
+			markerHandler
 		);
 	}
 

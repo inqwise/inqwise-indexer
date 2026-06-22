@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import com.inqwise.events.RecordingEventPublisher;
+import com.inqwise.events.EventPublisher;
 import com.inqwise.indexer.IndexResourceOwnership;
 import com.inqwise.indexer.IndexerActionItem;
 import com.inqwise.indexer.IndexerLifecycleEventBus;
@@ -60,7 +61,12 @@ class LoadWriterActionReceiveCapabilityTest {
 	) {
 		InMemoryDocumentStoreMetadataRepository metadata = new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
-		IndexerPlugins plugins = new IndexerPlugins(List.of(new LoadIndexerPlugin(metadata, loads)));
+		IndexerPlugins plugins = new IndexerPlugins(List.of(new LoadIndexerPlugin(
+			metadata,
+			loads,
+			command -> Future.succeededFuture(),
+			EventPublisher.NOOP
+		)));
 		RecordingEventBus eventBus = new RecordingEventBus();
 		RecordingQueue queue = new RecordingQueue();
 		InMemoryCommandEngine commands = new InMemoryCommandEngine()

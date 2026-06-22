@@ -57,7 +57,6 @@ public class LoadIndexerMarkerHandler implements IndexerMarkerHandler {
 		if (load.state() == IndexerLoadState.CATCH_UP_READY
 			|| load.state() == IndexerLoadState.WAITING_FOR_REVIEW
 			|| load.state() == IndexerLoadState.APPROVED
-			|| load.state() == IndexerLoadState.PUBLISHING
 			|| load.state() == IndexerLoadState.PUBLISHED) {
 			return Future.succeededFuture();
 		}

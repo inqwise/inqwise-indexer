@@ -100,12 +100,34 @@ public class Indexer {
 		this(
 			vertx,
 			model,
+			queue,
+			documentStore,
+			options,
+			eventPublisher,
+			processorFactory,
+			IndexerMarkerHandler.FAILING
+		);
+	}
+
+	public Indexer(
+		Vertx vertx,
+		IndexerModel model,
+		IndexerQueueClient queue,
+		IndexerDocumentStore documentStore,
+		IndexerOptions options,
+		IndexerEventPublisher eventPublisher,
+		IndexerProcessorFactory processorFactory,
+		IndexerMarkerHandler markerHandler
+	) {
+		this(
+			vertx,
+			model,
 			documentStore,
 			options,
 			queue,
 			eventPublisher,
 			null,
-			IndexerMarkerHandler.FAILING
+			markerHandler
 		);
 
 		this.processor = Objects.requireNonNull(processorFactory, "processorFactory")
