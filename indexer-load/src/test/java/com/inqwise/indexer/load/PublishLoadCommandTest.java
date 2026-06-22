@@ -219,7 +219,7 @@ class PublishLoadCommandTest {
 				null,
 				LiveWriterPolicy.NONE,
 				"default",
-				IndexerLoadState.HISTORICAL_COMPLETE,
+				IndexerLoadState.WAITING_FOR_REVIEW,
 				Instant.parse("2026-06-05T10:00:00Z"),
 				null,
 				null,
@@ -265,12 +265,17 @@ class PublishLoadCommandTest {
 			null,
 			null,
 			false
-		)).compose(ignored -> loads.markBarrierReached(new UpdateIndexerLoadBarrier(
+		)).compose(ignored -> loads.requestBarrier(new RequestIndexerLoadBarrier(
+			loadId,
+			"barrier-1",
+			Instant.parse("2026-06-05T10:30:00Z"),
+			0L
+		))).compose(ignored -> loads.markBarrierReached(new UpdateIndexerLoadBarrier(
 			loadId,
 			"barrier-1",
 			Instant.parse("2026-06-05T10:30:00Z"),
 			Instant.parse("2026-06-05T10:31:00Z"),
-			0L
+			1L
 		))).compose(ignored -> loads.getByIndexerId(loadId).map(found -> found.orElseThrow()));
 	}
 

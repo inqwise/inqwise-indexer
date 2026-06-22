@@ -60,6 +60,9 @@ public class ApproveLoadPublicationCommandHandler implements CommandHandler {
 		if (load.state() == IndexerLoadState.FAILED || load.state() == IndexerLoadState.CANCELLED) {
 			return Future.failedFuture("Indexer load is not approvable: " + load.state());
 		}
+		if (!load.reviewRequired() || load.state() != IndexerLoadState.WAITING_FOR_REVIEW) {
+			return Future.failedFuture("Indexer load is not waiting for review: " + load.state());
+		}
 
 		return loadRepository.approve(new UpdateIndexerLoadApproval(
 			load.indexerId(),

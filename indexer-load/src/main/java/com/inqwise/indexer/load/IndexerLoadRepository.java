@@ -19,6 +19,8 @@ public interface IndexerLoadRepository {
 
 	Future<AttachLiveWriterResult> attachLiveWriterIfAbsent(AttachLiveWriterRequest request);
 
+	Future<Void> requestBarrier(RequestIndexerLoadBarrier request);
+
 	Future<Void> markBarrierReached(UpdateIndexerLoadBarrier update);
 
 	Future<Void> markFailed(UpdateIndexerLoadFailure update);

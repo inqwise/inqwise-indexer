@@ -51,6 +51,60 @@ class InMemoryIndexerLoadRepositoryTest {
 	}
 
 	@Test
+	void requestedBarrierMustMatchAndReviewedLoadWaitsForReview() {
+		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
+		Instant barrierTimestamp = Instant.parse("2026-06-05T10:30:00Z");
+		loads.insert(new InsertIndexerLoad(
+			20,
+			10,
+			30,
+			LiveWriterPolicy.CREATE_IMMEDIATELY,
+			"default",
+			IndexerLoadState.HISTORICAL_COMPLETE,
+			Instant.parse("2026-06-05T10:00:00Z"),
+			Instant.parse("2026-06-05T09:55:00Z"),
+			null,
+			null,
+			null,
+			null,
+			true
+		));
+
+		var requested = loads.requestBarrier(new RequestIndexerLoadBarrier(
+			20,
+			"barrier-1",
+			barrierTimestamp,
+			0L
+		));
+		var mismatched = loads.markBarrierReached(new UpdateIndexerLoadBarrier(
+			20,
+			"barrier-2",
+			barrierTimestamp,
+			Instant.parse("2026-06-05T10:31:00Z"),
+			1L
+		));
+		var reached = loads.markBarrierReached(new UpdateIndexerLoadBarrier(
+			20,
+			"barrier-1",
+			barrierTimestamp,
+			Instant.parse("2026-06-05T10:31:00Z"),
+			1L
+		));
+
+		assertTrue(requested.succeeded());
+		assertTrue(mismatched.failed());
+		assertEquals(
+			"Catch-up barrier does not match requested barrier: 20",
+			mismatched.cause().getMessage()
+		);
+		assertTrue(reached.succeeded());
+		IndexerLoadRecord load = loads.getByIndexerId(20).result().orElseThrow();
+		assertEquals(IndexerLoadState.WAITING_FOR_REVIEW, load.state());
+		assertEquals("barrier-1", load.lastBarrierId());
+		assertEquals(2L, load.version());
+	}
+
+	@Test
 	void attachLiveWriterIfAbsentAttachesAndIncrementsVersion() {
 		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
 		loads.insert(load(20, 10, null, IndexerLoadState.HISTORICAL_LOADING));

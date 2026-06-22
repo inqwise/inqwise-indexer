@@ -2,6 +2,7 @@ package com.inqwise.indexer.load;
 
 import java.time.Instant;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -164,13 +165,58 @@ public class InMemoryIndexerLoadRepository implements IndexerLoadRepository {
 	}
 
 	@Override
+	public synchronized Future<Void> requestBarrier(RequestIndexerLoadBarrier request) {
+		try {
+			IndexerLoadRecord existing = requireLoad(request.indexerId(), request.expectedVersion());
+			if (existing.liveIndexerId() == null) {
+				throw new IllegalStateException("Indexer load has no live writer: " + existing.indexerId());
+			}
+			if (existing.state() != IndexerLoadState.HISTORICAL_COMPLETE) {
+				throw new IllegalStateException(
+					"Indexer load is not ready to request catch-up barrier: " + existing.state()
+				);
+			}
+
+			loadsByIndexerId.put(request.indexerId(), copy(
+				existing,
+				existing.liveIndexerId(),
+				IndexerLoadState.CATCH_UP_BARRIER_REQUESTED,
+				existing.approvedAt(),
+				existing.approvedBy(),
+				existing.approvalReason(),
+				require(request.barrierId(), "barrierId"),
+				require(request.barrierTimestamp(), "barrierTimestamp"),
+				null,
+				existing.failureReason(),
+				existing.failedAt()
+			));
+			return Future.succeededFuture();
+		} catch (RuntimeException error) {
+			return Future.failedFuture(error);
+		}
+	}
+
+	@Override
 	public synchronized Future<Void> markBarrierReached(UpdateIndexerLoadBarrier update) {
 		try {
 			IndexerLoadRecord existing = requireLoad(update.indexerId(), update.expectedVersion());
+			if (existing.state() != IndexerLoadState.CATCH_UP_BARRIER_REQUESTED) {
+				throw new IllegalStateException(
+					"Indexer load has no requested catch-up barrier: " + existing.state()
+				);
+			}
+			if (!Objects.equals(existing.lastBarrierId(), update.barrierId())
+				|| !Objects.equals(existing.lastBarrierTimestamp(), update.barrierTimestamp())) {
+				throw new IllegalStateException(
+					"Catch-up barrier does not match requested barrier: " + update.indexerId()
+				);
+			}
 			loadsByIndexerId.put(update.indexerId(), copy(
 				existing,
 				existing.liveIndexerId(),
-				IndexerLoadState.CATCH_UP_READY,
+				existing.reviewRequired()
+					? IndexerLoadState.WAITING_FOR_REVIEW
+					: IndexerLoadState.CATCH_UP_READY,
 				existing.approvedAt(),
 				existing.approvedBy(),
 				existing.approvalReason(),

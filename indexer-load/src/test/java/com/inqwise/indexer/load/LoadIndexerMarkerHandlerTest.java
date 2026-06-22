@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,6 +22,7 @@ import com.inqwise.indexer.InMemoryIndexerDocumentStore;
 import com.inqwise.indexer.InMemoryIndexerQueue;
 import com.inqwise.indexer.commands.Command;
 import com.inqwise.indexer.commands.CommandService;
+import com.inqwise.indexer.commands.SubmitIndexActionsCommand;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
@@ -67,7 +70,11 @@ class LoadIndexerMarkerHandlerTest {
 				new InMemoryIndexerDocumentStore(),
 				new IndexerOptions(),
 				IndexerEventPublisher.NOOP,
-				new LoadIndexerMarkerHandler(loads, IndexerLifecycleEventBus.NOOP)
+				new LoadIndexerMarkerHandler(
+					loads,
+					IndexerLifecycleEventBus.NOOP,
+					new CapturingCommandService()
+				)
 			);
 
 			return indexer.activate()
@@ -136,6 +143,106 @@ class LoadIndexerMarkerHandlerTest {
 	}
 
 	@Test
+	void reviewedHistoricalOnlyLoadWaitsForReview(VertxTestContext testContext) {
+		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
+		CapturingCommandService commands = new CapturingCommandService();
+		LoadIndexerMarkerHandler handler = new LoadIndexerMarkerHandler(
+			loads,
+			IndexerLifecycleEventBus.NOOP,
+			commands
+		);
+		IndexerModel model = IndexerModel.builder()
+			.withId(20)
+			.withTargetId(10)
+			.withTargetName("customers")
+			.withIndexName("customers_1")
+			.withQueueName("customers_load")
+			.withRole(IndexerRole.LOAD_WRITER)
+			.build();
+		CompleteIndexActionItem item = CompleteIndexActionItem.builder()
+			.withTargetId(10)
+			.withIndexerId(20)
+			.build();
+
+		loads.insert(new InsertIndexerLoad(
+			20,
+			10,
+			null,
+			LiveWriterPolicy.NONE,
+			"default",
+			IndexerLoadState.HISTORICAL_LOADING,
+			Instant.parse("2026-05-28T10:00:00Z"),
+			null,
+			null,
+			null,
+			null,
+			null,
+			true
+		)).compose(ignored -> handler.complete(model, item))
+			.compose(ignored -> loads.getByIndexerId(20))
+			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
+				assertTrue(found.isPresent());
+				assertEquals(IndexerLoadState.WAITING_FOR_REVIEW, found.get().state());
+				assertTrue(commands.commands.isEmpty());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void completeActionItemRequestsStableCatchUpBarrierForLinkedLiveWriter(
+		VertxTestContext testContext
+	) {
+		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
+		CapturingCommandService commands = new CapturingCommandService();
+		LoadIndexerMarkerHandler handler = new LoadIndexerMarkerHandler(
+			loads,
+			IndexerLifecycleEventBus.NOOP,
+			commands
+		);
+		IndexerModel model = IndexerModel.builder()
+			.withId(20)
+			.withTargetId(10)
+			.withTargetName("customers")
+			.withIndexName("customers_1")
+			.withQueueName("customers_load")
+			.withRole(IndexerRole.LOAD_WRITER)
+			.build();
+		CompleteIndexActionItem item = CompleteIndexActionItem.builder()
+			.withTargetId(10)
+			.withIndexerId(20)
+			.build();
+
+		loads.insert(new InsertIndexerLoad(
+			20,
+			10,
+			21,
+			LiveWriterPolicy.CREATE_IMMEDIATELY,
+			"default",
+			IndexerLoadState.HISTORICAL_LOADING,
+			Instant.parse("2026-05-28T10:00:00Z"),
+			Instant.parse("2026-05-28T09:55:00Z"),
+			null,
+			null,
+			null,
+			null,
+			false
+		)).compose(ignored -> handler.complete(model, item))
+			.compose(ignored -> handler.complete(model, item))
+			.compose(ignored -> loads.getByIndexerId(20))
+			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
+				assertTrue(found.isPresent());
+				assertEquals(IndexerLoadState.CATCH_UP_BARRIER_REQUESTED, found.get().state());
+				assertEquals(2, commands.commands.size());
+				CatchUpBarrierActionItem first = submittedBarrier(commands.commands.get(0));
+				CatchUpBarrierActionItem second = submittedBarrier(commands.commands.get(1));
+				assertEquals(21, first.getIndexerId());
+				assertEquals(first.getBarrierId(), second.getBarrierId());
+				assertEquals(first.getBarrierTimestamp(), second.getBarrierTimestamp());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
 	void catchUpBarrierMarksLinkedLoadReady(Vertx vertx, VertxTestContext testContext) {
 		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
 		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
@@ -169,7 +276,12 @@ class LoadIndexerMarkerHandlerTest {
 			null,
 			null,
 			false
-		)).compose(ignored -> {
+		)).compose(ignored -> loads.requestBarrier(new RequestIndexerLoadBarrier(
+			20,
+			"barrier-1",
+			barrierTimestamp,
+			0L
+		))).compose(ignored -> {
 			Indexer indexer = new Indexer(
 				vertx,
 				model,
@@ -177,7 +289,11 @@ class LoadIndexerMarkerHandlerTest {
 				new InMemoryIndexerDocumentStore(),
 				new IndexerOptions(),
 				IndexerEventPublisher.NOOP,
-				new LoadIndexerMarkerHandler(loads, IndexerLifecycleEventBus.NOOP)
+				new LoadIndexerMarkerHandler(
+					loads,
+					IndexerLifecycleEventBus.NOOP,
+					new CapturingCommandService()
+				)
 			);
 
 			return indexer.activate()
@@ -193,12 +309,22 @@ class LoadIndexerMarkerHandlerTest {
 			})));
 	}
 
+	private static CatchUpBarrierActionItem submittedBarrier(Command command) {
+		SubmitIndexActionsCommand submit = new SubmitIndexActionsCommand(
+			command.toJson(),
+			command.getCorrelationId()
+		);
+		return (CatchUpBarrierActionItem) submit.getActions().get(0);
+	}
+
 	private static class CapturingCommandService implements CommandService {
+		private final List<Command> commands = new ArrayList<>();
 		private Command command;
 
 		@Override
 		public Future<Void> submit(Command command) {
 			this.command = command;
+			commands.add(command);
 			return Future.succeededFuture();
 		}
 	}
