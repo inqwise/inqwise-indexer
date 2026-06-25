@@ -3,14 +3,17 @@
 Vert.x 5.x starter library inspired by `vertx-elastic`, with a modular layout:
 
 - `inqwise-common`: shared data objects and indexing request models.
+- `inqwise-indexer-core`: stable indexing action payloads, runtime ports, definitions, and metadata contracts/models. It has no dependency on deployment services, node wiring, REST, gateway, or local adapter implementations.
 - `inqwise-indexer-events`: typed cross-module event publication contracts and local publisher implementations.
 - `inqwise-indexer-coordination`: keyed exclusive-flow coordination contracts and the local shared-promise implementation.
-- `inqwise-indexer`: indexing service contracts and default in-memory implementation.
+- `inqwise-indexer`: command orchestration, hot routing, provisioning, runtime implementations, service communication, node wiring, REST/gateway APIs, and default local adapters. It depends on `inqwise-indexer-core`.
 - `inqwise-indexer-load`: load/reload orchestration helpers and load-specific metadata around the core indexer primitives.
 - `inqwise-client`: client-side wrappers for the indexer service.
 - `inqwise`: top-level facade for index actions and load orchestration.
 
 ## Indexer Behavior
+
+Core types retain the `com.inqwise.indexer` package while Maven module dependencies enforce ownership: `indexer` may depend on `indexer-core`, while `indexer-core` must not import deployment or adapter code from `indexer`. The initial extraction intentionally leaves command, hot-routing, provisioning, provider composition, and concrete runtime implementations in `indexer`; those move only in later cycle-free slices.
 
 `inqwise-indexer` provides a controlled transport pipeline for gently moving structured actions into a targeted document store:
 

@@ -17,7 +17,7 @@
 	</properties>
 
 	<modules>
-		<module>indexer-common</module>
+		<module>indexer-core</module>
 		<module>indexer-events</module>
 		<module>indexer-coordination</module>
 		<module>indexer</module>
