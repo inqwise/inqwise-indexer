@@ -31,7 +31,7 @@ class IndexerOperationsTest {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
-		IndexerOperations operations = new IndexerOperations(repository, eventBus);
+		IndexerOperations operations = new MetadataIndexerOperations(repository, eventBus);
 		List<IndexerMetadataChanged> events = new ArrayList<>();
 
 		eventBus.subscribe(events::add)
@@ -63,7 +63,7 @@ class IndexerOperationsTest {
 
 	@Test
 	void missingIndexerReturnsEmpty(VertxTestContext testContext) {
-		IndexerOperations operations = new IndexerOperations(
+		IndexerOperations operations = new MetadataIndexerOperations(
 			new InMemoryDocumentStoreMetadataRepository(),
 			new InMemoryIndexerLifecycleEventBus()
 		);

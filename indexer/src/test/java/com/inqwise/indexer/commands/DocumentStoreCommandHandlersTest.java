@@ -30,6 +30,7 @@ import com.inqwise.indexer.metadata.PublicationState;
 import com.inqwise.indexer.metadata.TargetPeriodStrategy;
 import com.inqwise.indexer.metadata.TargetProvisioningState;
 import com.inqwise.indexer.operations.IndexerOperations;
+import com.inqwise.indexer.operations.MetadataIndexerOperations;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 
 import io.vertx.core.json.JsonObject;
@@ -115,7 +116,7 @@ class DocumentStoreCommandHandlersTest {
 			IndexerDocumentIndexResourceManager.NOOP,
 			IndexerQueueResourceManager.NOOP,
 			eventBus,
-			new IndexerOperations(repository, eventBus)
+			new MetadataIndexerOperations(repository, eventBus)
 		);
 	}
 }

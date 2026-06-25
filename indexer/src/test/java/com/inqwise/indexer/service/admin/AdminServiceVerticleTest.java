@@ -31,6 +31,7 @@ import com.inqwise.indexer.metadata.TargetProvisioningState;
 import com.inqwise.indexer.metadata.TargetStatus;
 import com.inqwise.indexer.metadata.TargetPeriodStrategy;
 import com.inqwise.indexer.operations.IndexerOperations;
+import com.inqwise.indexer.operations.MetadataIndexerOperations;
 
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
@@ -310,7 +311,7 @@ class AdminServiceVerticleTest {
 		InMemoryIndexerQueue queue
 	) {
 		InMemoryIndexerDocumentStore documentStore = new InMemoryIndexerDocumentStore();
-		IndexerOperations indexerOperations = new IndexerOperations(repository, eventBus);
+		IndexerOperations indexerOperations = new MetadataIndexerOperations(repository, eventBus);
 		InMemoryCommandEngine commandService = new InMemoryCommandEngine()
 			.register(new CleanupDeletingIndexerCommandHandler(
 				repository,

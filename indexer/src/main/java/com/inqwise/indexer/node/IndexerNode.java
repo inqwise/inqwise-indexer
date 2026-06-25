@@ -39,6 +39,7 @@ import com.inqwise.indexer.hot.TargetInvalidationRegistryOptions;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.operations.IndexerOperations;
+import com.inqwise.indexer.operations.MetadataIndexerOperations;
 import com.inqwise.indexer.providers.IndexerProviders;
 import com.inqwise.indexer.providers.MetadataIndexerProvider;
 import com.inqwise.indexer.rest.action.TargetActionRestVerticle;
@@ -266,7 +267,7 @@ public class IndexerNode {
 			targetDefinitionProvider,
 			indexerProviders
 		);
-		IndexerOperations indexerOperations = new IndexerOperations(
+		IndexerOperations indexerOperations = new MetadataIndexerOperations(
 			repository,
 			lifecycleEventBus
 		);

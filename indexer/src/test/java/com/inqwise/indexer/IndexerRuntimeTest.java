@@ -23,6 +23,7 @@ import com.inqwise.indexer.metadata.MutationState;
 import com.inqwise.indexer.metadata.PublicationState;
 import com.inqwise.indexer.metadata.UpdateIndexerQueueName;
 import com.inqwise.indexer.operations.IndexerOperations;
+import com.inqwise.indexer.operations.MetadataIndexerOperations;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 
 import org.junit.jupiter.api.Test;
@@ -353,7 +354,7 @@ class IndexerRuntimeTest {
 				IndexerDocumentIndexResourceManager.NOOP
 			))
 			.register(new DeleteIndexerCommandHandler(
-				new IndexerOperations(repository, eventBus),
+				new MetadataIndexerOperations(repository, eventBus),
 				commandService
 			));
 	}

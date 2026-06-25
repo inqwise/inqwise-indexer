@@ -24,6 +24,7 @@ import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.IndexerRecord;
 import com.inqwise.indexer.metadata.MutationState;
 import com.inqwise.indexer.operations.IndexerOperations;
+import com.inqwise.indexer.operations.MetadataIndexerOperations;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 
 import io.vertx.core.Future;
@@ -472,7 +473,7 @@ class CreateLoadCommandTest {
 				IndexerDocumentIndexResourceManager.NOOP
 			))
 			.register(new DeleteIndexerCommandHandler(
-				new IndexerOperations(metadata, eventBus),
+				new MetadataIndexerOperations(metadata, eventBus),
 				commands
 			))
 			.register(new CleanupLoadCommandHandler(metadata, loads, commands));

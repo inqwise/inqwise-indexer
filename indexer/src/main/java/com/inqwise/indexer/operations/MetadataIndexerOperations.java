@@ -15,13 +15,13 @@ import com.inqwise.indexer.metadata.UpdateIndexerRuntimeState;
 
 import io.vertx.core.Future;
 
-public final class IndexerOperations {
+public final class MetadataIndexerOperations implements IndexerOperations {
 	public static final String DELETE_CHANGE_TYPE = DeleteIndexerCommand.TYPE;
 
 	private final DocumentStoreMetadataRepository repository;
 	private final IndexerLifecycleEventBus eventBus;
 
-	public IndexerOperations(
+	public MetadataIndexerOperations(
 		DocumentStoreMetadataRepository repository,
 		IndexerLifecycleEventBus eventBus
 	) {
@@ -29,6 +29,7 @@ public final class IndexerOperations {
 		this.eventBus = Objects.requireNonNull(eventBus, "eventBus");
 	}
 
+	@Override
 	public Future<Optional<IndexerRecord>> markDeleting(MarkIndexerDeletingRequest request) {
 		Objects.requireNonNull(request, "request");
 

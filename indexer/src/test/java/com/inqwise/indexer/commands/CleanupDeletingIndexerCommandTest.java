@@ -30,6 +30,7 @@ import com.inqwise.indexer.metadata.PublicationState;
 import com.inqwise.indexer.metadata.ReadinessState;
 import com.inqwise.indexer.metadata.UpdateIndexerRuntimeState;
 import com.inqwise.indexer.operations.IndexerOperations;
+import com.inqwise.indexer.operations.MetadataIndexerOperations;
 import com.inqwise.indexer.operations.MarkIndexerDeletingRequest;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 
@@ -108,7 +109,7 @@ class CleanupDeletingIndexerCommandTest {
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 
 		insertIndexer(repository, IndexResourceOwnership.OWNER)
-			.compose(indexer -> new IndexerOperations(repository, eventBus)
+			.compose(indexer -> new MetadataIndexerOperations(repository, eventBus)
 				.markDeleting(new MarkIndexerDeletingRequest(indexer.indexerId(), 0L)))
 			.compose(marked -> {
 				Integer indexerId = marked.orElseThrow().id();
@@ -148,7 +149,7 @@ class CleanupDeletingIndexerCommandTest {
 		return commands
 			.register(new CleanupDeletingIndexerCommandHandler(repository, queues, indexes))
 			.register(new DeleteIndexerCommandHandler(
-				new IndexerOperations(repository, new InMemoryIndexerLifecycleEventBus()),
+				new MetadataIndexerOperations(repository, new InMemoryIndexerLifecycleEventBus()),
 				commands
 			));
 	}
