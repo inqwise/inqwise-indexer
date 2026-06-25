@@ -2,6 +2,7 @@ package com.inqwise.indexer.service.action;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.time.Instant;
@@ -12,14 +13,17 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+import com.inqwise.errors.ErrorTicket;
 import com.inqwise.indexer.IndexerActionItems;
 import com.inqwise.indexer.IndexerQueueClient;
 import com.inqwise.indexer.IndexerQueueConsumer;
 import com.inqwise.indexer.IndexerQueueConsumerOptions;
 import com.inqwise.indexer.IndexerQueuePublisher;
 import com.inqwise.indexer.commands.Command;
+import com.inqwise.indexer.commands.CommandFailure;
 import com.inqwise.indexer.commands.CommandService;
 import com.inqwise.indexer.commands.RoutedIndexActionPublisher;
+import com.inqwise.indexer.errors.IndexerErrorCodes;
 import com.inqwise.indexer.hot.HotIndexActionsRequest;
 import com.inqwise.indexer.hot.HotIndexActionsService;
 import com.inqwise.indexer.hot.HotIndexer;
@@ -27,10 +31,10 @@ import com.inqwise.indexer.hot.HotMetadataView;
 import com.inqwise.indexer.hot.HotTarget;
 
 import io.vertx.core.Future;
-import io.vertx.junit5.VertxExtension;
-import io.vertx.junit5.VertxTestContext;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
+import io.vertx.junit5.VertxExtension;
+import io.vertx.junit5.VertxTestContext;
 
 @ExtendWith(VertxExtension.class)
 class TargetActionServiceVerticleTest {
@@ -103,16 +107,49 @@ class TargetActionServiceVerticleTest {
 			})));
 	}
 
+	@Test
+	void normalizesStableInvalidRouteFailure(VertxTestContext testContext) {
+		RecordingHotIndexActionsService hotActions = new RecordingHotIndexActionsService(
+			CommandFailure.stableInvalid("Target definition not found by name: customers")
+		);
+		TargetActionService service = new TargetActionServiceImpl(hotActions);
+
+		service.submit(new TargetActionSubmitRequest()
+			.setTargetName("customers")
+			.setTimestamp(Instant.parse("2026-06-06T10:15:00Z"))
+			.setActions(List.of(IndexerActionItems.putDocument(
+				"42",
+				new JsonObject().put("name", "Ada")
+			))))
+			.onComplete(testContext.failing(error -> testContext.verify(() -> {
+				ErrorTicket ticket = assertInstanceOf(ErrorTicket.class, error);
+				assertEquals(IndexerErrorCodes.InvalidRoute, ticket.getError());
+				assertEquals(404, ticket.getStatus());
+				assertEquals("Target definition not found by name: customers", ticket.getErrorDetails());
+				testContext.completeNow();
+			})));
+	}
+
 	private static class RecordingHotIndexActionsService extends HotIndexActionsService {
 		private final AtomicReference<HotIndexActionsRequest> request = new AtomicReference<>();
+		private final RuntimeException failure;
 
 		private RecordingHotIndexActionsService() {
+			this(null);
+		}
+
+		private RecordingHotIndexActionsService(RuntimeException failure) {
 			super(new EmptyHotMetadataView(), new RoutedIndexActionPublisher(new NoopQueue()), new NoopCommandService());
+			this.failure = failure;
 		}
 
 		@Override
 		public Future<Void> submit(HotIndexActionsRequest request) {
 			this.request.set(request);
+			if (failure != null) {
+				return Future.failedFuture(failure);
+			}
+
 			return Future.succeededFuture();
 		}
 	}

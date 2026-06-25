@@ -1,6 +1,7 @@
 package com.inqwise.indexer.hot;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Duration;
@@ -133,6 +134,65 @@ class HotIndexActionsServiceTest {
 				assertEquals(request.actions(), command.getActions());
 				testContext.completeNow();
 			})));
+	}
+
+	@Test
+	void fallsBackConcreteActionAsConcreteCommandWhenHotIndexerMissing(VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		RecordingQueue queue = new RecordingQueue();
+		RecordingCommandService commandService = new RecordingCommandService();
+		HotIndexActionsService service = service(view(repository), queue, commandService);
+
+		HotIndexActionsRequest request = new HotIndexActionsRequest(
+			null,
+			null,
+			List.of(IndexerActionItems.concretePutDocument(
+				10,
+				20,
+				"customers-index",
+				"42",
+				new JsonObject().put("name", "Ada")
+			))
+		);
+
+		service.submit(request)
+			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
+				assertEquals(0, queue.published.size());
+				assertEquals(1, commandService.submitted.size());
+				SubmitIndexActionsCommand command =
+					(SubmitIndexActionsCommand) commandService.submitted.get(0);
+				assertNull(command.getTargetName());
+				assertNull(command.getTimestamp());
+				assertEquals(request.actions(), command.getActions());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void rejectsDirectFallbackTimestampBeforeColdSubmit(VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		RecordingQueue queue = new RecordingQueue();
+		RecordingCommandService commandService = new RecordingCommandService();
+		HotIndexActionsService service = service(view(repository), queue, commandService);
+
+		service.submit(new HotIndexActionsRequest(
+			null,
+			Instant.parse("2026-05-18T10:15:00Z"),
+			List.of(IndexerActionItems.concretePutDocument(
+				10,
+				20,
+				"customers-index",
+				"42",
+				new JsonObject().put("name", "Ada")
+			))
+		)).onComplete(testContext.failing(error -> testContext.verify(() -> {
+			assertEquals("Timestamp is allowed only with target envelope routing", error.getMessage());
+			assertEquals(0, queue.published.size());
+			assertEquals(0, commandService.submitted.size());
+			testContext.completeNow();
+		})));
 	}
 
 	@Test

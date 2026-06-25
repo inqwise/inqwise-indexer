@@ -115,11 +115,8 @@ public class HotIndexActionsService {
 
 	private Future<Void> fallback(HotIndexActionsRequest request) {
 		try {
-			return commandService.submit(new SubmitIndexActionsCommand(
-				request.targetName(),
-				request.timestamp(),
-				request.actions()
-			)).recover(error -> {
+			SubmitIndexActionsCommand command = fallbackCommand(request);
+			return commandService.submit(command).recover(error -> {
 				recordStableInvalidRoute(request, error);
 				return Future.failedFuture(error);
 			});
@@ -127,6 +124,22 @@ public class HotIndexActionsService {
 			recordStableInvalidRoute(request, error);
 			return Future.failedFuture(error);
 		}
+	}
+
+	private SubmitIndexActionsCommand fallbackCommand(HotIndexActionsRequest request) {
+		if (hasTargetEnvelope(request)) {
+			return new SubmitIndexActionsCommand(
+				request.targetName(),
+				request.timestamp(),
+				request.actions()
+			);
+		}
+
+		if (request.timestamp() != null) {
+			throw new IllegalArgumentException("Timestamp is allowed only with target envelope routing");
+		}
+
+		return new SubmitIndexActionsCommand(request.actions());
 	}
 
 	private boolean hasTargetEnvelope(HotIndexActionsRequest request) {
