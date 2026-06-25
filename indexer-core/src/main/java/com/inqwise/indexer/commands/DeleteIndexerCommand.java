@@ -2,12 +2,10 @@ package com.inqwise.indexer.commands;
 
 import java.util.Objects;
 
-import com.inqwise.indexer.operations.IndexerOperations;
-
 import io.vertx.core.json.JsonObject;
 
 public class DeleteIndexerCommand implements Command {
-	public static final String TYPE = IndexerOperations.DELETE_CHANGE_TYPE;
+	public static final String TYPE = "indexer.delete";
 
 	private final Integer indexerId;
 	private final Long expectedVersion;
