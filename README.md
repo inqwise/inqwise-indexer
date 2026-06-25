@@ -3,17 +3,17 @@
 Vert.x 5.x starter library inspired by `vertx-elastic`, with a modular layout:
 
 - `inqwise-common`: shared data objects and indexing request models.
-- `inqwise-indexer-core`: stable indexing action payloads, runtime ports, action/provider/hot-routing contracts, command contracts/execution primitives, definitions, metadata contracts/models, and shared error primitives. It has no dependency on deployment services, node wiring, REST, gateway, or local adapter implementations.
+- `inqwise-indexer-core`: stable indexing action payloads, runtime ports, action/provider/hot-routing contracts, command contracts/execution primitives, provisioning contracts/utilities, definitions, metadata contracts/models, and shared error primitives. It has no dependency on deployment services, node wiring, REST, gateway, or local adapter implementations.
 - `inqwise-indexer-events`: typed cross-module event publication contracts and local publisher implementations.
 - `inqwise-indexer-coordination`: keyed exclusive-flow coordination contracts and the local shared-promise implementation.
-- `inqwise-indexer`: command handlers/orchestration, hot routing implementations, provisioning, runtime implementations, service communication, node wiring, REST/gateway APIs, and default local adapters. It depends on `inqwise-indexer-core`.
+- `inqwise-indexer`: command handlers/orchestration, hot routing implementations, provisioning orchestration, runtime implementations, service communication, node wiring, REST/gateway APIs, and default local adapters. It depends on `inqwise-indexer-core`.
 - `inqwise-indexer-load`: load/reload orchestration helpers and load-specific metadata around the core indexer primitives.
 - `inqwise-client`: client-side wrappers for the indexer service.
 - `inqwise`: top-level facade for index actions and load orchestration.
 
 ## Indexer Behavior
 
-Core types retain the `com.inqwise.indexer` package while Maven module dependencies enforce ownership: `indexer` may depend on `indexer-core`, while `indexer-core` must not import deployment or adapter code from `indexer`. The current extraction owns stable action payloads, runtime ports, action/provider/hot-routing contracts, command payloads, command engine SPI, command envelope/partition/retry/failure primitives, definitions, metadata contracts/models, and shared error primitives. Command handlers, hot-routing services/listeners/local caches, provisioning, metadata-backed provider composition, node wiring, service facades, and concrete runtime/local implementations remain in `indexer`; those move only in later cycle-free slices.
+Core types retain the `com.inqwise.indexer` package while Maven module dependencies enforce ownership: `indexer` may depend on `indexer-core`, while `indexer-core` must not import deployment or adapter code from `indexer`. The current extraction owns stable action payloads, runtime ports, action/provider/hot-routing contracts, command payloads, command engine SPI, command envelope/partition/retry/failure primitives, provisioning contracts/utilities, definitions, metadata contracts/models, and shared error primitives. Command handlers, hot-routing services/listeners/local caches, provisioning orchestration, metadata-backed provider composition, node wiring, service facades, and concrete runtime/local implementations remain in `indexer`; those move only in later cycle-free slices.
 
 `inqwise-indexer` provides a controlled transport pipeline for gently moving structured actions into a targeted document store:
 
