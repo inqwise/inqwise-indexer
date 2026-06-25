@@ -27,9 +27,17 @@ public class TargetActionSubmitResult {
 	}
 
 	public JsonObject toJson() {
-		return new JsonObject()
-			.put(Keys.SUBMISSION_ID, submissionId)
-			.put(Keys.STATE, state == null ? null : state.name());
+		JsonObject json = new JsonObject();
+
+		if (submissionId != null) {
+			json.put(Keys.SUBMISSION_ID, submissionId);
+		}
+
+		if (state != null) {
+			json.put(Keys.STATE, state.name());
+		}
+
+		return json;
 	}
 
 	public String getSubmissionId() {

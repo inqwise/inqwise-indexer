@@ -1,6 +1,8 @@
 package com.inqwise.indexer.service.action;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.time.Instant;
 import java.util.List;
@@ -33,6 +35,33 @@ import io.vertx.core.json.JsonObject;
 @ExtendWith(VertxExtension.class)
 class TargetActionServiceVerticleTest {
 	@Test
+	void requestJsonOmitsEmptyEnvelopeFields() {
+		TargetActionSubmitRequest request = new TargetActionSubmitRequest()
+			.setActions(List.of(IndexerActionItems.putDocument(
+				"42",
+				new JsonObject().put("name", "Ada")
+			)));
+
+		JsonObject json = request.toJson();
+		JsonObject action = json.getJsonArray(TargetActionSubmitRequest.Keys.ACTIONS).getJsonObject(0);
+
+		assertFalse(json.containsKey(TargetActionSubmitRequest.Keys.SUBMISSION_ID));
+		assertFalse(json.containsKey(TargetActionSubmitRequest.Keys.TARGET_NAME));
+		assertFalse(json.containsKey(TargetActionSubmitRequest.Keys.TIMESTAMP));
+		assertFalse(action.containsKey("target_id"));
+		assertFalse(action.containsKey("indexer_id"));
+		assertFalse(action.containsKey("index_name"));
+	}
+
+	@Test
+	void resultJsonOmitsEmptyFields() {
+		JsonObject json = new TargetActionSubmitResult().toJson();
+
+		assertFalse(json.containsKey(TargetActionSubmitResult.Keys.SUBMISSION_ID));
+		assertFalse(json.containsKey(TargetActionSubmitResult.Keys.STATE));
+	}
+
+	@Test
 	void submitsTargetActionsThroughServiceProxy(Vertx vertx, VertxTestContext testContext) {
 		RecordingHotIndexActionsService hotActions = new RecordingHotIndexActionsService();
 
@@ -50,6 +79,26 @@ class TargetActionServiceVerticleTest {
 				assertEquals(TargetActionSubmitState.ACCEPTED, result.getState());
 				assertEquals("customers", hotActions.request.get().targetName());
 				assertEquals(1, hotActions.request.get().actions().size());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void rejectsConcreteActionDestinations(VertxTestContext testContext) {
+		RecordingHotIndexActionsService hotActions = new RecordingHotIndexActionsService();
+		TargetActionService service = new TargetActionServiceImpl(hotActions);
+
+		service.submit(new TargetActionSubmitRequest()
+			.setTargetName("customers")
+			.setActions(List.of(IndexerActionItems.concretePutDocument(
+				10,
+				20,
+				"customers-2026-06",
+				"42",
+				new JsonObject().put("name", "Ada")
+			))))
+			.onComplete(testContext.failing(error -> testContext.verify(() -> {
+				assertNull(hotActions.request.get());
 				testContext.completeNow();
 			})));
 	}

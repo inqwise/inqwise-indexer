@@ -42,13 +42,24 @@ public class TargetActionSubmitRequest {
 	}
 
 	public JsonObject toJson() {
-		return new JsonObject()
-			.put(Keys.SUBMISSION_ID, submissionId)
-			.put(Keys.TARGET_NAME, targetName)
-			.put(Keys.TIMESTAMP, timestamp == null ? null : timestamp.toString())
+		JsonObject json = new JsonObject()
 			.put(Keys.ACTIONS, new JsonArray(actions.stream()
 				.map(IndexerActionItem::toJson)
 				.toList()));
+
+		if (submissionId != null) {
+			json.put(Keys.SUBMISSION_ID, submissionId);
+		}
+
+		if (targetName != null) {
+			json.put(Keys.TARGET_NAME, targetName);
+		}
+
+		if (timestamp != null) {
+			json.put(Keys.TIMESTAMP, timestamp.toString());
+		}
+
+		return json;
 	}
 
 	public String getSubmissionId() {

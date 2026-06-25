@@ -92,12 +92,20 @@ public class SubmitIndexActionsCommand implements Command {
 
 	@Override
 	public JsonObject toJson() {
-		return new JsonObject()
-			.put("target_name", targetName)
-			.put("timestamp", timestamp == null ? null : timestamp.toString())
+		JsonObject json = new JsonObject()
 			.put("actions", new JsonArray(actions.stream()
 				.map(IndexerActionItem::toJson)
 				.toList()));
+
+		if (targetName != null) {
+			json.put("target_name", targetName);
+		}
+
+		if (timestamp != null) {
+			json.put("timestamp", timestamp.toString());
+		}
+
+		return json;
 	}
 
 	private List<IndexerActionItem> validateActions(List<IndexerActionItem> actions) {

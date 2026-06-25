@@ -53,7 +53,6 @@ public class PutDocumentActionItem implements IndexerActionItem {
 	public JsonObject toJson() {
 		JsonObject json = new JsonObject()
 			.put(TYPE, getActionType().name())
-			.put(INDEX_NAME, indexName)
 			.put(UID, uid)
 			.put(DOCUMENT, document.copy());
 
@@ -63,6 +62,10 @@ public class PutDocumentActionItem implements IndexerActionItem {
 
 		if (indexerId != null) {
 			json.put(INDEXER_ID, indexerId);
+		}
+
+		if (indexName != null) {
+			json.put(INDEX_NAME, indexName);
 		}
 
 		return json;

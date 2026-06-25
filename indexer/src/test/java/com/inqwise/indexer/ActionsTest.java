@@ -1,6 +1,7 @@
 package com.inqwise.indexer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -87,6 +88,20 @@ class ActionsTest {
 
 		assertInstanceOf(PutDocumentActionItem.class, parsed);
 		assertEquals(item.toJson(), parsed.toJson());
+	}
+
+	@Test
+	void putActionOmitsEmptyConcreteIdentityFields() {
+		PutDocumentActionItem item = IndexerActionItems.putDocument(
+			"42",
+			new JsonObject().put("name", "Ada")
+		);
+
+		JsonObject json = item.toJson();
+
+		assertFalse(json.containsKey(PutDocumentActionItem.TARGET_ID));
+		assertFalse(json.containsKey(PutDocumentActionItem.INDEXER_ID));
+		assertFalse(json.containsKey(PutDocumentActionItem.INDEX_NAME));
 	}
 
 	@Test
