@@ -43,11 +43,12 @@ public class InvalidRouteMetadataChangeListener {
 	}
 
 	Future<Void> invalidate(TargetMetadataChanged event) {
-		return repository.getTargetById(event.getTargetId())
-			.map(found -> {
-				found.ifPresent(this::invalidate);
-				return null;
-			});
+		invalidate(
+			event.getTargetId(),
+			event.getTargetName(),
+			event.getPeriodKey()
+		);
+		return Future.succeededFuture();
 	}
 
 	private Future<Void> invalidateTargetEnvelope(IndexerRecord indexer) {
@@ -79,11 +80,15 @@ public class InvalidRouteMetadataChangeListener {
 	}
 
 	private void invalidate(TargetRecord target) {
-		invalidateTargetEnvelope(target.targetName(), target.periodKey());
+		invalidate(target.id(), target.targetName(), target.periodKey());
+	}
+
+	private void invalidate(Integer targetId, String targetName, String periodKey) {
+		invalidateTargetEnvelope(targetName, periodKey);
 		invalidRouteCache.invalidateMatching(new InvalidRouteInvalidation(
 			null,
 			null,
-			target.id(),
+			targetId,
 			null,
 			null
 		));

@@ -275,11 +275,13 @@ class InvalidRouteMetadataChangeListenerTest {
 					repository,
 					eventBus,
 					cache
-				).start().compose(ignored -> eventBus.publish(new TargetMetadataChanged(
-					targetId,
-					"target.changed",
-					0L
-				))).map(ignored -> new InvalidRouteSignature[] {
+					).start().compose(ignored -> eventBus.publish(new TargetMetadataChanged(
+						targetId,
+						"customers",
+						"2026-05",
+						"target.changed",
+						0L
+					))).map(ignored -> new InvalidRouteSignature[] {
 					broadTargetNameRoute,
 					mayTargetNameRoute,
 					juneTargetNameRoute,
@@ -291,6 +293,70 @@ class InvalidRouteMetadataChangeListenerTest {
 				assertTrue(cache.find(routes[1]).isEmpty());
 				assertTrue(cache.find(routes[2]).isPresent());
 				assertTrue(cache.find(routes[3]).isEmpty());
+				testContext.completeNow();
+				})));
+	}
+
+	@Test
+	void invalidatesTargetRoutesWhenTargetMetadataIsMissing(
+		VertxTestContext testContext
+	) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		InMemoryInvalidRouteCache cache =
+			new InMemoryInvalidRouteCache(Duration.ofMinutes(5));
+		InvalidRouteSignature broadTargetNameRoute = new InvalidRouteSignature(
+			"customers",
+			null,
+			null,
+			null,
+			null,
+			com.inqwise.indexer.IndexerActionType.PUT_DOCUMENT
+		);
+		InvalidRouteSignature mayTargetNameRoute = new InvalidRouteSignature(
+			"customers",
+			"2026-05",
+			null,
+			null,
+			null,
+			com.inqwise.indexer.IndexerActionType.PUT_DOCUMENT
+		);
+		InvalidRouteSignature juneTargetNameRoute = new InvalidRouteSignature(
+			"customers",
+			"2026-06",
+			null,
+			null,
+			null,
+			com.inqwise.indexer.IndexerActionType.PUT_DOCUMENT
+		);
+		InvalidRouteSignature targetIdRoute = new InvalidRouteSignature(
+			null,
+			null,
+			50,
+			null,
+			null,
+			com.inqwise.indexer.IndexerActionType.PUT_DOCUMENT
+		);
+		cache.record(broadTargetNameRoute, "missing target");
+		cache.record(mayTargetNameRoute, "missing target");
+		cache.record(juneTargetNameRoute, "missing target");
+		cache.record(targetIdRoute, "missing target");
+
+		new InvalidRouteMetadataChangeListener(repository, eventBus, cache)
+			.start()
+			.compose(ignored -> eventBus.publish(new TargetMetadataChanged(
+				50,
+				"customers",
+				"2026-05",
+				"target.changed",
+				0L
+			)))
+			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
+				assertTrue(cache.find(broadTargetNameRoute).isEmpty());
+				assertTrue(cache.find(mayTargetNameRoute).isEmpty());
+				assertTrue(cache.find(juneTargetNameRoute).isPresent());
+				assertTrue(cache.find(targetIdRoute).isEmpty());
 				testContext.completeNow();
 			})));
 	}

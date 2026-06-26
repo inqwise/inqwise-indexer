@@ -33,7 +33,13 @@ class TargetInvalidationMetadataChangeListenerTest {
 				registry
 			);
 
-		listener.invalidate(new TargetMetadataChanged(10, "target.changed", 1L))
+		listener.invalidate(new TargetMetadataChanged(
+				10,
+				"customers",
+				"2026-05",
+				"target.changed",
+				1L
+			))
 			.compose(ignored -> registry.listInvalidations(10))
 			.onComplete(testContext.succeeding(entries -> testContext.verify(() -> {
 				assertEquals(List.of(10), view.invalidatedTargetIds);
@@ -87,6 +93,8 @@ class TargetInvalidationMetadataChangeListenerTest {
 			.compose(ignored -> listener.start())
 			.compose(ignored -> eventBus.publish(new TargetMetadataChanged(
 				10,
+				"customers",
+				"2026-05",
 				"target.changed",
 				1L
 			)))

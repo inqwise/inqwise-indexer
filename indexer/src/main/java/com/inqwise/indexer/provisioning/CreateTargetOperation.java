@@ -213,6 +213,8 @@ public class CreateTargetOperation {
 	private Future<Void> publishTargetMetadataChanged(TargetRecord target) {
 		return eventBus.publish(new TargetMetadataChanged(
 			target.id(),
+			target.targetName(),
+			target.periodKey(),
 			CreateTargetCommand.TYPE,
 			target.version()
 		));

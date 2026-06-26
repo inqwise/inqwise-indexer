@@ -72,6 +72,8 @@ public class RecoverTargetProvisioningCommandHandler implements CommandHandler {
 			.compose(found -> found
 				.map(current -> eventBus.publish(new TargetMetadataChanged(
 					current.id(),
+					current.targetName(),
+					current.periodKey(),
 					RecoverTargetProvisioningCommand.TYPE,
 					current.version()
 				)))
