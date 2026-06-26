@@ -175,6 +175,7 @@ public class PublishLoadCommandHandler implements CommandHandler {
 	) {
 		Future<Void> published = eventBus.publish(new IndexerMetadataChanged(
 			candidate.id(),
+			candidate.targetId(),
 			getType(),
 			candidate.version() + 1
 		));
@@ -182,6 +183,7 @@ public class PublishLoadCommandHandler implements CommandHandler {
 		if (load.liveIndexerId() != null && !loadIndexer.id().equals(candidate.id())) {
 			published = published.compose(ignored -> eventBus.publish(new IndexerMetadataChanged(
 				loadIndexer.id(),
+				loadIndexer.targetId(),
 				getType(),
 				loadIndexer.version() + 1
 			)));
@@ -191,6 +193,7 @@ public class PublishLoadCommandHandler implements CommandHandler {
 			IndexerRecord oldPublished = previous.get(0);
 			published = published.compose(ignored -> eventBus.publish(new IndexerMetadataChanged(
 				oldPublished.id(),
+				oldPublished.targetId(),
 				getType(),
 				oldPublished.version() + 1
 			)));

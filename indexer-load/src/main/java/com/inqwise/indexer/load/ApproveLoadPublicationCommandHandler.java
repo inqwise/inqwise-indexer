@@ -76,6 +76,7 @@ public class ApproveLoadPublicationCommandHandler implements CommandHandler {
 				.orElseGet(() -> Future.failedFuture("Indexer load not found: " + load.indexerId())))
 			.compose(updated -> eventBus.publish(new IndexerMetadataChanged(
 				updated.indexerId(),
+				updated.targetId(),
 				getType(),
 				updated.version()
 			)).compose(ignored -> publicationOrchestrator.publishIfReady(updated)));

@@ -262,6 +262,7 @@ public class AdminServiceImpl implements AdminService {
 			return indexerProvisioning.createIndexer(request.toProvisioningRequest())
 				.compose(indexer -> eventBus.publish(new IndexerMetadataChanged(
 					indexer.id(),
+					indexer.targetId(),
 					CreateIndexerCommand.TYPE,
 					indexer.version()
 				)).map(indexer))

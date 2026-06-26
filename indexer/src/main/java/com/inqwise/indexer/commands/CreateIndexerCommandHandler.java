@@ -71,6 +71,7 @@ public class CreateIndexerCommandHandler implements CommandHandler {
 			create.getMutationState()
 		)).compose(indexer -> eventBus.publish(new IndexerMetadataChanged(
 			indexer.id(),
+			indexer.targetId(),
 			getType(),
 			indexer.version()
 		)));

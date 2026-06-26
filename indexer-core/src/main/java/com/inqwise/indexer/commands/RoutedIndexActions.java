@@ -1,11 +1,13 @@
 package com.inqwise.indexer.commands;
 
 import java.util.List;
+import java.util.Objects;
 
 import com.inqwise.indexer.IndexerActionItem;
 
 public record RoutedIndexActions(
 	Integer indexerId,
+	Integer targetId,
 	long indexerVersion,
 	String queueName,
 	List<IndexerActionItem> actions,
@@ -13,14 +15,17 @@ public record RoutedIndexActions(
 ) {
 	public RoutedIndexActions(
 		Integer indexerId,
+		Integer targetId,
 		long indexerVersion,
 		String queueName,
 		List<IndexerActionItem> actions
 	) {
-		this(indexerId, indexerVersion, queueName, actions, false);
+		this(indexerId, targetId, indexerVersion, queueName, actions, false);
 	}
 
 	public RoutedIndexActions {
+		Objects.requireNonNull(indexerId, "indexerId");
+		Objects.requireNonNull(targetId, "targetId");
 		actions = List.copyOf(actions);
 	}
 }

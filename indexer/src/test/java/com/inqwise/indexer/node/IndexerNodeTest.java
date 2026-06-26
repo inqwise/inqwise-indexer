@@ -103,13 +103,13 @@ class IndexerNodeTest {
 					IndexerRuntimeState.ACTIVE,
 					PublicationState.UNPUBLISHED,
 					MutationState.WRITABLE
-				)))
-			.compose(indexerId -> node.components().lifecycleEventBus()
-				.publish(new IndexerMetadataChanged(
-					indexerId,
-					"indexer.changed",
-					0L
-				)))
+				)).compose(indexerId -> node.components().lifecycleEventBus()
+					.publish(new IndexerMetadataChanged(
+						indexerId,
+						targetId,
+						"indexer.changed",
+						0L
+					))))
 			.compose(ignored -> {
 				assertTrue(node.components().invalidRouteCache().find(route).isEmpty());
 				return node.stop();

@@ -66,6 +66,7 @@ public class ActivateIndexerCommandHandler implements CommandHandler {
 	private Future<Void> publish(IndexerRecord indexer) {
 		return eventBus.publish(new IndexerMetadataChanged(
 			indexer.id(),
+			indexer.targetId(),
 			getType(),
 			indexer.version()
 		));

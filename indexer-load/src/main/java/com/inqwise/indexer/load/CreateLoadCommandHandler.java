@@ -139,6 +139,7 @@ public class CreateLoadCommandHandler implements CommandHandler {
 	private Future<Void> publishCreatedEvents(IndexerRecord loadIndexer, IndexerRecord liveIndexer) {
 		Future<Void> published = eventBus.publish(new IndexerMetadataChanged(
 			loadIndexer.id(),
+			loadIndexer.targetId(),
 			getType(),
 			loadIndexer.version()
 		));
@@ -146,6 +147,7 @@ public class CreateLoadCommandHandler implements CommandHandler {
 		if (liveIndexer != null) {
 			published = published.compose(ignored -> eventBus.publish(new IndexerMetadataChanged(
 				liveIndexer.id(),
+				liveIndexer.targetId(),
 				getType(),
 				liveIndexer.version()
 			)));

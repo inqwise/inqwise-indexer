@@ -88,6 +88,7 @@ public final class MetadataIndexerOperations implements IndexerOperations {
 		Future<Void> published = changed
 			? eventBus.publish(new IndexerMetadataChanged(
 				indexer.id(),
+				indexer.targetId(),
 				DELETE_CHANGE_TYPE,
 				indexer.version()
 			))

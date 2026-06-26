@@ -35,9 +35,10 @@ public class InvalidRouteMetadataChangeListener {
 	}
 
 	Future<Void> invalidate(IndexerMetadataChanged event) {
+		invalidateDirectIndexerRoutes(event.getTargetId(), event.getIndexerId());
 		return repository.getIndexerById(event.getIndexerId())
 			.compose(found -> found
-				.map(this::invalidate)
+				.map(this::invalidateTargetEnvelope)
 				.orElseGet(Future::succeededFuture));
 	}
 
@@ -49,23 +50,22 @@ public class InvalidRouteMetadataChangeListener {
 			});
 	}
 
-	private Future<Void> invalidate(IndexerRecord indexer) {
+	private Future<Void> invalidateTargetEnvelope(IndexerRecord indexer) {
 		return repository.getTargetById(indexer.targetId())
 			.map(found -> {
 				invalidateTargetEnvelope(
 					indexer.targetName(),
 					found.map(TargetRecord::periodKey).orElse(null)
 				);
-				invalidateDirectIndexerRoutes(indexer);
 				return null;
 			});
 	}
 
-	private void invalidateDirectIndexerRoutes(IndexerRecord indexer) {
+	private void invalidateDirectIndexerRoutes(Integer targetId, Integer indexerId) {
 		invalidRouteCache.invalidateMatching(new InvalidRouteInvalidation(
 			null,
 			null,
-			indexer.targetId(),
+			targetId,
 			null,
 			null
 		));
@@ -73,7 +73,7 @@ public class InvalidRouteMetadataChangeListener {
 			null,
 			null,
 			null,
-			indexer.id(),
+			indexerId,
 			null
 		));
 	}

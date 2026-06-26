@@ -204,6 +204,7 @@ public class CreateTargetOperation {
 	private Future<Void> publishMetadataChanged(IndexerRecord indexer) {
 		return eventBus.publish(new IndexerMetadataChanged(
 			indexer.id(),
+			indexer.targetId(),
 			CreateTargetCommand.TYPE,
 			indexer.version()
 		));

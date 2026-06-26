@@ -110,6 +110,7 @@ class MetadataSubmitIndexActionRouter {
 		return actionsByIndexer.map(groups -> groups.entrySet().stream()
 			.map(entry -> new RoutedIndexActions(
 				entry.getKey().id(),
+				entry.getKey().targetId(),
 				entry.getKey().version(),
 				getQueueName(entry.getKey()),
 				entry.getValue(),

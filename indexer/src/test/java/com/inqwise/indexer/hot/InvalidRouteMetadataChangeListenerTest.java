@@ -81,16 +81,16 @@ class InvalidRouteMetadataChangeListenerTest {
 				IndexerRuntimeState.ACTIVE,
 				PublicationState.UNPUBLISHED,
 				MutationState.WRITABLE
-			)))
-			.compose(indexerId -> new InvalidRouteMetadataChangeListener(
+			)).compose(indexerId -> new InvalidRouteMetadataChangeListener(
 				repository,
 				eventBus,
 				cache
 			).start().compose(ignored -> eventBus.publish(new IndexerMetadataChanged(
 				indexerId,
+				targetId,
 				"indexer.changed",
 				0L
-			))))
+			)))))
 			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
 				assertTrue(cache.find(broadRoute).isEmpty());
 				assertTrue(cache.find(mayRoute).isEmpty());
@@ -146,6 +146,7 @@ class InvalidRouteMetadataChangeListenerTest {
 					cache
 				).start().compose(ignored -> eventBus.publish(new IndexerMetadataChanged(
 					indexerId,
+					targetId,
 					"indexer.changed",
 					0L
 				))).map(ignored -> new InvalidRouteSignature[] {
@@ -161,7 +162,7 @@ class InvalidRouteMetadataChangeListenerTest {
 	}
 
 	@Test
-	void ignoresMissingIndexerMetadataChange(
+	void invalidatesDirectRoutesWhenIndexerMetadataIsMissing(
 		VertxTestContext testContext
 	) {
 		InMemoryDocumentStoreMetadataRepository repository =
@@ -169,7 +170,7 @@ class InvalidRouteMetadataChangeListenerTest {
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		InMemoryInvalidRouteCache cache =
 			new InMemoryInvalidRouteCache(Duration.ofMinutes(5));
-		InvalidRouteSignature route = new InvalidRouteSignature(
+		InvalidRouteSignature envelopeRoute = new InvalidRouteSignature(
 			"customers",
 			null,
 			null,
@@ -177,17 +178,38 @@ class InvalidRouteMetadataChangeListenerTest {
 			null,
 			com.inqwise.indexer.IndexerActionType.PUT_DOCUMENT
 		);
-		cache.record(route, "missing target");
+		InvalidRouteSignature targetIdRoute = new InvalidRouteSignature(
+			null,
+			null,
+			1,
+			null,
+			null,
+			com.inqwise.indexer.IndexerActionType.PUT_DOCUMENT
+		);
+		InvalidRouteSignature indexerIdRoute = new InvalidRouteSignature(
+			null,
+			null,
+			null,
+			404,
+			null,
+			com.inqwise.indexer.IndexerActionType.PUT_DOCUMENT
+		);
+		cache.record(envelopeRoute, "missing target");
+		cache.record(targetIdRoute, "missing target");
+		cache.record(indexerIdRoute, "missing indexer");
 
 		new InvalidRouteMetadataChangeListener(repository, eventBus, cache)
 			.start()
 			.compose(ignored -> eventBus.publish(new IndexerMetadataChanged(
 				404,
+				1,
 				"indexer.changed",
 				0L
 			)))
 			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
-				assertTrue(cache.find(route).isPresent());
+				assertTrue(cache.find(envelopeRoute).isPresent());
+				assertTrue(cache.find(targetIdRoute).isEmpty());
+				assertTrue(cache.find(indexerIdRoute).isEmpty());
 				testContext.completeNow();
 			})));
 	}

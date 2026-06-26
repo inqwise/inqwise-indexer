@@ -94,6 +94,7 @@ public class HotTarget {
 		return new HotRouteResult.Routed(actionsByIndexer.entrySet().stream()
 			.map(entry -> new RoutedIndexActions(
 				entry.getKey().id(),
+				entry.getKey().targetId(),
 				0L,
 				entry.getKey().queueName(),
 				entry.getValue()

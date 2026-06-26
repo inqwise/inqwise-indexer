@@ -13,14 +13,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 import com.inqwise.indexer.InMemoryIndexerLifecycleEventBus;
 import com.inqwise.indexer.IndexerMetadataChanged;
-import com.inqwise.indexer.IndexerRuntimeState;
-import com.inqwise.indexer.IndexerType;
 import com.inqwise.indexer.TargetMetadataChanged;
-import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
-import com.inqwise.indexer.metadata.InsertIndexer;
-import com.inqwise.indexer.metadata.InsertTarget;
-import com.inqwise.indexer.metadata.MutationState;
-import com.inqwise.indexer.metadata.PublicationState;
 
 import io.vertx.core.Future;
 import io.vertx.junit5.VertxExtension;
@@ -30,14 +23,11 @@ import io.vertx.junit5.VertxTestContext;
 class TargetInvalidationMetadataChangeListenerTest {
 	@Test
 	void targetEventInvalidatesLocalViewAndMarksRegistry(VertxTestContext testContext) {
-		InMemoryDocumentStoreMetadataRepository repository =
-			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryTargetInvalidationRegistry registry =
 			new InMemoryTargetInvalidationRegistry(Duration.ofMinutes(5), Clock.systemUTC());
 		RecordingHotMetadataView view = new RecordingHotMetadataView();
 		TargetInvalidationMetadataChangeListener listener =
 			new TargetInvalidationMetadataChangeListener(
-				repository,
 				new InMemoryIndexerLifecycleEventBus(),
 				view,
 				registry
@@ -56,54 +46,38 @@ class TargetInvalidationMetadataChangeListenerTest {
 	void indexerEventInvalidatesLocalViewAndMarksOwningTarget(
 		VertxTestContext testContext
 	) {
-		InMemoryDocumentStoreMetadataRepository repository =
-			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryTargetInvalidationRegistry registry =
 			new InMemoryTargetInvalidationRegistry(Duration.ofMinutes(5), Clock.systemUTC());
 		RecordingHotMetadataView view = new RecordingHotMetadataView();
 		TargetInvalidationMetadataChangeListener listener =
 			new TargetInvalidationMetadataChangeListener(
-				repository,
 				new InMemoryIndexerLifecycleEventBus(),
 				view,
 				registry
 			);
 
-		repository.insertTarget(new InsertTarget(null, "customers", null))
-			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
-				null,
-				targetId,
-				"customers",
-				"customers_1",
-				"queue-customers-1",
-				IndexerType.INDEX,
-				IndexerRuntimeState.ACTIVE,
-				PublicationState.UNPUBLISHED,
-				MutationState.WRITABLE
-			)).compose(indexerId -> listener.invalidate(new IndexerMetadataChanged(
-				indexerId,
+		listener.invalidate(new IndexerMetadataChanged(
+				20,
+				10,
 				"indexer.changed",
 				0L
-			)).map(indexerId)))
+			)).map(ignored -> 20)
 			.compose(indexerId -> registry.listInvalidations(10).map(entries ->
 				new ListenerResult(indexerId, entries)))
 			.onComplete(testContext.succeeding(result -> testContext.verify(() -> {
 				assertEquals(List.of(result.indexerId()), view.invalidatedIndexerIds);
-				assertEquals(1, result.entries().entries().get(0).concreteTargetId());
+				assertEquals(10, result.entries().entries().get(0).concreteTargetId());
 				testContext.completeNow();
 			})));
 	}
 
 	@Test
 	void startIsIdempotent(VertxTestContext testContext) {
-		InMemoryDocumentStoreMetadataRepository repository =
-			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		InMemoryTargetInvalidationRegistry registry =
 			new InMemoryTargetInvalidationRegistry(Duration.ofMinutes(5), Clock.systemUTC());
 		TargetInvalidationMetadataChangeListener listener =
 			new TargetInvalidationMetadataChangeListener(
-				repository,
 				eventBus,
 				new RecordingHotMetadataView(),
 				registry

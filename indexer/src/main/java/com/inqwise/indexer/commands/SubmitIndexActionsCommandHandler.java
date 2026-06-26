@@ -163,6 +163,7 @@ public class SubmitIndexActionsCommandHandler implements CommandHandler {
 
 		return eventBus.publish(new IndexerMetadataChanged(
 			group.indexerId(),
+			group.targetId(),
 			getType(),
 			group.indexerVersion()
 		));

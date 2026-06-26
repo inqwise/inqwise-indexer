@@ -305,7 +305,6 @@ public class IndexerNode {
 			);
 		TargetInvalidationMetadataChangeListener targetInvalidationMetadataChangeListener =
 			new TargetInvalidationMetadataChangeListener(
-				repository,
 				lifecycleEventBus,
 				hotMetadataView,
 				targetInvalidationRegistry

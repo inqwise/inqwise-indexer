@@ -75,6 +75,7 @@ public class LoadIndexerMarkerHandler implements IndexerMarkerHandler {
 			load.version()
 		)).compose(ignored -> eventBus.publish(new IndexerMetadataChanged(
 			load.indexerId(),
+			load.targetId(),
 			COMPLETE_COMMAND_TYPE,
 			load.version() + 1
 		))).compose(ignored -> loadRepository.getByIndexerId(load.indexerId()))
@@ -94,6 +95,7 @@ public class LoadIndexerMarkerHandler implements IndexerMarkerHandler {
 				load.version()
 			)).compose(ignored -> eventBus.publish(new IndexerMetadataChanged(
 				load.indexerId(),
+				load.targetId(),
 				COMPLETE_COMMAND_TYPE,
 				load.version() + 1
 			)));
@@ -118,6 +120,7 @@ public class LoadIndexerMarkerHandler implements IndexerMarkerHandler {
 				.orElseGet(() -> Future.failedFuture("Indexer load not found: " + load.indexerId())))
 			.compose(updated -> eventBus.publish(new IndexerMetadataChanged(
 				updated.indexerId(),
+				updated.targetId(),
 				BARRIER_REQUEST_COMMAND_TYPE,
 				updated.version()
 			)).compose(ignored -> submitCatchUpBarrier(updated)));
@@ -161,6 +164,7 @@ public class LoadIndexerMarkerHandler implements IndexerMarkerHandler {
 			load.version()
 		)).compose(ignored -> eventBus.publish(new IndexerMetadataChanged(
 			load.indexerId(),
+			load.targetId(),
 			BARRIER_COMMAND_TYPE,
 			load.version() + 1
 		))).compose(ignored -> loadRepository.getByIndexerId(load.indexerId()))
