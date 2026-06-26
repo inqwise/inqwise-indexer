@@ -2,6 +2,9 @@ package com.inqwise.indexer.hot;
 
 import java.util.Objects;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import com.inqwise.indexer.IndexerLifecycleEventBus;
 import com.inqwise.indexer.IndexerMetadataChanged;
 import com.inqwise.indexer.TargetMetadataChanged;
@@ -12,9 +15,13 @@ import com.inqwise.indexer.metadata.TargetRecord;
 import io.vertx.core.Future;
 
 public class InvalidRouteMetadataChangeListener {
+	private static final Logger logger =
+		LogManager.getLogger(InvalidRouteMetadataChangeListener.class);
+
 	private final DocumentStoreMetadataRepository repository;
 	private final IndexerLifecycleEventBus eventBus;
 	private final InvalidRouteCache invalidRouteCache;
+	private Future<Void> startFuture;
 
 	public InvalidRouteMetadataChangeListener(
 		DocumentStoreMetadataRepository repository,
@@ -26,12 +33,19 @@ public class InvalidRouteMetadataChangeListener {
 		this.invalidRouteCache = Objects.requireNonNull(invalidRouteCache, "invalidRouteCache");
 	}
 
-	public Future<Void> start() {
-		return eventBus.subscribe(event ->
-			invalidate(event).onFailure(Throwable::printStackTrace)
+	public synchronized Future<Void> start() {
+		if (startFuture != null) {
+			return startFuture;
+		}
+
+		startFuture = eventBus.subscribe(event ->
+			invalidate(event).onFailure(error ->
+				logger.error("Indexer invalid-route invalidation failed", error))
 		).compose(ignored -> eventBus.subscribeTarget(event ->
-			invalidate(event).onFailure(Throwable::printStackTrace)
-		));
+			invalidate(event).onFailure(error ->
+				logger.error("Target invalid-route invalidation failed", error))
+		)).onFailure(ignored -> clearFailedStart());
+		return startFuture;
 	}
 
 	Future<Void> invalidate(IndexerMetadataChanged event) {
@@ -112,5 +126,9 @@ public class InvalidRouteMetadataChangeListener {
 				null
 			));
 		}
+	}
+
+	private synchronized void clearFailedStart() {
+		startFuture = null;
 	}
 }

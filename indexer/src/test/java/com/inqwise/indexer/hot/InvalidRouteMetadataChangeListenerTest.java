@@ -275,13 +275,13 @@ class InvalidRouteMetadataChangeListenerTest {
 					repository,
 					eventBus,
 					cache
-					).start().compose(ignored -> eventBus.publish(new TargetMetadataChanged(
-						targetId,
-						"customers",
-						"2026-05",
-						"target.changed",
-						0L
-					))).map(ignored -> new InvalidRouteSignature[] {
+				).start().compose(ignored -> eventBus.publish(new TargetMetadataChanged(
+					targetId,
+					"customers",
+					"2026-05",
+					"target.changed",
+					0L
+				))).map(ignored -> new InvalidRouteSignature[] {
 					broadTargetNameRoute,
 					mayTargetNameRoute,
 					juneTargetNameRoute,
@@ -294,7 +294,7 @@ class InvalidRouteMetadataChangeListenerTest {
 				assertTrue(cache.find(routes[2]).isPresent());
 				assertTrue(cache.find(routes[3]).isEmpty());
 				testContext.completeNow();
-				})));
+			})));
 	}
 
 	@Test
@@ -357,6 +357,40 @@ class InvalidRouteMetadataChangeListenerTest {
 				assertTrue(cache.find(mayTargetNameRoute).isEmpty());
 				assertTrue(cache.find(juneTargetNameRoute).isPresent());
 				assertTrue(cache.find(targetIdRoute).isEmpty());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void startIsIdempotent(VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		InMemoryInvalidRouteCache cache =
+			new InMemoryInvalidRouteCache(Duration.ofMinutes(5));
+		InvalidRouteMetadataChangeListener listener =
+			new InvalidRouteMetadataChangeListener(repository, eventBus, cache);
+		InvalidRouteSignature route = new InvalidRouteSignature(
+			"customers",
+			null,
+			null,
+			null,
+			null,
+			com.inqwise.indexer.IndexerActionType.PUT_DOCUMENT
+		);
+		cache.record(route, "missing target");
+
+		listener.start()
+			.compose(ignored -> listener.start())
+			.compose(ignored -> eventBus.publish(new TargetMetadataChanged(
+				10,
+				"customers",
+				null,
+				"target.changed",
+				1L
+			)))
+			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
+				assertTrue(cache.find(route).isEmpty());
 				testContext.completeNow();
 			})));
 	}
