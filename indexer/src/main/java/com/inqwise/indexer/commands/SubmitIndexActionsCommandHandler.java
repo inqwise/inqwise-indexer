@@ -12,12 +12,14 @@ import com.inqwise.indexer.definitions.IndexerDefinition;
 import com.inqwise.indexer.definitions.IndexerDefinitionProvider;
 import com.inqwise.indexer.definitions.QueueDefinition;
 import com.inqwise.indexer.definitions.StaticIndexerDefinitionProvider;
+import com.inqwise.indexer.definitions.TargetDefinition;
 import com.inqwise.indexer.definitions.TargetDefinitionProvider;
 import com.inqwise.indexer.hot.InvalidRouteCache;
 import com.inqwise.indexer.hot.InvalidRouteInvalidation;
 import com.inqwise.indexer.hot.InvalidRouteSignature;
 import com.inqwise.indexer.hot.InvalidRouteSignatures;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
+import com.inqwise.indexer.metadata.TargetPeriodResolver;
 import com.inqwise.indexer.providers.IndexerActionReceiveCapability;
 import com.inqwise.indexer.providers.IndexerPlugins;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
@@ -26,9 +28,11 @@ import io.vertx.core.Future;
 
 public class SubmitIndexActionsCommandHandler implements CommandHandler {
 	private final MetadataSubmitIndexActionRouter metadataRouter;
+	private final TargetDefinitionProvider targetDefinitionProvider;
 	private final IndexerLifecycleEventBus eventBus;
 	private final RoutedIndexActionPublisher publisher;
 	private final InvalidRouteCache invalidRouteCache;
+	private final TargetPeriodResolver periodResolver = new TargetPeriodResolver();
 
 	public SubmitIndexActionsCommandHandler(
 		DocumentStoreMetadataRepository metadataRepository,
@@ -107,6 +111,10 @@ public class SubmitIndexActionsCommandHandler implements CommandHandler {
 			queueResources,
 			receiveCapabilities
 		);
+		this.targetDefinitionProvider = Objects.requireNonNull(
+			targetDefinitionProvider,
+			"targetDefinitionProvider"
+		);
 		this.eventBus = Objects.requireNonNull(eventBus, "eventBus");
 		this.publisher = new RoutedIndexActionPublisher(queue);
 		this.invalidRouteCache = invalidRouteCache;
@@ -126,10 +134,10 @@ public class SubmitIndexActionsCommandHandler implements CommandHandler {
 
 		return route(submit)
 			.compose(groups -> publish(groups)
-				.onSuccess(ignored -> invalidateRoute(submit)))
+				.compose(ignored -> invalidateRoute(submit)))
 			.recover(error -> {
-				recordStableInvalidRoute(submit, error);
-				return Future.failedFuture(error);
+				return recordStableInvalidRoute(submit, error)
+					.compose(ignored -> Future.failedFuture(error));
 			});
 	}
 
@@ -160,34 +168,75 @@ public class SubmitIndexActionsCommandHandler implements CommandHandler {
 		));
 	}
 
-	private void recordStableInvalidRoute(SubmitIndexActionsCommand submit, Throwable error) {
+	private Future<Void> recordStableInvalidRoute(SubmitIndexActionsCommand submit, Throwable error) {
 		if (invalidRouteCache == null || !isStableInvalid(error)) {
-			return;
+			return Future.succeededFuture();
 		}
 
-		for (InvalidRouteSignature signature : InvalidRouteSignatures.from(submit)) {
-			invalidRouteCache.record(signature, error.getMessage());
-		}
+		return invalidRouteSignatures(submit)
+			.map(signatures -> {
+				for (InvalidRouteSignature signature : signatures) {
+					invalidRouteCache.record(signature, error.getMessage());
+				}
+
+				return null;
+			});
 	}
 
-	private void invalidateRoute(SubmitIndexActionsCommand submit) {
+	private Future<Void> invalidateRoute(SubmitIndexActionsCommand submit) {
 		if (invalidRouteCache == null) {
-			return;
+			return Future.succeededFuture();
 		}
 
-		for (InvalidRouteSignature signature : InvalidRouteSignatures.from(submit)) {
-			invalidRouteCache.invalidateMatching(new InvalidRouteInvalidation(
-				signature.targetName(),
-				signature.periodKey(),
-				signature.targetId(),
-				signature.indexerId(),
-				signature.indexName()
-			));
-		}
+		return invalidRouteSignatures(submit)
+			.map(signatures -> {
+				for (InvalidRouteSignature signature : signatures) {
+					invalidRouteCache.invalidateMatching(new InvalidRouteInvalidation(
+						signature.targetName(),
+						signature.periodKey(),
+						signature.targetId(),
+						signature.indexerId(),
+						signature.indexName()
+					));
+				}
+
+				return null;
+			});
 	}
 
 	private boolean isStableInvalid(Throwable error) {
 		return error instanceof CommandFailure failure && failure.stableInvalid();
+	}
+
+	private Future<List<InvalidRouteSignature>> invalidRouteSignatures(
+		SubmitIndexActionsCommand submit
+	) {
+		if (submit.getTargetName() == null) {
+			return Future.succeededFuture(InvalidRouteSignatures.from(submit));
+		}
+
+		return targetDefinitionProvider.getByName(submit.getTargetName())
+			.map(found -> found
+				.map(targetDefinition -> InvalidRouteSignatures.from(
+					submit,
+					resolvePeriodKey(targetDefinition, submit)
+				))
+				.orElseGet(() -> InvalidRouteSignatures.from(submit)))
+			.recover(error -> Future.succeededFuture(InvalidRouteSignatures.from(submit)));
+	}
+
+	private String resolvePeriodKey(
+		TargetDefinition targetDefinition,
+		SubmitIndexActionsCommand submit
+	) {
+		try {
+			return periodResolver.resolve(
+				targetDefinition.periodStrategy(),
+				submit.getTimestamp()
+			).key();
+		} catch (RuntimeException error) {
+			return null;
+		}
 	}
 
 	private static IndexerDefinitionProvider defaultIndexerDefinitionProvider() {

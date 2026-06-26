@@ -564,12 +564,69 @@ class SubmitIndexActionsCommandTest {
 		disabled.submit(command)
 			.recover(error -> {
 				assertTrue(((CommandFailure) error).stableInvalid());
-				assertTrue(invalidRouteCache.find(InvalidRouteSignatures.from(command).get(0)).isPresent());
+				assertTrue(invalidRouteCache.find(
+					InvalidRouteSignatures.from(command, "2026-05").get(0)
+				).isPresent());
 				return enabled.submit(command);
 			})
 			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
 				assertEquals(1, queue.published.size());
-				assertTrue(invalidRouteCache.find(InvalidRouteSignatures.from(command).get(0)).isEmpty());
+				assertTrue(invalidRouteCache.find(
+					InvalidRouteSignatures.from(command, "2026-05").get(0)
+				).isEmpty());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void publicTargetCommandCachesStableInvalidRouteByResolvedPeriod(
+		VertxTestContext testContext
+	) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		RecordingQueue queue = new RecordingQueue();
+		RecordingDocumentIndexResourceManager documentResources =
+			new RecordingDocumentIndexResourceManager();
+		RecordingQueueResourceManager queueResources = new RecordingQueueResourceManager();
+		InMemoryInvalidRouteCache invalidRouteCache =
+			new InMemoryInvalidRouteCache(Duration.ofMinutes(5));
+		InMemoryCommandEngine commandService = metadataCommandService(
+			repository,
+			eventBus,
+			queue,
+			documentResources,
+			queueResources,
+			false,
+			invalidRouteCache
+		);
+		SubmitIndexActionsCommand mayCommand = new SubmitIndexActionsCommand(
+			"customers",
+			Instant.parse("2026-05-18T10:15:00Z"),
+			List.of(PutDocumentActionItem.builder()
+				.withUid("42")
+				.withDocument(new JsonObject().put("name", "Ada"))
+				.build())
+		);
+		SubmitIndexActionsCommand juneCommand = new SubmitIndexActionsCommand(
+			"customers",
+			Instant.parse("2026-06-18T10:15:00Z"),
+			List.of(PutDocumentActionItem.builder()
+				.withUid("43")
+				.withDocument(new JsonObject().put("name", "Grace"))
+				.build())
+		);
+
+		commandService.submit(mayCommand)
+			.onComplete(testContext.failing(error -> testContext.verify(() -> {
+				assertTrue(((CommandFailure) error).stableInvalid());
+				assertTrue(invalidRouteCache.find(
+					InvalidRouteSignatures.from(mayCommand, "2026-05").get(0)
+				).isPresent());
+				assertTrue(invalidRouteCache.find(
+					InvalidRouteSignatures.from(juneCommand, "2026-06").get(0)
+				).isEmpty());
+				assertTrue(invalidRouteCache.find(InvalidRouteSignatures.from(mayCommand).get(0)).isEmpty());
 				testContext.completeNow();
 			})));
 	}

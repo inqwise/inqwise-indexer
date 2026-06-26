@@ -242,8 +242,9 @@ class HotIndexActionsServiceTest {
 		);
 		InMemoryInvalidRouteCache invalidRouteCache =
 			new InMemoryInvalidRouteCache(Duration.ofMinutes(5));
+		DefaultHotMetadataView view = view(repository);
 		HotIndexActionsService service = service(
-			view(repository),
+			view,
 			queue,
 			commandService,
 			invalidRouteCache
@@ -254,13 +255,16 @@ class HotIndexActionsServiceTest {
 			List.of(IndexerActionItems.putDocument("42", new JsonObject()))
 		);
 
-		service.submit(request)
+		repository.ensureTarget("customers", may2026Period())
+			.compose(target -> view.refreshHotTargetByConcreteTargetId(target.id()))
+			.compose(ignored -> service.submit(request))
 			.onComplete(testContext.failing(error -> testContext.verify(() -> {
 				InvalidRouteRecord record = invalidRouteCache.find(
-					InvalidRouteSignatures.from(request).get(0)
+					InvalidRouteSignatures.from(request, "2026-05").get(0)
 				).orElseThrow();
 				assertEquals("Target definition not found by name: customers", record.reason());
 				assertEquals(1L, record.count());
+				assertTrue(invalidRouteCache.find(InvalidRouteSignatures.from(request).get(0)).isEmpty());
 				assertEquals(1, commandService.submitted.size());
 				testContext.completeNow();
 			})));
@@ -299,11 +303,7 @@ class HotIndexActionsServiceTest {
 	private Future<TargetRecord> insertReadyMonthlyTargetWithIndexer(
 		InMemoryDocumentStoreMetadataRepository repository
 	) {
-		TargetPeriodResolver resolver = new TargetPeriodResolver();
-		TargetPeriod period = resolver.resolve(
-			TargetPeriodStrategy.MONTHLY,
-			Instant.parse("2026-05-18T10:15:00Z")
-		);
+		TargetPeriod period = may2026Period();
 		return repository.ensureTarget("customers", period)
 			.compose(target -> repository.insertIndexer(new InsertIndexer(
 				"indexer-customers",
@@ -318,6 +318,14 @@ class HotIndexActionsServiceTest {
 			)).compose(indexerId -> repository.getTargetByDefinitionAndPeriod(
 				new ConcreteTargetKey(target.targetName(), target.periodKey())
 			)).map(found -> found.orElseThrow()));
+	}
+
+	private TargetPeriod may2026Period() {
+		TargetPeriodResolver resolver = new TargetPeriodResolver();
+		return resolver.resolve(
+			TargetPeriodStrategy.MONTHLY,
+			Instant.parse("2026-05-18T10:15:00Z")
+		);
 	}
 
 	private StaticTargetDefinitionProvider targetDefinitionProvider() {

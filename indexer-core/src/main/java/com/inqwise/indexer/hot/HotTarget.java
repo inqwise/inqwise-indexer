@@ -1,5 +1,6 @@
 package com.inqwise.indexer.hot;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -52,6 +53,10 @@ public class HotTarget {
 		return concreteTargetsByPeriodKey.values().stream()
 			.flatMap(target -> target.liveWriters().stream())
 			.toList();
+	}
+
+	public String resolvePeriodKey(Instant timestamp) {
+		return periodResolver.resolve(periodStrategy, timestamp).key();
 	}
 
 	public HotRouteResult route(HotIndexActionsRequest request) {

@@ -151,7 +151,7 @@ public class HotIndexActionsService {
 			return Optional.empty();
 		}
 
-		return InvalidRouteSignatures.from(request).stream()
+		return invalidRouteSignatures(request, true).stream()
 			.map(invalidRouteCache::find)
 			.filter(Optional::isPresent)
 			.map(Optional::get)
@@ -163,8 +163,42 @@ public class HotIndexActionsService {
 			return;
 		}
 
-		for (InvalidRouteSignature signature : InvalidRouteSignatures.from(request)) {
+		for (InvalidRouteSignature signature : invalidRouteSignatures(request, false)) {
 			invalidRouteCache.record(signature, error.getMessage());
+		}
+	}
+
+	private List<InvalidRouteSignature> invalidRouteSignatures(
+		HotIndexActionsRequest request,
+		boolean includeBroadTargetEnvelope
+	) {
+		if (!hasTargetEnvelope(request)) {
+			return InvalidRouteSignatures.from(request);
+		}
+
+		Optional<HotTarget> target = hotMetadataView.findTargetByName(request.targetName());
+		if (target.isEmpty()) {
+			return includeBroadTargetEnvelope
+				? InvalidRouteSignatures.from(request)
+				: List.of();
+		}
+
+		try {
+			List<InvalidRouteSignature> periodSignatures = InvalidRouteSignatures.from(
+				request,
+				target.get().resolvePeriodKey(request.timestamp())
+			);
+			if (!includeBroadTargetEnvelope) {
+				return periodSignatures;
+			}
+
+			List<InvalidRouteSignature> signatures = new ArrayList<>(periodSignatures);
+			signatures.addAll(InvalidRouteSignatures.from(request));
+			return signatures;
+		} catch (RuntimeException error) {
+			return includeBroadTargetEnvelope
+				? InvalidRouteSignatures.from(request)
+				: List.of();
 		}
 	}
 
