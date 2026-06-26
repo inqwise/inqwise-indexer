@@ -66,6 +66,30 @@ class InMemoryInvalidRouteCacheTest {
 	}
 
 	@Test
+	void exactPeriodInvalidationDoesNotMatchOtherPeriods() {
+		MutableClock clock = new MutableClock(Instant.parse("2026-05-31T08:00:00Z"));
+		InMemoryInvalidRouteCache cache = new InMemoryInvalidRouteCache(Duration.ofMinutes(5), clock);
+		InvalidRouteSignature may = signature("customers", "2026-05");
+		InvalidRouteSignature june = signature("customers", "2026-06");
+		InvalidRouteSignature broad = signature("customers", null);
+
+		cache.record(may, "missing target");
+		cache.record(june, "missing target");
+		cache.record(broad, "missing target");
+		cache.invalidateMatching(InvalidRouteInvalidation.exactPeriodKey(
+			"customers",
+			"2026-05",
+			null,
+			null,
+			null
+		));
+
+		assertTrue(cache.find(may).isEmpty());
+		assertTrue(cache.find(june).isPresent());
+		assertTrue(cache.find(broad).isPresent());
+	}
+
+	@Test
 	void rejectsNonPositiveTtl() {
 		assertThrows(
 			IllegalArgumentException.class,

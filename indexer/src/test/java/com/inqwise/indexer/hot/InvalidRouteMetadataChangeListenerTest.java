@@ -14,6 +14,8 @@ import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.metadata.MutationState;
 import com.inqwise.indexer.metadata.PublicationState;
+import com.inqwise.indexer.metadata.TargetProvisioningState;
+import com.inqwise.indexer.metadata.TargetStatus;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -32,7 +34,7 @@ class InvalidRouteMetadataChangeListenerTest {
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		InMemoryInvalidRouteCache cache =
 			new InMemoryInvalidRouteCache(Duration.ofMinutes(5));
-		InvalidRouteSignature targetRoute = new InvalidRouteSignature(
+		InvalidRouteSignature broadRoute = new InvalidRouteSignature(
 			"customers",
 			null,
 			null,
@@ -40,9 +42,35 @@ class InvalidRouteMetadataChangeListenerTest {
 			null,
 			com.inqwise.indexer.IndexerActionType.PUT_DOCUMENT
 		);
-		cache.record(targetRoute, "missing target");
+		InvalidRouteSignature mayRoute = new InvalidRouteSignature(
+			"customers",
+			"2026-05",
+			null,
+			null,
+			null,
+			com.inqwise.indexer.IndexerActionType.PUT_DOCUMENT
+		);
+		InvalidRouteSignature juneRoute = new InvalidRouteSignature(
+			"customers",
+			"2026-06",
+			null,
+			null,
+			null,
+			com.inqwise.indexer.IndexerActionType.PUT_DOCUMENT
+		);
+		cache.record(broadRoute, "missing target");
+		cache.record(mayRoute, "missing target");
+		cache.record(juneRoute, "missing target");
 
-		repository.insertTarget(new InsertTarget(null, "customers", null))
+		repository.insertTarget(new InsertTarget(
+			"target-customers",
+			"customers",
+			"2026-05",
+			null,
+			null,
+			TargetStatus.ACTIVE,
+			TargetProvisioningState.READY
+		))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
 				null,
 				targetId,
@@ -64,7 +92,9 @@ class InvalidRouteMetadataChangeListenerTest {
 				0L
 			))))
 			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
-				assertTrue(cache.find(targetRoute).isEmpty());
+				assertTrue(cache.find(broadRoute).isEmpty());
+				assertTrue(cache.find(mayRoute).isEmpty());
+				assertTrue(cache.find(juneRoute).isPresent());
 				testContext.completeNow();
 			})));
 	}
@@ -172,11 +202,35 @@ class InvalidRouteMetadataChangeListenerTest {
 		InMemoryInvalidRouteCache cache =
 			new InMemoryInvalidRouteCache(Duration.ofMinutes(5));
 
-		repository.insertTarget(new InsertTarget(null, "customers", null))
+		repository.insertTarget(new InsertTarget(
+			"target-customers",
+			"customers",
+			"2026-05",
+			null,
+			null,
+			TargetStatus.ACTIVE,
+			TargetProvisioningState.READY
+		))
 			.compose(targetId -> {
-				InvalidRouteSignature targetNameRoute = new InvalidRouteSignature(
+				InvalidRouteSignature broadTargetNameRoute = new InvalidRouteSignature(
 					"customers",
 					null,
+					null,
+					null,
+					null,
+					com.inqwise.indexer.IndexerActionType.PUT_DOCUMENT
+				);
+				InvalidRouteSignature mayTargetNameRoute = new InvalidRouteSignature(
+					"customers",
+					"2026-05",
+					null,
+					null,
+					null,
+					com.inqwise.indexer.IndexerActionType.PUT_DOCUMENT
+				);
+				InvalidRouteSignature juneTargetNameRoute = new InvalidRouteSignature(
+					"customers",
+					"2026-06",
 					null,
 					null,
 					null,
@@ -190,7 +244,9 @@ class InvalidRouteMetadataChangeListenerTest {
 					null,
 					com.inqwise.indexer.IndexerActionType.PUT_DOCUMENT
 				);
-				cache.record(targetNameRoute, "missing target");
+				cache.record(broadTargetNameRoute, "missing target");
+				cache.record(mayTargetNameRoute, "missing target");
+				cache.record(juneTargetNameRoute, "missing target");
 				cache.record(targetIdRoute, "missing target");
 
 				return new InvalidRouteMetadataChangeListener(
@@ -202,13 +258,17 @@ class InvalidRouteMetadataChangeListenerTest {
 					"target.changed",
 					0L
 				))).map(ignored -> new InvalidRouteSignature[] {
-					targetNameRoute,
+					broadTargetNameRoute,
+					mayTargetNameRoute,
+					juneTargetNameRoute,
 					targetIdRoute
 				});
 			})
-			.onComplete(testContext.succeeding(routes -> testContext.verify(() -> {
+			.onComplete(testContext.succeeding((InvalidRouteSignature[] routes) -> testContext.verify(() -> {
 				assertTrue(cache.find(routes[0]).isEmpty());
 				assertTrue(cache.find(routes[1]).isEmpty());
+				assertTrue(cache.find(routes[2]).isPresent());
+				assertTrue(cache.find(routes[3]).isEmpty());
 				testContext.completeNow();
 			})));
 	}

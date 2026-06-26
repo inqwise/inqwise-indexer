@@ -36,10 +36,9 @@ public class InvalidRouteMetadataChangeListener {
 
 	Future<Void> invalidate(IndexerMetadataChanged event) {
 		return repository.getIndexerById(event.getIndexerId())
-			.map(found -> {
-				found.ifPresent(this::invalidate);
-				return null;
-			});
+			.compose(found -> found
+				.map(this::invalidate)
+				.orElseGet(Future::succeededFuture));
 	}
 
 	Future<Void> invalidate(TargetMetadataChanged event) {
@@ -50,14 +49,19 @@ public class InvalidRouteMetadataChangeListener {
 			});
 	}
 
-	private void invalidate(IndexerRecord indexer) {
-		invalidRouteCache.invalidateMatching(new InvalidRouteInvalidation(
-			indexer.targetName(),
-			null,
-			null,
-			null,
-			null
-		));
+	private Future<Void> invalidate(IndexerRecord indexer) {
+		return repository.getTargetById(indexer.targetId())
+			.map(found -> {
+				invalidateTargetEnvelope(
+					indexer.targetName(),
+					found.map(TargetRecord::periodKey).orElse(null)
+				);
+				invalidateDirectIndexerRoutes(indexer);
+				return null;
+			});
+	}
+
+	private void invalidateDirectIndexerRoutes(IndexerRecord indexer) {
 		invalidRouteCache.invalidateMatching(new InvalidRouteInvalidation(
 			null,
 			null,
@@ -75,13 +79,7 @@ public class InvalidRouteMetadataChangeListener {
 	}
 
 	private void invalidate(TargetRecord target) {
-		invalidRouteCache.invalidateMatching(new InvalidRouteInvalidation(
-			target.targetName(),
-			null,
-			null,
-			null,
-			null
-		));
+		invalidateTargetEnvelope(target.targetName(), target.periodKey());
 		invalidRouteCache.invalidateMatching(new InvalidRouteInvalidation(
 			null,
 			null,
@@ -89,5 +87,25 @@ public class InvalidRouteMetadataChangeListener {
 			null,
 			null
 		));
+	}
+
+	private void invalidateTargetEnvelope(String targetName, String periodKey) {
+		invalidRouteCache.invalidateMatching(InvalidRouteInvalidation.exactPeriodKey(
+			targetName,
+			null,
+			null,
+			null,
+			null
+		));
+
+		if (periodKey != null) {
+			invalidRouteCache.invalidateMatching(InvalidRouteInvalidation.exactPeriodKey(
+				targetName,
+				periodKey,
+				null,
+				null,
+				null
+			));
+		}
 	}
 }
