@@ -85,15 +85,15 @@ public final class MetadataIndexerOperations implements IndexerOperations {
 		IndexerRecord indexer,
 		boolean changed
 	) {
-		Future<Void> published = changed
-			? eventBus.publish(new IndexerMetadataChanged(
+		if (changed) {
+			eventBus.publishIndexerWakeUp(new IndexerMetadataChanged(
 				indexer.id(),
 				indexer.targetId(),
 				DELETE_CHANGE_TYPE,
 				indexer.version()
-			))
-			: Future.succeededFuture();
+			));
+		}
 
-		return published.map(Optional.of(indexer));
+		return Future.succeededFuture(Optional.of(indexer));
 	}
 }

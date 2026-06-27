@@ -69,12 +69,15 @@ public class CreateIndexerCommandHandler implements CommandHandler {
 			create.getRuntimeState(),
 			create.getPublicationState(),
 			create.getMutationState()
-		)).compose(indexer -> eventBus.publish(new IndexerMetadataChanged(
-			indexer.id(),
-			indexer.targetId(),
-			getType(),
-			indexer.version()
-		)));
+		)).map(indexer -> {
+			eventBus.publishIndexerWakeUp(new IndexerMetadataChanged(
+				indexer.id(),
+				indexer.targetId(),
+				getType(),
+				indexer.version()
+			));
+			return null;
+		});
 	}
 
 	private static IndexerDefinitionProvider defaultDefinitionProvider() {

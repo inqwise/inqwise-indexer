@@ -161,12 +161,13 @@ public class SubmitIndexActionsCommandHandler implements CommandHandler {
 			return Future.succeededFuture();
 		}
 
-		return eventBus.publish(new IndexerMetadataChanged(
+		eventBus.publishIndexerWakeUp(new IndexerMetadataChanged(
 			group.indexerId(),
 			group.targetId(),
 			getType(),
 			group.indexerVersion()
 		));
+		return Future.succeededFuture();
 	}
 
 	private Future<Void> recordStableInvalidRoute(SubmitIndexActionsCommand submit, Throwable error) {

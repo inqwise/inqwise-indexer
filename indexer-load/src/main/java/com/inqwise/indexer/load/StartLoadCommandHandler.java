@@ -205,12 +205,13 @@ public class StartLoadCommandHandler implements CommandHandler {
 	}
 
 	private Future<Void> publishStateChanged(IndexerLoadRecord load) {
-		return eventBus.publish(new IndexerMetadataChanged(
+		eventBus.publishIndexerWakeUp(new IndexerMetadataChanged(
 			load.indexerId(),
 			load.targetId(),
 			getType(),
 			load.version()
 		));
+		return Future.succeededFuture();
 	}
 
 	private JsonObject copy(JsonObject json) {

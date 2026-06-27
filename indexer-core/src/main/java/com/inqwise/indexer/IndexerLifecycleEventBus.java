@@ -28,6 +28,14 @@ public interface IndexerLifecycleEventBus {
 
 	Future<Void> publish(IndexerMetadataChanged event);
 
+	/**
+	 * Emits a one-way reconciliation wake-up. Implementations must observe
+	 * provider acceptance failures internally because callers do not await them.
+	 */
+	default void publishIndexerWakeUp(IndexerMetadataChanged event) {
+		publish(event);
+	}
+
 	Future<Void> publish(TargetMetadataChanged event);
 
 	Future<Void> subscribe(Handler<IndexerMetadataChanged> handler);

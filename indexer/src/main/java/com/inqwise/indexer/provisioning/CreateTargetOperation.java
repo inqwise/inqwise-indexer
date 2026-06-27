@@ -202,12 +202,13 @@ public class CreateTargetOperation {
 	}
 
 	private Future<Void> publishMetadataChanged(IndexerRecord indexer) {
-		return eventBus.publish(new IndexerMetadataChanged(
+		eventBus.publishIndexerWakeUp(new IndexerMetadataChanged(
 			indexer.id(),
 			indexer.targetId(),
 			CreateTargetCommand.TYPE,
 			indexer.version()
 		));
+		return Future.succeededFuture();
 	}
 
 	private Future<Void> publishTargetMetadataChanged(TargetRecord target) {

@@ -140,7 +140,9 @@ class ResetIndexerQueueCommandTest {
 	}
 
 	@Test
-	void resetQueueFailsWhenLifecyclePublishFailsAfterMetadataUpdate(VertxTestContext testContext) {
+	void resetQueueSucceedsWhenLifecyclePublishFailsAfterMetadataUpdate(
+		VertxTestContext testContext
+	) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 		FailingLifecycleEventBus eventBus = new FailingLifecycleEventBus();
@@ -149,14 +151,12 @@ class ResetIndexerQueueCommandTest {
 
 		insertIndexer(repository, "queue-customers-1", IndexerRuntimeState.ACTIVE)
 			.compose(indexerId -> commandService.submit(new ResetIndexerQueueCommand(indexerId, 0L))
-				.recover(error -> repository.getIndexerById(indexerId).compose(found -> {
-					assertTrue(found.isPresent());
-					assertEquals("queue-customers-1-v1", found.get().queueName());
-					assertEquals(1L, found.get().version());
-					return Future.failedFuture(error);
-				})))
-			.onComplete(testContext.failing(error -> testContext.verify(() -> {
-				assertEquals("lifecycle publish failed", error.getMessage());
+				.compose(ignored -> repository.getIndexerById(indexerId)))
+			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
+				assertTrue(found.isPresent());
+				assertEquals("queue-customers-1-v1", found.get().queueName());
+				assertEquals(1L, found.get().version());
+				assertEquals(1, eventBus.publishAttempts);
 				testContext.completeNow();
 			})));
 	}
@@ -237,8 +237,11 @@ class ResetIndexerQueueCommandTest {
 	}
 
 	private static class FailingLifecycleEventBus implements IndexerLifecycleEventBus {
+		private int publishAttempts;
+
 		@Override
 		public Future<Void> publish(IndexerMetadataChanged event) {
+			publishAttempts++;
 			return Future.failedFuture("lifecycle publish failed");
 		}
 

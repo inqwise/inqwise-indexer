@@ -173,7 +173,7 @@ public class PublishLoadCommandHandler implements CommandHandler {
 		IndexerRecord candidate,
 		List<IndexerRecord> previous
 	) {
-		Future<Void> published = eventBus.publish(new IndexerMetadataChanged(
+		eventBus.publishIndexerWakeUp(new IndexerMetadataChanged(
 			candidate.id(),
 			candidate.targetId(),
 			getType(),
@@ -181,25 +181,25 @@ public class PublishLoadCommandHandler implements CommandHandler {
 		));
 
 		if (load.liveIndexerId() != null && !loadIndexer.id().equals(candidate.id())) {
-			published = published.compose(ignored -> eventBus.publish(new IndexerMetadataChanged(
+			eventBus.publishIndexerWakeUp(new IndexerMetadataChanged(
 				loadIndexer.id(),
 				loadIndexer.targetId(),
 				getType(),
 				loadIndexer.version() + 1
-			)));
+			));
 		}
 
 		if (!previous.isEmpty()) {
 			IndexerRecord oldPublished = previous.get(0);
-			published = published.compose(ignored -> eventBus.publish(new IndexerMetadataChanged(
+			eventBus.publishIndexerWakeUp(new IndexerMetadataChanged(
 				oldPublished.id(),
 				oldPublished.targetId(),
 				getType(),
 				oldPublished.version() + 1
-			)));
+			));
 		}
 
-		return published;
+		return Future.succeededFuture();
 	}
 
 	private Future<Void> cleanup(IndexerLoadRecord load, List<IndexerRecord> previous) {

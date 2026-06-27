@@ -64,11 +64,12 @@ public class ActivateIndexerCommandHandler implements CommandHandler {
 	}
 
 	private Future<Void> publish(IndexerRecord indexer) {
-		return eventBus.publish(new IndexerMetadataChanged(
+		eventBus.publishIndexerWakeUp(new IndexerMetadataChanged(
 			indexer.id(),
 			indexer.targetId(),
 			getType(),
 			indexer.version()
 		));
+		return Future.succeededFuture();
 	}
 }
