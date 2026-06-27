@@ -6,6 +6,9 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.IndexerProvisioningState;
 import com.inqwise.indexer.metadata.IndexerRecord;
@@ -17,6 +20,8 @@ import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 
 public class IndexerRuntime {
+	private static final Logger logger = LogManager.getLogger(IndexerRuntime.class);
+
 	private final DocumentStoreMetadataRepository repository;
 	private final IndexerLifecycleEventBus lifecycleEventBus;
 	private final Function<IndexerRecord, Indexer> indexerFactory;
@@ -88,7 +93,12 @@ public class IndexerRuntime {
 
 	public Future<Void> start() {
 		return lifecycleEventBus.subscribe(event ->
-			reconcile(event).onFailure(Throwable::printStackTrace)
+			reconcile(event).onFailure(error -> logger.error(
+				"Indexer runtime reconciliation failed for indexer {} under target {}",
+				event.getIndexerId(),
+				event.getTargetId(),
+				error
+			))
 		);
 	}
 

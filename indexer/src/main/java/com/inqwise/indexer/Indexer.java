@@ -4,6 +4,9 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.eventbus.Message;
@@ -11,6 +14,8 @@ import io.vertx.core.eventbus.MessageConsumer;
 import io.vertx.core.json.JsonObject;
 
 public class Indexer {
+	private static final Logger logger = LogManager.getLogger(Indexer.class);
+
 	protected final Vertx vertx;
 	protected final IndexerModel model;
 	protected final IndexerDocumentStore documentStore;
@@ -226,7 +231,11 @@ public class Indexer {
 		queueConsumer = vertx.eventBus()
 			.<JsonObject>consumer(getQueueName())
 			.handler(this::onQueueItem)
-			.exceptionHandler(Throwable::printStackTrace);
+			.exceptionHandler(error -> logger.error(
+				"Indexer queue consumer failed for queue {}",
+				getQueueName(),
+				error
+			));
 
 		return Future.succeededFuture();
 	}
