@@ -6,6 +6,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.inqwise.indexer.IndexerLifecycleEventBus;
+import com.inqwise.indexer.IndexerLifecycleSubscription;
 import com.inqwise.indexer.IndexerMetadataChanged;
 import com.inqwise.indexer.TargetMetadataChanged;
 
@@ -19,6 +20,8 @@ public class TargetInvalidationMetadataChangeListener {
 	private final HotMetadataView hotMetadataView;
 	private final TargetInvalidationRegistry registry;
 	private Future<Void> startFuture;
+	private IndexerLifecycleSubscription indexerSubscription;
+	private IndexerLifecycleSubscription targetSubscription;
 
 	public TargetInvalidationMetadataChangeListener(
 		IndexerLifecycleEventBus eventBus,
@@ -38,11 +41,31 @@ public class TargetInvalidationMetadataChangeListener {
 		startFuture = eventBus.subscribe(event ->
 			invalidate(event).onFailure(error ->
 				logger.error("Indexer metadata invalidation failed", error))
-		).compose(ignored -> eventBus.subscribeTarget(event ->
-			invalidate(event).onFailure(error ->
-				logger.error("Target metadata invalidation failed", error))
-		)).onFailure(ignored -> clearFailedStart());
+		).compose(created -> {
+			setIndexerSubscription(created);
+			return eventBus.subscribeTarget(event ->
+				invalidate(event).onFailure(error ->
+					logger.error("Target metadata invalidation failed", error))
+			);
+		}).onSuccess(created -> {
+			setTargetSubscription(created);
+		}).map((Void) null).onFailure(ignored -> clearFailedStart());
 		return startFuture;
+	}
+
+	public synchronized Future<Void> stop() {
+		IndexerLifecycleSubscription closingTarget = targetSubscription;
+		IndexerLifecycleSubscription closingIndexer = indexerSubscription;
+		targetSubscription = null;
+		indexerSubscription = null;
+		startFuture = null;
+
+		Future<Void> stopped = closingTarget == null
+			? Future.succeededFuture()
+			: closingTarget.close();
+		return stopped.compose(ignored -> closingIndexer == null
+			? Future.succeededFuture()
+			: closingIndexer.close());
 	}
 
 	Future<Void> invalidate(IndexerMetadataChanged event) {
@@ -56,6 +79,26 @@ public class TargetInvalidationMetadataChangeListener {
 	}
 
 	private synchronized void clearFailedStart() {
+		if (targetSubscription != null) {
+			targetSubscription.close();
+			targetSubscription = null;
+		}
+		if (indexerSubscription != null) {
+			indexerSubscription.close();
+			indexerSubscription = null;
+		}
 		startFuture = null;
+	}
+
+	private synchronized void setIndexerSubscription(
+		IndexerLifecycleSubscription created
+	) {
+		indexerSubscription = created;
+	}
+
+	private synchronized void setTargetSubscription(
+		IndexerLifecycleSubscription created
+	) {
+		targetSubscription = created;
 	}
 }

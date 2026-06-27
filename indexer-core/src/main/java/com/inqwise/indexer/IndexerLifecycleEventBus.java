@@ -16,13 +16,24 @@ public interface IndexerLifecycleEventBus {
 		}
 
 		@Override
-		public Future<Void> subscribe(Handler<IndexerMetadataChanged> handler) {
-			return Future.succeededFuture();
+		public Future<IndexerLifecycleSubscription> subscribe(
+			Handler<IndexerMetadataChanged> handler
+		) {
+			return Future.succeededFuture(IndexerLifecycleSubscription.NOOP);
 		}
 
 		@Override
-		public Future<Void> subscribeTarget(Handler<TargetMetadataChanged> handler) {
-			return Future.succeededFuture();
+		public Future<IndexerLifecycleSubscription> subscribeTarget(
+			Handler<TargetMetadataChanged> handler
+		) {
+			return Future.succeededFuture(IndexerLifecycleSubscription.NOOP);
+		}
+
+		@Override
+		public Future<IndexerLifecycleSubscription> subscribeProviderSignals(
+			Handler<IndexerLifecycleProviderSignal> handler
+		) {
+			return Future.succeededFuture(IndexerLifecycleSubscription.NOOP);
 		}
 	};
 
@@ -38,7 +49,11 @@ public interface IndexerLifecycleEventBus {
 
 	Future<Void> publish(TargetMetadataChanged event);
 
-	Future<Void> subscribe(Handler<IndexerMetadataChanged> handler);
+	Future<IndexerLifecycleSubscription> subscribe(Handler<IndexerMetadataChanged> handler);
 
-	Future<Void> subscribeTarget(Handler<TargetMetadataChanged> handler);
+	Future<IndexerLifecycleSubscription> subscribeTarget(Handler<TargetMetadataChanged> handler);
+
+	Future<IndexerLifecycleSubscription> subscribeProviderSignals(
+		Handler<IndexerLifecycleProviderSignal> handler
+	);
 }

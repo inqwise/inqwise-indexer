@@ -26,6 +26,8 @@ public class IndexerRuntime {
 	private final IndexerLifecycleEventBus lifecycleEventBus;
 	private final Function<IndexerRecord, Indexer> indexerFactory;
 	private final Map<Integer, RuntimeEntry> indexersById = new ConcurrentHashMap<>();
+	private IndexerLifecycleSubscription subscription;
+	private Future<Void> startFuture;
 
 	public IndexerRuntime(
 		DocumentStoreMetadataRepository repository,
@@ -91,15 +93,24 @@ public class IndexerRuntime {
 			.markerHandler(toModel(indexer));
 	}
 
-	public Future<Void> start() {
-		return lifecycleEventBus.subscribe(event ->
+	public synchronized Future<Void> start() {
+		if (startFuture != null) {
+			return startFuture;
+		}
+
+		startFuture = lifecycleEventBus.subscribe(event ->
 			reconcile(event).onFailure(error -> logger.error(
 				"Indexer runtime reconciliation failed for indexer {} under target {}",
 				event.getIndexerId(),
 				event.getTargetId(),
 				error
 			))
-		);
+		).onSuccess(created -> {
+			synchronized (this) {
+				subscription = created;
+			}
+		}).map((Void) null).onFailure(ignored -> clearFailedStart());
+		return startFuture;
 	}
 
 	public Future<Void> reconcile(Integer indexerId) {
@@ -167,12 +178,30 @@ public class IndexerRuntime {
 	}
 
 	public Future<Void> stop() {
+		IndexerLifecycleSubscription closingSubscription;
+		synchronized (this) {
+			closingSubscription = subscription;
+			subscription = null;
+			startFuture = null;
+		}
+
+		Future<Void> stopped = closingSubscription == null
+			? Future.succeededFuture()
+			: closingSubscription.close();
+		return stopped.compose(ignored -> closeAll());
+	}
+
+	private Future<Void> closeAll() {
 		Future<Void> stopped = Future.succeededFuture();
 		for (Integer indexerId : List.copyOf(indexersById.keySet())) {
 			stopped = stopped.compose(ignored -> close(indexerId));
 		}
 
 		return stopped;
+	}
+
+	private synchronized void clearFailedStart() {
+		startFuture = null;
 	}
 
 	public List<IndexerSnapshot> snapshots() {

@@ -14,6 +14,7 @@ import com.inqwise.indexer.IndexerActionType;
 import com.inqwise.indexer.IndexerMetadataChanged;
 import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.IndexerType;
+import com.inqwise.indexer.TargetMetadataChanged;
 import com.inqwise.indexer.commands.InMemoryCommandEngine;
 import com.inqwise.indexer.gateway.GatewayRestOptions;
 import com.inqwise.indexer.hot.InvalidRouteSignature;
@@ -71,6 +72,39 @@ class IndexerNodeTest {
 				return node.stop();
 			})
 			.onComplete(testContext.succeeding(ignored -> testContext.completeNow()));
+	}
+
+	@Test
+	void stoppedNodeDoesNotReceiveLaterMetadataEvents(
+		Vertx vertx,
+		VertxTestContext testContext
+	) {
+		IndexerNode node = IndexerNode.create(vertx, disabledServices());
+		InvalidRouteSignature route = new InvalidRouteSignature(
+			"customers",
+			null,
+			null,
+			null,
+			null,
+			IndexerActionType.PUT_DOCUMENT
+		);
+
+		node.start()
+			.compose(ignored -> node.stop())
+			.compose(ignored -> {
+				node.components().invalidRouteCache().record(route, "missing target");
+				return node.components().lifecycleEventBus().publish(new TargetMetadataChanged(
+					10,
+					"customers",
+					null,
+					"target.changed",
+					1L
+				));
+			})
+			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
+				assertTrue(node.components().invalidRouteCache().find(route).isPresent());
+				testContext.completeNow();
+			})));
 	}
 
 	@Test

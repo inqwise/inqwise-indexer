@@ -19,6 +19,8 @@ import com.inqwise.events.EventPublisher;
 import com.inqwise.indexer.IndexResourceOwnership;
 import com.inqwise.indexer.IndexerActionItem;
 import com.inqwise.indexer.IndexerLifecycleEventBus;
+import com.inqwise.indexer.IndexerLifecycleProviderSignal;
+import com.inqwise.indexer.IndexerLifecycleSubscription;
 import com.inqwise.indexer.IndexerMetadataChanged;
 import com.inqwise.indexer.IndexerQueueClient;
 import com.inqwise.indexer.IndexerQueueConsumer;
@@ -427,13 +429,24 @@ class LoadWriterActionReceiveCapabilityTest {
 		}
 
 		@Override
-		public Future<Void> subscribe(Handler<IndexerMetadataChanged> handler) {
-			return Future.succeededFuture();
+		public Future<IndexerLifecycleSubscription> subscribe(
+			Handler<IndexerMetadataChanged> handler
+		) {
+			return Future.succeededFuture(IndexerLifecycleSubscription.NOOP);
 		}
 
 		@Override
-		public Future<Void> subscribeTarget(Handler<TargetMetadataChanged> handler) {
-			return Future.succeededFuture();
+		public Future<IndexerLifecycleSubscription> subscribeTarget(
+			Handler<TargetMetadataChanged> handler
+		) {
+			return Future.succeededFuture(IndexerLifecycleSubscription.NOOP);
+		}
+
+		@Override
+		public Future<IndexerLifecycleSubscription> subscribeProviderSignals(
+			Handler<IndexerLifecycleProviderSignal> handler
+		) {
+			return Future.succeededFuture(IndexerLifecycleSubscription.NOOP);
 		}
 	}
 

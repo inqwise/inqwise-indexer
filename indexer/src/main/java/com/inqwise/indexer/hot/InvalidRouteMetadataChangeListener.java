@@ -6,6 +6,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.inqwise.indexer.IndexerLifecycleEventBus;
+import com.inqwise.indexer.IndexerLifecycleSubscription;
 import com.inqwise.indexer.IndexerMetadataChanged;
 import com.inqwise.indexer.TargetMetadataChanged;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
@@ -22,6 +23,8 @@ public class InvalidRouteMetadataChangeListener {
 	private final IndexerLifecycleEventBus eventBus;
 	private final InvalidRouteCache invalidRouteCache;
 	private Future<Void> startFuture;
+	private IndexerLifecycleSubscription indexerSubscription;
+	private IndexerLifecycleSubscription targetSubscription;
 
 	public InvalidRouteMetadataChangeListener(
 		DocumentStoreMetadataRepository repository,
@@ -41,11 +44,31 @@ public class InvalidRouteMetadataChangeListener {
 		startFuture = eventBus.subscribe(event ->
 			invalidate(event).onFailure(error ->
 				logger.error("Indexer invalid-route invalidation failed", error))
-		).compose(ignored -> eventBus.subscribeTarget(event ->
-			invalidate(event).onFailure(error ->
-				logger.error("Target invalid-route invalidation failed", error))
-		)).onFailure(ignored -> clearFailedStart());
+		).compose(created -> {
+			setIndexerSubscription(created);
+			return eventBus.subscribeTarget(event ->
+				invalidate(event).onFailure(error ->
+					logger.error("Target invalid-route invalidation failed", error))
+			);
+		}).onSuccess(created -> {
+			setTargetSubscription(created);
+		}).map((Void) null).onFailure(ignored -> clearFailedStart());
 		return startFuture;
+	}
+
+	public synchronized Future<Void> stop() {
+		IndexerLifecycleSubscription closingTarget = targetSubscription;
+		IndexerLifecycleSubscription closingIndexer = indexerSubscription;
+		targetSubscription = null;
+		indexerSubscription = null;
+		startFuture = null;
+
+		Future<Void> stopped = closingTarget == null
+			? Future.succeededFuture()
+			: closingTarget.close();
+		return stopped.compose(ignored -> closingIndexer == null
+			? Future.succeededFuture()
+			: closingIndexer.close());
 	}
 
 	Future<Void> invalidate(IndexerMetadataChanged event) {
@@ -129,6 +152,26 @@ public class InvalidRouteMetadataChangeListener {
 	}
 
 	private synchronized void clearFailedStart() {
+		if (targetSubscription != null) {
+			targetSubscription.close();
+			targetSubscription = null;
+		}
+		if (indexerSubscription != null) {
+			indexerSubscription.close();
+			indexerSubscription = null;
+		}
 		startFuture = null;
+	}
+
+	private synchronized void setIndexerSubscription(
+		IndexerLifecycleSubscription created
+	) {
+		indexerSubscription = created;
+	}
+
+	private synchronized void setTargetSubscription(
+		IndexerLifecycleSubscription created
+	) {
+		targetSubscription = created;
 	}
 }

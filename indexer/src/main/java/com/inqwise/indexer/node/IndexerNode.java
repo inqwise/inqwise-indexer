@@ -6,10 +6,11 @@ import java.util.List;
 import java.util.Objects;
 
 import com.inqwise.indexer.IndexerLifecycleEventBus;
+import com.inqwise.indexer.IndexerLifecycleEventBusConfig;
 import com.inqwise.indexer.IndexerOptions;
 import com.inqwise.indexer.IndexerRuntime;
 import com.inqwise.indexer.InMemoryIndexerDocumentStore;
-import com.inqwise.indexer.InMemoryIndexerLifecycleEventBus;
+import com.inqwise.indexer.InMemoryIndexerLifecycleEventBusProvider;
 import com.inqwise.indexer.InMemoryIndexerQueue;
 import com.inqwise.indexer.IndexerEventPublisher;
 import com.inqwise.indexer.commands.InMemoryCommandEngine;
@@ -122,6 +123,16 @@ public class IndexerNode {
 			.compose(ignored -> {
 				TargetInvalidationPoller poller = components.targetInvalidationPoller();
 				return poller == null ? Future.succeededFuture() : poller.stop();
+			})
+			.compose(ignored -> {
+				TargetInvalidationMetadataChangeListener listener =
+					components.targetInvalidationMetadataChangeListener();
+				return listener == null ? Future.succeededFuture() : listener.stop();
+			})
+			.compose(ignored -> {
+				InvalidRouteMetadataChangeListener listener =
+					components.invalidRouteMetadataChangeListener();
+				return listener == null ? Future.succeededFuture() : listener.stop();
 			})
 			.compose(ignored -> components.commandEngine().stop())
 			.onComplete(ignored -> deploymentIds.clear());
@@ -253,7 +264,10 @@ public class IndexerNode {
 			));
 		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
 		InMemoryIndexerDocumentStore documentStore = new InMemoryIndexerDocumentStore();
-		IndexerLifecycleEventBus lifecycleEventBus = new InMemoryIndexerLifecycleEventBus();
+		IndexerLifecycleEventBus lifecycleEventBus =
+			new InMemoryIndexerLifecycleEventBusProvider().create(
+				new IndexerLifecycleEventBusConfig("local")
+			);
 		InvalidRouteCache invalidRouteCache =
 			new InMemoryInvalidRouteCache(Duration.ofMinutes(5));
 		TargetInvalidationRegistryOptions targetInvalidationOptions =

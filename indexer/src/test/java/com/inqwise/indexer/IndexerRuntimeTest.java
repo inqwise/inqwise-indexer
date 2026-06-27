@@ -340,6 +340,43 @@ class IndexerRuntimeTest {
 			.onComplete(testContext.succeeding(ignored -> testContext.completeNow()));
 	}
 
+	@Test
+	void stoppedRuntimeDoesNotReceiveLaterMetadataEvents(
+		Vertx vertx,
+		VertxTestContext testContext
+	) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		AtomicInteger created = new AtomicInteger();
+		IndexerRuntime runtime = new IndexerRuntime(
+			repository,
+			eventBus,
+			indexer -> {
+				created.incrementAndGet();
+				return new Indexer(
+					vertx,
+					IndexerRuntime.toModel(indexer),
+					new InMemoryIndexerDocumentStore()
+				);
+			}
+		);
+
+		insertIndexer(repository, IndexerRuntimeState.ACTIVE, MutationState.WRITABLE)
+			.compose(indexerId -> runtime.start()
+				.compose(ignored -> runtime.stop())
+				.compose(ignored -> eventBus.publish(new IndexerMetadataChanged(
+					indexerId,
+					1,
+					"test",
+					0L
+				))))
+			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
+				assertEquals(0, created.get());
+				testContext.completeNow();
+			})));
+	}
+
 	private InMemoryCommandEngine commandService(
 		InMemoryDocumentStoreMetadataRepository repository,
 		InMemoryIndexerLifecycleEventBus eventBus
