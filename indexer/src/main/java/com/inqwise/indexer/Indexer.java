@@ -304,7 +304,7 @@ public class Indexer {
 			}
 			case REMOVE_DOCUMENT -> {
 				RemoveDocumentActionItem remove = (RemoveDocumentActionItem) item;
-				yield documentStore.remove(getRemoveIndexName(remove), remove.getUid());
+				yield documentStore.remove(remove.getIndexName(), remove.getUid());
 			}
 			case COMPLETE -> processCompleteIndexAction((CompleteIndexActionItem) item);
 			case CATCH_UP_BARRIER -> processCatchUpBarrierAction((CatchUpBarrierActionItem) item);
@@ -338,31 +338,52 @@ public class Indexer {
 	}
 
 	private String validatePutIdentity(PutDocumentActionItem item) {
-		String error = validateTargetId(item.getTargetId());
-		if (error != null) {
-			return error;
-		}
-
-		error = validateIndexerId(item.getIndexerId());
-		if (error != null) {
-			return error;
-		}
-
-		return validateIndexName(item.getIndexName());
+		return validateDocumentIdentity(
+			"Put document action",
+			item.getTargetId(),
+			item.getIndexerId(),
+			item.getIndexName()
+		);
 	}
 
 	private String validateRemoveIdentity(RemoveDocumentActionItem item) {
-		String error = validateTargetId(item.getTargetId());
+		return validateDocumentIdentity(
+			"Remove document action",
+			item.getTargetId(),
+			item.getIndexerId(),
+			item.getIndexName()
+		);
+	}
+
+	private String validateDocumentIdentity(
+		String actionName,
+		Integer targetId,
+		Integer indexerId,
+		String indexName
+	) {
+		if (targetId == null) {
+			return actionName + " target id is required";
+		}
+
+		if (indexerId == null) {
+			return actionName + " indexer id is required";
+		}
+
+		if (indexName == null) {
+			return actionName + " index name is required";
+		}
+
+		String error = validateTargetId(targetId);
 		if (error != null) {
 			return error;
 		}
 
-		error = validateIndexerId(item.getIndexerId());
+		error = validateIndexerId(indexerId);
 		if (error != null) {
 			return error;
 		}
 
-		return item.getIndexName() == null ? null : validateIndexName(item.getIndexName());
+		return validateIndexName(indexName);
 	}
 
 	private String validateCompleteIdentity(CompleteIndexActionItem item) {
@@ -429,10 +450,6 @@ public class Indexer {
 		}
 
 		return null;
-	}
-
-	private String getRemoveIndexName(RemoveDocumentActionItem item) {
-		return item.getIndexName() == null ? model.getIndexName() : item.getIndexName();
 	}
 
 	public Future<Void> index(List<IndexerActionItem> actions) {

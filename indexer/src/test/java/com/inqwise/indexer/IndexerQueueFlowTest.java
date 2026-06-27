@@ -53,15 +53,19 @@ class IndexerQueueFlowTest {
 		InMemoryIndexerDocumentStore store = new InMemoryIndexerDocumentStore();
 		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
 		IndexerModel model = IndexerModel.builder()
+			.withId(20)
+			.withTargetId(10)
 			.withTargetName("customers")
 			.withIndexName("customers_1")
 			.withQueueName("customers_1")
 			.build();
-		PutDocumentActionItem item = PutDocumentActionItem.builder()
-			.withIndexName("customers_1")
-			.withUid("42")
-			.withDocument(new JsonObject().put("name", "Ada"))
-			.build();
+		PutDocumentActionItem item = IndexerActionItems.concretePutDocument(
+			10,
+			20,
+			"customers_1",
+			"42",
+			new JsonObject().put("name", "Ada")
+		);
 
 		Indexer indexer = new Indexer(vertx, model, queue, store, new IndexerOptions(), event -> {
 			if (event.getType() == IndexerEventType.CONSUMER_RESUMED && event.getItem() != null) {
@@ -128,15 +132,19 @@ class IndexerQueueFlowTest {
 		InMemoryIndexerDocumentStore store = new InMemoryIndexerDocumentStore();
 		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
 		IndexerModel model = IndexerModel.builder()
+			.withId(21)
+			.withTargetId(10)
 			.withTargetName("customers")
 			.withIndexName("customers_b")
 			.withQueueName("queue-b")
 			.build();
-		PutDocumentActionItem item = PutDocumentActionItem.builder()
-			.withIndexName("customers_b")
-			.withUid("42")
-			.withDocument(new JsonObject().put("name", "Ada"))
-			.build();
+		PutDocumentActionItem item = IndexerActionItems.concretePutDocument(
+			10,
+			21,
+			"customers_b",
+			"42",
+			new JsonObject().put("name", "Ada")
+		);
 
 		Indexer indexer = new Indexer(
 			vertx,
@@ -162,15 +170,19 @@ class IndexerQueueFlowTest {
 		InMemoryIndexerDocumentStore store = new InMemoryIndexerDocumentStore();
 		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
 		IndexerModel model = IndexerModel.builder()
+			.withId(21)
+			.withTargetId(10)
 			.withTargetName("customers")
 			.withIndexName("customers_b")
 			.withQueueName("queue-b")
 			.build();
-		PutDocumentActionItem item = PutDocumentActionItem.builder()
-			.withIndexName("customers_b")
-			.withUid("43")
-			.withDocument(new JsonObject().put("name", "Grace"))
-			.build();
+		PutDocumentActionItem item = IndexerActionItems.concretePutDocument(
+			10,
+			21,
+			"customers_b",
+			"43",
+			new JsonObject().put("name", "Grace")
+		);
 
 		Indexer indexer = new Indexer(
 			vertx,

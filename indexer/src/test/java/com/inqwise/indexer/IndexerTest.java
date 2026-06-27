@@ -79,6 +79,28 @@ class IndexerTest {
 	}
 
 	@Test
+	void processActionItemRejectsUnroutedDocumentAction(
+		Vertx vertx,
+		VertxTestContext testContext
+	) {
+		InMemoryIndexerDocumentStore store = new InMemoryIndexerDocumentStore();
+		IndexerModel model = IndexerModel.builder()
+			.withId(20)
+			.withTargetId(10)
+			.withTargetName("customers-2024")
+			.withIndexName("customers-2024-a")
+			.build();
+		Indexer indexer = new Indexer(vertx, model, store);
+		RemoveDocumentActionItem item = IndexerActionItems.removeDocument("42");
+
+		indexer.processActionItem(item)
+			.onComplete(testContext.failing(error -> testContext.verify(() -> {
+				assertEquals("Remove document action target id is required", error.getMessage());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
 	void deleteShouldCloseRuntimeWithoutDroppingDocumentStore(
 		Vertx vertx,
 		VertxTestContext testContext

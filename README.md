@@ -25,7 +25,7 @@ Core types retain the `com.inqwise.indexer` package while Maven module dependenc
 - `IndexerQueueClient`: buffer client abstraction for publisher and consumer handles. Production implementations can use Kafka or another durable transport. `InMemoryIndexerQueue` is a simple local/test implementation.
 - `IndexerQueueResourceManager`: admin-side abstraction for ensuring and deleting queue resources. Queue provisioning and deletion are not part of the shared runtime queue client surface. Provisioning may receive provider-owned `QueueDefinition` settings; implementations should make `ensure` idempotent for compatible existing resources and fail when an existing resource is incompatible. `delete(queueName)` acts only on the exact queue identity, treats missing or already-deleting resources as successful cleanup misses, and completes after the provider has durably accepted deletion; physical disappearance may remain asynchronous. Provider authorization, connectivity, timeout, and rejection failures propagate for command retry. Runtime clients must not auto-create missing queues because stale producers must not recreate a deleted queue. Every indexer owns its queue; `IndexResourceOwnership` controls document-index cleanup only. `IndexerQueueResourceManagerContract` provides shared missing, repeated, and exact-name deletion checks. Immediate recreation after delete remains an in-memory/provider-specific test because production deletion may settle asynchronously.
 - `IndexerQueueConsumer`: consumer side of the queue. It owns bulk/portion delivery policy, exposes `pause`, `resume`, `commit`, and `close`, and calls the configured item handler.
-- `IndexerActionItem`: abstract action payload. `PutDocumentActionItem` and `RemoveDocumentActionItem` carry document mutations and may be expanded from logical requests to concrete target/indexer/index payloads. `CompleteIndexActionItem` is an internal marker for historical load completion; `CatchUpBarrierActionItem` is an internal marker proving a live writer consumed earlier queued catch-up actions.
+- `IndexerActionItem`: abstract action payload. Logical `PutDocumentActionItem` and `RemoveDocumentActionItem` values contain document data only; `targetName` and timestamp belong to the submission envelope. Routing creates concrete queue payloads with mandatory `targetId`, `indexerId`, and `indexName`. Runtime indexers reject logical or partially routed document actions. `CompleteIndexActionItem` is an internal marker for historical load completion; `CatchUpBarrierActionItem` is an internal marker proving a live writer consumed earlier queued catch-up actions.
 - `IndexerActionProvider`: action-type extension point for processing and route normalization. Document action providers create concrete queue payloads through `IndexerActionItems`.
 - `IndexerProvider`: indexer-type extension point for loading and composing indexer views. The default metadata-backed provider exposes hot routing capability only for eligible live writers.
 - `IndexerDocumentStore`: target document-store abstraction. The default document store is in-memory and also implements `IndexerDocumentIndexResourceManager` for test/local provisioning. Document-index `ensure` is idempotent for the same `IndexDefinition`, and fails when an existing index has a different definition. Resource deletion accepts only one concrete physical index identity; wildcard, `_all`, and comma-separated identities are rejected. Missing and repeated deletion are idempotent success, while real provider failures propagate for command retry. Production document clients must not auto-create missing indexes. `IndexerDocumentIndexResourceManagerContract` supplies shared deletion checks; immediate recreation remains provider-specific because durable deletion may settle asynchronously.
@@ -247,20 +247,4 @@ Indexer-scoped queue reset is an orchestration workflow, not an `Indexer` runtim
 
 ```bash
 mvn clean test
-```
-
-## Minimal usage
-
-```java
-Vertx vertx = Vertx.vertx();
-IndexerService indexer = new DefaultIndexerService(vertx);
-InqwiseIndexerService inqwise = new DefaultInqwiseIndexerService(indexer);
-
-PutDocumentActionItem request = PutDocumentActionItem.builder()
-  .withIndexName("customers_1")
-  .withUid("42")
-  .withDocument(new JsonObject().put("name", "Ada"))
-  .build();
-
-inqwise.indexAction(request);
 ```

@@ -16,8 +16,7 @@ public class DocumentRemoveAction implements IndexerAction {
 	@Override
 	public Future<Void> process(IndexerModel model, IndexerDocumentStore documentStore, IndexerActionItem item) {
 		RemoveDocumentActionItem remove = (RemoveDocumentActionItem) item;
-		String indexName = remove.getIndexName() == null ? model.getIndexName() : remove.getIndexName();
-		return documentStore.remove(indexName, remove.getUid());
+		return documentStore.remove(remove.getIndexName(), remove.getUid());
 	}
 
 	public static class Provider implements IndexerActionProvider {
