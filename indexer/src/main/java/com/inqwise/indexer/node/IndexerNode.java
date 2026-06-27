@@ -31,10 +31,11 @@ import com.inqwise.indexer.hot.HotMetadataView;
 import com.inqwise.indexer.hot.InMemoryInvalidRouteCache;
 import com.inqwise.indexer.hot.InvalidRouteCache;
 import com.inqwise.indexer.hot.InvalidRouteMetadataChangeListener;
-import com.inqwise.indexer.hot.InMemoryTargetInvalidationRegistry;
+import com.inqwise.indexer.hot.InMemoryTargetInvalidationRegistryProvider;
 import com.inqwise.indexer.hot.TargetInvalidationMetadataChangeListener;
 import com.inqwise.indexer.hot.TargetInvalidationPoller;
 import com.inqwise.indexer.hot.TargetInvalidationRegistry;
+import com.inqwise.indexer.hot.TargetInvalidationRegistryConfig;
 import com.inqwise.indexer.hot.TargetInvalidationRegistryOptions;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
@@ -258,7 +259,12 @@ public class IndexerNode {
 		TargetInvalidationRegistryOptions targetInvalidationOptions =
 			new TargetInvalidationRegistryOptions(Duration.ofSeconds(30), 3, 10_000);
 		TargetInvalidationRegistry targetInvalidationRegistry =
-			new InMemoryTargetInvalidationRegistry(targetInvalidationOptions);
+			new InMemoryTargetInvalidationRegistryProvider().create(
+				new TargetInvalidationRegistryConfig(
+					"local",
+					targetInvalidationOptions
+				)
+			);
 		IndexerProviders indexerProviders = new IndexerProviders(List.of(
 			new MetadataIndexerProvider(repository)
 		));
