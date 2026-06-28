@@ -15,6 +15,7 @@ import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.IndexerType;
 import com.inqwise.indexer.commands.InitialPublicationMode;
 import com.inqwise.indexer.commands.CleanupDeletingIndexerCommandHandler;
+import com.inqwise.indexer.commands.CleanupResetIndexerQueueCommandHandler;
 import com.inqwise.indexer.commands.InMemoryCommandEngine;
 import com.inqwise.indexer.definitions.IndexDefinition;
 import com.inqwise.indexer.definitions.IndexerDefinition;
@@ -313,6 +314,7 @@ class AdminServiceVerticleTest {
 		InMemoryIndexerDocumentStore documentStore = new InMemoryIndexerDocumentStore();
 		IndexerOperations indexerOperations = new MetadataIndexerOperations(repository, eventBus);
 		InMemoryCommandEngine commandService = new InMemoryCommandEngine()
+			.register(new CleanupResetIndexerQueueCommandHandler(queue))
 			.register(new CleanupDeletingIndexerCommandHandler(
 				repository,
 				queue,

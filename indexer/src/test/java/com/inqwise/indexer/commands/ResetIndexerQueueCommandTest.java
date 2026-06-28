@@ -46,13 +46,18 @@ class ResetIndexerQueueCommandTest {
 				"queue-customers-1",
 				IndexerRuntimeState.ACTIVE
 			))
-			.compose(indexerId -> commandService.submit(new ResetIndexerQueueCommand(indexerId, 0L))
+			.compose(indexerId -> commandService.submit(new ResetIndexerQueueCommand(
+				indexerId,
+				"queue-customers-1",
+				0L
+			))
 				.compose(ignored -> repository.getIndexerById(indexerId)))
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
 				assertTrue(found.isPresent());
 				assertEquals("queue-customers-1-v1", found.get().queueName());
 				assertEquals(1L, found.get().version());
 				assertEquals(List.of("queue-customers-1-v1"), resources.ensured);
+				assertEquals(List.of("queue-customers-1"), resources.deleted);
 				assertEquals(1, events.size());
 				assertEquals(ResetIndexerQueueCommand.TYPE, events.get(0).getCommandType());
 				assertEquals(1L, events.get(0).getVersion());
@@ -61,7 +66,9 @@ class ResetIndexerQueueCommandTest {
 	}
 
 	@Test
-	void resetQueueStripsExistingVersionSuffix(VertxTestContext testContext) {
+	void resetQueuePreservesCustomSuffixThatDoesNotMatchMetadataVersion(
+		VertxTestContext testContext
+	) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
@@ -69,12 +76,53 @@ class ResetIndexerQueueCommandTest {
 		InMemoryCommandEngine commandService = commandService(repository, eventBus, resources);
 
 		insertIndexer(repository, "queue-customers-1-v3", IndexerRuntimeState.ACTIVE)
-			.compose(indexerId -> commandService.submit(new ResetIndexerQueueCommand(indexerId, 0L))
+			.compose(indexerId -> commandService.submit(new ResetIndexerQueueCommand(
+				indexerId,
+				"queue-customers-1-v3",
+				0L
+			))
 				.compose(ignored -> repository.getIndexerById(indexerId)))
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
 				assertTrue(found.isPresent());
-				assertEquals("queue-customers-1-v1", found.get().queueName());
-				assertEquals(List.of("queue-customers-1-v1"), resources.ensured);
+				assertEquals("queue-customers-1-v3-v1", found.get().queueName());
+				assertEquals(List.of("queue-customers-1-v3-v1"), resources.ensured);
+				assertEquals(List.of("queue-customers-1-v3"), resources.deleted);
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void consecutiveResetsAdvanceVersionedQueueWithoutReusingRetiredNames(
+		VertxTestContext testContext
+	) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		RecordingQueueResourceManager resources = new RecordingQueueResourceManager();
+		InMemoryCommandEngine commandService = commandService(repository, eventBus, resources);
+
+		insertIndexer(repository, "queue-customers-1", IndexerRuntimeState.ACTIVE)
+			.compose(indexerId -> commandService.submit(new ResetIndexerQueueCommand(
+				indexerId,
+				"queue-customers-1",
+				0L
+			)).compose(ignored -> commandService.submit(new ResetIndexerQueueCommand(
+				indexerId,
+				"queue-customers-1-v1",
+				1L
+			))).compose(ignored -> repository.getIndexerById(indexerId)))
+			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
+				assertTrue(found.isPresent());
+				assertEquals("queue-customers-1-v2", found.get().queueName());
+				assertEquals(2L, found.get().version());
+				assertEquals(
+					List.of("queue-customers-1-v1", "queue-customers-1-v2"),
+					resources.ensured
+				);
+				assertEquals(
+					List.of("queue-customers-1", "queue-customers-1-v1"),
+					resources.deleted
+				);
 				testContext.completeNow();
 			})));
 	}
@@ -88,10 +136,113 @@ class ResetIndexerQueueCommandTest {
 		InMemoryCommandEngine commandService = commandService(repository, eventBus, resources);
 
 		insertIndexer(repository, "queue-customers-1", IndexerRuntimeState.ACTIVE)
-			.compose(indexerId -> commandService.submit(new ResetIndexerQueueCommand(indexerId, 5L)))
+			.compose(indexerId -> commandService.submit(new ResetIndexerQueueCommand(
+				indexerId,
+				"queue-customers-1",
+				5L
+			)))
 			.onComplete(testContext.failing(error -> testContext.verify(() -> {
-				assertTrue(error.getMessage().contains("version conflict"));
+				assertTrue(error.getMessage().contains("queue state conflict"));
 				assertTrue(resources.ensured.isEmpty());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void resetQueueRedeliveryReturnsAppliedResultWithoutAdvancingAgain(
+		VertxTestContext testContext
+	) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		RecordingQueueResourceManager resources = new RecordingQueueResourceManager();
+		InMemoryCommandEngine commandService = commandService(repository, eventBus, resources);
+		List<IndexerMetadataChanged> events = new ArrayList<>();
+
+		eventBus.subscribe(events::add)
+			.compose(ignored -> insertIndexer(
+				repository,
+				"queue-customers-1",
+				IndexerRuntimeState.ACTIVE
+			))
+			.compose(indexerId -> {
+				ResetIndexerQueueCommand command = new ResetIndexerQueueCommand(
+					indexerId,
+					"queue-customers-1",
+					0L
+				);
+				return commandService.submit(command)
+					.compose(ignored -> commandService.submit(command))
+					.compose(ignored -> repository.getIndexerById(indexerId));
+			})
+			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
+				assertTrue(found.isPresent());
+				assertEquals("queue-customers-1-v1", found.get().queueName());
+				assertEquals(1L, found.get().version());
+				assertEquals(List.of("queue-customers-1-v1"), resources.ensured);
+				assertEquals(List.of("queue-customers-1", "queue-customers-1"), resources.deleted);
+				assertEquals(2, events.size());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void resetQueueRedeliveryRetriesCleanupAfterMetadataAdvanced(
+		VertxTestContext testContext
+	) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		RecordingQueueResourceManager resources = new RecordingQueueResourceManager();
+		resources.deleteFailuresRemaining = 1;
+		InMemoryCommandEngine commandService = commandService(repository, eventBus, resources);
+
+		insertIndexer(repository, "queue-customers-1", IndexerRuntimeState.ACTIVE)
+			.compose(indexerId -> {
+				ResetIndexerQueueCommand command = new ResetIndexerQueueCommand(
+					indexerId,
+					"queue-customers-1",
+					0L
+				);
+				return commandService.submit(command)
+					.recover(error -> repository.getIndexerById(indexerId).compose(found -> {
+						assertTrue(found.isPresent());
+						assertEquals("queue-customers-1-v1", found.get().queueName());
+						assertEquals(1L, found.get().version());
+						return commandService.submit(command);
+					}))
+					.compose(ignored -> repository.getIndexerById(indexerId));
+			})
+			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
+				assertTrue(found.isPresent());
+				assertEquals("queue-customers-1-v1", found.get().queueName());
+				assertEquals(List.of("queue-customers-1-v1"), resources.ensured);
+				assertEquals(List.of("queue-customers-1", "queue-customers-1"), resources.deleted);
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void resetQueueAvoidsReusingCurrentCustomVersionSuffix(
+		VertxTestContext testContext
+	) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		RecordingQueueResourceManager resources = new RecordingQueueResourceManager();
+		InMemoryCommandEngine commandService = commandService(repository, eventBus, resources);
+
+		insertIndexer(repository, "queue-customers-1-v1", IndexerRuntimeState.ACTIVE)
+			.compose(indexerId -> commandService.submit(new ResetIndexerQueueCommand(
+				indexerId,
+				"queue-customers-1-v1",
+				0L
+			)).compose(ignored -> repository.getIndexerById(indexerId)))
+			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
+				assertTrue(found.isPresent());
+				assertEquals("queue-customers-1-v1-v1", found.get().queueName());
+				assertEquals(List.of("queue-customers-1-v1-v1"), resources.ensured);
+				assertEquals(List.of("queue-customers-1-v1"), resources.deleted);
 				testContext.completeNow();
 			})));
 	}
@@ -110,7 +261,11 @@ class ResetIndexerQueueCommandTest {
 				IndexerRuntimeState.NON_ACTIVE,
 				MutationState.DELETING
 			)
-			.compose(indexerId -> commandService.submit(new ResetIndexerQueueCommand(indexerId, 0L)))
+			.compose(indexerId -> commandService.submit(new ResetIndexerQueueCommand(
+				indexerId,
+				"queue-customers-1",
+				0L
+			)))
 			.onComplete(testContext.failing(error -> testContext.verify(() -> {
 				assertTrue(error.getMessage().contains("Cannot reset deleted indexer queue"));
 				assertTrue(resources.ensured.isEmpty());
@@ -128,7 +283,11 @@ class ResetIndexerQueueCommandTest {
 		InMemoryCommandEngine commandService = commandService(repository, eventBus, resources);
 
 		insertIndexer(repository, "queue-customers-1", IndexerRuntimeState.ACTIVE)
-			.compose(indexerId -> commandService.submit(new ResetIndexerQueueCommand(indexerId, 0L))
+			.compose(indexerId -> commandService.submit(new ResetIndexerQueueCommand(
+				indexerId,
+				"queue-customers-1",
+				0L
+			))
 				.recover(error -> repository.getIndexerById(indexerId).compose(found -> {
 					assertTrue(found.isPresent());
 					assertEquals("queue-customers-1", found.get().queueName());
@@ -152,7 +311,11 @@ class ResetIndexerQueueCommandTest {
 		InMemoryCommandEngine commandService = commandService(repository, eventBus, resources);
 
 		insertIndexer(repository, "queue-customers-1", IndexerRuntimeState.ACTIVE)
-			.compose(indexerId -> commandService.submit(new ResetIndexerQueueCommand(indexerId, 0L))
+			.compose(indexerId -> commandService.submit(new ResetIndexerQueueCommand(
+				indexerId,
+				"queue-customers-1",
+				0L
+			))
 				.compose(ignored -> repository.getIndexerById(indexerId)))
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
 				assertTrue(found.isPresent());
@@ -172,7 +335,11 @@ class ResetIndexerQueueCommandTest {
 		InMemoryCommandEngine commandService = commandService(repository, eventBus, resources);
 
 		insertIndexer(repository, "queue-customers-1", IndexerRuntimeState.NON_ACTIVE)
-			.compose(indexerId -> commandService.submit(new ResetIndexerQueueCommand(indexerId, 0L))
+			.compose(indexerId -> commandService.submit(new ResetIndexerQueueCommand(
+				indexerId,
+				"queue-customers-1",
+				0L
+			))
 				.compose(ignored -> repository.getIndexerById(indexerId)))
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
 				assertTrue(found.isPresent());
@@ -188,8 +355,15 @@ class ResetIndexerQueueCommandTest {
 		IndexerLifecycleEventBus eventBus,
 		IndexerQueueResourceManager resources
 	) {
-		return new InMemoryCommandEngine()
-			.register(new ResetIndexerQueueCommandHandler(repository, eventBus, resources));
+		InMemoryCommandEngine commands = new InMemoryCommandEngine();
+		return commands
+			.register(new CleanupResetIndexerQueueCommandHandler(resources))
+			.register(new ResetIndexerQueueCommandHandler(
+				repository,
+				eventBus,
+				resources,
+				commands
+			));
 	}
 
 	private Future<Integer> insertIndexer(
@@ -222,7 +396,9 @@ class ResetIndexerQueueCommandTest {
 
 	private static class RecordingQueueResourceManager implements IndexerQueueResourceManager {
 		private final List<String> ensured = new ArrayList<>();
+		private final List<String> deleted = new ArrayList<>();
 		private Throwable ensureFailure;
+		private int deleteFailuresRemaining;
 
 		@Override
 		public Future<Void> ensure(String queueName) {
@@ -234,6 +410,11 @@ class ResetIndexerQueueCommandTest {
 
 		@Override
 		public Future<Void> delete(String queueName) {
+			deleted.add(queueName);
+			if (deleteFailuresRemaining > 0) {
+				deleteFailuresRemaining--;
+				return Future.failedFuture("topic delete failed");
+			}
 			return Future.succeededFuture();
 		}
 	}

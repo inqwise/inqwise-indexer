@@ -51,7 +51,7 @@ class DocumentStoreCommandHandlersTest {
 			.map(CommandHandler::getType)
 			.collect(Collectors.toSet());
 
-		assertEquals(11, handlers.size());
+		assertEquals(12, handlers.size());
 		assertTrue(types.contains(CreateTargetCommand.TYPE));
 		assertTrue(types.contains(CreateIndexerCommand.TYPE));
 		assertTrue(types.contains(MarkIndexReadyCommand.TYPE));
@@ -62,6 +62,7 @@ class DocumentStoreCommandHandlersTest {
 		assertTrue(types.contains(DeactivateIndexerCommand.TYPE));
 		assertTrue(types.contains(DeleteIndexerCommand.TYPE));
 		assertTrue(types.contains(CleanupDeletingIndexerCommand.TYPE));
+		assertTrue(types.contains(CleanupResetIndexerQueueCommand.TYPE));
 		assertTrue(types.contains(ResetIndexerQueueCommand.TYPE));
 	}
 

@@ -1,7 +1,6 @@
 package com.inqwise.indexer.commands;
 
 import java.util.Objects;
-import java.util.regex.Pattern;
 
 import com.inqwise.indexer.IndexerMetadataChanged;
 import com.inqwise.indexer.IndexerLifecycleEventBus;
@@ -15,16 +14,16 @@ import com.inqwise.indexer.metadata.UpdateIndexerQueueName;
 import io.vertx.core.Future;
 
 public class ResetIndexerQueueCommandHandler implements CommandHandler {
-	private static final Pattern RESET_VERSION_SUFFIX = Pattern.compile("-v\\d+$");
-
 	private final DocumentStoreMetadataRepository metadataRepository;
 	private final IndexerLifecycleEventBus eventBus;
 	private final IndexerQueueResourceManager queueResourceManager;
+	private final CommandService commandService;
 
 	public ResetIndexerQueueCommandHandler(
 		DocumentStoreMetadataRepository metadataRepository,
 		IndexerLifecycleEventBus eventBus,
-		IndexerQueueResourceManager queueResourceManager
+		IndexerQueueResourceManager queueResourceManager,
+		CommandService commandService
 	) {
 		this.metadataRepository = Objects.requireNonNull(metadataRepository, "metadataRepository");
 		this.eventBus = Objects.requireNonNull(eventBus, "eventBus");
@@ -32,6 +31,7 @@ public class ResetIndexerQueueCommandHandler implements CommandHandler {
 			queueResourceManager,
 			"queueResourceManager"
 		);
+		this.commandService = Objects.requireNonNull(commandService, "commandService");
 	}
 
 	@Override
@@ -55,15 +55,25 @@ public class ResetIndexerQueueCommandHandler implements CommandHandler {
 					return Future.failedFuture("Cannot reset deleted indexer queue: " + reset.getIndexerId());
 				}
 
-				if (indexer.version() != reset.getExpectedVersion()) {
+				String newQueueName = nextQueueName(
+					reset.getExpectedQueueName(),
+					reset.getExpectedVersion()
+				);
+				if (alreadyApplied(indexer, reset, newQueueName)) {
+					return completeReset(indexer, reset.getExpectedQueueName());
+				}
+
+				if (indexer.version() != reset.getExpectedVersion()
+					|| !indexer.queueName().equals(reset.getExpectedQueueName())) {
 					return Future.failedFuture(
-						"Indexer version conflict for id " + indexer.id()
-							+ ": expected " + reset.getExpectedVersion()
-							+ " but was " + indexer.version()
+						"Indexer queue state conflict for id " + indexer.id()
+							+ ": expected queue " + reset.getExpectedQueueName()
+							+ " at version " + reset.getExpectedVersion()
+							+ " but was queue " + indexer.queueName()
+							+ " at version " + indexer.version()
 					);
 				}
 
-				String newQueueName = nextQueueName(indexer.queueName(), indexer.version() + 1);
 				return queueResourceManager.ensure(newQueueName)
 					.compose(ignored -> metadataRepository.updateIndexerQueueName(
 						new UpdateIndexerQueueName(
@@ -74,9 +84,18 @@ public class ResetIndexerQueueCommandHandler implements CommandHandler {
 					))
 					.compose(ignored -> metadataRepository.getIndexerById(indexer.id()))
 					.compose(updated -> updated
-						.map(this::publish)
+						.map(value -> completeReset(value, reset.getExpectedQueueName()))
 						.orElseGet(() -> Future.failedFuture("Indexer not found: " + indexer.id())));
 			});
+	}
+
+	private boolean alreadyApplied(
+		IndexerRecord indexer,
+		ResetIndexerQueueCommand reset,
+		String newQueueName
+	) {
+		return indexer.version() == reset.getExpectedVersion() + 1
+			&& indexer.queueName().equals(newQueueName);
 	}
 
 	private Future<Void> publish(IndexerRecord indexer) {
@@ -89,9 +108,21 @@ public class ResetIndexerQueueCommandHandler implements CommandHandler {
 		return Future.succeededFuture();
 	}
 
-	private String nextQueueName(String queueName, long resultingVersion) {
+	private Future<Void> completeReset(IndexerRecord indexer, String previousQueueName) {
+		return publish(indexer)
+			.compose(ignored -> commandService.submit(new CleanupResetIndexerQueueCommand(
+				indexer.id(),
+				previousQueueName
+			)));
+	}
+
+	private String nextQueueName(String queueName, long expectedVersion) {
 		Objects.requireNonNull(queueName, "queueName");
-		String baseQueueName = RESET_VERSION_SUFFIX.matcher(queueName).replaceFirst("");
+		String currentVersionSuffix = "-v" + expectedVersion;
+		String baseQueueName = queueName.endsWith(currentVersionSuffix)
+			? queueName.substring(0, queueName.length() - currentVersionSuffix.length())
+			: queueName;
+		long resultingVersion = expectedVersion + 1;
 		return baseQueueName + "-v" + resultingVersion;
 	}
 }

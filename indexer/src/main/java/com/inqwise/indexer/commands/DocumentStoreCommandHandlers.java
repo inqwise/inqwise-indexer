@@ -49,11 +49,13 @@ public final class DocumentStoreCommandHandlers {
 				config.queueResources(),
 				config.documentIndexResources()
 			),
+			new CleanupResetIndexerQueueCommandHandler(config.queueResources()),
 			new DeleteIndexerCommandHandler(config.indexerOperations(), commandService),
 			new ResetIndexerQueueCommandHandler(
 				config.repository(),
 				config.eventBus(),
-				config.queueResources()
+				config.queueResources(),
+				commandService
 			)
 		);
 	}

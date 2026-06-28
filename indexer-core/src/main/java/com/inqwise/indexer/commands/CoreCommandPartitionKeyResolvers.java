@@ -21,6 +21,7 @@ final class CoreCommandPartitionKeyResolvers {
 			.register(DeactivateIndexerCommand.TYPE, command -> indexer(command, "indexer_id"))
 			.register(DeleteIndexerCommand.TYPE, command -> indexer(command, "indexer_id"))
 			.register(ResetIndexerQueueCommand.TYPE, command -> indexer(command, "indexer_id"))
+			.register(CleanupResetIndexerQueueCommand.TYPE, command -> indexer(command, "indexer_id"))
 			.register(CleanupDeletingIndexerCommand.TYPE, command -> indexer(command, "indexer_id"))
 			.register(PublishIndexCommand.TYPE, command -> indexer(command, "indexer_id"))
 			.register(RetireIndexCommand.TYPE, command -> indexer(command, "indexer_id"))

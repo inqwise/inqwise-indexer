@@ -24,6 +24,7 @@ class CommandPartitionKeyRouterTest {
 		assertKey(DeactivateIndexerCommand.TYPE, "indexer_id", 31, "indexer:31");
 		assertKey(DeleteIndexerCommand.TYPE, "indexer_id", 31, "indexer:31");
 		assertKey(ResetIndexerQueueCommand.TYPE, "indexer_id", 31, "indexer:31");
+		assertKey(CleanupResetIndexerQueueCommand.TYPE, "indexer_id", 31, "indexer:31");
 		assertKey(CleanupDeletingIndexerCommand.TYPE, "indexer_id", 31, "indexer:31");
 		assertKey(PublishIndexCommand.TYPE, "indexer_id", 31, "indexer:31");
 		assertKey(RetireIndexCommand.TYPE, "indexer_id", 31, "indexer:31");

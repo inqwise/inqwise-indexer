@@ -68,7 +68,8 @@ public class AdminServiceImpl implements AdminService {
 		this.resetIndexerQueue = new ResetIndexerQueueCommandHandler(
 			repository,
 			eventBus,
-			queueResources
+			queueResources,
+			commandService
 		);
 		this.createTarget = new CreateTargetOperation(
 			repository,
@@ -224,10 +225,16 @@ public class AdminServiceImpl implements AdminService {
 			}
 
 			Integer indexerId = request.getIndexerId();
-			return resetIndexerQueue.handle(new ResetIndexerQueueCommand(
-				indexerId,
-				request.getExpectedVersion()
-			))
+			return repository.getIndexerById(indexerId)
+				.compose(found -> found
+					.map(indexer -> resetIndexerQueue.handle(new ResetIndexerQueueCommand(
+						indexerId,
+						indexer.queueName(),
+						request.getExpectedVersion()
+					)))
+					.orElseGet(() -> Future.failedFuture(IndexerErrors.notFound(
+						"Indexer not found"
+					))))
 				.compose(ignored -> loadIndexerResult(indexerId))
 				.recover(error -> Future.failedFuture(IndexerErrors.normalize(error)));
 		} catch (Throwable error) {
