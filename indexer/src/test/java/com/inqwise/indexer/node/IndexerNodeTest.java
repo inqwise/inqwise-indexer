@@ -108,6 +108,35 @@ class IndexerNodeTest {
 	}
 
 	@Test
+	void recoveryOnlyModeKeepsControlPlaneAndCanRestoreDataPlane(
+		Vertx vertx,
+		VertxTestContext testContext
+	) {
+		IndexerNode node = IndexerNode.create(vertx, new IndexerNodeOptions());
+		int[] activeDeployments = new int[1];
+
+		node.start()
+			.compose(ignored -> {
+				activeDeployments[0] = node.deploymentIds().size();
+				return node.components().runtimeReconciler().stop();
+			})
+			.compose(ignored -> node.enterRecoveryOnly(new IllegalStateException("test failure")))
+			.compose(ignored -> {
+				assertTrue(node.isRecoveryOnly());
+				assertTrue(node.deploymentIds().size() < activeDeployments[0]);
+				assertTrue(node.deploymentIds().size() > 0);
+				assertTrue(((InMemoryCommandEngine) node.components().commandEngine()).isStarted());
+				return node.recover();
+			})
+			.compose(ignored -> {
+				assertFalse(node.isRecoveryOnly());
+				assertEquals(activeDeployments[0], node.deploymentIds().size());
+				return node.stop();
+			})
+			.onComplete(testContext.succeeding(ignored -> testContext.completeNow()));
+	}
+
+	@Test
 	void defaultNodeInvalidatesRouteCacheFromMetadataEvents(
 		Vertx vertx,
 		VertxTestContext testContext

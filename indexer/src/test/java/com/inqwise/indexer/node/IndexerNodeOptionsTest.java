@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.Test;
 
+import com.inqwise.indexer.IndexerRuntimeReconcilerOptions;
 import com.inqwise.indexer.gateway.GatewayRestOptions;
 import com.inqwise.indexer.rest.action.TargetActionRestOptions;
 import com.inqwise.indexer.rest.admin.AdminRestOptions;
@@ -29,6 +30,64 @@ class IndexerNodeOptionsTest {
 		assertEquals(1, options.gateway().getInstances());
 		assertFalse(options.runtimeRest().isEnabled());
 		assertEquals(1, options.runtimeRest().getInstances());
+		assertEquals(
+			IndexerRuntimeReconcilerOptions.DEFAULT_MAX_DIRTY_INDEXERS,
+			options.getRuntimeReconcilerOptions().getMaxDirtyIndexers()
+		);
+		assertEquals(
+			IndexerRuntimeReconcilerOptions.DEFAULT_SAFETY_SYNC_INTERVAL_MS,
+			options.getRuntimeReconcilerOptions().getSafetySyncIntervalMs()
+		);
+	}
+
+	@Test
+	void readsRuntimeReconcilerOptionsFromJson() {
+		IndexerNodeOptions options = new IndexerNodeOptions(new JsonObject()
+			.put(IndexerNodeOptions.Keys.RUNTIME_RECONCILER, new JsonObject()
+				.put(IndexerRuntimeReconcilerOptions.Keys.MAX_DIRTY_INDEXERS, 25)
+				.put(IndexerRuntimeReconcilerOptions.Keys.SAFETY_SYNC_INTERVAL_MS, 1_000L)));
+
+		assertEquals(25, options.getRuntimeReconcilerOptions().getMaxDirtyIndexers());
+		assertEquals(1_000L, options.getRuntimeReconcilerOptions().getSafetySyncIntervalMs());
+		assertEquals(
+			25,
+			options.toJson()
+				.getJsonObject(IndexerNodeOptions.Keys.RUNTIME_RECONCILER)
+				.getInteger(IndexerRuntimeReconcilerOptions.Keys.MAX_DIRTY_INDEXERS)
+		);
+		assertEquals(
+			1_000L,
+			options.toJson()
+				.getJsonObject(IndexerNodeOptions.Keys.RUNTIME_RECONCILER)
+				.getLong(IndexerRuntimeReconcilerOptions.Keys.SAFETY_SYNC_INTERVAL_MS)
+		);
+	}
+
+	@Test
+	void rejectsNonPositiveRuntimeReconcilerCapacity() {
+		IllegalArgumentException error = assertThrows(
+			IllegalArgumentException.class,
+			() -> new IndexerNodeOptions(new JsonObject()
+				.put(IndexerNodeOptions.Keys.RUNTIME_RECONCILER, new JsonObject()
+					.put(IndexerRuntimeReconcilerOptions.Keys.MAX_DIRTY_INDEXERS, 0)))
+		);
+
+		assertEquals("maxDirtyIndexers must be greater than zero", error.getMessage());
+	}
+
+	@Test
+	void rejectsNonPositiveRuntimeReconcilerSafetyInterval() {
+		IllegalArgumentException error = assertThrows(
+			IllegalArgumentException.class,
+			() -> new IndexerNodeOptions(new JsonObject()
+				.put(IndexerNodeOptions.Keys.RUNTIME_RECONCILER, new JsonObject()
+					.put(IndexerRuntimeReconcilerOptions.Keys.SAFETY_SYNC_INTERVAL_MS, 0L)))
+		);
+
+		assertEquals(
+			"safetySyncIntervalMs must be greater than zero",
+			error.getMessage()
+		);
 	}
 
 	@Test

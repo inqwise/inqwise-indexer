@@ -272,6 +272,7 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 			.filter(indexer -> indexer.status() == IndexerStatus.AVAILABLE)
 			.filter(indexer -> indexer.provisioningState() == IndexerProvisioningState.READY)
 			.filter(indexer -> indexer.runtimeState() == IndexerRuntimeState.ACTIVE)
+			.filter(indexer -> indexer.mutationState() != MutationState.DELETING)
 			.sorted(Comparator.comparing(IndexerRecord::id))
 			.toList());
 	}

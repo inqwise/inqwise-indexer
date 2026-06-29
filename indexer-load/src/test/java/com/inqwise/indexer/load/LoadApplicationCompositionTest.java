@@ -11,6 +11,7 @@ import com.inqwise.indexer.IndexerEventPublisher;
 import com.inqwise.indexer.IndexerOptions;
 import com.inqwise.indexer.IndexerRole;
 import com.inqwise.indexer.IndexerRuntime;
+import com.inqwise.indexer.IndexerRuntimeReconciler;
 import com.inqwise.indexer.InMemoryIndexerDocumentStore;
 import com.inqwise.indexer.InMemoryIndexerLifecycleEventBus;
 import com.inqwise.indexer.InMemoryIndexerQueue;
@@ -63,13 +64,17 @@ class LoadApplicationCompositionTest {
 		);
 		IndexerRuntime runtime = new IndexerRuntime(
 			vertx,
-			metadata,
-			lifecycleEvents,
 			queue,
 			documentStore,
 			new IndexerOptions(),
 			IndexerEventPublisher.NOOP,
 			new IndexerPlugins(List.of(loadPlugin))
+		);
+		IndexerRuntimeReconciler reconciler = new IndexerRuntimeReconciler(
+			vertx,
+			metadata,
+			lifecycleEvents,
+			runtime
 		);
 		CreateLoadCommand create = new CreateLoadCommand(
 			"load",
@@ -89,7 +94,7 @@ class LoadApplicationCompositionTest {
 		);
 
 		commands.submit(create)
-			.compose(ignored -> runtime.reconcile(provider.request.indexerId()))
+			.compose(ignored -> reconciler.reconcile(provider.request.indexerId()))
 			.compose(ignored -> provider.writer.complete(new LoadCompletion(null)))
 			.compose(ignored -> awaitPublishedAndCleaned(
 				vertx,

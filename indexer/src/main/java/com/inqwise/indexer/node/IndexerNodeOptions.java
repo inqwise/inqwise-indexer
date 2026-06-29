@@ -4,6 +4,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
+import com.inqwise.indexer.IndexerRuntimeReconcilerOptions;
 import com.inqwise.indexer.gateway.GatewayRestOptions;
 import com.inqwise.indexer.rest.action.TargetActionRestOptions;
 import com.inqwise.indexer.rest.admin.AdminRestOptions;
@@ -19,6 +20,7 @@ public class IndexerNodeOptions {
 		public static final String ADMIN_REST = "admin_rest";
 		public static final String TARGET_ACTION_REST = "target_action_rest";
 		public static final String RUNTIME_REST = "runtime_rest";
+		public static final String RUNTIME_RECONCILER = "runtime_reconciler";
 		public static final String GATEWAY = "gateway";
 
 		private Keys() {
@@ -52,6 +54,8 @@ public class IndexerNodeOptions {
 	private AdminRestOptions adminRestOptions = new AdminRestOptions();
 	private TargetActionRestOptions targetActionRestOptions = new TargetActionRestOptions();
 	private RuntimeRestOptions runtimeRestOptions = new RuntimeRestOptions();
+	private IndexerRuntimeReconcilerOptions runtimeReconcilerOptions =
+		new IndexerRuntimeReconcilerOptions();
 	private GatewayRestOptions gatewayOptions = new GatewayRestOptions();
 
 	public IndexerNodeOptions() {
@@ -77,6 +81,9 @@ public class IndexerNodeOptions {
 		this.runtimeRestOptions = new RuntimeRestOptions(
 			json.getJsonObject(Keys.RUNTIME_REST, new JsonObject())
 		);
+		this.runtimeReconcilerOptions = new IndexerRuntimeReconcilerOptions(
+			json.getJsonObject(Keys.RUNTIME_RECONCILER, new JsonObject())
+		);
 		this.gatewayOptions = new GatewayRestOptions(json.getJsonObject(Keys.GATEWAY, new JsonObject()));
 		validate();
 	}
@@ -92,6 +99,7 @@ public class IndexerNodeOptions {
 			.put(Keys.ADMIN_REST, adminRestOptions.toJson())
 			.put(Keys.TARGET_ACTION_REST, targetActionRestOptions.toJson())
 			.put(Keys.RUNTIME_REST, runtimeRestOptions.toJson())
+			.put(Keys.RUNTIME_RECONCILER, runtimeReconcilerOptions.toJson())
 			.put(Keys.GATEWAY, gatewayOptions.toJson());
 	}
 
@@ -167,6 +175,19 @@ public class IndexerNodeOptions {
 		return this;
 	}
 
+	public IndexerRuntimeReconcilerOptions getRuntimeReconcilerOptions() {
+		return runtimeReconcilerOptions;
+	}
+
+	public IndexerNodeOptions setRuntimeReconcilerOptions(
+		IndexerRuntimeReconcilerOptions runtimeReconcilerOptions
+	) {
+		this.runtimeReconcilerOptions = runtimeReconcilerOptions == null
+			? new IndexerRuntimeReconcilerOptions()
+			: runtimeReconcilerOptions;
+		return this;
+	}
+
 	public IndexerNodeOptions setGatewayOptions(GatewayRestOptions gatewayOptions) {
 		this.gatewayOptions = gatewayOptions == null ? new GatewayRestOptions() : gatewayOptions;
 		return this;
@@ -187,6 +208,7 @@ public class IndexerNodeOptions {
 	}
 
 	public IndexerNodeOptions validate() {
+		runtimeReconcilerOptions.validate();
 		for (IndexerServiceDeploymentOptions options : services.values()) {
 			options.validate();
 		}

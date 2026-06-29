@@ -7,6 +7,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 import com.inqwise.indexer.Indexer;
 import com.inqwise.indexer.IndexerRuntime;
+import com.inqwise.indexer.IndexerRuntimeReconciler;
 import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.IndexerType;
 import com.inqwise.indexer.InMemoryIndexerDocumentStore;
@@ -34,13 +35,17 @@ class RuntimeRestVerticleTest {
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		InMemoryIndexerDocumentStore documentStore = new InMemoryIndexerDocumentStore();
 		IndexerRuntime runtime = new IndexerRuntime(
-			repository,
-			eventBus,
 			indexer -> new Indexer(
 				vertx,
 				IndexerRuntime.toModel(indexer),
 				documentStore
 			)
+		);
+		IndexerRuntimeReconciler reconciler = new IndexerRuntimeReconciler(
+			vertx,
+			repository,
+			eventBus,
+			runtime
 		);
 		RuntimeRestVerticle restVerticle = new RuntimeRestVerticle(
 			new RuntimeRestOptions().setPort(0)
@@ -58,7 +63,11 @@ class RuntimeRestVerticleTest {
 				PublicationState.UNPUBLISHED,
 				MutationState.WRITABLE
 			)))
-			.compose(indexerId -> vertx.deployVerticle(new RuntimeServiceVerticle(runtime))
+			.compose(indexerId -> reconciler.start()
+				.compose(ignored -> vertx.deployVerticle(new RuntimeServiceVerticle(
+					runtime,
+					reconciler
+				)))
 				.compose(ignored -> vertx.deployVerticle(restVerticle))
 				.compose(ignored -> post(
 					vertx,

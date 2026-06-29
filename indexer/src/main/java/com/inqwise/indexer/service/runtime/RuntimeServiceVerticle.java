@@ -3,28 +3,22 @@ package com.inqwise.indexer.service.runtime;
 import java.util.Objects;
 
 import com.inqwise.indexer.IndexerRuntime;
+import com.inqwise.indexer.IndexerRuntimeReconciler;
 import com.inqwise.indexer.service.ServiceProxyVerticle;
 
-import io.vertx.core.Future;
 import io.vertx.serviceproxy.ProxyHandler;
 
 public class RuntimeServiceVerticle extends ServiceProxyVerticle<RuntimeService> {
-	private final IndexerRuntime runtime;
 	private final RuntimeService service;
 
-	public RuntimeServiceVerticle(IndexerRuntime runtime) {
-		this.runtime = Objects.requireNonNull(runtime, "runtime");
-		this.service = new RuntimeServiceImpl(runtime);
-	}
-
-	@Override
-	protected Future<Void> beforeRegister() {
-		return runtime.start();
-	}
-
-	@Override
-	protected Future<Void> afterUnregister() {
-		return runtime.stop();
+	public RuntimeServiceVerticle(
+		IndexerRuntime runtime,
+		IndexerRuntimeReconciler reconciler
+	) {
+		this.service = new RuntimeServiceImpl(
+			Objects.requireNonNull(runtime, "runtime"),
+			Objects.requireNonNull(reconciler, "reconciler")
+		);
 	}
 
 	@Override

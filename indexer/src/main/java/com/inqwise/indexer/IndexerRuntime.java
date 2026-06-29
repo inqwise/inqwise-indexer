@@ -1,15 +1,12 @@
 package com.inqwise.indexer;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
-import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.IndexerProvisioningState;
 import com.inqwise.indexer.metadata.IndexerRecord;
 import com.inqwise.indexer.metadata.IndexerStatus;
@@ -20,29 +17,17 @@ import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 
 public class IndexerRuntime {
-	private static final Logger logger = LogManager.getLogger(IndexerRuntime.class);
-
-	private final DocumentStoreMetadataRepository repository;
-	private final IndexerLifecycleEventBus lifecycleEventBus;
 	private final Function<IndexerRecord, Indexer> indexerFactory;
 	private final Map<Integer, RuntimeEntry> indexersById = new ConcurrentHashMap<>();
-	private IndexerLifecycleSubscription subscription;
-	private Future<Void> startFuture;
 
 	public IndexerRuntime(
-		DocumentStoreMetadataRepository repository,
-		IndexerLifecycleEventBus lifecycleEventBus,
 		Function<IndexerRecord, Indexer> indexerFactory
 	) {
-		this.repository = Objects.requireNonNull(repository, "repository");
-		this.lifecycleEventBus = Objects.requireNonNull(lifecycleEventBus, "lifecycleEventBus");
 		this.indexerFactory = Objects.requireNonNull(indexerFactory, "indexerFactory");
 	}
 
 	public IndexerRuntime(
 		Vertx vertx,
-		DocumentStoreMetadataRepository repository,
-		IndexerLifecycleEventBus lifecycleEventBus,
 		IndexerQueueClient queue,
 		IndexerDocumentStore documentStore,
 		IndexerOptions options,
@@ -50,8 +35,6 @@ public class IndexerRuntime {
 	) {
 		this(
 			vertx,
-			repository,
-			lifecycleEventBus,
 			queue,
 			documentStore,
 			options,
@@ -62,18 +45,13 @@ public class IndexerRuntime {
 
 	public IndexerRuntime(
 		Vertx vertx,
-		DocumentStoreMetadataRepository repository,
-		IndexerLifecycleEventBus lifecycleEventBus,
 		IndexerQueueClient queue,
 		IndexerDocumentStore documentStore,
 		IndexerOptions options,
 		IndexerEventPublisher eventPublisher,
 		IndexerPlugins plugins
 	) {
-		this(
-			repository,
-			lifecycleEventBus,
-			indexer -> createVerticleBackedIndexer(
+		this(indexer -> createVerticleBackedIndexer(
 				vertx,
 				toModel(indexer),
 				queue,
@@ -93,49 +71,7 @@ public class IndexerRuntime {
 			.markerHandler(toModel(indexer));
 	}
 
-	public synchronized Future<Void> start() {
-		if (startFuture != null) {
-			return startFuture;
-		}
-
-		startFuture = lifecycleEventBus.subscribe(event ->
-			reconcile(event).onFailure(error -> logger.error(
-				"Indexer runtime reconciliation failed for indexer {} under target {}",
-				event.getIndexerId(),
-				event.getTargetId(),
-				error
-			))
-		).onSuccess(created -> {
-			synchronized (this) {
-				subscription = created;
-			}
-		}).map((Void) null).onFailure(ignored -> clearFailedStart());
-		return startFuture;
-	}
-
-	public Future<Void> reconcile(Integer indexerId) {
-		return repository.getIndexerById(indexerId)
-			.compose(found -> {
-				if (found.isEmpty()) {
-					return close(indexerId);
-				}
-
-				return reconcile(found.get());
-			});
-	}
-
-	public Future<Void> reconcile(IndexerMetadataChanged event) {
-		return repository.getIndexerById(event.getIndexerId())
-			.compose(found -> {
-				if (found.isEmpty()) {
-					return close(event.getIndexerId());
-				}
-
-				return reconcile(found.get());
-			});
-	}
-
-	private Future<Void> reconcile(IndexerRecord indexer) {
+	public Future<Void> reconcile(IndexerRecord indexer) {
 		if (indexer.status() != IndexerStatus.AVAILABLE
 			|| indexer.mutationState() == MutationState.DELETING) {
 			return close(indexer.id());
@@ -153,17 +89,29 @@ public class IndexerRuntime {
 		IndexerModel model = toModel(indexerRecord);
 		RuntimeEntry existing = indexersById.get(indexerRecord.id());
 		if (existing != null && sameRuntimeModel(existing.model(), model)) {
-			return existing.indexer().activate();
+			return Future.succeededFuture();
 		}
 
+		if (existing != null) {
+			indexersById.remove(indexerRecord.id(), existing);
+		}
 		Future<Void> closeExisting = existing == null
 			? Future.succeededFuture()
 			: existing.indexer().close();
 
 		return closeExisting.compose(ignored -> {
-			Indexer indexer = indexerFactory.apply(indexerRecord);
-			indexersById.put(indexerRecord.id(), new RuntimeEntry(model, indexer));
-			return indexer.activate();
+			Indexer candidate = indexerFactory.apply(indexerRecord);
+			return candidate.activate()
+				.onSuccess(value -> indexersById.put(
+					indexerRecord.id(),
+					new RuntimeEntry(model, candidate)
+				))
+				.recover(error -> candidate.close()
+					.recover(closeError -> {
+						error.addSuppressed(closeError);
+						return Future.succeededFuture();
+					})
+					.compose(value -> Future.failedFuture(error)));
 		});
 	}
 
@@ -172,23 +120,13 @@ public class IndexerRuntime {
 		return entry == null ? Future.succeededFuture() : entry.indexer().unregister();
 	}
 
-	protected Future<Void> close(Integer indexerId) {
+	public Future<Void> close(Integer indexerId) {
 		RuntimeEntry entry = indexersById.remove(indexerId);
 		return entry == null ? Future.succeededFuture() : entry.indexer().close();
 	}
 
 	public Future<Void> stop() {
-		IndexerLifecycleSubscription closingSubscription;
-		synchronized (this) {
-			closingSubscription = subscription;
-			subscription = null;
-			startFuture = null;
-		}
-
-		Future<Void> stopped = closingSubscription == null
-			? Future.succeededFuture()
-			: closingSubscription.close();
-		return stopped.compose(ignored -> closeAll());
+		return closeAll();
 	}
 
 	private Future<Void> closeAll() {
@@ -200,8 +138,8 @@ public class IndexerRuntime {
 		return stopped;
 	}
 
-	private synchronized void clearFailedStart() {
-		startFuture = null;
+	public Set<Integer> indexerIds() {
+		return Set.copyOf(indexersById.keySet());
 	}
 
 	public List<IndexerSnapshot> snapshots() {

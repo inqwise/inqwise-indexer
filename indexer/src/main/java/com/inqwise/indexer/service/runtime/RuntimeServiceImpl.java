@@ -3,15 +3,18 @@ package com.inqwise.indexer.service.runtime;
 import java.util.Objects;
 
 import com.inqwise.indexer.IndexerRuntime;
+import com.inqwise.indexer.IndexerRuntimeReconciler;
 import com.inqwise.indexer.errors.IndexerErrors;
 
 import io.vertx.core.Future;
 
 public class RuntimeServiceImpl implements RuntimeService {
 	private final IndexerRuntime runtime;
+	private final IndexerRuntimeReconciler reconciler;
 
-	public RuntimeServiceImpl(IndexerRuntime runtime) {
+	public RuntimeServiceImpl(IndexerRuntime runtime, IndexerRuntimeReconciler reconciler) {
 		this.runtime = Objects.requireNonNull(runtime, "runtime");
+		this.reconciler = Objects.requireNonNull(reconciler, "reconciler");
 	}
 
 	@Override
@@ -30,7 +33,7 @@ public class RuntimeServiceImpl implements RuntimeService {
 				return Future.failedFuture(IndexerErrors.invalidRequest("Indexer id is required"));
 			}
 
-			return runtime.reconcile(request.getIndexerId())
+			return reconciler.reconcile(request.getIndexerId())
 				.recover(error -> Future.failedFuture(IndexerErrors.normalize(error)));
 		} catch (Throwable error) {
 			return Future.failedFuture(IndexerErrors.normalize(error));

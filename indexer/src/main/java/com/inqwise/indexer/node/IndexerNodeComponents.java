@@ -1,6 +1,7 @@
 package com.inqwise.indexer.node;
 
 import com.inqwise.indexer.IndexerRuntime;
+import com.inqwise.indexer.IndexerRuntimeReconciler;
 import com.inqwise.indexer.IndexerLifecycleEventBus;
 import com.inqwise.indexer.IndexerQueueResourceManager;
 import com.inqwise.indexer.commands.CommandEngine;
@@ -19,6 +20,7 @@ import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 public record IndexerNodeComponents(
 	HotIndexActionsService hotIndexActionsService,
 	IndexerRuntime runtime,
+	IndexerRuntimeReconciler runtimeReconciler,
 	CommandEngine commandEngine,
 	IndexerOperations indexerOperations,
 	DocumentStoreMetadataRepository repository,

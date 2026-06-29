@@ -47,8 +47,6 @@ class IndexerRuntimeTest {
 		InMemoryCommandEngine commandService = commandService(repository, eventBus);
 		AtomicInteger started = new AtomicInteger();
 		IndexerRuntime runtime = new IndexerRuntime(
-			repository,
-			eventBus,
 			indexer -> new Indexer(
 				vertx,
 				IndexerRuntime.toModel(indexer),
@@ -66,7 +64,7 @@ class IndexerRuntimeTest {
 		);
 
 		insertIndexer(repository, IndexerRuntimeState.NON_ACTIVE, MutationState.WRITABLE)
-			.compose(id -> runtime.start()
+			.compose(id -> new IndexerRuntimeReconciler(vertx, repository, eventBus, runtime).start()
 				.compose(ignored -> commandService.submit(new ActivateIndexerCommand(id)))
 				.compose(ignored -> repository.getIndexerById(id)))
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
@@ -88,8 +86,6 @@ class IndexerRuntimeTest {
 		InMemoryCommandEngine commandService = commandService(repository, eventBus);
 		AtomicInteger stopped = new AtomicInteger();
 		IndexerRuntime runtime = new IndexerRuntime(
-			repository,
-			eventBus,
 			indexer -> new Indexer(
 				vertx,
 				IndexerRuntime.toModel(indexer),
@@ -107,10 +103,10 @@ class IndexerRuntimeTest {
 		);
 
 		insertIndexer(repository, IndexerRuntimeState.ACTIVE, MutationState.WRITABLE)
-			.compose(id -> runtime.start()
-				.compose(ignored -> runtime.reconcile(id))
+			.compose(id -> new IndexerRuntimeReconciler(vertx, repository, eventBus, runtime).start()
+				.compose(ignored -> reconcile(runtime, repository, id))
 				.compose(ignored -> commandService.submit(new DeactivateIndexerCommand(id)))
-				.compose(ignored -> runtime.reconcile(id))
+				.compose(ignored -> reconcile(runtime, repository, id))
 				.compose(ignored -> repository.getIndexerById(id)))
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
 				assertEquals(IndexerRuntimeState.NON_ACTIVE, found.orElseThrow().runtimeState());
@@ -132,8 +128,6 @@ class IndexerRuntimeTest {
 		InMemoryIndexerDocumentStore documentStore = new InMemoryIndexerDocumentStore();
 		IndexerRuntime runtime = new IndexerRuntime(
 			vertx,
-			repository,
-			eventBus,
 			queue,
 			documentStore,
 			new IndexerOptions(),
@@ -141,7 +135,7 @@ class IndexerRuntimeTest {
 		);
 
 		insertIndexer(repository, IndexerRuntimeState.ACTIVE, MutationState.WRITABLE)
-			.compose(id -> runtime.reconcile(id))
+			.compose(id -> reconcile(runtime, repository, id))
 			.compose(ignored -> queue.publisher("queue-customers-1"))
 			.compose(publisher -> publisher.publish(PutDocumentActionItem.builder()
 				.withTargetId(1)
@@ -168,8 +162,6 @@ class IndexerRuntimeTest {
 		InMemoryIndexerDocumentStore documentStore = new InMemoryIndexerDocumentStore();
 		IndexerRuntime runtime = new IndexerRuntime(
 			vertx,
-			repository,
-			eventBus,
 			queue,
 			documentStore,
 			new IndexerOptions(),
@@ -177,9 +169,9 @@ class IndexerRuntimeTest {
 		);
 
 		insertIndexer(repository, IndexerRuntimeState.ACTIVE, MutationState.WRITABLE)
-			.compose(id -> runtime.reconcile(id)
+			.compose(id -> reconcile(runtime, repository, id)
 				.compose(ignored -> runtime.close(id))
-				.compose(ignored -> runtime.reconcile(id)))
+				.compose(ignored -> reconcile(runtime, repository, id)))
 			.compose(ignored -> queue.publisher("queue-customers-1"))
 			.compose(publisher -> publisher.publish(PutDocumentActionItem.builder()
 				.withTargetId(1)
@@ -207,8 +199,6 @@ class IndexerRuntimeTest {
 		AtomicInteger closed = new AtomicInteger();
 		AtomicReference<String> lastQueueName = new AtomicReference<>();
 		IndexerRuntime runtime = new IndexerRuntime(
-			repository,
-			eventBus,
 			indexer -> {
 				lastQueueName.set(indexer.queueName());
 				return new TestIndexer(
@@ -222,13 +212,13 @@ class IndexerRuntimeTest {
 		);
 
 		insertIndexer(repository, IndexerRuntimeState.ACTIVE, MutationState.WRITABLE)
-			.compose(id -> runtime.reconcile(id)
+			.compose(id -> reconcile(runtime, repository, id)
 				.compose(ignored -> repository.updateIndexerQueueName(new UpdateIndexerQueueName(
 					id,
 					"queue-customers-1-v1",
 					0L
 				)))
-				.compose(ignored -> runtime.reconcile(id)))
+				.compose(ignored -> reconcile(runtime, repository, id)))
 			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
 				assertEquals(2, activated.get());
 				assertEquals(1, closed.get());
@@ -250,8 +240,6 @@ class IndexerRuntimeTest {
 		AtomicInteger unregistered = new AtomicInteger();
 		AtomicInteger closed = new AtomicInteger();
 		IndexerRuntime runtime = new IndexerRuntime(
-			repository,
-			eventBus,
 			indexer -> new TestIndexer(
 				vertx,
 				IndexerRuntime.toModel(indexer),
@@ -262,7 +250,7 @@ class IndexerRuntimeTest {
 		);
 
 		insertIndexer(repository, IndexerRuntimeState.ACTIVE, MutationState.WRITABLE)
-			.compose(id -> runtime.reconcile(id)
+			.compose(id -> reconcile(runtime, repository, id)
 				.compose(ignored -> repository.updateIndexerMutationState(
 					new com.inqwise.indexer.metadata.UpdateIndexerMutationState(
 						id,
@@ -273,7 +261,7 @@ class IndexerRuntimeTest {
 				.compose(ignored -> repository.finalizeIndexerDeletion(
 					new FinalizeIndexerDeletion(id, 1L)
 				))
-				.compose(ignored -> runtime.reconcile(id)))
+				.compose(ignored -> reconcile(runtime, repository, id)))
 			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
 				assertEquals(1, activated.get());
 				assertEquals(0, unregistered.get());
@@ -295,8 +283,6 @@ class IndexerRuntimeTest {
 		AtomicInteger unregistered = new AtomicInteger();
 		AtomicInteger closed = new AtomicInteger();
 		IndexerRuntime runtime = new IndexerRuntime(
-			repository,
-			eventBus,
 			indexer -> new TestIndexer(
 				vertx,
 				IndexerRuntime.toModel(indexer),
@@ -307,8 +293,8 @@ class IndexerRuntimeTest {
 		);
 
 		insertIndexer(repository, IndexerRuntimeState.ACTIVE, MutationState.WRITABLE)
-			.compose(id -> runtime.start()
-				.compose(ignored -> runtime.reconcile(id))
+			.compose(id -> new IndexerRuntimeReconciler(vertx, repository, eventBus, runtime).start()
+				.compose(ignored -> reconcile(runtime, repository, id))
 				.compose(ignored -> commandService.submit(new DeleteIndexerCommand(id, 0L)))
 				.compose(ignored -> repository.getIndexerById(id)))
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
@@ -328,15 +314,13 @@ class IndexerRuntimeTest {
 			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		IndexerRuntime runtime = new IndexerRuntime(
-			repository,
-			eventBus,
 			indexer -> {
 				throw new AssertionError("Deleted reconcile must not activate");
 			}
 		);
 
 		insertIndexer(repository, IndexerRuntimeState.NON_ACTIVE, MutationState.DELETING)
-			.compose(runtime::reconcile)
+			.compose(id -> reconcile(runtime, repository, id))
 			.onComplete(testContext.succeeding(ignored -> testContext.completeNow()));
 	}
 
@@ -350,8 +334,6 @@ class IndexerRuntimeTest {
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		AtomicInteger created = new AtomicInteger();
 		IndexerRuntime runtime = new IndexerRuntime(
-			repository,
-			eventBus,
 			indexer -> {
 				created.incrementAndGet();
 				return new Indexer(
@@ -361,10 +343,16 @@ class IndexerRuntimeTest {
 				);
 			}
 		);
+		IndexerRuntimeReconciler reconciler = new IndexerRuntimeReconciler(
+			vertx,
+			repository,
+			eventBus,
+			runtime
+		);
 
 		insertIndexer(repository, IndexerRuntimeState.ACTIVE, MutationState.WRITABLE)
-			.compose(indexerId -> runtime.start()
-				.compose(ignored -> runtime.stop())
+			.compose(indexerId -> reconciler.start()
+				.compose(ignored -> reconciler.stop())
 				.compose(ignored -> eventBus.publish(new IndexerMetadataChanged(
 					indexerId,
 					1,
@@ -372,7 +360,7 @@ class IndexerRuntimeTest {
 					0L
 				))))
 			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
-				assertEquals(0, created.get());
+				assertEquals(1, created.get());
 				testContext.completeNow();
 			})));
 	}
@@ -394,6 +382,17 @@ class IndexerRuntimeTest {
 				new MetadataIndexerOperations(repository, eventBus),
 				commandService
 			));
+	}
+
+	private Future<Void> reconcile(
+		IndexerRuntime runtime,
+		InMemoryDocumentStoreMetadataRepository repository,
+		Integer indexerId
+	) {
+		return repository.getIndexerById(indexerId)
+			.compose(found -> found
+				.map(runtime::reconcile)
+				.orElseGet(() -> runtime.close(indexerId)));
 	}
 
 	private Future<Integer> insertIndexer(

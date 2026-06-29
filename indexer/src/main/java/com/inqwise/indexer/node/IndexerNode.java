@@ -5,10 +5,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import com.inqwise.indexer.IndexerLifecycleEventBus;
 import com.inqwise.indexer.IndexerLifecycleEventBusConfig;
 import com.inqwise.indexer.IndexerOptions;
 import com.inqwise.indexer.IndexerRuntime;
+import com.inqwise.indexer.IndexerRuntimeReconciler;
 import com.inqwise.indexer.InMemoryIndexerDocumentStore;
 import com.inqwise.indexer.InMemoryIndexerLifecycleEventBusProvider;
 import com.inqwise.indexer.InMemoryIndexerQueue;
@@ -58,10 +62,16 @@ import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 
 public class IndexerNode {
+	private static final Logger logger = LogManager.getLogger(IndexerNode.class);
+
 	private final Vertx vertx;
 	private final IndexerNodeOptions options;
 	private final IndexerNodeComponents components;
 	private final List<String> deploymentIds = new ArrayList<>();
+	private final List<String> dataPlaneDeploymentIds = new ArrayList<>();
+	private boolean recoveryOnly;
+	private boolean stopping;
+	private Future<Void> recoveryFuture;
 
 	public IndexerNode(
 		Vertx vertx,
@@ -71,14 +81,21 @@ public class IndexerNode {
 		this.vertx = Objects.requireNonNull(vertx, "vertx");
 		this.options = (options == null ? new IndexerNodeOptions() : options).validate();
 		this.components = Objects.requireNonNull(components, "components");
+		this.components.runtimeReconciler().onFailure(this::enterRecoveryOnly);
 	}
 
 	public static IndexerNode create(Vertx vertx, IndexerNodeOptions options) {
-		return new IndexerNode(vertx, options, defaultComponents(vertx));
+		IndexerNodeOptions resolved = options == null ? new IndexerNodeOptions() : options;
+		resolved.validate();
+		return new IndexerNode(vertx, resolved, defaultComponents(vertx, resolved));
 	}
 
 	public Future<Void> start() {
 		options.validate();
+		synchronized (this) {
+			stopping = false;
+			recoveryOnly = false;
+		}
 		Future<Void> deployed = Future.succeededFuture();
 		deployed = deployed.compose(ignored -> components.commandEngine().start());
 		deployed = deployed.compose(ignored -> startInvalidRouteMetadataChangeListener());
@@ -86,12 +103,17 @@ public class IndexerNode {
 		deployed = deployed.compose(ignored -> startTargetInvalidationPoller());
 		deployed = deployed.compose(ignored -> deployAdmin());
 		deployed = deployed.compose(ignored -> deployAdminRest());
-		deployed = deployed.compose(ignored -> deployTargetAction());
-		deployed = deployed.compose(ignored -> deployTargetActionRest());
-		deployed = deployed.compose(ignored -> deployRuntime());
-		deployed = deployed.compose(ignored -> deployRuntimeRest());
-		deployed = deployed.compose(ignored -> deployGateway());
+		deployed = deployed.compose(ignored -> components.runtimeReconciler().start());
+		deployed = deployed.compose(ignored -> deployDataPlane());
 		return deployed;
+	}
+
+	private Future<Void> deployDataPlane() {
+		return deployTargetAction()
+			.compose(ignored -> deployTargetActionRest())
+			.compose(ignored -> deployRuntime())
+			.compose(ignored -> deployRuntimeRest())
+			.compose(ignored -> deployGateway());
 	}
 
 	private Future<Void> startInvalidRouteMetadataChangeListener() {
@@ -112,14 +134,20 @@ public class IndexerNode {
 	}
 
 	public Future<Void> stop() {
+		List<String> deployments;
+		synchronized (this) {
+			stopping = true;
+			deployments = List.copyOf(deploymentIds);
+		}
 		Future<Void> stopped = Future.succeededFuture();
-		for (int i = deploymentIds.size() - 1; i >= 0; i--) {
-			String deploymentId = deploymentIds.get(i);
+		for (int i = deployments.size() - 1; i >= 0; i--) {
+			String deploymentId = deployments.get(i);
 			stopped = stopped.compose(ignored -> vertx.undeploy(deploymentId)
 				.recover(error -> Future.succeededFuture()));
 		}
 
 		return stopped
+			.compose(ignored -> components.runtimeReconciler().stop())
 			.compose(ignored -> {
 				TargetInvalidationPoller poller = components.targetInvalidationPoller();
 				return poller == null ? Future.succeededFuture() : poller.stop();
@@ -135,11 +163,87 @@ public class IndexerNode {
 				return listener == null ? Future.succeededFuture() : listener.stop();
 			})
 			.compose(ignored -> components.commandEngine().stop())
-			.onComplete(ignored -> deploymentIds.clear());
+			.onComplete(ignored -> {
+				synchronized (this) {
+					deploymentIds.clear();
+					dataPlaneDeploymentIds.clear();
+					recoveryOnly = false;
+					recoveryFuture = null;
+				}
+			});
 	}
 
-	public List<String> deploymentIds() {
+	public synchronized List<String> deploymentIds() {
 		return List.copyOf(deploymentIds);
+	}
+
+	public synchronized boolean isRecoveryOnly() {
+		return recoveryOnly;
+	}
+
+	public synchronized Future<Void> recover() {
+		if (!recoveryOnly) {
+			return Future.succeededFuture();
+		}
+		if (recoveryFuture != null) {
+			return recoveryFuture;
+		}
+
+		Future<Void> recovering = components.runtimeReconciler().start()
+			.compose(ignored -> deployDataPlane())
+			.recover(error -> undeployDataPlane()
+				.compose(ignored -> components.runtimeReconciler().stop())
+				.compose(ignored -> Future.failedFuture(error)));
+		recoveryFuture = recovering;
+		recovering.onComplete(result -> {
+			synchronized (this) {
+				recoveryFuture = null;
+				if (result.succeeded()) {
+					recoveryOnly = false;
+				}
+			}
+		});
+		return recovering;
+	}
+
+	Future<Void> enterRecoveryOnly(Throwable error) {
+		synchronized (this) {
+			if (stopping || recoveryOnly) {
+				return Future.succeededFuture();
+			}
+			recoveryOnly = true;
+		}
+		logger.error("Indexer node entered recovery-only mode", error);
+		return undeployDataPlane();
+	}
+
+	private Future<Void> undeployDataPlane() {
+		List<String> deployments;
+		synchronized (this) {
+			deployments = List.copyOf(dataPlaneDeploymentIds);
+		}
+		Future<Void> undeployed = Future.succeededFuture();
+		for (int i = deployments.size() - 1; i >= 0; i--) {
+			String deploymentId = deployments.get(i);
+			undeployed = undeployed.compose(ignored -> vertx.undeploy(deploymentId)
+				.recover(error -> Future.succeededFuture())
+				.onComplete(result -> removeDataPlaneDeployment(deploymentId)));
+		}
+		return undeployed;
+	}
+
+	private synchronized void trackDataPlaneDeployment(String deploymentId) {
+		deploymentIds.add(deploymentId);
+		dataPlaneDeploymentIds.add(deploymentId);
+	}
+
+	private synchronized void trackControlPlaneDeployment(String deploymentId) {
+		deploymentIds.add(deploymentId);
+	}
+
+	private synchronized void removeDataPlaneDeployment(String deploymentId) {
+		deploymentIds.remove(deploymentId);
+		dataPlaneDeploymentIds.remove(deploymentId);
 	}
 
 	public IndexerNodeComponents components() {
@@ -166,7 +270,7 @@ public class IndexerNode {
 					components.indexerOperations()
 				),
 				new DeploymentOptions()
-			).onSuccess(deploymentIds::add).mapEmpty());
+			).onSuccess(this::trackControlPlaneDeployment).mapEmpty());
 		}
 
 		return deployed;
@@ -184,7 +288,7 @@ public class IndexerNode {
 				new AdminCreateRequestResolver(components.repository())
 			),
 			new DeploymentOptions()
-		).onSuccess(deploymentIds::add).mapEmpty();
+		).onSuccess(this::trackControlPlaneDeployment).mapEmpty();
 	}
 
 	private Future<Void> deployTargetAction() {
@@ -198,7 +302,7 @@ public class IndexerNode {
 			deployed = deployed.compose(ignored -> vertx.deployVerticle(
 				new TargetActionServiceVerticle(components.hotIndexActionsService()),
 				new DeploymentOptions()
-			).onSuccess(deploymentIds::add).mapEmpty());
+			).onSuccess(this::trackDataPlaneDeployment).mapEmpty());
 		}
 
 		return deployed;
@@ -213,7 +317,7 @@ public class IndexerNode {
 		return vertx.deployVerticle(
 			new TargetActionRestVerticle(options.getTargetActionRestOptions()),
 			new DeploymentOptions()
-		).onSuccess(deploymentIds::add).mapEmpty();
+		).onSuccess(this::trackDataPlaneDeployment).mapEmpty();
 	}
 
 	private Future<Void> deployGateway() {
@@ -225,7 +329,7 @@ public class IndexerNode {
 		return vertx.deployVerticle(
 			new GatewayRestVerticle(options.getGatewayOptions()),
 			new DeploymentOptions()
-		).onSuccess(deploymentIds::add).mapEmpty();
+		).onSuccess(this::trackDataPlaneDeployment).mapEmpty();
 	}
 
 	private Future<Void> deployRuntime() {
@@ -235,9 +339,12 @@ public class IndexerNode {
 		}
 
 		return vertx.deployVerticle(
-			new RuntimeServiceVerticle(components.runtime()),
+			new RuntimeServiceVerticle(
+				components.runtime(),
+				components.runtimeReconciler()
+			),
 			new DeploymentOptions()
-		).onSuccess(deploymentIds::add).mapEmpty();
+		).onSuccess(this::trackDataPlaneDeployment).mapEmpty();
 	}
 
 	private Future<Void> deployRuntimeRest() {
@@ -249,10 +356,13 @@ public class IndexerNode {
 		return vertx.deployVerticle(
 			new RuntimeRestVerticle(options.getRuntimeRestOptions()),
 			new DeploymentOptions()
-		).onSuccess(deploymentIds::add).mapEmpty();
+		).onSuccess(this::trackDataPlaneDeployment).mapEmpty();
 	}
 
-	private static IndexerNodeComponents defaultComponents(Vertx vertx) {
+	private static IndexerNodeComponents defaultComponents(
+		Vertx vertx,
+		IndexerNodeOptions nodeOptions
+	) {
 		DocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 		TargetDefinitionProvider targetDefinitionProvider =
@@ -337,17 +447,23 @@ public class IndexerNode {
 		);
 		IndexerRuntime runtime = new IndexerRuntime(
 			vertx,
-			repository,
-			lifecycleEventBus,
 			queue,
 			documentStore,
 			new IndexerOptions(),
 			IndexerEventPublisher.NOOP
 		);
+		IndexerRuntimeReconciler runtimeReconciler = new IndexerRuntimeReconciler(
+			vertx,
+			repository,
+			lifecycleEventBus,
+			runtime,
+			nodeOptions.getRuntimeReconcilerOptions()
+		);
 
 		return new IndexerNodeComponents(
 			hotIndexActionsService,
 			runtime,
+			runtimeReconciler,
 			commandEngine,
 			indexerOperations,
 			repository,

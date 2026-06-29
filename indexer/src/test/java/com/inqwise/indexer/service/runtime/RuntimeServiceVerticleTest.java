@@ -8,6 +8,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import com.inqwise.indexer.Indexer;
 import com.inqwise.indexer.IndexerModel;
 import com.inqwise.indexer.IndexerRuntime;
+import com.inqwise.indexer.IndexerRuntimeReconciler;
 import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.IndexerType;
 import com.inqwise.indexer.InMemoryIndexerDocumentStore;
@@ -31,13 +32,17 @@ class RuntimeServiceVerticleTest {
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		InMemoryIndexerDocumentStore documentStore = new InMemoryIndexerDocumentStore();
 		IndexerRuntime runtime = new IndexerRuntime(
-			repository,
-			eventBus,
 			indexer -> new Indexer(
 				vertx,
 				IndexerRuntime.toModel(indexer),
 				documentStore
 			)
+		);
+		IndexerRuntimeReconciler reconciler = new IndexerRuntimeReconciler(
+			vertx,
+			repository,
+			eventBus,
+			runtime
 		);
 
 		repository.insertTarget(new InsertTarget(null, "customers", null))
@@ -52,7 +57,11 @@ class RuntimeServiceVerticleTest {
 				PublicationState.UNPUBLISHED,
 				MutationState.WRITABLE
 			)))
-			.compose(indexerId -> vertx.deployVerticle(new RuntimeServiceVerticle(runtime))
+			.compose(indexerId -> reconciler.start().compose(ignored -> vertx.deployVerticle(
+				new RuntimeServiceVerticle(
+				runtime,
+				reconciler
+			)))
 				.compose(ignored -> RuntimeServices.proxy(vertx)
 					.reconcileIndexer(new RuntimeReconcileRequest().setIndexerId(indexerId)))
 				.compose(ignored -> RuntimeServices.proxy(vertx).status()))
