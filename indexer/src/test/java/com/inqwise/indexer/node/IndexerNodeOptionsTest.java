@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.junit.jupiter.api.Test;
 
 import com.inqwise.indexer.IndexerRuntimeReconcilerOptions;
+import com.inqwise.indexer.VertxIndexerLifecycleEventBusOptions;
 import com.inqwise.indexer.gateway.GatewayRestOptions;
 import com.inqwise.indexer.rest.action.TargetActionRestOptions;
 import com.inqwise.indexer.rest.admin.AdminRestOptions;
@@ -37,6 +38,55 @@ class IndexerNodeOptionsTest {
 		assertEquals(
 			IndexerRuntimeReconcilerOptions.DEFAULT_SAFETY_SYNC_INTERVAL_MS,
 			options.getRuntimeReconcilerOptions().getSafetySyncIntervalMs()
+		);
+		assertEquals(
+			IndexerNodeOptions.LifecycleEvents.DEFAULT_NAMESPACE,
+			options.getLifecycleEventBusConfig().namespace()
+		);
+		assertEquals(
+			VertxIndexerLifecycleEventBusOptions.DEFAULT_MAX_TRANSPORT_LAG_MS,
+			options.getLifecycleEventBusOptions().getMaxTransportLagMs()
+		);
+	}
+
+	@Test
+	void readsLifecycleEventOptionsFromJson() {
+		IndexerNodeOptions options = new IndexerNodeOptions(new JsonObject()
+			.put(IndexerNodeOptions.Keys.LIFECYCLE_EVENTS, new JsonObject()
+				.put(IndexerNodeOptions.LifecycleEvents.NAMESPACE, "production")
+				.put(VertxIndexerLifecycleEventBusOptions.Keys.MAX_TRANSPORT_LAG_MS, 500L)
+				.put(VertxIndexerLifecycleEventBusOptions.Keys.SIGNAL_COOLDOWN_MS, 2_000L)));
+
+		assertEquals("production", options.getLifecycleEventBusConfig().namespace());
+		assertEquals(500L, options.getLifecycleEventBusOptions().getMaxTransportLagMs());
+		assertEquals(2_000L, options.getLifecycleEventBusOptions().getSignalCooldownMs());
+		JsonObject serialized = options.toJson().getJsonObject(
+			IndexerNodeOptions.Keys.LIFECYCLE_EVENTS
+		);
+		assertEquals("production", serialized.getString(
+			IndexerNodeOptions.LifecycleEvents.NAMESPACE
+		));
+		assertEquals(500L, serialized.getLong(
+			VertxIndexerLifecycleEventBusOptions.Keys.MAX_TRANSPORT_LAG_MS
+		));
+	}
+
+	@Test
+	void rejectsInvalidLifecycleEventOptions() {
+		assertThrows(
+			IllegalArgumentException.class,
+			() -> new IndexerNodeOptions(new JsonObject()
+				.put(IndexerNodeOptions.Keys.LIFECYCLE_EVENTS, new JsonObject()
+					.put(IndexerNodeOptions.LifecycleEvents.NAMESPACE, " ")))
+		);
+		assertThrows(
+			IllegalArgumentException.class,
+			() -> new IndexerNodeOptions(new JsonObject()
+				.put(IndexerNodeOptions.Keys.LIFECYCLE_EVENTS, new JsonObject()
+					.put(
+						VertxIndexerLifecycleEventBusOptions.Keys.SIGNAL_COOLDOWN_MS,
+						0L
+					)))
 		);
 	}
 

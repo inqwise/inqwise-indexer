@@ -9,14 +9,13 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.inqwise.indexer.IndexerLifecycleEventBus;
-import com.inqwise.indexer.IndexerLifecycleEventBusConfig;
 import com.inqwise.indexer.IndexerOptions;
 import com.inqwise.indexer.IndexerRuntime;
 import com.inqwise.indexer.IndexerRuntimeReconciler;
 import com.inqwise.indexer.InMemoryIndexerDocumentStore;
-import com.inqwise.indexer.InMemoryIndexerLifecycleEventBusProvider;
 import com.inqwise.indexer.InMemoryIndexerQueue;
 import com.inqwise.indexer.IndexerEventPublisher;
+import com.inqwise.indexer.VertxIndexerLifecycleEventBusProvider;
 import com.inqwise.indexer.commands.InMemoryCommandEngine;
 import com.inqwise.indexer.commands.DocumentStoreCommandHandlers;
 import com.inqwise.indexer.commands.RoutedIndexActionPublisher;
@@ -375,8 +374,11 @@ public class IndexerNode {
 		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
 		InMemoryIndexerDocumentStore documentStore = new InMemoryIndexerDocumentStore();
 		IndexerLifecycleEventBus lifecycleEventBus =
-			new InMemoryIndexerLifecycleEventBusProvider().create(
-				new IndexerLifecycleEventBusConfig("local")
+			new VertxIndexerLifecycleEventBusProvider(
+				vertx,
+				nodeOptions.getLifecycleEventBusOptions()
+			).create(
+				nodeOptions.getLifecycleEventBusConfig()
 			);
 		InvalidRouteCache invalidRouteCache =
 			new InMemoryInvalidRouteCache(Duration.ofMinutes(5));

@@ -28,6 +28,8 @@ import com.inqwise.indexer.rest.runtime.RuntimeRestOptions;
 import com.inqwise.indexer.service.admin.AdminServices;
 import com.inqwise.indexer.service.runtime.RuntimeServices;
 
+import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.JsonObject;
@@ -101,6 +103,7 @@ class IndexerNodeTest {
 					1L
 				));
 			})
+			.compose(ignored -> delay(vertx, 20L))
 			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
 				assertTrue(node.components().invalidRouteCache().find(route).isPresent());
 				testContext.completeNow();
@@ -167,12 +170,13 @@ class IndexerNodeTest {
 					PublicationState.UNPUBLISHED,
 					MutationState.WRITABLE
 				)).compose(indexerId -> node.components().lifecycleEventBus()
-					.publish(new IndexerMetadataChanged(
-						indexerId,
-						targetId,
-						"indexer.changed",
-						0L
-					))))
+						.publish(new IndexerMetadataChanged(
+							indexerId,
+							targetId,
+							"indexer.changed",
+							0L
+						))))
+			.compose(ignored -> delay(vertx, 20L))
 			.compose(ignored -> {
 				assertTrue(node.components().invalidRouteCache().find(route).isEmpty());
 				return node.stop();
@@ -317,6 +321,12 @@ class IndexerNodeTest {
 		try (ServerSocket socket = new ServerSocket(0)) {
 			return socket.getLocalPort();
 		}
+	}
+
+	private static Future<Void> delay(Vertx vertx, long delayMs) {
+		Promise<Void> delayed = Promise.promise();
+		vertx.setTimer(delayMs, ignored -> delayed.tryComplete());
+		return delayed.future();
 	}
 
 	private static IndexerNodeOptions disabledServices() {

@@ -4,7 +4,9 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
+import com.inqwise.indexer.IndexerLifecycleEventBusConfig;
 import com.inqwise.indexer.IndexerRuntimeReconcilerOptions;
+import com.inqwise.indexer.VertxIndexerLifecycleEventBusOptions;
 import com.inqwise.indexer.gateway.GatewayRestOptions;
 import com.inqwise.indexer.rest.action.TargetActionRestOptions;
 import com.inqwise.indexer.rest.admin.AdminRestOptions;
@@ -21,9 +23,18 @@ public class IndexerNodeOptions {
 		public static final String TARGET_ACTION_REST = "target_action_rest";
 		public static final String RUNTIME_REST = "runtime_rest";
 		public static final String RUNTIME_RECONCILER = "runtime_reconciler";
+		public static final String LIFECYCLE_EVENTS = "lifecycle_events";
 		public static final String GATEWAY = "gateway";
 
 		private Keys() {
+		}
+	}
+
+	public static final class LifecycleEvents {
+		public static final String NAMESPACE = "namespace";
+		public static final String DEFAULT_NAMESPACE = "local";
+
+		private LifecycleEvents() {
 		}
 	}
 
@@ -56,6 +67,10 @@ public class IndexerNodeOptions {
 	private RuntimeRestOptions runtimeRestOptions = new RuntimeRestOptions();
 	private IndexerRuntimeReconcilerOptions runtimeReconcilerOptions =
 		new IndexerRuntimeReconcilerOptions();
+	private IndexerLifecycleEventBusConfig lifecycleEventBusConfig =
+		new IndexerLifecycleEventBusConfig(LifecycleEvents.DEFAULT_NAMESPACE);
+	private VertxIndexerLifecycleEventBusOptions lifecycleEventBusOptions =
+		new VertxIndexerLifecycleEventBusOptions();
 	private GatewayRestOptions gatewayOptions = new GatewayRestOptions();
 
 	public IndexerNodeOptions() {
@@ -84,6 +99,19 @@ public class IndexerNodeOptions {
 		this.runtimeReconcilerOptions = new IndexerRuntimeReconcilerOptions(
 			json.getJsonObject(Keys.RUNTIME_RECONCILER, new JsonObject())
 		);
+		JsonObject lifecycleEvents = json.getJsonObject(
+			Keys.LIFECYCLE_EVENTS,
+			new JsonObject()
+		);
+		this.lifecycleEventBusConfig = new IndexerLifecycleEventBusConfig(
+			lifecycleEvents.getString(
+				LifecycleEvents.NAMESPACE,
+				LifecycleEvents.DEFAULT_NAMESPACE
+			)
+		);
+		this.lifecycleEventBusOptions = new VertxIndexerLifecycleEventBusOptions(
+			lifecycleEvents
+		);
 		this.gatewayOptions = new GatewayRestOptions(json.getJsonObject(Keys.GATEWAY, new JsonObject()));
 		validate();
 	}
@@ -100,6 +128,13 @@ public class IndexerNodeOptions {
 			.put(Keys.TARGET_ACTION_REST, targetActionRestOptions.toJson())
 			.put(Keys.RUNTIME_REST, runtimeRestOptions.toJson())
 			.put(Keys.RUNTIME_RECONCILER, runtimeReconcilerOptions.toJson())
+			.put(
+				Keys.LIFECYCLE_EVENTS,
+				lifecycleEventBusOptions.toJson().put(
+					LifecycleEvents.NAMESPACE,
+					lifecycleEventBusConfig.namespace()
+				)
+			)
 			.put(Keys.GATEWAY, gatewayOptions.toJson());
 	}
 
@@ -188,6 +223,32 @@ public class IndexerNodeOptions {
 		return this;
 	}
 
+	public IndexerLifecycleEventBusConfig getLifecycleEventBusConfig() {
+		return lifecycleEventBusConfig;
+	}
+
+	public IndexerNodeOptions setLifecycleEventBusConfig(
+		IndexerLifecycleEventBusConfig lifecycleEventBusConfig
+	) {
+		this.lifecycleEventBusConfig = lifecycleEventBusConfig == null
+			? new IndexerLifecycleEventBusConfig(LifecycleEvents.DEFAULT_NAMESPACE)
+			: lifecycleEventBusConfig;
+		return this;
+	}
+
+	public VertxIndexerLifecycleEventBusOptions getLifecycleEventBusOptions() {
+		return lifecycleEventBusOptions;
+	}
+
+	public IndexerNodeOptions setLifecycleEventBusOptions(
+		VertxIndexerLifecycleEventBusOptions lifecycleEventBusOptions
+	) {
+		this.lifecycleEventBusOptions = lifecycleEventBusOptions == null
+			? new VertxIndexerLifecycleEventBusOptions()
+			: lifecycleEventBusOptions;
+		return this;
+	}
+
 	public IndexerNodeOptions setGatewayOptions(GatewayRestOptions gatewayOptions) {
 		this.gatewayOptions = gatewayOptions == null ? new GatewayRestOptions() : gatewayOptions;
 		return this;
@@ -208,6 +269,7 @@ public class IndexerNodeOptions {
 	}
 
 	public IndexerNodeOptions validate() {
+		lifecycleEventBusOptions.validate();
 		runtimeReconcilerOptions.validate();
 		for (IndexerServiceDeploymentOptions options : services.values()) {
 			options.validate();
