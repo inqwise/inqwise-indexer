@@ -6,8 +6,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.Instant;
 import java.util.List;
 
+import com.inqwise.indexer.IndexResourceOwnership;
+import com.inqwise.indexer.IndexerRole;
 import com.inqwise.indexer.IndexerType;
 
 import org.junit.jupiter.api.Test;
@@ -19,96 +22,89 @@ import io.vertx.junit5.VertxTestContext;
 
 @ExtendWith(VertxExtension.class)
 class RepositoryPublishedIndexResolverTest {
+	private static final Instant JANUARY = Instant.parse("2026-01-01T00:00:00Z");
+	private static final Instant FEBRUARY = Instant.parse("2026-02-01T00:00:00Z");
+	private static final Instant MARCH = Instant.parse("2026-03-01T00:00:00Z");
+	private static final Instant APRIL = Instant.parse("2026-04-01T00:00:00Z");
+
 	@Test
-	void resolvesOnlyPublishedQuerySafeIndexesInIdOrder(VertxTestContext testContext) {
+	void resolvesSparsePeriodsInPeriodOrder(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 		RepositoryPublishedIndexResolver resolver = new RepositoryPublishedIndexResolver(repository);
 
-		repository.insertTarget(new InsertTarget(null, "customers", null))
-			.compose(targetId -> {
-				int[] ids = new int[4];
-				return insertIndexer(
-					repository,
-					targetId,
-					"customers_1",
-					PublicationState.PUBLISHED,
-					MutationState.WRITABLE,
-					IndexerRuntimeState.ACTIVE
-				).compose(firstId -> {
-					ids[0] = firstId;
-					return insertIndexer(
-						repository,
-						targetId,
-						"customers_2",
-						PublicationState.UNPUBLISHED,
-						MutationState.WRITABLE,
-						IndexerRuntimeState.ACTIVE
-					);
-				}).compose(ignored -> insertIndexer(
-					repository,
-					targetId,
-					"customers_3",
-					PublicationState.PUBLISHED,
-					MutationState.DELETING,
-					IndexerRuntimeState.ACTIVE
-				)).compose(ignored -> insertIndexer(
-					repository,
-					targetId,
-					"customers_4",
-					PublicationState.PUBLISHED,
-					MutationState.READ_ONLY,
-					IndexerRuntimeState.ACTIVE
-				)).compose(fourthId -> {
-					ids[1] = fourthId;
-					return insertIndexer(
-						repository,
-						targetId,
-						"customers_5",
-						PublicationState.PUBLISHED,
-						MutationState.WRITABLE,
-						IndexerRuntimeState.NON_ACTIVE
-					);
-				}).compose(fifthId -> {
-					ids[2] = fifthId;
-					return insertIndexer(
-						repository,
-						targetId,
-						"customers_6",
-						PublicationState.PUBLISHED,
-						MutationState.WRITABLE,
-						IndexerRuntimeState.NON_ACTIVE
-					);
-				}).compose(sixthId -> {
-					ids[3] = sixthId;
-					return resolver.resolvePublishedIndexes(targetId);
-				}).map(indexes -> {
-					assertEquals(4, indexes.size());
-					assertEquals(new PublishedIndex(ids[0], targetId, "customers_1"), indexes.get(0));
-					assertEquals(new PublishedIndex(ids[1], targetId, "customers_4"), indexes.get(1));
-					assertEquals(new PublishedIndex(ids[2], targetId, "customers_5"), indexes.get(2));
-					assertEquals(new PublishedIndex(ids[3], targetId, "customers_6"), indexes.get(3));
-					return null;
-				});
-			})
+		insertTarget(repository, "2026-03", MARCH, APRIL)
+			.compose(marchTarget -> insertIndexer(repository, marchTarget, "customers_2026_03")
+				.map(marchIndexer -> new int[] { marchTarget, marchIndexer }))
+			.compose(march -> insertTarget(repository, "2026-01", JANUARY, FEBRUARY)
+				.compose(januaryTarget -> insertIndexer(repository, januaryTarget, "customers_2026_01")
+					.compose(januaryIndexer -> resolver.resolvePublishedIndexes(
+						new PublishedIndexQuery("customers", JANUARY, APRIL)
+					).map(indexes -> {
+						assertEquals(List.of(
+							new PublishedIndex(januaryIndexer, januaryTarget, "customers_2026_01"),
+							new PublishedIndex(march[1], march[0], "customers_2026_03")
+						), indexes);
+						return null;
+					}))))
 			.onComplete(testContext.succeeding(ignored -> testContext.completeNow()));
 	}
 
 	@Test
-	void returnsEmptyListWhenTargetHasNoPublishedIndexes(VertxTestContext testContext) {
+	void resolvesUnperiodizedTargetForAnyRange(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 		RepositoryPublishedIndexResolver resolver = new RepositoryPublishedIndexResolver(repository);
 
 		repository.insertTarget(new InsertTarget(null, "customers", null))
-			.compose(targetId -> insertIndexer(
-				repository,
-				targetId,
-				"customers_1",
-				PublicationState.UNPUBLISHED,
-				MutationState.WRITABLE,
-				IndexerRuntimeState.ACTIVE
-			).compose(ignored -> resolver.resolvePublishedIndexes(targetId)))
+			.compose(targetId -> insertIndexer(repository, targetId, "customers_all")
+				.compose(indexerId -> resolver.resolvePublishedIndexes(
+					new PublishedIndexQuery("customers", JANUARY, FEBRUARY)
+				).map(indexes -> {
+					assertEquals(List.of(
+						new PublishedIndex(indexerId, targetId, "customers_all")
+					), indexes);
+					return null;
+				})))
+			.onComplete(testContext.succeeding(ignored -> testContext.completeNow()));
+	}
+
+	@Test
+	void excludesTargetsAndIndexersThatAreNotQuerySafe(VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		RepositoryPublishedIndexResolver resolver = new RepositoryPublishedIndexResolver(repository);
+
+		insertTarget(repository, "2026-01", JANUARY, FEBRUARY)
+			.compose(targetId -> Future.all(
+				insertIndexer(repository, targetId, "published"),
+				insertIndexer(repository, targetId, "unpublished", PublicationState.UNPUBLISHED,
+					MutationState.WRITABLE, IndexerStatus.AVAILABLE, IndexerProvisioningState.READY),
+				insertIndexer(repository, targetId, "deleting", PublicationState.PUBLISHED,
+					MutationState.DELETING, IndexerStatus.AVAILABLE, IndexerProvisioningState.READY),
+				insertIndexer(repository, targetId, "failed", PublicationState.PUBLISHED,
+					MutationState.WRITABLE, IndexerStatus.AVAILABLE, IndexerProvisioningState.FAILED)
+			).compose(ignored -> resolver.resolvePublishedIndexes(
+				new PublishedIndexQuery("customers", JANUARY, FEBRUARY)
+			)))
+			.onComplete(testContext.succeeding(indexes -> testContext.verify(() -> {
+				assertEquals(1, indexes.size());
+				assertEquals("published", indexes.get(0).indexName());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void returnsEmptyWhenNoPeriodOverlaps(VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		RepositoryPublishedIndexResolver resolver = new RepositoryPublishedIndexResolver(repository);
+
+		insertTarget(repository, "2026-01", JANUARY, FEBRUARY)
+			.compose(targetId -> insertIndexer(repository, targetId, "customers_2026_01"))
+			.compose(ignored -> resolver.resolvePublishedIndexes(
+				new PublishedIndexQuery("customers", MARCH, APRIL)
+			))
 			.onComplete(testContext.succeeding(indexes -> testContext.verify(() -> {
 				assertTrue(indexes.isEmpty());
 				testContext.completeNow();
@@ -116,43 +112,54 @@ class RepositoryPublishedIndexResolverTest {
 	}
 
 	@Test
-	void resolvesMultiplePublishedIndexesForSameTarget(VertxTestContext testContext) {
-		InMemoryDocumentStoreMetadataRepository repository =
-			new InMemoryDocumentStoreMetadataRepository();
-		RepositoryPublishedIndexResolver resolver = new RepositoryPublishedIndexResolver(repository);
-
-		repository.insertTarget(new InsertTarget(null, "customers", null))
-			.compose(targetId -> insertIndexer(
-				repository,
-				targetId,
-				"customers_1",
-				PublicationState.PUBLISHED,
-				MutationState.WRITABLE,
-				IndexerRuntimeState.ACTIVE
-			).compose(firstId -> insertIndexer(
-				repository,
-				targetId,
-				"customers_2",
-				PublicationState.PUBLISHED,
-				MutationState.READ_ONLY,
-				IndexerRuntimeState.ACTIVE
-			).compose(secondId -> resolver.resolvePublishedIndexes(targetId)
-				.compose(indexes -> {
-					assertEquals(List.of(
-						new PublishedIndex(firstId, targetId, "customers_1"),
-						new PublishedIndex(secondId, targetId, "customers_2")
-					), indexes);
-					return Future.succeededFuture();
-				}))))
-			.onComplete(testContext.succeeding(ignored -> testContext.completeNow()));
-	}
-
-	@Test
-	void rejectsMissingTargetId() {
+	void validatesLogicalQuery() {
 		RepositoryPublishedIndexResolver resolver =
 			new RepositoryPublishedIndexResolver(new InMemoryDocumentStoreMetadataRepository());
 
 		assertThrows(NullPointerException.class, () -> resolver.resolvePublishedIndexes(null));
+		assertThrows(IllegalArgumentException.class,
+			() -> new PublishedIndexQuery("", JANUARY, FEBRUARY));
+		assertThrows(NullPointerException.class,
+			() -> new PublishedIndexQuery("customers", null, FEBRUARY));
+		assertThrows(NullPointerException.class,
+			() -> new PublishedIndexQuery("customers", JANUARY, null));
+		assertThrows(IllegalArgumentException.class,
+			() -> new PublishedIndexQuery("customers", JANUARY, JANUARY));
+		assertThrows(IllegalArgumentException.class,
+			() -> new PublishedIndexQuery("customers", FEBRUARY, JANUARY));
+	}
+
+	private Future<Integer> insertTarget(
+		InMemoryDocumentStoreMetadataRepository repository,
+		String periodKey,
+		Instant start,
+		Instant end
+	) {
+		return repository.insertTarget(new InsertTarget(
+			"test",
+			"customers",
+			periodKey,
+			start,
+			end,
+			TargetStatus.ACTIVE,
+			TargetProvisioningState.READY
+		));
+	}
+
+	private Future<Integer> insertIndexer(
+		InMemoryDocumentStoreMetadataRepository repository,
+		Integer targetId,
+		String indexName
+	) {
+		return insertIndexer(
+			repository,
+			targetId,
+			indexName,
+			PublicationState.PUBLISHED,
+			MutationState.WRITABLE,
+			IndexerStatus.AVAILABLE,
+			IndexerProvisioningState.READY
+		);
 	}
 
 	private Future<Integer> insertIndexer(
@@ -161,16 +168,21 @@ class RepositoryPublishedIndexResolverTest {
 		String indexName,
 		PublicationState publicationState,
 		MutationState mutationState,
-		IndexerRuntimeState runtimeStatus
+		IndexerStatus status,
+		IndexerProvisioningState provisioningState
 	) {
 		return repository.insertIndexer(new InsertIndexer(
-			null,
+			"test",
 			targetId,
 			"customers",
 			indexName,
 			"queue-" + indexName,
 			IndexerType.INDEX,
-			runtimeStatus,
+			IndexerRole.LIVE_WRITER,
+			IndexResourceOwnership.OWNER,
+			status,
+			provisioningState,
+			IndexerRuntimeState.ACTIVE,
 			publicationState,
 			mutationState
 		));
