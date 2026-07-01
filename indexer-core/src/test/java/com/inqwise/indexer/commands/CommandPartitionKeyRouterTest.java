@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 
+import com.inqwise.indexer.IndexerActionType;
 import com.inqwise.indexer.PutDocumentActionItem;
 
 import org.junit.jupiter.api.Test;
@@ -136,12 +137,12 @@ class CommandPartitionKeyRouterTest {
 	}
 
 	private PutDocumentActionItem action(Integer targetId, Integer indexerId, String uid) {
-		return PutDocumentActionItem.builder()
-			.withTargetId(targetId)
-			.withIndexerId(indexerId)
-			.withIndexName(indexerId == null ? null : "customers")
-			.withUid(uid)
-			.withDocument(new JsonObject().put("name", uid))
-			.build();
+		return new PutDocumentActionItem(new JsonObject()
+			.put(PutDocumentActionItem.TYPE, IndexerActionType.PUT_DOCUMENT.name())
+			.put(PutDocumentActionItem.TARGET_ID, targetId)
+			.put(PutDocumentActionItem.INDEXER_ID, indexerId)
+			.put(PutDocumentActionItem.INDEX_NAME, indexerId == null ? null : "customers")
+			.put(PutDocumentActionItem.UID, uid)
+			.put(PutDocumentActionItem.DOCUMENT, new JsonObject().put("name", uid)));
 	}
 }

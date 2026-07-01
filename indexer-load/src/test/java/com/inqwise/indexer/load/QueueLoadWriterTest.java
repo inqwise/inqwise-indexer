@@ -59,11 +59,10 @@ class QueueLoadWriterTest {
 		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
 		QueueLoadWriter writer = writer(loads);
 
-		var submitted = writer.submit(List.of(PutDocumentActionItem.builder()
-			.withTargetId(11)
-			.withUid("42")
-			.withDocument(new JsonObject())
-			.build()));
+		var submitted = writer.submit(List.of(new PutDocumentActionItem(new JsonObject()
+			.put(PutDocumentActionItem.TARGET_ID, 11)
+			.put(PutDocumentActionItem.UID, "42")
+			.put(PutDocumentActionItem.DOCUMENT, new JsonObject()))));
 
 		assertTrue(submitted.failed());
 		assertEquals("Action target id mismatch", submitted.cause().getMessage());

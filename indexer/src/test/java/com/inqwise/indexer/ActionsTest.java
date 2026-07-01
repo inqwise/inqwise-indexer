@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.time.Instant;
+import java.util.Arrays;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -19,6 +20,20 @@ import io.vertx.junit5.VertxTestContext;
 
 @ExtendWith(VertxExtension.class)
 class ActionsTest {
+	@Test
+	void documentActionBuildersExposeOnlyLogicalPayloadFields() {
+		assertFalse(hasPublicMethod(PutDocumentActionItem.Builder.class, "withTargetId"));
+		assertFalse(hasPublicMethod(PutDocumentActionItem.Builder.class, "withIndexerId"));
+		assertFalse(hasPublicMethod(PutDocumentActionItem.Builder.class, "withIndexName"));
+		assertFalse(hasPublicMethod(RemoveDocumentActionItem.Builder.class, "withTargetId"));
+		assertFalse(hasPublicMethod(RemoveDocumentActionItem.Builder.class, "withIndexerId"));
+		assertFalse(hasPublicMethod(RemoveDocumentActionItem.Builder.class, "withIndexName"));
+	}
+
+	private boolean hasPublicMethod(Class<?> type, String name) {
+		return Arrays.stream(type.getMethods()).anyMatch(method -> method.getName().equals(name));
+	}
+
 	@Test
 	void resolvesDocumentPutActionProvider() {
 		var provider = Actions.getProvider(IndexerActionType.PUT_DOCUMENT);

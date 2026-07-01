@@ -83,11 +83,7 @@ class LoadWriterActionReceiveCapabilityTest {
 
 		insertLazyLoad(metadata, loads)
 			.compose(load -> commands.submit(new SubmitIndexActionsCommand(List.of(
-				PutDocumentActionItem.builder()
-					.withTargetId(load.targetId())
-					.withUid("42")
-					.withDocument(new JsonObject().put("name", "Ada"))
-					.build()
+				targetedPut(load.targetId(), "42", "Ada")
 			))).compose(ignored -> loads.getByIndexerId(load.indexerId()))
 				.compose(updated -> metadata.getIndexerById(updated.orElseThrow().liveIndexerId())
 					.map(liveWriter -> new Result(updated.orElseThrow(), liveWriter.orElseThrow()))))
@@ -119,30 +115,18 @@ class LoadWriterActionReceiveCapabilityTest {
 			.compose(load -> metadata.getIndexerById(load.indexerId())
 				.compose(loadWriter -> capability.canReceive(
 					loadWriter.orElseThrow(),
-					PutDocumentActionItem.builder()
-						.withTargetId(load.targetId())
-						.withUid("42")
-						.withDocument(new JsonObject().put("name", "Ada"))
-						.build()
+					targetedPut(load.targetId(), "42", "Ada")
 				).compose(readiness -> {
 					assertEquals(ActionReceiveReadiness.REQUIRES_PREPARE, readiness);
 					return capability.prepareToReceive(new com.inqwise.indexer.providers.PrepareIndexerForActionsRequest(
 						"command-1",
 						null,
 						loadWriter.orElseThrow(),
-						List.of(PutDocumentActionItem.builder()
-							.withTargetId(load.targetId())
-							.withUid("42")
-							.withDocument(new JsonObject().put("name", "Ada"))
-							.build()),
+						List.of(targetedPut(load.targetId(), "42", "Ada")),
 						null
 					)).compose(ignored -> capability.canReceive(
 						loadWriter.orElseThrow(),
-						PutDocumentActionItem.builder()
-							.withTargetId(load.targetId())
-							.withUid("43")
-							.withDocument(new JsonObject().put("name", "Grace"))
-							.build()
+						targetedPut(load.targetId(), "43", "Grace")
 					));
 				})))
 			.onComplete(testContext.succeeding(readiness -> testContext.verify(() -> {
@@ -215,11 +199,7 @@ class LoadWriterActionReceiveCapabilityTest {
 					"command-1",
 					null,
 					loadWriter.orElseThrow(),
-					List.of(PutDocumentActionItem.builder()
-						.withTargetId(load.targetId())
-						.withUid("42")
-						.withDocument(new JsonObject().put("name", "Ada"))
-						.build()),
+					List.of(targetedPut(load.targetId(), "42", "Ada")),
 					null
 				)).compose(prepared -> loads.getByIndexerId(load.indexerId())
 					.map(updated -> new PrepareResult(prepared, updated.orElseThrow())))))
@@ -356,11 +336,7 @@ class LoadWriterActionReceiveCapabilityTest {
 					"command-1",
 					null,
 					loadWriter.orElseThrow(),
-					List.of(PutDocumentActionItem.builder()
-						.withTargetId(load.targetId())
-						.withUid("42")
-						.withDocument(new JsonObject().put("name", "Ada"))
-						.build()),
+					List.of(targetedPut(load.targetId(), "42", "Ada")),
 					null
 				))))
 			.onComplete(testContext.failing(error -> testContext.verify(() -> {
@@ -412,6 +388,13 @@ class LoadWriterActionReceiveCapabilityTest {
 		assertEquals(liveWriter.indexName(), put.getIndexName());
 		assertEquals("42", put.getUid());
 		assertEquals("Ada", put.getDocument().getString("name"));
+	}
+
+	private PutDocumentActionItem targetedPut(Integer targetId, String uid, String name) {
+		return new PutDocumentActionItem(new JsonObject()
+			.put(PutDocumentActionItem.TARGET_ID, targetId)
+			.put(PutDocumentActionItem.UID, uid)
+			.put(PutDocumentActionItem.DOCUMENT, new JsonObject().put("name", name)));
 	}
 
 	private static class RecordingEventBus implements IndexerLifecycleEventBus {

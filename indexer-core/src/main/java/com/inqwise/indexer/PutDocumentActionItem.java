@@ -30,7 +30,7 @@ public class PutDocumentActionItem implements IndexerActionItem {
 		);
 	}
 
-	private PutDocumentActionItem(
+	PutDocumentActionItem(
 		Integer targetId,
 		Integer indexerId,
 		String indexName,
@@ -105,17 +105,17 @@ public class PutDocumentActionItem implements IndexerActionItem {
 		private Builder() {
 		}
 
-		public Builder withTargetId(Integer targetId) {
+		Builder withTargetId(Integer targetId) {
 			this.targetId = targetId;
 			return this;
 		}
 
-		public Builder withIndexerId(Integer indexerId) {
+		Builder withIndexerId(Integer indexerId) {
 			this.indexerId = indexerId;
 			return this;
 		}
 
-		public Builder withIndexName(String indexName) {
+		Builder withIndexName(String indexName) {
 			this.indexName = indexName;
 			return this;
 		}
