@@ -40,9 +40,10 @@ Core types retain the `com.inqwise.indexer` package while Maven module dependenc
 
 ### Node Envelope And Service Facades
 
-The node envelope is the local Vert.x composition layer for one running indexer node. It owns service deployment, dependency assembly, and local runtime lifecycle, while keeping durable workflow decisions inside command handlers and metadata/repository layers.
+The node envelope is the local Vert.x composition layer for one running indexer node. It owns service deployment and local runtime lifecycle, while keeping dependency assembly in composition factories and durable workflow decisions inside command handlers and metadata/repository layers.
 
-- `IndexerNode`: programmatic composition root. It receives `IndexerNodeOptions`, builds or receives `IndexerNodeComponents`, and deploys enabled internal service verticles.
+- `IndexerNode`: programmatic lifecycle root. It receives `IndexerNodeOptions` and `IndexerNodeComponents`, then starts listeners and deploys enabled internal service verticles. Its convenience `create(...)` method delegates default dependency assembly to `DefaultIndexerNodeComponentsFactory`.
+- `DefaultIndexerNodeComponentsFactory`: local default composition root. It assembles the in-memory repository and resource adapters, definitions, command handlers, hot routing, invalidation listeners, Vert.x lifecycle event bus, runtime, and reconciler without adding construction ownership to `IndexerNode`.
 - `IndexerNodeVerticle`: Vert.x parent verticle wrapper for deploying a node through normal Vert.x deployment APIs. Child service verticles are deployed under this parent deployment scope.
 - `IndexerNodeOptions`: declares which internal services, service-level REST APIs, and external gateway are enabled and how many verticle instances each service should deploy. Instance counts must be at least one when a service is enabled. Runtime service, REST APIs, and the gateway are intentionally singleton per node. REST APIs and the gateway are disabled by default and must be enabled explicitly with service options plus their host/port option blocks.
 - `IndexerNodeComponents`: explicit dependency container for node-local runtime services. Production bootstraps can replace in-memory repositories, queues, stores, event buses, command service wiring, invalid-route cache wiring, and definition providers without changing service APIs.

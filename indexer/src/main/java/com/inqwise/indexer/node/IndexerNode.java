@@ -1,6 +1,5 @@
 package com.inqwise.indexer.node;
 
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -8,45 +7,10 @@ import java.util.Objects;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.inqwise.indexer.IndexerLifecycleEventBus;
-import com.inqwise.indexer.IndexerOptions;
-import com.inqwise.indexer.IndexerRuntime;
-import com.inqwise.indexer.IndexerRuntimeReconciler;
-import com.inqwise.indexer.InMemoryIndexerDocumentStore;
-import com.inqwise.indexer.InMemoryIndexerQueue;
-import com.inqwise.indexer.IndexerEventPublisher;
-import com.inqwise.indexer.VertxIndexerLifecycleEventBusProvider;
-import com.inqwise.indexer.commands.InMemoryCommandEngine;
-import com.inqwise.indexer.commands.DocumentStoreCommandHandlers;
-import com.inqwise.indexer.commands.RoutedIndexActionPublisher;
-import com.inqwise.indexer.commands.SubmitIndexActionsCommandHandler;
-import com.inqwise.indexer.definitions.IndexDefinition;
-import com.inqwise.indexer.definitions.IndexerDefinition;
-import com.inqwise.indexer.definitions.IndexerDefinitionProvider;
-import com.inqwise.indexer.definitions.QueueDefinition;
-import com.inqwise.indexer.definitions.StaticIndexerDefinitionProvider;
-import com.inqwise.indexer.definitions.StaticTargetDefinitionProvider;
-import com.inqwise.indexer.definitions.TargetDefinition;
-import com.inqwise.indexer.definitions.TargetDefinitionProvider;
 import com.inqwise.indexer.gateway.GatewayRestVerticle;
-import com.inqwise.indexer.hot.DefaultHotMetadataView;
-import com.inqwise.indexer.hot.HotIndexActionsService;
-import com.inqwise.indexer.hot.HotMetadataView;
-import com.inqwise.indexer.hot.InMemoryInvalidRouteCache;
-import com.inqwise.indexer.hot.InvalidRouteCache;
 import com.inqwise.indexer.hot.InvalidRouteMetadataChangeListener;
-import com.inqwise.indexer.hot.InMemoryTargetInvalidationRegistryProvider;
 import com.inqwise.indexer.hot.TargetInvalidationMetadataChangeListener;
 import com.inqwise.indexer.hot.TargetInvalidationPoller;
-import com.inqwise.indexer.hot.TargetInvalidationRegistry;
-import com.inqwise.indexer.hot.TargetInvalidationRegistryConfig;
-import com.inqwise.indexer.hot.TargetInvalidationRegistryOptions;
-import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
-import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
-import com.inqwise.indexer.operations.IndexerOperations;
-import com.inqwise.indexer.operations.MetadataIndexerOperations;
-import com.inqwise.indexer.providers.IndexerProviders;
-import com.inqwise.indexer.providers.MetadataIndexerProvider;
 import com.inqwise.indexer.rest.action.TargetActionRestVerticle;
 import com.inqwise.indexer.rest.admin.AdminRestVerticle;
 import com.inqwise.indexer.rest.runtime.RuntimeRestVerticle;
@@ -58,10 +22,11 @@ import com.inqwise.indexer.service.runtime.RuntimeServiceVerticle;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
-import io.vertx.core.json.JsonObject;
 
 public class IndexerNode {
 	private static final Logger logger = LogManager.getLogger(IndexerNode.class);
+	private static final DefaultIndexerNodeComponentsFactory DEFAULT_COMPONENTS_FACTORY =
+		new DefaultIndexerNodeComponentsFactory();
 
 	private final Vertx vertx;
 	private final IndexerNodeOptions options;
@@ -86,7 +51,11 @@ public class IndexerNode {
 	public static IndexerNode create(Vertx vertx, IndexerNodeOptions options) {
 		IndexerNodeOptions resolved = options == null ? new IndexerNodeOptions() : options;
 		resolved.validate();
-		return new IndexerNode(vertx, resolved, defaultComponents(vertx, resolved));
+		return new IndexerNode(
+			vertx,
+			resolved,
+			DEFAULT_COMPONENTS_FACTORY.create(vertx, resolved)
+		);
 	}
 
 	public Future<Void> start() {
@@ -358,127 +327,4 @@ public class IndexerNode {
 		).onSuccess(this::trackDataPlaneDeployment).mapEmpty();
 	}
 
-	private static IndexerNodeComponents defaultComponents(
-		Vertx vertx,
-		IndexerNodeOptions nodeOptions
-	) {
-		DocumentStoreMetadataRepository repository =
-			new InMemoryDocumentStoreMetadataRepository();
-		TargetDefinitionProvider targetDefinitionProvider =
-			new StaticTargetDefinitionProvider(List.<TargetDefinition>of());
-		IndexerDefinitionProvider indexerDefinitionProvider =
-			new StaticIndexerDefinitionProvider(new IndexerDefinition(
-				new IndexDefinition("default", "v1", new JsonObject(), new JsonObject()),
-				new QueueDefinition(new JsonObject())
-			));
-		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
-		InMemoryIndexerDocumentStore documentStore = new InMemoryIndexerDocumentStore();
-		IndexerLifecycleEventBus lifecycleEventBus =
-			new VertxIndexerLifecycleEventBusProvider(
-				vertx,
-				nodeOptions.getLifecycleEventBusOptions()
-			).create(
-				nodeOptions.getLifecycleEventBusConfig()
-			);
-		InvalidRouteCache invalidRouteCache =
-			new InMemoryInvalidRouteCache(Duration.ofMinutes(5));
-		TargetInvalidationRegistryOptions targetInvalidationOptions =
-			new TargetInvalidationRegistryOptions(Duration.ofSeconds(30), 3, 10_000);
-		TargetInvalidationRegistry targetInvalidationRegistry =
-			new InMemoryTargetInvalidationRegistryProvider().create(
-				new TargetInvalidationRegistryConfig(
-					"local",
-					targetInvalidationOptions
-				)
-			);
-		IndexerProviders indexerProviders = new IndexerProviders(List.of(
-			new MetadataIndexerProvider(repository)
-		));
-		HotMetadataView hotMetadataView = new DefaultHotMetadataView(
-			repository,
-			targetDefinitionProvider,
-			indexerProviders
-		);
-		IndexerOperations indexerOperations = new MetadataIndexerOperations(
-			repository,
-			lifecycleEventBus
-		);
-		InMemoryCommandEngine commandEngine = new InMemoryCommandEngine();
-		DocumentStoreCommandHandlers.register(
-			commandEngine,
-			new DocumentStoreCommandHandlers.Config(
-				repository,
-				targetDefinitionProvider,
-				indexerDefinitionProvider,
-				documentStore,
-				queue,
-				lifecycleEventBus,
-				indexerOperations
-			)
-		);
-		commandEngine.register(new SubmitIndexActionsCommandHandler(
-				repository,
-				targetDefinitionProvider,
-				lifecycleEventBus,
-				queue,
-				invalidRouteCache
-			));
-		HotIndexActionsService hotIndexActionsService = new HotIndexActionsService(
-			hotMetadataView,
-			new RoutedIndexActionPublisher(queue),
-			commandEngine,
-			invalidRouteCache
-		);
-		InvalidRouteMetadataChangeListener invalidRouteMetadataChangeListener =
-			new InvalidRouteMetadataChangeListener(
-				repository,
-				lifecycleEventBus,
-				invalidRouteCache
-			);
-		TargetInvalidationMetadataChangeListener targetInvalidationMetadataChangeListener =
-			new TargetInvalidationMetadataChangeListener(
-				lifecycleEventBus,
-				hotMetadataView,
-				targetInvalidationRegistry
-			);
-		TargetInvalidationPoller targetInvalidationPoller = new TargetInvalidationPoller(
-			vertx,
-			targetInvalidationRegistry,
-			hotMetadataView,
-			targetInvalidationOptions
-		);
-		IndexerRuntime runtime = new IndexerRuntime(
-			vertx,
-			queue,
-			documentStore,
-			new IndexerOptions(),
-			IndexerEventPublisher.NOOP
-		);
-		IndexerRuntimeReconciler runtimeReconciler = new IndexerRuntimeReconciler(
-			vertx,
-			repository,
-			lifecycleEventBus,
-			runtime,
-			nodeOptions.getRuntimeReconcilerOptions()
-		);
-
-		return new IndexerNodeComponents(
-			hotIndexActionsService,
-			runtime,
-			runtimeReconciler,
-			commandEngine,
-			indexerOperations,
-			repository,
-			lifecycleEventBus,
-			queue,
-			targetDefinitionProvider,
-			indexerDefinitionProvider,
-			documentStore,
-			invalidRouteCache,
-			invalidRouteMetadataChangeListener,
-			targetInvalidationRegistry,
-			targetInvalidationMetadataChangeListener,
-			targetInvalidationPoller
-		);
-	}
 }
