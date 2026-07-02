@@ -49,6 +49,14 @@ public interface IndexerLifecycleEventBus {
 
 	Future<Void> publish(TargetMetadataChanged event);
 
+	/**
+	 * Emits a one-way target-cache wake-up. Implementations must observe provider
+	 * acceptance failures internally because callers do not await them.
+	 */
+	default void publishTargetWakeUp(TargetMetadataChanged event) {
+		publish(event);
+	}
+
 	Future<IndexerLifecycleSubscription> subscribe(Handler<IndexerMetadataChanged> handler);
 
 	Future<IndexerLifecycleSubscription> subscribeTarget(Handler<TargetMetadataChanged> handler);

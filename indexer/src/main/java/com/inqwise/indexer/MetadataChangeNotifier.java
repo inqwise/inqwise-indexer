@@ -39,6 +39,9 @@ public final class MetadataChangeNotifier {
 	public Future<Void> targetChanged(TargetMetadataChanged event) {
 		Objects.requireNonNull(event, "event");
 		return invalidationRegistry.markInvalidated(event.getTargetId())
-			.compose(ignored -> eventBus.publish(event));
+			.map(ignored -> {
+				eventBus.publishTargetWakeUp(event);
+				return null;
+			});
 	}
 }

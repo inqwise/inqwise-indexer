@@ -32,6 +32,33 @@ class MetadataChangeNotifierTest {
 	}
 
 	@Test
+	void targetWakeUpIsOneWayAfterConfirmedRegistryMark(VertxTestContext testContext) {
+		List<String> steps = new ArrayList<>();
+		IndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus() {
+			@Override
+			public Future<Void> publish(TargetMetadataChanged event) {
+				steps.add("target:" + event.getTargetId());
+				return Future.failedFuture("provider rejected wake-up");
+			}
+		};
+		MetadataChangeNotifier notifier = new MetadataChangeNotifier(
+			recordingRegistry(steps),
+			eventBus
+		);
+
+		notifier.targetChanged(new TargetMetadataChanged(
+			10,
+			"customers",
+			null,
+			"changed",
+			1L
+		)).onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
+			assertEquals(List.of("mark:10", "target:10"), steps);
+			testContext.completeNow();
+		})));
+	}
+
+	@Test
 	void registryFailureSuppressesWakeUpAndFailsWorkflow(VertxTestContext testContext) {
 		List<String> steps = new ArrayList<>();
 		TargetInvalidationRegistry registry = new TargetInvalidationRegistry() {
