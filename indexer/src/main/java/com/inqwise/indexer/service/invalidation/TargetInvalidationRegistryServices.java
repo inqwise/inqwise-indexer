@@ -15,6 +15,7 @@ import io.vertx.core.json.JsonObject;
 
 public final class TargetInvalidationRegistryServices {
 	public static final String DEFAULT_ADDRESS = "indexer.service.target-invalidation-registry";
+	private static final String ADDRESS_PREFIX = DEFAULT_ADDRESS + ".";
 
 	static final String OPERATION = "operation";
 	static final String MARK_INVALIDATED = "mark_invalidated";
@@ -58,6 +59,15 @@ public final class TargetInvalidationRegistryServices {
 					.map(message -> fromJson(message.body()));
 			}
 		};
+	}
+
+	public static String address(String namespace) {
+		Objects.requireNonNull(namespace, "namespace");
+		String value = namespace.trim();
+		if (value.isEmpty()) {
+			throw new IllegalArgumentException("namespace must not be blank");
+		}
+		return ADDRESS_PREFIX + value;
 	}
 
 	static JsonObject toJson(TargetInvalidationEntries invalidations) {

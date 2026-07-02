@@ -31,6 +31,7 @@ public record IndexerNodeComponents(
 	IndexerDocumentIndexResourceManager documentIndexResources,
 	InvalidRouteCache invalidRouteCache,
 	InvalidRouteMetadataChangeListener invalidRouteMetadataChangeListener,
+	TargetInvalidationRegistry targetInvalidationRegistryBackend,
 	TargetInvalidationRegistry targetInvalidationRegistry,
 	TargetInvalidationMetadataChangeListener targetInvalidationMetadataChangeListener,
 	TargetInvalidationPoller targetInvalidationPoller

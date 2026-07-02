@@ -37,12 +37,14 @@ import com.inqwise.indexer.hot.TargetInvalidationPoller;
 import com.inqwise.indexer.hot.TargetInvalidationRegistry;
 import com.inqwise.indexer.hot.TargetInvalidationRegistryConfig;
 import com.inqwise.indexer.hot.TargetInvalidationRegistryOptions;
+import com.inqwise.indexer.hot.VertxSharedDataTargetInvalidationRegistryProvider;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.operations.IndexerOperations;
 import com.inqwise.indexer.operations.MetadataIndexerOperations;
 import com.inqwise.indexer.providers.IndexerProviders;
 import com.inqwise.indexer.providers.MetadataIndexerProvider;
+import com.inqwise.indexer.service.invalidation.TargetInvalidationRegistryServices;
 
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
@@ -75,13 +77,25 @@ public final class DefaultIndexerNodeComponentsFactory {
 			);
 		InvalidRouteCache invalidRouteCache =
 			new InMemoryInvalidRouteCache(Duration.ofMinutes(5));
+		TargetInvalidationNodeOptions targetInvalidationNodeOptions =
+			nodeOptions.getTargetInvalidationOptions();
 		TargetInvalidationRegistryOptions targetInvalidationOptions =
-			new TargetInvalidationRegistryOptions(Duration.ofSeconds(30), 3, 10_000);
+			targetInvalidationNodeOptions.registryOptions();
+		TargetInvalidationRegistryConfig targetInvalidationConfig =
+			targetInvalidationNodeOptions.registryConfig();
+		TargetInvalidationRegistry targetInvalidationRegistryBackend = switch (
+			targetInvalidationNodeOptions.getProvider()
+		) {
+			case IN_MEMORY -> new InMemoryTargetInvalidationRegistryProvider()
+				.create(targetInvalidationConfig);
+			case VERTX_SHARED_DATA -> new VertxSharedDataTargetInvalidationRegistryProvider(vertx)
+				.create(targetInvalidationConfig);
+		};
 		TargetInvalidationRegistry targetInvalidationRegistry =
-			new InMemoryTargetInvalidationRegistryProvider().create(
-				new TargetInvalidationRegistryConfig(
-					"local",
-					targetInvalidationOptions
+			TargetInvalidationRegistryServices.proxy(
+				vertx,
+				TargetInvalidationRegistryServices.address(
+					targetInvalidationNodeOptions.getNamespace()
 				)
 			);
 		MetadataChangeNotifier metadataChangeNotifier = new MetadataChangeNotifier(
@@ -172,6 +186,7 @@ public final class DefaultIndexerNodeComponentsFactory {
 			documentStore,
 			invalidRouteCache,
 			invalidRouteMetadataChangeListener,
+			targetInvalidationRegistryBackend,
 			targetInvalidationRegistry,
 			targetInvalidationMetadataChangeListener,
 			targetInvalidationPoller

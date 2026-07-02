@@ -39,7 +39,7 @@ import io.vertx.junit5.VertxTestContext;
 @ExtendWith(VertxExtension.class)
 class IndexerNodeTest {
 	@Test
-	void startsAndStopsCommandEngineWithoutDeployments(
+	void startsAndStopsCoreInfrastructure(
 		Vertx vertx,
 		VertxTestContext testContext
 	) {
@@ -71,6 +71,25 @@ class IndexerNodeTest {
 			})
 			.compose(status -> {
 				assertEquals(0, status.getIndexers().size());
+				return node.stop();
+			})
+			.onComplete(testContext.succeeding(ignored -> testContext.completeNow()));
+	}
+
+	@Test
+	void deploysTargetInvalidationServiceBeforeProxyClientUse(
+		Vertx vertx,
+		VertxTestContext testContext
+	) {
+		IndexerNodeOptions options = disabledServices();
+		IndexerNode node = IndexerNode.create(vertx, options);
+
+		node.start()
+			.compose(ignored -> node.components().targetInvalidationRegistry().markInvalidated(10))
+			.compose(ignored -> node.components().targetInvalidationRegistry().listInvalidations(10))
+			.compose(entries -> {
+				assertEquals(1, entries.entries().size());
+				assertEquals(10, entries.entries().get(0).concreteTargetId());
 				return node.stop();
 			})
 			.onComplete(testContext.succeeding(ignored -> testContext.completeNow()));
@@ -332,6 +351,9 @@ class IndexerNodeTest {
 	private static IndexerNodeOptions disabledServices() {
 		IndexerNodeOptions options = new IndexerNodeOptions();
 		for (String service : options.getServices().keySet()) {
+			if (IndexerNodeOptions.Services.TARGET_INVALIDATION_REGISTRY.equals(service)) {
+				continue;
+			}
 			options.setService(
 				service,
 				new IndexerServiceDeploymentOptions().setEnabled(false)

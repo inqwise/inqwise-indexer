@@ -31,6 +31,11 @@ class IndexerNodeOptionsTest {
 		assertEquals(1, options.gateway().getInstances());
 		assertFalse(options.runtimeRest().isEnabled());
 		assertEquals(1, options.runtimeRest().getInstances());
+		assertEquals(1, options.targetInvalidationRegistry().getInstances());
+		assertEquals(
+			TargetInvalidationNodeOptions.Provider.VERTX_SHARED_DATA,
+			options.getTargetInvalidationOptions().getProvider()
+		);
 		assertEquals(
 			IndexerRuntimeReconcilerOptions.DEFAULT_MAX_DIRTY_INDEXERS,
 			options.getRuntimeReconcilerOptions().getMaxDirtyIndexers()
@@ -46,6 +51,25 @@ class IndexerNodeOptionsTest {
 		assertEquals(
 			VertxIndexerLifecycleEventBusOptions.DEFAULT_MAX_TRANSPORT_LAG_MS,
 			options.getLifecycleEventBusOptions().getMaxTransportLagMs()
+		);
+	}
+
+	@Test
+	void rejectsMultipleInMemoryInvalidationServiceInstances() {
+		IllegalArgumentException error = assertThrows(
+			IllegalArgumentException.class,
+			() -> new IndexerNodeOptions()
+				.setTargetInvalidationOptions(new TargetInvalidationNodeOptions()
+					.setProvider(TargetInvalidationNodeOptions.Provider.IN_MEMORY))
+				.setService(
+					IndexerNodeOptions.Services.TARGET_INVALIDATION_REGISTRY,
+					new IndexerServiceDeploymentOptions().setInstances(2)
+				)
+		);
+
+		assertEquals(
+			"In-memory target invalidation service supports exactly one instance",
+			error.getMessage()
 		);
 	}
 

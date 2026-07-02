@@ -3,6 +3,7 @@ package com.inqwise.indexer.node;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.Test;
@@ -42,6 +43,7 @@ class DefaultIndexerNodeComponentsFactoryTest {
 			),
 			() -> assertNotNull(components.invalidRouteCache()),
 			() -> assertNotNull(components.invalidRouteMetadataChangeListener()),
+			() -> assertNotNull(components.targetInvalidationRegistryBackend()),
 			() -> assertNotNull(components.targetInvalidationRegistry()),
 			() -> assertNotNull(components.targetInvalidationMetadataChangeListener()),
 			() -> assertNotNull(components.targetInvalidationPoller())
@@ -55,5 +57,22 @@ class DefaultIndexerNodeComponentsFactoryTest {
 
 		assertThrows(NullPointerException.class, () -> factory.create(null, new IndexerNodeOptions()));
 		assertThrows(NullPointerException.class, () -> factory.create(vertx, null));
+	}
+
+	@Test
+	void createsDistinctBackendAndServiceProxy(Vertx vertx) {
+		IndexerNodeOptions options = new IndexerNodeOptions()
+			.setTargetInvalidationOptions(new TargetInvalidationNodeOptions()
+				.setProvider(TargetInvalidationNodeOptions.Provider.VERTX_SHARED_DATA));
+
+		IndexerNodeComponents components = new DefaultIndexerNodeComponentsFactory()
+			.create(vertx, options);
+
+		assertNotNull(components.targetInvalidationRegistryBackend());
+		assertNotNull(components.targetInvalidationRegistry());
+		assertNotSame(
+			components.targetInvalidationRegistryBackend(),
+			components.targetInvalidationRegistry()
+		);
 	}
 }

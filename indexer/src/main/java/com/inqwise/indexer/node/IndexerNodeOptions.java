@@ -24,6 +24,7 @@ public class IndexerNodeOptions {
 		public static final String RUNTIME_REST = "runtime_rest";
 		public static final String RUNTIME_RECONCILER = "runtime_reconciler";
 		public static final String LIFECYCLE_EVENTS = "lifecycle_events";
+		public static final String TARGET_INVALIDATION = "target_invalidation";
 		public static final String GATEWAY = "gateway";
 
 		private Keys() {
@@ -46,6 +47,7 @@ public class IndexerNodeOptions {
 		public static final String RUNTIME = "runtime";
 		public static final String RUNTIME_REST = "runtimeRest";
 		public static final String GATEWAY = "gateway";
+		public static final String TARGET_INVALIDATION_REGISTRY = "targetInvalidationRegistry";
 
 		private static final Set<String> ALL = Set.of(
 			ADMIN,
@@ -54,7 +56,8 @@ public class IndexerNodeOptions {
 			TARGET_ACTION_REST,
 			RUNTIME,
 			RUNTIME_REST,
-			GATEWAY
+			GATEWAY,
+			TARGET_INVALIDATION_REGISTRY
 		);
 
 		private Services() {
@@ -72,6 +75,8 @@ public class IndexerNodeOptions {
 	private VertxIndexerLifecycleEventBusOptions lifecycleEventBusOptions =
 		new VertxIndexerLifecycleEventBusOptions();
 	private GatewayRestOptions gatewayOptions = new GatewayRestOptions();
+	private TargetInvalidationNodeOptions targetInvalidationOptions =
+		new TargetInvalidationNodeOptions();
 
 	public IndexerNodeOptions() {
 		addDefaults();
@@ -113,6 +118,9 @@ public class IndexerNodeOptions {
 			lifecycleEvents
 		);
 		this.gatewayOptions = new GatewayRestOptions(json.getJsonObject(Keys.GATEWAY, new JsonObject()));
+		this.targetInvalidationOptions = new TargetInvalidationNodeOptions(
+			json.getJsonObject(Keys.TARGET_INVALIDATION, new JsonObject())
+		);
 		validate();
 	}
 
@@ -135,7 +143,8 @@ public class IndexerNodeOptions {
 					lifecycleEventBusConfig.namespace()
 				)
 			)
-			.put(Keys.GATEWAY, gatewayOptions.toJson());
+			.put(Keys.GATEWAY, gatewayOptions.toJson())
+			.put(Keys.TARGET_INVALIDATION, targetInvalidationOptions.toJson());
 	}
 
 	public IndexerServiceDeploymentOptions service(String name) {
@@ -169,6 +178,10 @@ public class IndexerNodeOptions {
 
 	public IndexerServiceDeploymentOptions gateway() {
 		return service(Services.GATEWAY);
+	}
+
+	public IndexerServiceDeploymentOptions targetInvalidationRegistry() {
+		return service(Services.TARGET_INVALIDATION_REGISTRY);
 	}
 
 	public AdminRestOptions getAdminRestOptions() {
@@ -254,6 +267,19 @@ public class IndexerNodeOptions {
 		return this;
 	}
 
+	public TargetInvalidationNodeOptions getTargetInvalidationOptions() {
+		return targetInvalidationOptions;
+	}
+
+	public IndexerNodeOptions setTargetInvalidationOptions(
+		TargetInvalidationNodeOptions targetInvalidationOptions
+	) {
+		this.targetInvalidationOptions = targetInvalidationOptions == null
+			? new TargetInvalidationNodeOptions()
+			: targetInvalidationOptions;
+		return this;
+	}
+
 	public Map<String, IndexerServiceDeploymentOptions> getServices() {
 		return Map.copyOf(services);
 	}
@@ -271,6 +297,7 @@ public class IndexerNodeOptions {
 	public IndexerNodeOptions validate() {
 		lifecycleEventBusOptions.validate();
 		runtimeReconcilerOptions.validate();
+		targetInvalidationOptions.validate();
 		for (IndexerServiceDeploymentOptions options : services.values()) {
 			options.validate();
 		}
@@ -304,6 +331,16 @@ public class IndexerNodeOptions {
 			throw new IllegalArgumentException("Gateway service must be deployed with exactly one instance");
 		}
 
+		IndexerServiceDeploymentOptions invalidationService = targetInvalidationRegistry();
+		if (invalidationService.isEnabled()
+			&& invalidationService.getInstances() > 1
+			&& targetInvalidationOptions.getProvider()
+				== TargetInvalidationNodeOptions.Provider.IN_MEMORY) {
+			throw new IllegalArgumentException(
+				"In-memory target invalidation service supports exactly one instance"
+			);
+		}
+
 		return this;
 	}
 
@@ -315,6 +352,10 @@ public class IndexerNodeOptions {
 		services.put(Services.RUNTIME, new IndexerServiceDeploymentOptions());
 		services.put(Services.RUNTIME_REST, new IndexerServiceDeploymentOptions().setEnabled(false));
 		services.put(Services.GATEWAY, new IndexerServiceDeploymentOptions().setEnabled(false));
+		services.put(
+			Services.TARGET_INVALIDATION_REGISTRY,
+			new IndexerServiceDeploymentOptions()
+		);
 	}
 
 	private void requireKnownService(String name) {

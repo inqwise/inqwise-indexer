@@ -19,6 +19,8 @@ import com.inqwise.indexer.service.admin.AdminCreateRequestResolver;
 import com.inqwise.indexer.service.admin.AdminServiceVerticle;
 import com.inqwise.indexer.service.action.TargetActionServiceVerticle;
 import com.inqwise.indexer.service.runtime.RuntimeServiceVerticle;
+import com.inqwise.indexer.service.invalidation.TargetInvalidationRegistryServiceVerticle;
+import com.inqwise.indexer.service.invalidation.TargetInvalidationRegistryServices;
 
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Future;
@@ -34,6 +36,7 @@ public class IndexerNode {
 	private final IndexerNodeComponents components;
 	private final List<String> deploymentIds = new ArrayList<>();
 	private final List<String> dataPlaneDeploymentIds = new ArrayList<>();
+	private final List<String> infrastructureDeploymentIds = new ArrayList<>();
 	private boolean recoveryOnly;
 	private boolean stopping;
 	private Future<Void> recoveryFuture;
@@ -66,6 +69,7 @@ public class IndexerNode {
 			recoveryOnly = false;
 		}
 		Future<Void> deployed = Future.succeededFuture();
+		deployed = deployed.compose(ignored -> deployTargetInvalidationRegistry());
 		deployed = deployed.compose(ignored -> components.commandEngine().start());
 		deployed = deployed.compose(ignored -> startInvalidRouteMetadataChangeListener());
 		deployed = deployed.compose(ignored -> startTargetInvalidationMetadataChangeListener());
@@ -104,18 +108,16 @@ public class IndexerNode {
 
 	public Future<Void> stop() {
 		List<String> deployments;
+		List<String> infrastructureDeployments;
 		synchronized (this) {
 			stopping = true;
-			deployments = List.copyOf(deploymentIds);
-		}
-		Future<Void> stopped = Future.succeededFuture();
-		for (int i = deployments.size() - 1; i >= 0; i--) {
-			String deploymentId = deployments.get(i);
-			stopped = stopped.compose(ignored -> vertx.undeploy(deploymentId)
-				.recover(error -> Future.succeededFuture()));
+			infrastructureDeployments = List.copyOf(infrastructureDeploymentIds);
+			deployments = deploymentIds.stream()
+				.filter(id -> !infrastructureDeploymentIds.contains(id))
+				.toList();
 		}
 
-		return stopped
+		return undeploy(deployments)
 			.compose(ignored -> components.runtimeReconciler().stop())
 			.compose(ignored -> {
 				TargetInvalidationPoller poller = components.targetInvalidationPoller();
@@ -132,10 +134,12 @@ public class IndexerNode {
 				return listener == null ? Future.succeededFuture() : listener.stop();
 			})
 			.compose(ignored -> components.commandEngine().stop())
+			.compose(ignored -> undeploy(infrastructureDeployments))
 			.onComplete(ignored -> {
 				synchronized (this) {
 					deploymentIds.clear();
 					dataPlaneDeploymentIds.clear();
+					infrastructureDeploymentIds.clear();
 					recoveryOnly = false;
 					recoveryFuture = null;
 				}
@@ -210,6 +214,21 @@ public class IndexerNode {
 		deploymentIds.add(deploymentId);
 	}
 
+	private synchronized void trackInfrastructureDeployment(String deploymentId) {
+		deploymentIds.add(deploymentId);
+		infrastructureDeploymentIds.add(deploymentId);
+	}
+
+	private Future<Void> undeploy(List<String> deployments) {
+		Future<Void> undeployed = Future.succeededFuture();
+		for (int i = deployments.size() - 1; i >= 0; i--) {
+			String deploymentId = deployments.get(i);
+			undeployed = undeployed.compose(ignored -> vertx.undeploy(deploymentId)
+				.recover(error -> Future.succeededFuture()));
+		}
+		return undeployed;
+	}
+
 	private synchronized void removeDataPlaneDeployment(String deploymentId) {
 		deploymentIds.remove(deploymentId);
 		dataPlaneDeploymentIds.remove(deploymentId);
@@ -217,6 +236,27 @@ public class IndexerNode {
 
 	public IndexerNodeComponents components() {
 		return components;
+	}
+
+	private Future<Void> deployTargetInvalidationRegistry() {
+		IndexerServiceDeploymentOptions deployment = options.targetInvalidationRegistry();
+		if (!deployment.isEnabled()) {
+			return Future.succeededFuture();
+		}
+
+		Future<Void> deployed = Future.succeededFuture();
+		for (int i = 0; i < deployment.getInstances(); i++) {
+			deployed = deployed.compose(ignored -> vertx.deployVerticle(
+				new TargetInvalidationRegistryServiceVerticle(
+					components.targetInvalidationRegistryBackend(),
+					TargetInvalidationRegistryServices.address(
+						options.getTargetInvalidationOptions().getNamespace()
+					)
+				),
+				new DeploymentOptions()
+			).onSuccess(this::trackInfrastructureDeployment).mapEmpty());
+		}
+		return deployed;
 	}
 
 	private Future<Void> deployAdmin() {

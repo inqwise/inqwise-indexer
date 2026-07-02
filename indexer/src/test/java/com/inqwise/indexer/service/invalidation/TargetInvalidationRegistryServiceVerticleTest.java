@@ -23,6 +23,14 @@ import io.vertx.junit5.VertxTestContext;
 @ExtendWith(VertxExtension.class)
 class TargetInvalidationRegistryServiceVerticleTest {
 	@Test
+	void derivesNamespaceIsolatedAddresses() {
+		assertEquals(
+			"indexer.service.target-invalidation-registry.production",
+			TargetInvalidationRegistryServices.address(" production ")
+		);
+	}
+
+	@Test
 	void marksAndListsInvalidationsThroughProxy(Vertx vertx, VertxTestContext testContext) {
 		InMemoryTargetInvalidationRegistry registry =
 			new InMemoryTargetInvalidationRegistry(Duration.ofMinutes(5), Clock.systemUTC());
