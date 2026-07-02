@@ -16,6 +16,7 @@ import com.inqwise.indexer.IndexerRole;
 import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.IndexerType;
 import com.inqwise.indexer.InMemoryIndexerLifecycleEventBus;
+import com.inqwise.indexer.TestMetadataChangeNotifiers;
 import com.inqwise.indexer.definitions.IndexDefinition;
 import com.inqwise.indexer.definitions.IndexerDefinition;
 import com.inqwise.indexer.definitions.QueueDefinition;
@@ -206,7 +207,7 @@ class CreateTargetCommandTest {
 				)),
 				documentResources,
 				queueResources,
-				eventBus
+				TestMetadataChangeNotifiers.create(eventBus)
 			));
 	}
 

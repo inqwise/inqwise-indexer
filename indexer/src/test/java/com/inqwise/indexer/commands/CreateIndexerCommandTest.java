@@ -11,6 +11,7 @@ import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.IndexerRole;
 import com.inqwise.indexer.IndexerType;
 import com.inqwise.indexer.InMemoryIndexerLifecycleEventBus;
+import com.inqwise.indexer.TestMetadataChangeNotifiers;
 import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.metadata.MutationState;
@@ -27,7 +28,10 @@ class CreateIndexerCommandTest {
 			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		InMemoryCommandEngine commandService = new InMemoryCommandEngine()
-			.register(new CreateIndexerCommandHandler(repository, eventBus));
+			.register(new CreateIndexerCommandHandler(
+				repository,
+				TestMetadataChangeNotifiers.create(eventBus)
+			));
 
 		repository.insertTarget(new InsertTarget(null, "customers", null))
 			.compose(targetId -> commandService.submit(new CreateIndexerCommand(

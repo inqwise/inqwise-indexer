@@ -3,9 +3,9 @@ package com.inqwise.indexer.service.admin;
 import java.util.Objects;
 import java.util.Optional;
 
-import com.inqwise.indexer.IndexerLifecycleEventBus;
 import com.inqwise.indexer.IndexerMetadataChanged;
 import com.inqwise.indexer.IndexerQueueResourceManager;
+import com.inqwise.indexer.MetadataChangeNotifier;
 import com.inqwise.indexer.commands.ActivateIndexerCommand;
 import com.inqwise.indexer.commands.ActivateIndexerCommandHandler;
 import com.inqwise.indexer.commands.CreateIndexerCommand;
@@ -33,7 +33,7 @@ import io.vertx.core.Future;
 
 public class AdminServiceImpl implements AdminService {
 	private final DocumentStoreMetadataRepository repository;
-	private final IndexerLifecycleEventBus eventBus;
+	private final MetadataChangeNotifier metadataChangeNotifier;
 	private final RecoverTargetProvisioningCommandHandler recoverTargetProvisioning;
 	private final ActivateIndexerCommandHandler activateIndexer;
 	private final DeactivateIndexerCommandHandler deactivateIndexer;
@@ -45,7 +45,7 @@ public class AdminServiceImpl implements AdminService {
 
 	public AdminServiceImpl(
 		DocumentStoreMetadataRepository repository,
-		IndexerLifecycleEventBus eventBus,
+		MetadataChangeNotifier metadataChangeNotifier,
 		IndexerQueueResourceManager queueResources,
 		TargetDefinitionProvider targetDefinitionProvider,
 		IndexerDefinitionProvider indexerDefinitionProvider,
@@ -54,20 +54,23 @@ public class AdminServiceImpl implements AdminService {
 		IndexerOperations indexerOperations
 	) {
 		this.repository = Objects.requireNonNull(repository, "repository");
-		this.eventBus = Objects.requireNonNull(eventBus, "eventBus");
+		this.metadataChangeNotifier = Objects.requireNonNull(
+			metadataChangeNotifier,
+			"metadataChangeNotifier"
+		);
 		Objects.requireNonNull(queueResources, "queueResources");
 		Objects.requireNonNull(targetDefinitionProvider, "targetDefinitionProvider");
 		this.recoverTargetProvisioning = new RecoverTargetProvisioningCommandHandler(
 			repository,
-			eventBus
+			metadataChangeNotifier
 		);
-		this.activateIndexer = new ActivateIndexerCommandHandler(repository, eventBus);
-		this.deactivateIndexer = new DeactivateIndexerCommandHandler(repository, eventBus);
+		this.activateIndexer = new ActivateIndexerCommandHandler(repository, metadataChangeNotifier);
+		this.deactivateIndexer = new DeactivateIndexerCommandHandler(repository, metadataChangeNotifier);
 		this.commandService = Objects.requireNonNull(commandService, "commandService");
 		this.indexerOperations = Objects.requireNonNull(indexerOperations, "indexerOperations");
 		this.resetIndexerQueue = new ResetIndexerQueueCommandHandler(
 			repository,
-			eventBus,
+			metadataChangeNotifier,
 			queueResources,
 			commandService
 		);
@@ -77,7 +80,7 @@ public class AdminServiceImpl implements AdminService {
 			indexerDefinitionProvider,
 			documentIndexResources,
 			queueResources,
-			eventBus
+			metadataChangeNotifier
 		);
 		this.indexerProvisioning = new IndexerProvisioningService(
 			repository,
@@ -267,15 +270,12 @@ public class AdminServiceImpl implements AdminService {
 		try {
 			validateCreateIndexer(request);
 			return indexerProvisioning.createIndexer(request.toProvisioningRequest())
-				.map(indexer -> {
-					eventBus.publishIndexerWakeUp(new IndexerMetadataChanged(
+				.compose(indexer -> metadataChangeNotifier.indexerChanged(new IndexerMetadataChanged(
 						indexer.id(),
 						indexer.targetId(),
 						CreateIndexerCommand.TYPE,
 						indexer.version()
-					));
-					return indexer;
-				})
+					)).map(ignored -> indexer))
 				.map(indexer -> new AdminIndexerResult().setIndexer(AdminIndexerView.from(indexer)))
 				.recover(error -> Future.failedFuture(IndexerErrors.normalize(error)));
 		} catch (Throwable error) {

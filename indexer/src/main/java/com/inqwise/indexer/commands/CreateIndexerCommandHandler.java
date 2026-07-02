@@ -1,8 +1,10 @@
 package com.inqwise.indexer.commands;
 
-import com.inqwise.indexer.IndexerLifecycleEventBus;
+import java.util.Objects;
+
 import com.inqwise.indexer.IndexerMetadataChanged;
 import com.inqwise.indexer.IndexerQueueResourceManager;
+import com.inqwise.indexer.MetadataChangeNotifier;
 import com.inqwise.indexer.definitions.IndexDefinition;
 import com.inqwise.indexer.definitions.IndexerDefinition;
 import com.inqwise.indexer.definitions.IndexerDefinitionProvider;
@@ -17,18 +19,18 @@ import io.vertx.core.Future;
 
 public class CreateIndexerCommandHandler implements CommandHandler {
 	private final IndexerProvisioningService provisioningService;
-	private final IndexerLifecycleEventBus eventBus;
+	private final MetadataChangeNotifier metadataChangeNotifier;
 
 	public CreateIndexerCommandHandler(
 		DocumentStoreMetadataRepository repository,
-		IndexerLifecycleEventBus eventBus
+		MetadataChangeNotifier metadataChangeNotifier
 	) {
 		this(
 			repository,
 			defaultDefinitionProvider(),
 			IndexerDocumentIndexResourceManager.NOOP,
 			IndexerQueueResourceManager.NOOP,
-			eventBus
+			metadataChangeNotifier
 		);
 	}
 
@@ -37,7 +39,7 @@ public class CreateIndexerCommandHandler implements CommandHandler {
 		IndexerDefinitionProvider definitionProvider,
 		IndexerDocumentIndexResourceManager documentIndexResources,
 		IndexerQueueResourceManager queueResources,
-		IndexerLifecycleEventBus eventBus
+		MetadataChangeNotifier metadataChangeNotifier
 	) {
 		this.provisioningService = new IndexerProvisioningService(
 			repository,
@@ -45,7 +47,10 @@ public class CreateIndexerCommandHandler implements CommandHandler {
 			documentIndexResources,
 			queueResources
 		);
-		this.eventBus = eventBus == null ? IndexerLifecycleEventBus.NOOP : eventBus;
+		this.metadataChangeNotifier = Objects.requireNonNull(
+			metadataChangeNotifier,
+			"metadataChangeNotifier"
+		);
 	}
 
 	@Override
@@ -69,15 +74,12 @@ public class CreateIndexerCommandHandler implements CommandHandler {
 			create.getRuntimeState(),
 			create.getPublicationState(),
 			create.getMutationState()
-		)).map(indexer -> {
-			eventBus.publishIndexerWakeUp(new IndexerMetadataChanged(
+		)).compose(indexer -> metadataChangeNotifier.indexerChanged(new IndexerMetadataChanged(
 				indexer.id(),
 				indexer.targetId(),
 				getType(),
 				indexer.version()
-			));
-			return null;
-		});
+			)));
 	}
 
 	private static IndexerDefinitionProvider defaultDefinitionProvider() {

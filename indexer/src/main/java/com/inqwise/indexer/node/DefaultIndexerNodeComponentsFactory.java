@@ -11,6 +11,7 @@ import com.inqwise.indexer.IndexerRuntime;
 import com.inqwise.indexer.IndexerRuntimeReconciler;
 import com.inqwise.indexer.InMemoryIndexerDocumentStore;
 import com.inqwise.indexer.InMemoryIndexerQueue;
+import com.inqwise.indexer.MetadataChangeNotifier;
 import com.inqwise.indexer.VertxIndexerLifecycleEventBusProvider;
 import com.inqwise.indexer.commands.DocumentStoreCommandHandlers;
 import com.inqwise.indexer.commands.InMemoryCommandEngine;
@@ -83,6 +84,10 @@ public final class DefaultIndexerNodeComponentsFactory {
 					targetInvalidationOptions
 				)
 			);
+		MetadataChangeNotifier metadataChangeNotifier = new MetadataChangeNotifier(
+			targetInvalidationRegistry,
+			lifecycleEventBus
+		);
 		IndexerProviders indexerProviders = new IndexerProviders(List.of(
 			new MetadataIndexerProvider(repository)
 		));
@@ -93,7 +98,7 @@ public final class DefaultIndexerNodeComponentsFactory {
 		);
 		IndexerOperations indexerOperations = new MetadataIndexerOperations(
 			repository,
-			lifecycleEventBus
+			metadataChangeNotifier
 		);
 		InMemoryCommandEngine commandEngine = new InMemoryCommandEngine();
 		DocumentStoreCommandHandlers.register(
@@ -104,14 +109,14 @@ public final class DefaultIndexerNodeComponentsFactory {
 				indexerDefinitionProvider,
 				documentStore,
 				queue,
-				lifecycleEventBus,
+				metadataChangeNotifier,
 				indexerOperations
 			)
 		);
 		commandEngine.register(new SubmitIndexActionsCommandHandler(
 			repository,
 			targetDefinitionProvider,
-			lifecycleEventBus,
+			metadataChangeNotifier,
 			queue,
 			invalidRouteCache
 		));
@@ -130,8 +135,7 @@ public final class DefaultIndexerNodeComponentsFactory {
 		TargetInvalidationMetadataChangeListener targetInvalidationMetadataChangeListener =
 			new TargetInvalidationMetadataChangeListener(
 				lifecycleEventBus,
-				hotMetadataView,
-				targetInvalidationRegistry
+				hotMetadataView
 			);
 		TargetInvalidationPoller targetInvalidationPoller = new TargetInvalidationPoller(
 			vertx,

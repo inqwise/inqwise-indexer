@@ -17,6 +17,7 @@ import com.inqwise.indexer.TargetMetadataChanged;
 import com.inqwise.indexer.IndexerQueueResourceManager;
 import com.inqwise.indexer.IndexerType;
 import com.inqwise.indexer.InMemoryIndexerLifecycleEventBus;
+import com.inqwise.indexer.TestMetadataChangeNotifiers;
 import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.metadata.InsertIndexer;
@@ -360,7 +361,7 @@ class ResetIndexerQueueCommandTest {
 			.register(new CleanupResetIndexerQueueCommandHandler(resources))
 			.register(new ResetIndexerQueueCommandHandler(
 				repository,
-				eventBus,
+				TestMetadataChangeNotifiers.create(eventBus),
 				resources,
 				commands
 			));

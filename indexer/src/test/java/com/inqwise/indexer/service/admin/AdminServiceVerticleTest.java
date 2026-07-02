@@ -10,6 +10,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 import com.inqwise.indexer.InMemoryIndexerDocumentStore;
 import com.inqwise.indexer.InMemoryIndexerLifecycleEventBus;
+import com.inqwise.indexer.TestMetadataChangeNotifiers;
 import com.inqwise.indexer.InMemoryIndexerQueue;
 import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.IndexerType;
@@ -312,7 +313,10 @@ class AdminServiceVerticleTest {
 		InMemoryIndexerQueue queue
 	) {
 		InMemoryIndexerDocumentStore documentStore = new InMemoryIndexerDocumentStore();
-		IndexerOperations indexerOperations = new MetadataIndexerOperations(repository, eventBus);
+		IndexerOperations indexerOperations = new MetadataIndexerOperations(
+			repository,
+			TestMetadataChangeNotifiers.create(eventBus)
+		);
 		InMemoryCommandEngine commandService = new InMemoryCommandEngine()
 			.register(new CleanupResetIndexerQueueCommandHandler(queue))
 			.register(new CleanupDeletingIndexerCommandHandler(
@@ -322,7 +326,7 @@ class AdminServiceVerticleTest {
 			));
 		return new AdminServiceVerticle(
 			repository,
-			eventBus,
+			TestMetadataChangeNotifiers.create(eventBus),
 			queue,
 			new StaticTargetDefinitionProvider(List.of(
 				new TargetDefinition("customers", TargetPeriodStrategy.MONTHLY)

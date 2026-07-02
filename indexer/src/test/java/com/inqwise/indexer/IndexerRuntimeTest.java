@@ -371,15 +371,24 @@ class IndexerRuntimeTest {
 	) {
 		InMemoryCommandEngine commandService = new InMemoryCommandEngine();
 		return commandService
-			.register(new ActivateIndexerCommandHandler(repository, eventBus))
-			.register(new DeactivateIndexerCommandHandler(repository, eventBus))
+			.register(new ActivateIndexerCommandHandler(
+				repository,
+				TestMetadataChangeNotifiers.create(eventBus)
+			))
+			.register(new DeactivateIndexerCommandHandler(
+				repository,
+				TestMetadataChangeNotifiers.create(eventBus)
+			))
 			.register(new CleanupDeletingIndexerCommandHandler(
 				repository,
 				IndexerQueueResourceManager.NOOP,
 				IndexerDocumentIndexResourceManager.NOOP
 			))
 			.register(new DeleteIndexerCommandHandler(
-				new MetadataIndexerOperations(repository, eventBus),
+				new MetadataIndexerOperations(
+					repository,
+					TestMetadataChangeNotifiers.create(eventBus)
+				),
 				commandService
 			));
 	}

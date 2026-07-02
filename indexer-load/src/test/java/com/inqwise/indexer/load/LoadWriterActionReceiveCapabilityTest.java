@@ -75,7 +75,7 @@ class LoadWriterActionReceiveCapabilityTest {
 			.register(new SubmitIndexActionsCommandHandler(
 				metadata,
 				new StaticTargetDefinitionProvider(List.of()),
-				eventBus,
+				LoadTestMetadataChangeNotifiers.create(eventBus),
 				queue,
 				null,
 				plugins

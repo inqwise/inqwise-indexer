@@ -2,9 +2,9 @@ package com.inqwise.indexer.commands;
 
 import java.util.Objects;
 
-import com.inqwise.indexer.IndexerLifecycleEventBus;
 import com.inqwise.indexer.IndexerMetadataChanged;
 import com.inqwise.indexer.IndexerRuntimeState;
+import com.inqwise.indexer.MetadataChangeNotifier;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.IndexerRecord;
 import com.inqwise.indexer.metadata.UpdateIndexerRuntimeState;
@@ -13,14 +13,17 @@ import io.vertx.core.Future;
 
 public class DeactivateIndexerCommandHandler implements CommandHandler {
 	private final DocumentStoreMetadataRepository metadataRepository;
-	private final IndexerLifecycleEventBus eventBus;
+	private final MetadataChangeNotifier metadataChangeNotifier;
 
 	public DeactivateIndexerCommandHandler(
 		DocumentStoreMetadataRepository metadataRepository,
-		IndexerLifecycleEventBus eventBus
+		MetadataChangeNotifier metadataChangeNotifier
 	) {
 		this.metadataRepository = Objects.requireNonNull(metadataRepository, "metadataRepository");
-		this.eventBus = Objects.requireNonNull(eventBus, "eventBus");
+		this.metadataChangeNotifier = Objects.requireNonNull(
+			metadataChangeNotifier,
+			"metadataChangeNotifier"
+		);
 	}
 
 	@Override
@@ -57,12 +60,11 @@ public class DeactivateIndexerCommandHandler implements CommandHandler {
 	}
 
 	private Future<Void> publish(IndexerRecord indexer) {
-		eventBus.publishIndexerWakeUp(new IndexerMetadataChanged(
+		return metadataChangeNotifier.indexerChanged(new IndexerMetadataChanged(
 			indexer.id(),
 			indexer.targetId(),
 			getType(),
 			indexer.version()
 		));
-		return Future.succeededFuture();
 	}
 }

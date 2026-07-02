@@ -3,8 +3,8 @@ package com.inqwise.indexer.commands;
 import java.util.List;
 import java.util.Objects;
 
-import com.inqwise.indexer.IndexerLifecycleEventBus;
 import com.inqwise.indexer.IndexerQueueResourceManager;
+import com.inqwise.indexer.MetadataChangeNotifier;
 import com.inqwise.indexer.definitions.IndexerDefinitionProvider;
 import com.inqwise.indexer.definitions.TargetDefinitionProvider;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
@@ -29,21 +29,24 @@ public final class DocumentStoreCommandHandlers {
 				config.indexerDefinitionProvider(),
 				config.documentIndexResources(),
 				config.queueResources(),
-				config.eventBus()
+				config.metadataChangeNotifier()
 			),
 			new CreateIndexerCommandHandler(
 				config.repository(),
 				config.indexerDefinitionProvider(),
 				config.documentIndexResources(),
 				config.queueResources(),
-				config.eventBus()
+				config.metadataChangeNotifier()
 			),
 			new MarkIndexReadyCommandHandler(config.repository()),
 			new PublishIndexCommandHandler(config.repository()),
 			new RetireIndexCommandHandler(config.repository()),
-			new RecoverTargetProvisioningCommandHandler(config.repository(), config.eventBus()),
-			new ActivateIndexerCommandHandler(config.repository(), config.eventBus()),
-			new DeactivateIndexerCommandHandler(config.repository(), config.eventBus()),
+			new RecoverTargetProvisioningCommandHandler(
+				config.repository(),
+				config.metadataChangeNotifier()
+			),
+			new ActivateIndexerCommandHandler(config.repository(), config.metadataChangeNotifier()),
+			new DeactivateIndexerCommandHandler(config.repository(), config.metadataChangeNotifier()),
 			new CleanupDeletingIndexerCommandHandler(
 				config.repository(),
 				config.queueResources(),
@@ -53,7 +56,7 @@ public final class DocumentStoreCommandHandlers {
 			new DeleteIndexerCommandHandler(config.indexerOperations(), commandService),
 			new ResetIndexerQueueCommandHandler(
 				config.repository(),
-				config.eventBus(),
+				config.metadataChangeNotifier(),
 				config.queueResources(),
 				commandService
 			)
@@ -75,7 +78,7 @@ public final class DocumentStoreCommandHandlers {
 		IndexerDefinitionProvider indexerDefinitionProvider,
 		IndexerDocumentIndexResourceManager documentIndexResources,
 		IndexerQueueResourceManager queueResources,
-		IndexerLifecycleEventBus eventBus,
+		MetadataChangeNotifier metadataChangeNotifier,
 		IndexerOperations indexerOperations
 	) {
 		public Config {
@@ -84,7 +87,7 @@ public final class DocumentStoreCommandHandlers {
 			Objects.requireNonNull(indexerDefinitionProvider, "indexerDefinitionProvider");
 			Objects.requireNonNull(documentIndexResources, "documentIndexResources");
 			Objects.requireNonNull(queueResources, "queueResources");
-			eventBus = eventBus == null ? IndexerLifecycleEventBus.NOOP : eventBus;
+			Objects.requireNonNull(metadataChangeNotifier, "metadataChangeNotifier");
 			Objects.requireNonNull(indexerOperations, "indexerOperations");
 		}
 	}

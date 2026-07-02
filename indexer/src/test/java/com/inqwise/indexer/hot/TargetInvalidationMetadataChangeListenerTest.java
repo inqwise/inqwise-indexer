@@ -2,8 +2,6 @@ package com.inqwise.indexer.hot;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.time.Clock;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -22,15 +20,12 @@ import io.vertx.junit5.VertxTestContext;
 @ExtendWith(VertxExtension.class)
 class TargetInvalidationMetadataChangeListenerTest {
 	@Test
-	void targetEventInvalidatesLocalViewAndMarksRegistry(VertxTestContext testContext) {
-		InMemoryTargetInvalidationRegistry registry =
-			new InMemoryTargetInvalidationRegistry(Duration.ofMinutes(5), Clock.systemUTC());
+	void targetEventInvalidatesOnlyLocalView(VertxTestContext testContext) {
 		RecordingHotMetadataView view = new RecordingHotMetadataView();
 		TargetInvalidationMetadataChangeListener listener =
 			new TargetInvalidationMetadataChangeListener(
 				new InMemoryIndexerLifecycleEventBus(),
-				view,
-				registry
+				view
 			);
 
 		listener.invalidate(new TargetMetadataChanged(
@@ -40,26 +35,21 @@ class TargetInvalidationMetadataChangeListenerTest {
 				"target.changed",
 				1L
 			))
-			.compose(ignored -> registry.listInvalidations(10))
-			.onComplete(testContext.succeeding(entries -> testContext.verify(() -> {
+			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
 				assertEquals(List.of(10), view.invalidatedTargetIds);
-				assertEquals(10, entries.entries().get(0).concreteTargetId());
 				testContext.completeNow();
 			})));
 	}
 
 	@Test
-	void indexerEventInvalidatesLocalViewAndMarksOwningTarget(
+	void indexerEventInvalidatesOnlyLocalView(
 		VertxTestContext testContext
 	) {
-		InMemoryTargetInvalidationRegistry registry =
-			new InMemoryTargetInvalidationRegistry(Duration.ofMinutes(5), Clock.systemUTC());
 		RecordingHotMetadataView view = new RecordingHotMetadataView();
 		TargetInvalidationMetadataChangeListener listener =
 			new TargetInvalidationMetadataChangeListener(
 				new InMemoryIndexerLifecycleEventBus(),
-				view,
-				registry
+				view
 			);
 
 		listener.invalidate(new IndexerMetadataChanged(
@@ -67,12 +57,8 @@ class TargetInvalidationMetadataChangeListenerTest {
 				10,
 				"indexer.changed",
 				0L
-			)).map(ignored -> 20)
-			.compose(indexerId -> registry.listInvalidations(10).map(entries ->
-				new ListenerResult(indexerId, entries)))
-			.onComplete(testContext.succeeding(result -> testContext.verify(() -> {
-				assertEquals(List.of(result.indexerId()), view.invalidatedIndexerIds);
-				assertEquals(10, result.entries().entries().get(0).concreteTargetId());
+			)).onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
+				assertEquals(List.of(20), view.invalidatedIndexerIds);
 				testContext.completeNow();
 			})));
 	}
@@ -80,13 +66,11 @@ class TargetInvalidationMetadataChangeListenerTest {
 	@Test
 	void startIsIdempotent(VertxTestContext testContext) {
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
-		InMemoryTargetInvalidationRegistry registry =
-			new InMemoryTargetInvalidationRegistry(Duration.ofMinutes(5), Clock.systemUTC());
+		RecordingHotMetadataView view = new RecordingHotMetadataView();
 		TargetInvalidationMetadataChangeListener listener =
 			new TargetInvalidationMetadataChangeListener(
 				eventBus,
-				new RecordingHotMetadataView(),
-				registry
+				view
 			);
 
 		listener.start()
@@ -98,17 +82,10 @@ class TargetInvalidationMetadataChangeListenerTest {
 				"target.changed",
 				1L
 			)))
-			.compose(ignored -> registry.listInvalidations(10))
-			.onComplete(testContext.succeeding(entries -> testContext.verify(() -> {
-				assertEquals(1L, entries.entries().get(0).version());
+			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
+				assertEquals(List.of(10), view.invalidatedTargetIds);
 				testContext.completeNow();
 			})));
-	}
-
-	private record ListenerResult(
-		Integer indexerId,
-		TargetInvalidationEntries entries
-	) {
 	}
 
 	private static class RecordingHotMetadataView implements HotMetadataView {

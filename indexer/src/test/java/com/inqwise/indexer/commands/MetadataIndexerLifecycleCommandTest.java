@@ -12,6 +12,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import com.inqwise.indexer.IndexerMetadataChanged;
 import com.inqwise.indexer.IndexerType;
 import com.inqwise.indexer.InMemoryIndexerLifecycleEventBus;
+import com.inqwise.indexer.TestMetadataChangeNotifiers;
 import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.metadata.InsertIndexer;
@@ -102,8 +103,14 @@ class MetadataIndexerLifecycleCommandTest {
 		InMemoryIndexerLifecycleEventBus eventBus
 	) {
 		return new InMemoryCommandEngine()
-			.register(new ActivateIndexerCommandHandler(repository, eventBus))
-			.register(new DeactivateIndexerCommandHandler(repository, eventBus));
+			.register(new ActivateIndexerCommandHandler(
+				repository,
+				TestMetadataChangeNotifiers.create(eventBus)
+			))
+			.register(new DeactivateIndexerCommandHandler(
+				repository,
+				TestMetadataChangeNotifiers.create(eventBus)
+			));
 	}
 
 	private Future<Integer> insertIndexer(

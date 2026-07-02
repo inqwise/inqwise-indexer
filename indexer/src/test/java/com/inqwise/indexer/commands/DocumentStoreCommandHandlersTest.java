@@ -17,6 +17,7 @@ import com.inqwise.indexer.IndexerRole;
 import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.IndexerType;
 import com.inqwise.indexer.InMemoryIndexerLifecycleEventBus;
+import com.inqwise.indexer.TestMetadataChangeNotifiers;
 import com.inqwise.indexer.definitions.IndexDefinition;
 import com.inqwise.indexer.definitions.IndexerDefinition;
 import com.inqwise.indexer.definitions.QueueDefinition;
@@ -116,8 +117,11 @@ class DocumentStoreCommandHandlersTest {
 			)),
 			IndexerDocumentIndexResourceManager.NOOP,
 			IndexerQueueResourceManager.NOOP,
-			eventBus,
-			new MetadataIndexerOperations(repository, eventBus)
+			TestMetadataChangeNotifiers.create(eventBus),
+			new MetadataIndexerOperations(
+				repository,
+				TestMetadataChangeNotifiers.create(eventBus)
+			)
 		);
 	}
 }

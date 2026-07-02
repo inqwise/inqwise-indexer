@@ -3,8 +3,8 @@ package com.inqwise.indexer.commands;
 import java.util.Objects;
 
 import com.inqwise.indexer.IndexerMetadataChanged;
-import com.inqwise.indexer.IndexerLifecycleEventBus;
 import com.inqwise.indexer.IndexerQueueResourceManager;
+import com.inqwise.indexer.MetadataChangeNotifier;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.IndexerRecord;
 import com.inqwise.indexer.metadata.IndexerStatus;
@@ -15,18 +15,21 @@ import io.vertx.core.Future;
 
 public class ResetIndexerQueueCommandHandler implements CommandHandler {
 	private final DocumentStoreMetadataRepository metadataRepository;
-	private final IndexerLifecycleEventBus eventBus;
+	private final MetadataChangeNotifier metadataChangeNotifier;
 	private final IndexerQueueResourceManager queueResourceManager;
 	private final CommandService commandService;
 
 	public ResetIndexerQueueCommandHandler(
 		DocumentStoreMetadataRepository metadataRepository,
-		IndexerLifecycleEventBus eventBus,
+		MetadataChangeNotifier metadataChangeNotifier,
 		IndexerQueueResourceManager queueResourceManager,
 		CommandService commandService
 	) {
 		this.metadataRepository = Objects.requireNonNull(metadataRepository, "metadataRepository");
-		this.eventBus = Objects.requireNonNull(eventBus, "eventBus");
+		this.metadataChangeNotifier = Objects.requireNonNull(
+			metadataChangeNotifier,
+			"metadataChangeNotifier"
+		);
 		this.queueResourceManager = Objects.requireNonNull(
 			queueResourceManager,
 			"queueResourceManager"
@@ -99,13 +102,12 @@ public class ResetIndexerQueueCommandHandler implements CommandHandler {
 	}
 
 	private Future<Void> publish(IndexerRecord indexer) {
-		eventBus.publishIndexerWakeUp(new IndexerMetadataChanged(
+		return metadataChangeNotifier.indexerChanged(new IndexerMetadataChanged(
 			indexer.id(),
 			indexer.targetId(),
 			getType(),
 			indexer.version()
 		));
-		return Future.succeededFuture();
 	}
 
 	private Future<Void> completeReset(IndexerRecord indexer, String previousQueueName) {

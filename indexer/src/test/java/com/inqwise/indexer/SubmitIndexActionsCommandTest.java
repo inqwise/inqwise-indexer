@@ -492,7 +492,7 @@ class SubmitIndexActionsCommandTest {
 			.register(new SubmitIndexActionsCommandHandler(
 				repository,
 				emptyTargetDefinitionProvider(),
-				eventBus,
+				TestMetadataChangeNotifiers.create(eventBus),
 				queue,
 				invalidRouteCache
 			));
@@ -986,7 +986,7 @@ class SubmitIndexActionsCommandTest {
 				)),
 				documentResources,
 				queueResources,
-				eventBus,
+				TestMetadataChangeNotifiers.create(eventBus),
 				queue,
 				null,
 				List.of()
@@ -1012,7 +1012,7 @@ class SubmitIndexActionsCommandTest {
 				)),
 				documentResources,
 				queueResources,
-				eventBus,
+				TestMetadataChangeNotifiers.create(eventBus),
 				queue,
 				invalidRouteCache,
 				List.of()

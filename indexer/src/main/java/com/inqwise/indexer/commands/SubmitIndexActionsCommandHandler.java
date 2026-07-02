@@ -4,9 +4,9 @@ import java.util.List;
 import java.util.Objects;
 
 import com.inqwise.indexer.IndexerMetadataChanged;
-import com.inqwise.indexer.IndexerLifecycleEventBus;
 import com.inqwise.indexer.IndexerQueueClient;
 import com.inqwise.indexer.IndexerQueueResourceManager;
+import com.inqwise.indexer.MetadataChangeNotifier;
 import com.inqwise.indexer.definitions.IndexDefinition;
 import com.inqwise.indexer.definitions.IndexerDefinition;
 import com.inqwise.indexer.definitions.IndexerDefinitionProvider;
@@ -29,7 +29,7 @@ import io.vertx.core.Future;
 public class SubmitIndexActionsCommandHandler implements CommandHandler {
 	private final MetadataSubmitIndexActionRouter metadataRouter;
 	private final TargetDefinitionProvider targetDefinitionProvider;
-	private final IndexerLifecycleEventBus eventBus;
+	private final MetadataChangeNotifier metadataChangeNotifier;
 	private final RoutedIndexActionPublisher publisher;
 	private final InvalidRouteCache invalidRouteCache;
 	private final TargetPeriodResolver periodResolver = new TargetPeriodResolver();
@@ -37,26 +37,26 @@ public class SubmitIndexActionsCommandHandler implements CommandHandler {
 	public SubmitIndexActionsCommandHandler(
 		DocumentStoreMetadataRepository metadataRepository,
 		TargetDefinitionProvider targetDefinitionProvider,
-		IndexerLifecycleEventBus eventBus,
+		MetadataChangeNotifier metadataChangeNotifier,
 		IndexerQueueClient queue
 	) {
-		this(metadataRepository, targetDefinitionProvider, eventBus, queue, null);
+		this(metadataRepository, targetDefinitionProvider, metadataChangeNotifier, queue, null);
 	}
 
 	public SubmitIndexActionsCommandHandler(
 		DocumentStoreMetadataRepository metadataRepository,
 		TargetDefinitionProvider targetDefinitionProvider,
-		IndexerLifecycleEventBus eventBus,
+		MetadataChangeNotifier metadataChangeNotifier,
 		IndexerQueueClient queue,
 		InvalidRouteCache invalidRouteCache
 	) {
-		this(metadataRepository, targetDefinitionProvider, eventBus, queue, invalidRouteCache, IndexerPlugins.empty());
+		this(metadataRepository, targetDefinitionProvider, metadataChangeNotifier, queue, invalidRouteCache, IndexerPlugins.empty());
 	}
 
 	public SubmitIndexActionsCommandHandler(
 		DocumentStoreMetadataRepository metadataRepository,
 		TargetDefinitionProvider targetDefinitionProvider,
-		IndexerLifecycleEventBus eventBus,
+		MetadataChangeNotifier metadataChangeNotifier,
 		IndexerQueueClient queue,
 		InvalidRouteCache invalidRouteCache,
 		IndexerPlugins plugins
@@ -64,7 +64,7 @@ public class SubmitIndexActionsCommandHandler implements CommandHandler {
 		this(
 			metadataRepository,
 			targetDefinitionProvider,
-			eventBus,
+			metadataChangeNotifier,
 			queue,
 			invalidRouteCache,
 			Objects.requireNonNull(plugins, "plugins").actionReceiveCapabilities()
@@ -74,7 +74,7 @@ public class SubmitIndexActionsCommandHandler implements CommandHandler {
 	public SubmitIndexActionsCommandHandler(
 		DocumentStoreMetadataRepository metadataRepository,
 		TargetDefinitionProvider targetDefinitionProvider,
-		IndexerLifecycleEventBus eventBus,
+		MetadataChangeNotifier metadataChangeNotifier,
 		IndexerQueueClient queue,
 		InvalidRouteCache invalidRouteCache,
 		List<IndexerActionReceiveCapability> receiveCapabilities
@@ -85,7 +85,7 @@ public class SubmitIndexActionsCommandHandler implements CommandHandler {
 			defaultIndexerDefinitionProvider(),
 			IndexerDocumentIndexResourceManager.NOOP,
 			IndexerQueueResourceManager.NOOP,
-			eventBus,
+			metadataChangeNotifier,
 			queue,
 			invalidRouteCache,
 			receiveCapabilities
@@ -98,7 +98,7 @@ public class SubmitIndexActionsCommandHandler implements CommandHandler {
 		IndexerDefinitionProvider indexerDefinitionProvider,
 		IndexerDocumentIndexResourceManager documentIndexResources,
 		IndexerQueueResourceManager queueResources,
-		IndexerLifecycleEventBus eventBus,
+		MetadataChangeNotifier metadataChangeNotifier,
 		IndexerQueueClient queue,
 		InvalidRouteCache invalidRouteCache,
 		List<IndexerActionReceiveCapability> receiveCapabilities
@@ -115,7 +115,10 @@ public class SubmitIndexActionsCommandHandler implements CommandHandler {
 			targetDefinitionProvider,
 			"targetDefinitionProvider"
 		);
-		this.eventBus = Objects.requireNonNull(eventBus, "eventBus");
+		this.metadataChangeNotifier = Objects.requireNonNull(
+			metadataChangeNotifier,
+			"metadataChangeNotifier"
+		);
 		this.publisher = new RoutedIndexActionPublisher(queue);
 		this.invalidRouteCache = invalidRouteCache;
 	}
@@ -161,13 +164,12 @@ public class SubmitIndexActionsCommandHandler implements CommandHandler {
 			return Future.succeededFuture();
 		}
 
-		eventBus.publishIndexerWakeUp(new IndexerMetadataChanged(
+		return metadataChangeNotifier.indexerChanged(new IndexerMetadataChanged(
 			group.indexerId(),
 			group.targetId(),
 			getType(),
 			group.indexerVersion()
 		));
-		return Future.succeededFuture();
 	}
 
 	private Future<Void> recordStableInvalidRoute(SubmitIndexActionsCommand submit, Throwable error) {

@@ -17,6 +17,7 @@ import com.inqwise.indexer.IndexerRole;
 import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.IndexerType;
 import com.inqwise.indexer.InMemoryIndexerLifecycleEventBus;
+import com.inqwise.indexer.TestMetadataChangeNotifiers;
 import com.inqwise.indexer.definitions.IndexDefinition;
 import com.inqwise.indexer.errors.RetryableStaleStateException;
 import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
@@ -109,7 +110,10 @@ class CleanupDeletingIndexerCommandTest {
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 
 		insertIndexer(repository, IndexResourceOwnership.OWNER)
-			.compose(indexer -> new MetadataIndexerOperations(repository, eventBus)
+			.compose(indexer -> new MetadataIndexerOperations(
+				repository,
+				TestMetadataChangeNotifiers.create(eventBus)
+			)
 				.markDeleting(new MarkIndexerDeletingRequest(indexer.indexerId(), 0L)))
 			.compose(marked -> {
 				Integer indexerId = marked.orElseThrow().id();
@@ -149,7 +153,10 @@ class CleanupDeletingIndexerCommandTest {
 		return commands
 			.register(new CleanupDeletingIndexerCommandHandler(repository, queues, indexes))
 			.register(new DeleteIndexerCommandHandler(
-				new MetadataIndexerOperations(repository, new InMemoryIndexerLifecycleEventBus()),
+				new MetadataIndexerOperations(
+					repository,
+					TestMetadataChangeNotifiers.create(new InMemoryIndexerLifecycleEventBus())
+				),
 				commands
 			));
 	}

@@ -2,7 +2,7 @@ package com.inqwise.indexer.commands;
 
 import java.util.Objects;
 
-import com.inqwise.indexer.IndexerLifecycleEventBus;
+import com.inqwise.indexer.MetadataChangeNotifier;
 import com.inqwise.indexer.TargetMetadataChanged;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.TargetProvisioningState;
@@ -14,20 +14,17 @@ import io.vertx.core.Future;
 
 public class RecoverTargetProvisioningCommandHandler implements CommandHandler {
 	private final DocumentStoreMetadataRepository repository;
-	private final IndexerLifecycleEventBus eventBus;
-
-	public RecoverTargetProvisioningCommandHandler(
-		DocumentStoreMetadataRepository repository
-	) {
-		this(repository, IndexerLifecycleEventBus.NOOP);
-	}
+	private final MetadataChangeNotifier metadataChangeNotifier;
 
 	public RecoverTargetProvisioningCommandHandler(
 		DocumentStoreMetadataRepository repository,
-		IndexerLifecycleEventBus eventBus
+		MetadataChangeNotifier metadataChangeNotifier
 	) {
 		this.repository = Objects.requireNonNull(repository, "repository");
-		this.eventBus = eventBus == null ? IndexerLifecycleEventBus.NOOP : eventBus;
+		this.metadataChangeNotifier = Objects.requireNonNull(
+			metadataChangeNotifier,
+			"metadataChangeNotifier"
+		);
 	}
 
 	@Override
@@ -70,7 +67,7 @@ public class RecoverTargetProvisioningCommandHandler implements CommandHandler {
 			recover.getExpectedVersion()
 		)).compose(ignored -> repository.getTargetById(target.id()))
 			.compose(found -> found
-				.map(current -> eventBus.publish(new TargetMetadataChanged(
+				.map(current -> metadataChangeNotifier.targetChanged(new TargetMetadataChanged(
 					current.id(),
 					current.targetName(),
 					current.periodKey(),

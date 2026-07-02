@@ -473,7 +473,10 @@ class CreateLoadCommandTest {
 				IndexerDocumentIndexResourceManager.NOOP
 			))
 			.register(new DeleteIndexerCommandHandler(
-				new MetadataIndexerOperations(metadata, eventBus),
+				new MetadataIndexerOperations(
+					metadata,
+					LoadTestMetadataChangeNotifiers.create(eventBus)
+				),
 				commands
 			))
 			.register(new CleanupLoadCommandHandler(metadata, loads, commands));

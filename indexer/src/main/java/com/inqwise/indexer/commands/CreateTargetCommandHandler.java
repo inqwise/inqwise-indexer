@@ -2,8 +2,8 @@ package com.inqwise.indexer.commands;
 
 import java.util.Objects;
 
-import com.inqwise.indexer.IndexerLifecycleEventBus;
 import com.inqwise.indexer.IndexerQueueResourceManager;
+import com.inqwise.indexer.MetadataChangeNotifier;
 import com.inqwise.indexer.definitions.IndexerDefinitionProvider;
 import com.inqwise.indexer.definitions.TargetDefinitionProvider;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
@@ -21,7 +21,7 @@ public class CreateTargetCommandHandler implements CommandHandler {
 		IndexerDefinitionProvider indexerDefinitionProvider,
 		IndexerDocumentIndexResourceManager documentIndexResources,
 		IndexerQueueResourceManager queueResources,
-		IndexerLifecycleEventBus eventBus
+		MetadataChangeNotifier metadataChangeNotifier
 	) {
 		this.operation = new CreateTargetOperation(
 			Objects.requireNonNull(repository, "repository"),
@@ -29,7 +29,7 @@ public class CreateTargetCommandHandler implements CommandHandler {
 			indexerDefinitionProvider,
 			documentIndexResources,
 			queueResources,
-			eventBus
+			metadataChangeNotifier
 		);
 	}
 

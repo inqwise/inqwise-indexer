@@ -2,9 +2,9 @@ package com.inqwise.indexer.provisioning;
 
 import java.util.Objects;
 
-import com.inqwise.indexer.IndexerLifecycleEventBus;
 import com.inqwise.indexer.IndexerMetadataChanged;
 import com.inqwise.indexer.IndexerQueueResourceManager;
+import com.inqwise.indexer.MetadataChangeNotifier;
 import com.inqwise.indexer.TargetMetadataChanged;
 import com.inqwise.indexer.commands.CreateTargetCommand;
 import com.inqwise.indexer.commands.InitialPublicationMode;
@@ -35,7 +35,7 @@ public class CreateTargetOperation {
 	private final DocumentStoreMetadataRepository repository;
 	private final TargetDefinitionProvider targetDefinitionProvider;
 	private final IndexerProvisioningService provisioningService;
-	private final IndexerLifecycleEventBus eventBus;
+	private final MetadataChangeNotifier metadataChangeNotifier;
 	private final TargetPeriodResolver periodResolver = new TargetPeriodResolver();
 	private final PublishIndexCommandHandler publishIndex;
 
@@ -45,7 +45,7 @@ public class CreateTargetOperation {
 		IndexerDefinitionProvider indexerDefinitionProvider,
 		IndexerDocumentIndexResourceManager documentIndexResources,
 		IndexerQueueResourceManager queueResources,
-		IndexerLifecycleEventBus eventBus
+		MetadataChangeNotifier metadataChangeNotifier
 	) {
 		this.repository = Objects.requireNonNull(repository, "repository");
 		this.targetDefinitionProvider = Objects.requireNonNull(
@@ -58,7 +58,10 @@ public class CreateTargetOperation {
 			documentIndexResources,
 			queueResources
 		);
-		this.eventBus = eventBus == null ? IndexerLifecycleEventBus.NOOP : eventBus;
+		this.metadataChangeNotifier = Objects.requireNonNull(
+			metadataChangeNotifier,
+			"metadataChangeNotifier"
+		);
 		this.publishIndex = new PublishIndexCommandHandler(repository);
 	}
 
@@ -202,17 +205,16 @@ public class CreateTargetOperation {
 	}
 
 	private Future<Void> publishMetadataChanged(IndexerRecord indexer) {
-		eventBus.publishIndexerWakeUp(new IndexerMetadataChanged(
+		return metadataChangeNotifier.indexerChanged(new IndexerMetadataChanged(
 			indexer.id(),
 			indexer.targetId(),
 			CreateTargetCommand.TYPE,
 			indexer.version()
 		));
-		return Future.succeededFuture();
 	}
 
 	private Future<Void> publishTargetMetadataChanged(TargetRecord target) {
-		return eventBus.publish(new TargetMetadataChanged(
+		return metadataChangeNotifier.targetChanged(new TargetMetadataChanged(
 			target.id(),
 			target.targetName(),
 			target.periodKey(),

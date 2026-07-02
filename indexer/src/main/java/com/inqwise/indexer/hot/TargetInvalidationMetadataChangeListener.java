@@ -18,19 +18,16 @@ public class TargetInvalidationMetadataChangeListener {
 
 	private final IndexerLifecycleEventBus eventBus;
 	private final HotMetadataView hotMetadataView;
-	private final TargetInvalidationRegistry registry;
 	private Future<Void> startFuture;
 	private IndexerLifecycleSubscription indexerSubscription;
 	private IndexerLifecycleSubscription targetSubscription;
 
 	public TargetInvalidationMetadataChangeListener(
 		IndexerLifecycleEventBus eventBus,
-		HotMetadataView hotMetadataView,
-		TargetInvalidationRegistry registry
+		HotMetadataView hotMetadataView
 	) {
 		this.eventBus = Objects.requireNonNull(eventBus, "eventBus");
 		this.hotMetadataView = Objects.requireNonNull(hotMetadataView, "hotMetadataView");
-		this.registry = Objects.requireNonNull(registry, "registry");
 	}
 
 	public synchronized Future<Void> start() {
@@ -70,12 +67,12 @@ public class TargetInvalidationMetadataChangeListener {
 
 	Future<Void> invalidate(IndexerMetadataChanged event) {
 		hotMetadataView.invalidateHotTargetByIndexerId(event.getIndexerId());
-		return registry.markInvalidated(event.getTargetId());
+		return Future.succeededFuture();
 	}
 
 	Future<Void> invalidate(TargetMetadataChanged event) {
 		hotMetadataView.invalidateHotTargetByConcreteTargetId(event.getTargetId());
-		return registry.markInvalidated(event.getTargetId());
+		return Future.succeededFuture();
 	}
 
 	private synchronized void clearFailedStart() {

@@ -8,6 +8,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.inqwise.indexer.gateway.GatewayRestVerticle;
+import com.inqwise.indexer.MetadataChangeNotifier;
 import com.inqwise.indexer.hot.InvalidRouteMetadataChangeListener;
 import com.inqwise.indexer.hot.TargetInvalidationMetadataChangeListener;
 import com.inqwise.indexer.hot.TargetInvalidationPoller;
@@ -229,7 +230,10 @@ public class IndexerNode {
 			deployed = deployed.compose(ignored -> vertx.deployVerticle(
 				new AdminServiceVerticle(
 					components.repository(),
-					components.lifecycleEventBus(),
+					new MetadataChangeNotifier(
+						components.targetInvalidationRegistry(),
+						components.lifecycleEventBus()
+					),
 					components.queueResources(),
 					components.targetDefinitionProvider(),
 					components.indexerDefinitionProvider(),

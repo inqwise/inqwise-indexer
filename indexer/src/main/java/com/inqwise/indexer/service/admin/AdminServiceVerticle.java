@@ -2,8 +2,8 @@ package com.inqwise.indexer.service.admin;
 
 import java.util.Objects;
 
-import com.inqwise.indexer.IndexerLifecycleEventBus;
 import com.inqwise.indexer.IndexerQueueResourceManager;
+import com.inqwise.indexer.MetadataChangeNotifier;
 import com.inqwise.indexer.commands.CommandService;
 import com.inqwise.indexer.definitions.IndexerDefinitionProvider;
 import com.inqwise.indexer.definitions.TargetDefinitionProvider;
@@ -19,7 +19,7 @@ public class AdminServiceVerticle extends ServiceProxyVerticle<AdminService> {
 
 	public AdminServiceVerticle(
 		DocumentStoreMetadataRepository repository,
-		IndexerLifecycleEventBus eventBus,
+		MetadataChangeNotifier metadataChangeNotifier,
 		IndexerQueueResourceManager queueResources,
 		TargetDefinitionProvider targetDefinitionProvider,
 		IndexerDefinitionProvider indexerDefinitionProvider,
@@ -29,7 +29,7 @@ public class AdminServiceVerticle extends ServiceProxyVerticle<AdminService> {
 	) {
 		this.service = new AdminServiceImpl(
 			Objects.requireNonNull(repository, "repository"),
-			Objects.requireNonNull(eventBus, "eventBus"),
+			Objects.requireNonNull(metadataChangeNotifier, "metadataChangeNotifier"),
 			Objects.requireNonNull(queueResources, "queueResources"),
 			Objects.requireNonNull(targetDefinitionProvider, "targetDefinitionProvider"),
 			Objects.requireNonNull(indexerDefinitionProvider, "indexerDefinitionProvider"),

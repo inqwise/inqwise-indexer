@@ -3,9 +3,9 @@ package com.inqwise.indexer.operations;
 import java.util.Objects;
 import java.util.Optional;
 
-import com.inqwise.indexer.IndexerLifecycleEventBus;
 import com.inqwise.indexer.IndexerMetadataChanged;
 import com.inqwise.indexer.IndexerRuntimeState;
+import com.inqwise.indexer.MetadataChangeNotifier;
 import com.inqwise.indexer.commands.DeleteIndexerCommand;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.IndexerRecord;
@@ -19,14 +19,17 @@ public final class MetadataIndexerOperations implements IndexerOperations {
 	public static final String DELETE_CHANGE_TYPE = DeleteIndexerCommand.TYPE;
 
 	private final DocumentStoreMetadataRepository repository;
-	private final IndexerLifecycleEventBus eventBus;
+	private final MetadataChangeNotifier metadataChangeNotifier;
 
 	public MetadataIndexerOperations(
 		DocumentStoreMetadataRepository repository,
-		IndexerLifecycleEventBus eventBus
+		MetadataChangeNotifier metadataChangeNotifier
 	) {
 		this.repository = Objects.requireNonNull(repository, "repository");
-		this.eventBus = Objects.requireNonNull(eventBus, "eventBus");
+		this.metadataChangeNotifier = Objects.requireNonNull(
+			metadataChangeNotifier,
+			"metadataChangeNotifier"
+		);
 	}
 
 	@Override
@@ -86,14 +89,15 @@ public final class MetadataIndexerOperations implements IndexerOperations {
 		boolean changed
 	) {
 		if (changed) {
-			eventBus.publishIndexerWakeUp(new IndexerMetadataChanged(
+			return metadataChangeNotifier.indexerChanged(new IndexerMetadataChanged(
 				indexer.id(),
 				indexer.targetId(),
 				DELETE_CHANGE_TYPE,
 				indexer.version()
-			));
+			)).map(ignored -> Optional.of(indexer));
 		}
 
-		return Future.succeededFuture(Optional.of(indexer));
+		return metadataChangeNotifier.confirmTargetInvalidated(indexer.targetId())
+			.map(ignored -> Optional.of(indexer));
 	}
 }

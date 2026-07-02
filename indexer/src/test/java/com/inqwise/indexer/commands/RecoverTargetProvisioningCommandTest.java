@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import com.inqwise.indexer.InMemoryIndexerLifecycleEventBus;
+import com.inqwise.indexer.TestMetadataChangeNotifiers;
 import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.metadata.TargetProvisioningState;
@@ -138,6 +139,9 @@ class RecoverTargetProvisioningCommandTest {
 		InMemoryIndexerLifecycleEventBus eventBus
 	) {
 		return new InMemoryCommandEngine()
-			.register(new RecoverTargetProvisioningCommandHandler(repository, eventBus));
+			.register(new RecoverTargetProvisioningCommandHandler(
+				repository,
+				TestMetadataChangeNotifiers.create(eventBus)
+			));
 	}
 }

@@ -12,6 +12,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import com.inqwise.indexer.IndexerMetadataChanged;
 import com.inqwise.indexer.IndexerType;
 import com.inqwise.indexer.InMemoryIndexerLifecycleEventBus;
+import com.inqwise.indexer.TestMetadataChangeNotifiers;
 import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.metadata.InsertIndexer;
@@ -92,7 +93,10 @@ class MetadataDeleteIndexerCommandTest {
 				IndexerDocumentIndexResourceManager.NOOP
 			))
 			.register(new DeleteIndexerCommandHandler(
-				new MetadataIndexerOperations(repository, eventBus),
+				new MetadataIndexerOperations(
+					repository,
+					TestMetadataChangeNotifiers.create(eventBus)
+				),
 				commandService
 			));
 	}
