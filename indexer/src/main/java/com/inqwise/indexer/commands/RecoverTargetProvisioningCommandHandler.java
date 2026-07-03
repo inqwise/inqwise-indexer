@@ -49,6 +49,17 @@ public class RecoverTargetProvisioningCommandHandler implements CommandHandler {
 		TargetRecord target,
 		RecoverTargetProvisioningCommand recover
 	) {
+		if (alreadyApplied(target, recover)) {
+			return publish(target, target.version());
+		}
+
+		if (target.version() != recover.getExpectedVersion()) {
+			return Future.failedFuture(
+				"Target version conflict for id " + target.id() + ": expected "
+					+ recover.getExpectedVersion() + " but was " + target.version()
+			);
+		}
+
 		if (target.status() != TargetStatus.ACTIVE) {
 			return Future.failedFuture(
 				"Target is not active: " + recover.getTargetId()
@@ -65,15 +76,27 @@ public class RecoverTargetProvisioningCommandHandler implements CommandHandler {
 			target.id(),
 			TargetProvisioningState.READY,
 			recover.getExpectedVersion()
-		)).compose(ignored -> repository.getTargetById(target.id()))
-			.compose(found -> found
-				.map(current -> metadataChangeNotifier.targetChanged(new TargetMetadataChanged(
-					current.id(),
-					current.targetName(),
-					current.periodKey(),
-					RecoverTargetProvisioningCommand.TYPE,
-					current.version()
-				)))
-				.orElseGet(() -> Future.succeededFuture()));
+		)).compose(ignored -> publish(target, recover.getExpectedVersion() + 1L));
+	}
+
+	private boolean alreadyApplied(
+		TargetRecord target,
+		RecoverTargetProvisioningCommand recover
+	) {
+		return recover.getExpectedVersion() >= 0L
+			&& recover.getExpectedVersion() < Long.MAX_VALUE
+			&& target.version() == recover.getExpectedVersion() + 1L
+			&& target.status() == TargetStatus.ACTIVE
+			&& target.provisioningState() == TargetProvisioningState.READY;
+	}
+
+	private Future<Void> publish(TargetRecord target, long version) {
+		return metadataChangeNotifier.targetChanged(new TargetMetadataChanged(
+			target.id(),
+			target.targetName(),
+			target.periodKey(),
+			RecoverTargetProvisioningCommand.TYPE,
+			version
+		));
 	}
 }

@@ -64,6 +64,76 @@ class RecoverTargetProvisioningCommandTest {
 	}
 
 	@Test
+	void exactRecoveryRedeliveryDoesNotAdvanceVersion(VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		InMemoryCommandEngine commands = commandService(repository, eventBus);
+
+		repository.insertTarget(new InsertTarget(
+			"target-customers",
+			"customers",
+			null,
+			null,
+			null,
+			TargetStatus.ACTIVE,
+			TargetProvisioningState.FAILED
+		)).compose(targetId -> {
+			RecoverTargetProvisioningCommand recover =
+				new RecoverTargetProvisioningCommand(targetId, 0L);
+			return commands.submit(recover)
+				.compose(ignored -> commands.submit(recover))
+				.compose(ignored -> repository.getTargetById(targetId));
+		}).onComplete(testContext.succeeding(found -> testContext.verify(() -> {
+			assertEquals(TargetProvisioningState.READY, found.orElseThrow().provisioningState());
+			assertEquals(1L, found.orElseThrow().version());
+			assertEquals(2, eventBus.targetEvents().size());
+			testContext.completeNow();
+		})));
+	}
+
+	@Test
+	void recoveryRedeliveryRejectsLaterReadyVersion(VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryCommandEngine commands = commandService(repository);
+
+		repository.insertTarget(new InsertTarget(
+			"target-customers",
+			"customers",
+			null,
+			null,
+			null,
+			TargetStatus.ACTIVE,
+			TargetProvisioningState.FAILED
+		)).compose(targetId -> commands.submit(new RecoverTargetProvisioningCommand(
+			targetId,
+			0L
+		)).compose(ignored -> repository.updateTargetProvisioningState(
+			new UpdateTargetProvisioningState(
+				targetId,
+				TargetProvisioningState.PROVISIONING,
+				1L
+			)
+		)).compose(ignored -> repository.updateTargetProvisioningState(
+			new UpdateTargetProvisioningState(
+				targetId,
+				TargetProvisioningState.READY,
+				2L
+			)
+		)).compose(ignored -> commands.submit(new RecoverTargetProvisioningCommand(
+			targetId,
+			0L
+		)))).onComplete(testContext.failing(error -> testContext.verify(() -> {
+			assertEquals(
+				"Target version conflict for id 1: expected 0 but was 3",
+				error.getMessage()
+			);
+			testContext.completeNow();
+		})));
+	}
+
+	@Test
 	void failsWhenTargetIsNotActive(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();

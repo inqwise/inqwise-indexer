@@ -196,6 +196,18 @@ Loads with live support publish the linked `LIVE_WRITER` after historical comple
 
 Direct lifecycle commands use exact optimistic-concurrency replay rules. `PublishIndexCommand` accepts an already-published record only at `expectedVersion + 1`, revalidates readiness and resources, and does not advance metadata again. `RetireIndexCommand` likewise accepts only a `RETIRED` record at `expectedVersion + 1` as its own completed redelivery. Activate and deactivate commands require an expected indexer version and recognize only the corresponding runtime state at `expectedVersion + 1` on a non-deleting indexer; this prevents deactivation from claiming a deletion transition that produced the same runtime state. Exact replay republishes the metadata wake-up without another mutation. `MarkIndexReadyCommand` recognizes an exact replay only when the publication is `READY` at `expectedVersion + 1` and its persisted reason equals the command reason. Any later version remains a conflict even when a record has returned to the requested state, so stale commands cannot claim an unrelated transition.
 
+Core command redelivery follows these explicit contracts:
+
+| Command group | Redelivery contract |
+| --- | --- |
+| Publish, retire, activate, deactivate, mark-ready, target recovery | Recognize only the exact resulting state at the expected next version; later versions conflict. Wake-up-producing commands reissue the wake-up without another mutation. |
+| Target/indexer creation | Provisioning owns durable identity and concurrent-create resolution; command retry reloads or reuses the persisted resource. |
+| Indexer deletion | An existing `DELETING` record re-confirms invalidation and resubmits cleanup regardless of the initiating version. A missing record is completed cleanup. |
+| Queue reset | Exact resulting queue identity and next version resubmit wake-up and old-queue cleanup without creating another generation. |
+| Physical cleanup | Missing queue, index, or metadata records are successful cleanup misses; real provider failures remain retryable failures. |
+
+`RecoverTargetProvisioningCommand` follows the exact contract: `ACTIVE`, `READY`, and `expectedVersion + 1` identify its completed result. Exact retry republishes target invalidation without advancing metadata, while every later version conflicts even if the target later returns to `READY`.
+
 `ApproveLoadPublicationCommand` is accepted only for a review-required load in `WAITING_FOR_REVIEW`. It records `approvedAt`, `approvedBy`, and `approvalReason`, moves the load to `APPROVED`, and submits `PublishLoadCommand`. This prevents early approval from replacing historical or catch-up progress state. Marker handling auto-publishes non-reviewed loads when a command service is supplied: historical-only loads publish after the completion marker, and linked live loads publish after the catch-up barrier marker.
 
 `CancelLoadCommand` marks the load `CANCELLED` and, when wired with a command service, submits generic delete commands for the load writer and optional linked live writer. A `CREATED` load has not been accepted by a provider yet, so cancel skips provider stop. `STARTING` and later active states resolve the stored provider id from `IndexerLoadRecord` and stop that provider before cancellation. Published loads are not cancellable through this command.
