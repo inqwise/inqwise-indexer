@@ -62,7 +62,12 @@ public class CreateTargetOperation {
 			metadataChangeNotifier,
 			"metadataChangeNotifier"
 		);
-		this.publishIndex = new PublishIndexCommandHandler(repository);
+		this.publishIndex = new PublishIndexCommandHandler(
+			repository,
+			indexerDefinitionProvider,
+			documentIndexResources,
+			queueResources
+		);
 	}
 
 	public Future<TargetRecord> create(CreateTargetCommand create) {

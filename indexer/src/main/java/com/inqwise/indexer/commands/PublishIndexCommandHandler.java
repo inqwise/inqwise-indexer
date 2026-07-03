@@ -2,6 +2,9 @@ package com.inqwise.indexer.commands;
 
 import java.util.Objects;
 
+import com.inqwise.indexer.IndexerQueueResourceManager;
+import com.inqwise.indexer.definitions.IndexerDefinitionProvider;
+import com.inqwise.indexer.definitions.IndexerDefinitionRequest;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.IndexerProvisioningState;
 import com.inqwise.indexer.metadata.IndexerRecord;
@@ -11,14 +14,29 @@ import com.inqwise.indexer.metadata.PublicationRecord;
 import com.inqwise.indexer.metadata.PublicationState;
 import com.inqwise.indexer.metadata.ReadinessState;
 import com.inqwise.indexer.metadata.UpdateIndexerPublicationState;
+import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 
 import io.vertx.core.Future;
 
 public class PublishIndexCommandHandler implements CommandHandler {
 	private final DocumentStoreMetadataRepository repository;
+	private final IndexerDefinitionProvider definitionProvider;
+	private final IndexerDocumentIndexResourceManager documentIndexResources;
+	private final IndexerQueueResourceManager queueResources;
 
-	public PublishIndexCommandHandler(DocumentStoreMetadataRepository repository) {
+	public PublishIndexCommandHandler(
+		DocumentStoreMetadataRepository repository,
+		IndexerDefinitionProvider definitionProvider,
+		IndexerDocumentIndexResourceManager documentIndexResources,
+		IndexerQueueResourceManager queueResources
+	) {
 		this.repository = Objects.requireNonNull(repository, "repository");
+		this.definitionProvider = Objects.requireNonNull(definitionProvider, "definitionProvider");
+		this.documentIndexResources = Objects.requireNonNull(
+			documentIndexResources,
+			"documentIndexResources"
+		);
+		this.queueResources = Objects.requireNonNull(queueResources, "queueResources");
 	}
 
 	@Override
@@ -42,6 +60,7 @@ public class PublishIndexCommandHandler implements CommandHandler {
 					.orElseGet(() -> Future.failedFuture(
 						"Publication not found for indexer: " + indexer.id()
 					))))
+			.compose(this::ensureResources)
 			.compose(indexer -> repository.updateIndexerPublicationState(
 				new UpdateIndexerPublicationState(
 					indexer.id(),
@@ -49,6 +68,22 @@ public class PublishIndexCommandHandler implements CommandHandler {
 					publish.getExpectedVersion()
 				)
 			));
+	}
+
+	private Future<IndexerRecord> ensureResources(IndexerRecord indexer) {
+		return definitionProvider.get(new IndexerDefinitionRequest(
+			indexer.targetId(),
+			indexer.targetName(),
+			indexer.type(),
+			indexer.role(),
+			indexer.indexOwnership()
+		)).compose(definition -> documentIndexResources.ensure(
+			indexer.indexName(),
+			definition.index()
+		).compose(ignored -> queueResources.ensure(
+			indexer.queueName(),
+			definition.queue()
+		)).map(indexer));
 	}
 
 	private Future<IndexerRecord> validatePublish(

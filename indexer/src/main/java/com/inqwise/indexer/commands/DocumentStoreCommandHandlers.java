@@ -39,7 +39,12 @@ public final class DocumentStoreCommandHandlers {
 				config.metadataChangeNotifier()
 			),
 			new MarkIndexReadyCommandHandler(config.repository()),
-			new PublishIndexCommandHandler(config.repository()),
+			new PublishIndexCommandHandler(
+				config.repository(),
+				config.indexerDefinitionProvider(),
+				config.documentIndexResources(),
+				config.queueResources()
+			),
 			new RetireIndexCommandHandler(config.repository()),
 			new RecoverTargetProvisioningCommandHandler(
 				config.repository(),

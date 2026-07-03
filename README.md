@@ -163,6 +163,8 @@ Routing identity fields are immutable by definition for normal lifecycle: `targe
 
 Failed indexer provisioning cleanup reuses the normal generic delete workflow. `DeleteIndexerCommand` moves a persisted `FAILED` indexer into deleting/non-active state, and `CleanupDeletingIndexerCommand` idempotently removes any queue or owned document index that was created before the failure, then finalizes metadata deletion. Recovery creates a replacement indexer through normal provisioning rather than mutating immutable routing identity.
 
+Index publication is fail-closed on both metadata and external resources. `PublishIndexCommandHandler` first validates publication readiness and indexer state, resolves the provider-owned `IndexerDefinition`, and idempotently ensures the exact document index and queue definitions before changing publication metadata. Definition lookup or resource compatibility/provider failures leave the indexer unpublished for command retry.
+
 ### Load And Reload Workflow
 
 Durable load/reload orchestration is split between the core `indexer` module and the `indexer-load` module. Core owns indexer roles, resource ownership, runtime marker processing hooks, and generic indexer commands. `indexer-load` owns load workflow metadata, external loader contracts, and marker handlers.

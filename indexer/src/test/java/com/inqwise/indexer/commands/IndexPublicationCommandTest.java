@@ -4,10 +4,18 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+import com.inqwise.indexer.IndexerQueueResourceManager;
 import com.inqwise.indexer.IndexerType;
+import com.inqwise.indexer.definitions.IndexDefinition;
+import com.inqwise.indexer.definitions.IndexerDefinition;
+import com.inqwise.indexer.definitions.QueueDefinition;
+import com.inqwise.indexer.definitions.StaticIndexerDefinitionProvider;
 import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.metadata.InsertIndexer;
@@ -16,8 +24,10 @@ import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.metadata.MutationState;
 import com.inqwise.indexer.metadata.PublicationState;
 import com.inqwise.indexer.metadata.ReadinessState;
+import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 
 import io.vertx.core.Future;
+import io.vertx.core.json.JsonObject;
 import io.vertx.junit5.VertxExtension;
 import io.vertx.junit5.VertxTestContext;
 
@@ -62,7 +72,13 @@ class IndexPublicationCommandTest {
 	void publishChangesIndexerPublicationState(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
-		InMemoryCommandEngine commandService = commandService(repository);
+		RecordingDocumentResources documentResources = new RecordingDocumentResources();
+		RecordingQueueResources queueResources = new RecordingQueueResources();
+		InMemoryCommandEngine commandService = commandService(
+			repository,
+			documentResources,
+			queueResources
+		);
 
 		insertPublishableIndexer(repository, MutationState.WRITABLE, ReadinessState.READY)
 			.compose(indexerId -> commandService.submit(new PublishIndexCommand(indexerId, 0L))
@@ -71,6 +87,37 @@ class IndexPublicationCommandTest {
 				assertTrue(found.isPresent());
 				assertEquals(PublicationState.PUBLISHED, found.get().publicationState());
 				assertEquals(1L, found.get().version());
+				assertEquals(List.of("customers_1"), documentResources.ensured);
+				assertEquals(List.of("queue-customers"), queueResources.ensured);
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void publishLeavesMetadataUnpublishedWhenResourceCheckFails(
+		VertxTestContext testContext
+	) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		RecordingDocumentResources documentResources = new RecordingDocumentResources();
+		documentResources.failure = new IllegalStateException("index unavailable");
+		InMemoryCommandEngine commandService = commandService(
+			repository,
+			documentResources,
+			new RecordingQueueResources()
+		);
+
+		insertPublishableIndexer(repository, MutationState.WRITABLE, ReadinessState.READY)
+			.compose(indexerId -> commandService.submit(new PublishIndexCommand(indexerId, 0L))
+				.transform(result -> repository.getIndexerById(indexerId).map(found -> {
+					assertTrue(result.failed());
+					assertEquals("index unavailable", result.cause().getMessage());
+					return found;
+				})))
+			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
+				assertTrue(found.isPresent());
+				assertEquals(PublicationState.UNPUBLISHED, found.get().publicationState());
+				assertEquals(0L, found.get().version());
 				testContext.completeNow();
 			})));
 	}
@@ -106,9 +153,29 @@ class IndexPublicationCommandTest {
 	}
 
 	private InMemoryCommandEngine commandService(InMemoryDocumentStoreMetadataRepository repository) {
+		return commandService(
+			repository,
+			new RecordingDocumentResources(),
+			new RecordingQueueResources()
+		);
+	}
+
+	private InMemoryCommandEngine commandService(
+		InMemoryDocumentStoreMetadataRepository repository,
+		IndexerDocumentIndexResourceManager documentResources,
+		IndexerQueueResourceManager queueResources
+	) {
 		return new InMemoryCommandEngine()
 			.register(new MarkIndexReadyCommandHandler(repository))
-			.register(new PublishIndexCommandHandler(repository))
+			.register(new PublishIndexCommandHandler(
+				repository,
+				new StaticIndexerDefinitionProvider(new IndexerDefinition(
+					new IndexDefinition("customers", "v1", new JsonObject(), new JsonObject()),
+					new QueueDefinition(new JsonObject())
+				)),
+				documentResources,
+				queueResources
+			))
 			.register(new RetireIndexCommandHandler(repository));
 	}
 
@@ -180,5 +247,37 @@ class IndexPublicationCommandTest {
 				PublicationState.PUBLISHED,
 				MutationState.READ_ONLY
 			)));
+	}
+
+	private static class RecordingDocumentResources
+		implements IndexerDocumentIndexResourceManager {
+		private final List<String> ensured = new ArrayList<>();
+		private Throwable failure;
+
+		@Override
+		public Future<Void> ensure(String indexName, IndexDefinition definition) {
+			ensured.add(indexName);
+			return failure == null ? Future.succeededFuture() : Future.failedFuture(failure);
+		}
+
+		@Override
+		public Future<Void> delete(String indexName) {
+			return Future.succeededFuture();
+		}
+	}
+
+	private static class RecordingQueueResources implements IndexerQueueResourceManager {
+		private final List<String> ensured = new ArrayList<>();
+
+		@Override
+		public Future<Void> ensure(String queueName) {
+			ensured.add(queueName);
+			return Future.succeededFuture();
+		}
+
+		@Override
+		public Future<Void> delete(String queueName) {
+			return Future.succeededFuture();
+		}
 	}
 }
