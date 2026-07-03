@@ -210,11 +210,19 @@ class AdminRestVerticleTest {
 			)))
 			.compose(indexerId -> vertx.deployVerticle(adminVerticle(repository, eventBus, queue))
 				.compose(ignored -> vertx.deployVerticle(restVerticle))
-				.compose(ignored -> post(vertx, restVerticle.actualPort(), "/admin/indexers/" + indexerId + "/deactivate"))
+				.compose(ignored -> post(
+					vertx,
+					restVerticle.actualPort(),
+					"/admin/indexers/" + indexerId + "/deactivate?expected_version=0"
+				))
 				.compose(deactivatedBody -> {
 					JsonObject deactivated = deactivatedBody.toJsonObject().getJsonObject("indexer");
 					assertEquals(IndexerRuntimeState.NON_ACTIVE.name(), deactivated.getString("runtime_state"));
-					return post(vertx, restVerticle.actualPort(), "/admin/indexers/" + indexerId + "/activate");
+					return post(
+						vertx,
+						restVerticle.actualPort(),
+						"/admin/indexers/" + indexerId + "/activate?expected_version=1"
+					);
 				}))
 			.onComplete(testContext.succeeding(activatedBody -> testContext.verify(() -> {
 				JsonObject activated = activatedBody.toJsonObject().getJsonObject("indexer");

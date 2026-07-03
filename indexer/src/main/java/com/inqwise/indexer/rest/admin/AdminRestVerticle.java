@@ -278,7 +278,8 @@ public class AdminRestVerticle extends AbstractVerticle {
 
 	private static AdminIndexerLifecycleRequest indexerLifecycleRequest(RoutingContext context) {
 		return new AdminIndexerLifecycleRequest()
-			.setIndexerId(pathInteger(context, "id"));
+			.setIndexerId(pathInteger(context, "id"))
+			.setExpectedVersion(requiredQueryLong(context, "expected_version"));
 	}
 
 	private static AdminResetIndexerQueueRequest resetIndexerQueueRequest(RoutingContext context) {

@@ -149,13 +149,17 @@ class AdminServiceVerticleTest {
 			)))
 			.compose(indexerId -> vertx.deployVerticle(adminVerticle(repository, eventBus, queue))
 				.compose(ignored -> AdminServices.proxy(vertx).activateIndexer(
-					new AdminIndexerLifecycleRequest().setIndexerId(indexerId)
+					new AdminIndexerLifecycleRequest()
+						.setIndexerId(indexerId)
+						.setExpectedVersion(0L)
 				))
 				.compose(activated -> {
 					assertEquals(IndexerRuntimeState.ACTIVE, activated.getIndexer().getRuntimeState());
 					assertEquals(1L, activated.getIndexer().getVersion());
 					return AdminServices.proxy(vertx).deactivateIndexer(
-						new AdminIndexerLifecycleRequest().setIndexerId(indexerId)
+						new AdminIndexerLifecycleRequest()
+							.setIndexerId(indexerId)
+							.setExpectedVersion(1L)
 					);
 				}))
 			.onComplete(testContext.succeeding(deactivated -> testContext.verify(() -> {

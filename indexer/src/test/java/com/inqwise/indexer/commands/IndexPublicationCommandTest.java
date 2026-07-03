@@ -24,6 +24,8 @@ import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.metadata.MutationState;
 import com.inqwise.indexer.metadata.PublicationState;
 import com.inqwise.indexer.metadata.ReadinessState;
+import com.inqwise.indexer.metadata.UpdateIndexerRuntimeState;
+import com.inqwise.indexer.metadata.UpdatePublicationReadiness;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 
 import io.vertx.core.Future;
@@ -50,6 +52,87 @@ class IndexPublicationCommandTest {
 				assertEquals(ReadinessState.READY, found.get().readinessState());
 				assertEquals("baseline loaded", found.get().reason());
 				assertNotNull(found.get().readyAt());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void exactMarkReadyRedeliveryDoesNotAdvanceVersion(VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryCommandEngine commandService = commandService(repository);
+
+		insertPublication(repository, ReadinessState.PENDING)
+			.compose(publicationId -> {
+				MarkIndexReadyCommand ready = new MarkIndexReadyCommand(
+					publicationId,
+					"baseline loaded",
+					0L
+				);
+				return commandService.submit(ready)
+					.compose(ignored -> commandService.submit(ready))
+					.compose(ignored -> repository.getPublicationById(publicationId));
+			})
+			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
+				assertTrue(found.isPresent());
+				assertEquals(ReadinessState.READY, found.get().readinessState());
+				assertEquals("baseline loaded", found.get().reason());
+				assertEquals(1L, found.get().version());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void markReadyRedeliveryRejectsDifferentReason(VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryCommandEngine commandService = commandService(repository);
+
+		insertPublication(repository, ReadinessState.PENDING)
+			.compose(publicationId -> commandService.submit(new MarkIndexReadyCommand(
+				publicationId,
+				"baseline loaded",
+				0L
+			)).compose(ignored -> commandService.submit(new MarkIndexReadyCommand(
+				publicationId,
+				"different completion",
+				0L
+			))))
+			.onComplete(testContext.failing(error -> testContext.verify(() -> {
+				assertTrue(error.getMessage().startsWith(
+					"Publication version conflict for id"
+				));
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void markReadyRedeliveryRejectsLaterVersion(VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryCommandEngine commandService = commandService(repository);
+
+		insertPublication(repository, ReadinessState.PENDING)
+			.compose(publicationId -> commandService.submit(new MarkIndexReadyCommand(
+				publicationId,
+				"baseline loaded",
+				0L
+			)).compose(ignored -> repository.updatePublicationReadiness(
+				new UpdatePublicationReadiness(
+					publicationId,
+					ReadinessState.PENDING,
+					"reopened",
+					1L
+				)
+			)).compose(ignored -> commandService.submit(new MarkIndexReadyCommand(
+				publicationId,
+				"baseline loaded",
+				0L
+			))))
+			.onComplete(testContext.failing(error -> testContext.verify(() -> {
+				assertTrue(error.getMessage().startsWith(
+					"Publication version conflict for id"
+				));
 				testContext.completeNow();
 			})));
 	}
@@ -197,6 +280,51 @@ class IndexPublicationCommandTest {
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
 				assertTrue(found.isPresent());
 				assertEquals(PublicationState.RETIRED, found.get().publicationState());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void exactRetireRedeliveryDoesNotAdvanceVersion(VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryCommandEngine commandService = commandService(repository);
+
+		insertPublishedIndexer(repository)
+			.compose(indexerId -> {
+				RetireIndexCommand retire = new RetireIndexCommand(indexerId, 0L);
+				return commandService.submit(retire)
+					.compose(ignored -> commandService.submit(retire))
+					.compose(ignored -> repository.getIndexerById(indexerId));
+			})
+			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
+				assertTrue(found.isPresent());
+				assertEquals(PublicationState.RETIRED, found.get().publicationState());
+				assertEquals(1L, found.get().version());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void retireRedeliveryRejectsLaterVersion(VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryCommandEngine commandService = commandService(repository);
+
+		insertPublishedIndexer(repository)
+			.compose(indexerId -> commandService.submit(new RetireIndexCommand(indexerId, 0L))
+				.compose(ignored -> repository.updateIndexerRuntimeState(
+					new UpdateIndexerRuntimeState(
+						indexerId,
+						IndexerRuntimeState.NON_ACTIVE,
+						1L
+					)
+				))
+				.compose(ignored -> commandService.submit(new RetireIndexCommand(indexerId, 0L))))
+			.onComplete(testContext.failing(error -> testContext.verify(() -> {
+				assertTrue(error.getMessage().startsWith(
+					"Indexer version conflict for id"
+				));
 				testContext.completeNow();
 			})));
 	}

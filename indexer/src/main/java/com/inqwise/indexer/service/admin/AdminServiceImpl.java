@@ -171,7 +171,10 @@ public class AdminServiceImpl implements AdminService {
 	public Future<AdminIndexerResult> activateIndexer(AdminIndexerLifecycleRequest request) {
 		try {
 			Integer indexerId = validateIndexerLifecycle(request);
-			return activateIndexer.handle(new ActivateIndexerCommand(indexerId))
+			return activateIndexer.handle(new ActivateIndexerCommand(
+				indexerId,
+				request.getExpectedVersion()
+			))
 				.compose(ignored -> loadIndexerResult(indexerId))
 				.recover(error -> Future.failedFuture(IndexerErrors.normalize(error)));
 		} catch (Throwable error) {
@@ -183,7 +186,10 @@ public class AdminServiceImpl implements AdminService {
 	public Future<AdminIndexerResult> deactivateIndexer(AdminIndexerLifecycleRequest request) {
 		try {
 			Integer indexerId = validateIndexerLifecycle(request);
-			return deactivateIndexer.handle(new DeactivateIndexerCommand(indexerId))
+			return deactivateIndexer.handle(new DeactivateIndexerCommand(
+				indexerId,
+				request.getExpectedVersion()
+			))
 				.compose(ignored -> loadIndexerResult(indexerId))
 				.recover(error -> Future.failedFuture(IndexerErrors.normalize(error)));
 		} catch (Throwable error) {
@@ -294,6 +300,9 @@ public class AdminServiceImpl implements AdminService {
 	private Integer validateIndexerLifecycle(AdminIndexerLifecycleRequest request) {
 		if (request == null || request.getIndexerId() == null) {
 			throw IndexerErrors.invalidRequest("Indexer id is required");
+		}
+		if (request.getExpectedVersion() == null) {
+			throw IndexerErrors.invalidRequest("Expected version is required");
 		}
 
 		return request.getIndexerId();

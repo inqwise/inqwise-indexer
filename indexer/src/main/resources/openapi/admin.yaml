@@ -220,6 +220,7 @@ paths:
       operationId: activateIndexer
       parameters:
         - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/ExpectedVersionQuery'
       responses:
         '200':
           description: Activated indexer.
@@ -232,6 +233,7 @@ paths:
       operationId: deactivateIndexer
       parameters:
         - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/ExpectedVersionQuery'
       responses:
         '200':
           description: Deactivated indexer.

@@ -43,35 +43,61 @@ public class ActivateIndexerCommandHandler implements CommandHandler {
 				}
 
 				IndexerRecord indexer = found.get();
+				if (alreadyApplied(activate, indexer)) {
+					return publish(indexer);
+				}
+
+				if (indexer.version() != activate.getExpectedVersion()) {
+					return Future.failedFuture(versionConflict(
+						indexer,
+						activate.getExpectedVersion()
+					));
+				}
+
 				if (indexer.status() != IndexerStatus.AVAILABLE
 					|| indexer.mutationState() == MutationState.DELETING) {
 					return Future.failedFuture("Cannot activate deleted indexer: " + activate.getIndexerId());
 				}
 
 				if (indexer.runtimeState() == IndexerRuntimeState.ACTIVE) {
-					return publish(indexer);
+					return Future.failedFuture("Indexer is already active: " + indexer.id());
 				}
 
 				return metadataRepository.updateIndexerRuntimeState(new UpdateIndexerRuntimeState(
 					activate.getIndexerId(),
 					IndexerRuntimeState.ACTIVE,
-					indexer.version()
+					activate.getExpectedVersion()
 				))
-					.compose(ignored -> metadataRepository.getIndexerById(activate.getIndexerId()))
-					.compose(updated -> updated
-						.map(this::publish)
-						.orElseGet(() -> Future.failedFuture(
-							"Indexer not found: " + activate.getIndexerId()
-						)));
+					.compose(ignored -> publish(
+						indexer,
+						activate.getExpectedVersion() + 1L
+					));
 			});
 	}
 
+	private boolean alreadyApplied(ActivateIndexerCommand activate, IndexerRecord indexer) {
+		return activate.getExpectedVersion() >= 0L
+			&& activate.getExpectedVersion() < Long.MAX_VALUE
+			&& indexer.version() == activate.getExpectedVersion() + 1L
+			&& indexer.runtimeState() == IndexerRuntimeState.ACTIVE
+			&& indexer.mutationState() != MutationState.DELETING;
+	}
+
+	private String versionConflict(IndexerRecord indexer, long expectedVersion) {
+		return "Indexer version conflict for id " + indexer.id() + ": expected "
+			+ expectedVersion + " but was " + indexer.version();
+	}
+
 	private Future<Void> publish(IndexerRecord indexer) {
+		return publish(indexer, indexer.version());
+	}
+
+	private Future<Void> publish(IndexerRecord indexer, long version) {
 		return metadataChangeNotifier.indexerChanged(new IndexerMetadataChanged(
 			indexer.id(),
 			indexer.targetId(),
 			getType(),
-			indexer.version()
+			version
 		));
 	}
 }

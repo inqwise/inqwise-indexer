@@ -65,7 +65,7 @@ class IndexerRuntimeTest {
 
 		insertIndexer(repository, IndexerRuntimeState.NON_ACTIVE, MutationState.WRITABLE)
 			.compose(id -> new IndexerRuntimeReconciler(vertx, repository, eventBus, runtime).start()
-				.compose(ignored -> commandService.submit(new ActivateIndexerCommand(id)))
+				.compose(ignored -> commandService.submit(new ActivateIndexerCommand(id, 0L)))
 				.compose(ignored -> repository.getIndexerById(id)))
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
 				assertEquals(IndexerRuntimeState.ACTIVE, found.orElseThrow().runtimeState());
@@ -105,7 +105,7 @@ class IndexerRuntimeTest {
 		insertIndexer(repository, IndexerRuntimeState.ACTIVE, MutationState.WRITABLE)
 			.compose(id -> new IndexerRuntimeReconciler(vertx, repository, eventBus, runtime).start()
 				.compose(ignored -> reconcile(runtime, repository, id))
-				.compose(ignored -> commandService.submit(new DeactivateIndexerCommand(id)))
+				.compose(ignored -> commandService.submit(new DeactivateIndexerCommand(id, 0L)))
 				.compose(ignored -> reconcile(runtime, repository, id))
 				.compose(ignored -> repository.getIndexerById(id)))
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {

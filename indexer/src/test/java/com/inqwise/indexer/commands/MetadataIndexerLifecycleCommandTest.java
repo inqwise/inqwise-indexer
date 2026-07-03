@@ -19,6 +19,7 @@ import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.metadata.MutationState;
 import com.inqwise.indexer.metadata.PublicationState;
+import com.inqwise.indexer.metadata.UpdateIndexerMutationState;
 
 import io.vertx.core.Future;
 import io.vertx.junit5.VertxExtension;
@@ -38,7 +39,7 @@ class MetadataIndexerLifecycleCommandTest {
 
 		eventBus.subscribe(events::add)
 			.compose(ignored -> insertIndexer(repository, IndexerRuntimeState.NON_ACTIVE))
-			.compose(indexerId -> commandService.submit(new ActivateIndexerCommand(indexerId))
+			.compose(indexerId -> commandService.submit(new ActivateIndexerCommand(indexerId, 0L))
 				.compose(ignored -> repository.getIndexerById(indexerId)))
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
 				assertTrue(found.isPresent());
@@ -63,11 +64,15 @@ class MetadataIndexerLifecycleCommandTest {
 
 		eventBus.subscribe(events::add)
 			.compose(ignored -> insertIndexer(repository, IndexerRuntimeState.NON_ACTIVE))
-			.compose(indexerId -> commandService.submit(new ActivateIndexerCommand(indexerId))
-				.compose(ignored -> commandService.submit(new ActivateIndexerCommand(indexerId)))
-				.compose(ignored -> commandService.submit(new DeactivateIndexerCommand(indexerId)))
-				.compose(ignored -> commandService.submit(new DeactivateIndexerCommand(indexerId)))
-				.compose(ignored -> repository.getIndexerById(indexerId)))
+			.compose(indexerId -> {
+				ActivateIndexerCommand activate = new ActivateIndexerCommand(indexerId, 0L);
+				DeactivateIndexerCommand deactivate = new DeactivateIndexerCommand(indexerId, 1L);
+				return commandService.submit(activate)
+					.compose(ignored -> commandService.submit(activate))
+					.compose(ignored -> commandService.submit(deactivate))
+					.compose(ignored -> commandService.submit(deactivate))
+					.compose(ignored -> repository.getIndexerById(indexerId));
+			})
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
 				assertTrue(found.isPresent());
 				assertEquals(IndexerRuntimeState.NON_ACTIVE, found.get().runtimeState());
@@ -91,9 +96,69 @@ class MetadataIndexerLifecycleCommandTest {
 		InMemoryCommandEngine commandService = commandService(repository, eventBus);
 
 		insertIndexer(repository, IndexerRuntimeState.NON_ACTIVE, MutationState.DELETING)
-			.compose(indexerId -> commandService.submit(new ActivateIndexerCommand(indexerId)))
+			.compose(indexerId -> commandService.submit(new ActivateIndexerCommand(indexerId, 0L)))
 			.onComplete(testContext.failing(error -> testContext.verify(() -> {
 				assertTrue(error.getMessage().startsWith("Cannot activate deleted indexer"));
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void activateRedeliveryRejectsLaterInactiveVersion(VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryCommandEngine commandService = commandService(
+			repository,
+			new InMemoryIndexerLifecycleEventBus()
+		);
+
+		insertIndexer(repository, IndexerRuntimeState.NON_ACTIVE)
+			.compose(indexerId -> commandService.submit(new ActivateIndexerCommand(indexerId, 0L))
+				.compose(ignored -> commandService.submit(new DeactivateIndexerCommand(indexerId, 1L)))
+				.compose(ignored -> commandService.submit(new ActivateIndexerCommand(indexerId, 0L))))
+			.onComplete(testContext.failing(error -> testContext.verify(() -> {
+				assertTrue(error.getMessage().startsWith("Indexer version conflict for id"));
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void deactivateRedeliveryRejectsLaterActiveVersion(VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryCommandEngine commandService = commandService(
+			repository,
+			new InMemoryIndexerLifecycleEventBus()
+		);
+
+		insertIndexer(repository, IndexerRuntimeState.ACTIVE)
+			.compose(indexerId -> commandService.submit(new DeactivateIndexerCommand(indexerId, 0L))
+				.compose(ignored -> commandService.submit(new ActivateIndexerCommand(indexerId, 1L)))
+				.compose(ignored -> commandService.submit(new DeactivateIndexerCommand(indexerId, 0L))))
+			.onComplete(testContext.failing(error -> testContext.verify(() -> {
+				assertTrue(error.getMessage().startsWith("Indexer version conflict for id"));
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void deactivateDoesNotClaimDeletingTransition(VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryCommandEngine commandService = commandService(
+			repository,
+			new InMemoryIndexerLifecycleEventBus()
+		);
+
+		insertIndexer(repository, IndexerRuntimeState.NON_ACTIVE)
+			.compose(indexerId -> repository.updateIndexerMutationState(
+				new UpdateIndexerMutationState(indexerId, MutationState.DELETING, 0L)
+			).compose(ignored -> commandService.submit(new DeactivateIndexerCommand(
+				indexerId,
+				0L
+			))))
+			.onComplete(testContext.failing(error -> testContext.verify(() -> {
+				assertTrue(error.getMessage().startsWith("Indexer version conflict for id"));
 				testContext.completeNow();
 			})));
 	}

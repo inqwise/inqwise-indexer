@@ -7,13 +7,15 @@ public class DeactivateIndexerCommand implements Command {
 	public static final String TYPE = "indexer.deactivate";
 
 	private final Integer indexerId;
+	private final long expectedVersion;
 
-	public DeactivateIndexerCommand(Integer indexerId) {
+	public DeactivateIndexerCommand(Integer indexerId, long expectedVersion) {
 		this.indexerId = Objects.requireNonNull(indexerId, "indexerId");
+		this.expectedVersion = expectedVersion;
 	}
 
 	public DeactivateIndexerCommand(JsonObject json) {
-		this(json.getInteger("indexer_id"));
+		this(json.getInteger("indexer_id"), json.getLong("expected_version"));
 	}
 
 	@Override
@@ -25,9 +27,14 @@ public class DeactivateIndexerCommand implements Command {
 		return indexerId;
 	}
 
+	public long getExpectedVersion() {
+		return expectedVersion;
+	}
+
 	@Override
 	public JsonObject toJson() {
 		return new JsonObject()
-			.put("indexer_id", indexerId);
+			.put("indexer_id", indexerId)
+			.put("expected_version", expectedVersion);
 	}
 }
