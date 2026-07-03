@@ -14,6 +14,12 @@ import com.inqwise.indexer.IndexerQueueResourceManager;
 import com.inqwise.indexer.IndexerRole;
 import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.IndexerType;
+import com.inqwise.indexer.InMemoryIndexerLifecycleEventBus;
+import com.inqwise.indexer.TestMetadataChangeNotifiers;
+import com.inqwise.indexer.commands.CleanupDeletingIndexerCommandHandler;
+import com.inqwise.indexer.commands.DeleteIndexerCommand;
+import com.inqwise.indexer.commands.DeleteIndexerCommandHandler;
+import com.inqwise.indexer.commands.InMemoryCommandEngine;
 import com.inqwise.indexer.definitions.IndexDefinition;
 import com.inqwise.indexer.definitions.IndexerDefinition;
 import com.inqwise.indexer.definitions.QueueDefinition;
@@ -23,6 +29,7 @@ import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.metadata.MutationState;
 import com.inqwise.indexer.metadata.PublicationState;
+import com.inqwise.indexer.operations.MetadataIndexerOperations;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
@@ -91,6 +98,54 @@ class IndexerProvisioningServiceTest {
 				})))));
 	}
 
+	@Test
+	void genericDeleteCleansPartiallyProvisionedFailedIndexer(
+		VertxTestContext testContext
+	) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		RecordingDocumentIndexResourceManager documentResources =
+			new RecordingDocumentIndexResourceManager();
+		RecordingQueueResourceManager queueResources = new RecordingQueueResourceManager();
+		queueResources.failure = new IllegalStateException("queue create failed");
+		IndexerProvisioningService service = service(
+			repository,
+			documentResources,
+			queueResources
+		);
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		InMemoryCommandEngine commands = new InMemoryCommandEngine();
+		commands
+			.register(new CleanupDeletingIndexerCommandHandler(
+				repository,
+				queueResources,
+				documentResources
+			))
+			.register(new DeleteIndexerCommandHandler(
+				new MetadataIndexerOperations(
+					repository,
+					TestMetadataChangeNotifiers.create(eventBus)
+				),
+				commands
+			));
+
+		repository.insertTarget(new InsertTarget(null, "customers", null))
+			.compose(targetId -> service.createIndexer(request(targetId))
+				.recover(error -> repository.listIndexersByTargetId(targetId)
+					.map(indexers -> indexers.get(0))))
+			.compose(failed -> {
+				assertEquals(IndexerProvisioningState.FAILED, failed.provisioningState());
+				return commands.submit(new DeleteIndexerCommand(failed.id(), failed.version()))
+					.compose(ignored -> repository.getIndexerById(failed.id()));
+			})
+			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
+				assertTrue(found.isEmpty());
+				assertEquals(List.of("customers-queue"), queueResources.deleted);
+				assertEquals(List.of("customers-index"), documentResources.deleted);
+				testContext.completeNow();
+			})));
+	}
+
 	private IndexerProvisioningService service(
 		InMemoryDocumentStoreMetadataRepository repository,
 		RecordingDocumentIndexResourceManager documentResources,
@@ -138,6 +193,7 @@ class IndexerProvisioningServiceTest {
 	private static class RecordingDocumentIndexResourceManager
 		implements IndexerDocumentIndexResourceManager {
 		private final List<String> ensured = new ArrayList<>();
+		private final List<String> deleted = new ArrayList<>();
 		private Throwable failure;
 
 		@Override
@@ -148,21 +204,25 @@ class IndexerProvisioningServiceTest {
 
 		@Override
 		public Future<Void> delete(String indexName) {
+			deleted.add(indexName);
 			return Future.succeededFuture();
 		}
 	}
 
 	private static class RecordingQueueResourceManager implements IndexerQueueResourceManager {
 		private final List<String> ensured = new ArrayList<>();
+		private final List<String> deleted = new ArrayList<>();
+		private Throwable failure;
 
 		@Override
 		public Future<Void> ensure(String queueName) {
 			ensured.add(queueName);
-			return Future.succeededFuture();
+			return failure == null ? Future.succeededFuture() : Future.failedFuture(failure);
 		}
 
 		@Override
 		public Future<Void> delete(String queueName) {
+			deleted.add(queueName);
 			return Future.succeededFuture();
 		}
 	}

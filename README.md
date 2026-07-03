@@ -161,6 +161,8 @@ The current fail-closed guards are:
 
 Routing identity fields are immutable by definition for normal lifecycle: `targetId`, `targetName`, `indexName`, `queueName`, `role`, and `type`. If these values are wrong, create a replacement indexer instead of mutating the existing record. `ResetIndexerQueueCommand` remains a narrow troubleshooting exception in the current codebase and must not be used as a normal reload/live-writer swap mechanism.
 
+Failed indexer provisioning cleanup reuses the normal generic delete workflow. `DeleteIndexerCommand` moves a persisted `FAILED` indexer into deleting/non-active state, and `CleanupDeletingIndexerCommand` idempotently removes any queue or owned document index that was created before the failure, then finalizes metadata deletion. Recovery creates a replacement indexer through normal provisioning rather than mutating immutable routing identity.
+
 ### Load And Reload Workflow
 
 Durable load/reload orchestration is split between the core `indexer` module and the `indexer-load` module. Core owns indexer roles, resource ownership, runtime marker processing hooks, and generic indexer commands. `indexer-load` owns load workflow metadata, external loader contracts, and marker handlers.
