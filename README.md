@@ -92,6 +92,7 @@ The gateway contract is stored under `openapi/gateway.yaml` and currently expose
 Document-store publishing separates public target routing from physical index execution:
 
 - `TargetDefinition` is provider-owned application/static data, not repository metadata. It is resolved by `targetName` and controls whether public writes may auto-create/provision concrete targets through `autoProvisionOnWrite`.
+- Target and indexer definitions are immutable for the lifetime of a node. Definition changes require rebuilding/restarting the owning node composition; they do not emit metadata invalidation events or mutate existing hot-target composition in place.
 - `TargetRecord` is the concrete target used internally for one period bucket, or the single concrete target when the period strategy is `NONE`.
 - `targetName` is the public route identity and logical business target name, such as `customers`.
 - concrete period target names are encoded as `{baseTargetName}--{periodKey}`, such as `customers--2026-05`.
