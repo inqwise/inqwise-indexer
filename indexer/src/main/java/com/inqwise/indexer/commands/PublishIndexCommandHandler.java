@@ -56,18 +56,39 @@ public class PublishIndexCommandHandler implements CommandHandler {
 				)))
 			.compose(indexer -> repository.getPublicationByIndexerId(indexer.id())
 				.compose(found -> found
-					.map(publication -> validatePublish(publish, indexer, publication))
+					.map(publication -> publish(publish, indexer, publication))
 					.orElseGet(() -> Future.failedFuture(
 						"Publication not found for indexer: " + indexer.id()
-					))))
+					))));
+	}
+
+	private Future<Void> publish(
+		PublishIndexCommand publish,
+		IndexerRecord indexer,
+		PublicationRecord publication
+	) {
+		if (alreadyApplied(publish, indexer)) {
+			return validateReadyState(indexer, publication)
+				.compose(this::ensureResources)
+				.mapEmpty();
+		}
+
+		return validatePublish(publish, indexer, publication)
 			.compose(this::ensureResources)
-			.compose(indexer -> repository.updateIndexerPublicationState(
+			.compose(ready -> repository.updateIndexerPublicationState(
 				new UpdateIndexerPublicationState(
-					indexer.id(),
+					ready.id(),
 					PublicationState.PUBLISHED,
 					publish.getExpectedVersion()
 				)
 			));
+	}
+
+	private boolean alreadyApplied(PublishIndexCommand publish, IndexerRecord indexer) {
+		return publish.getExpectedVersion() >= 0L
+			&& publish.getExpectedVersion() < Long.MAX_VALUE
+			&& indexer.version() == publish.getExpectedVersion() + 1L
+			&& indexer.publicationState() == PublicationState.PUBLISHED;
 	}
 
 	private Future<IndexerRecord> ensureResources(IndexerRecord indexer) {
@@ -98,12 +119,19 @@ public class PublishIndexCommandHandler implements CommandHandler {
 			);
 		}
 
-		if (publication.readinessState() != ReadinessState.READY) {
-			return Future.failedFuture("Index is not ready: " + indexer.indexName());
-		}
-
 		if (indexer.publicationState() != PublicationState.UNPUBLISHED) {
 			return Future.failedFuture("Index is not unpublished: " + indexer.indexName());
+		}
+
+		return validateReadyState(indexer, publication);
+	}
+
+	private Future<IndexerRecord> validateReadyState(
+		IndexerRecord indexer,
+		PublicationRecord publication
+	) {
+		if (publication.readinessState() != ReadinessState.READY) {
+			return Future.failedFuture("Index is not ready: " + indexer.indexName());
 		}
 
 		if (indexer.mutationState() == MutationState.DELETING) {

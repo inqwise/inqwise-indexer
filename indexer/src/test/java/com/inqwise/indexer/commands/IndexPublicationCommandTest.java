@@ -123,6 +123,55 @@ class IndexPublicationCommandTest {
 	}
 
 	@Test
+	void exactPublishRedeliveryRechecksResourcesWithoutAdvancingVersion(
+		VertxTestContext testContext
+	) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		RecordingDocumentResources documentResources = new RecordingDocumentResources();
+		RecordingQueueResources queueResources = new RecordingQueueResources();
+		InMemoryCommandEngine commandService = commandService(
+			repository,
+			documentResources,
+			queueResources
+		);
+
+		insertPublishableIndexer(repository, MutationState.WRITABLE, ReadinessState.READY)
+			.compose(indexerId -> {
+				PublishIndexCommand publish = new PublishIndexCommand(indexerId, 0L);
+				return commandService.submit(publish)
+					.compose(ignored -> commandService.submit(publish))
+					.compose(ignored -> repository.getIndexerById(indexerId));
+			})
+			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
+				assertTrue(found.isPresent());
+				assertEquals(PublicationState.PUBLISHED, found.get().publicationState());
+				assertEquals(1L, found.get().version());
+				assertEquals(List.of("customers_1", "customers_1"), documentResources.ensured);
+				assertEquals(List.of("queue-customers", "queue-customers"), queueResources.ensured);
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void publishRedeliveryRejectsLaterRetiredState(VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryCommandEngine commandService = commandService(repository);
+
+		insertPublishableIndexer(repository, MutationState.WRITABLE, ReadinessState.READY)
+			.compose(indexerId -> commandService.submit(new PublishIndexCommand(indexerId, 0L))
+				.compose(ignored -> commandService.submit(new RetireIndexCommand(indexerId, 1L)))
+				.compose(ignored -> commandService.submit(new PublishIndexCommand(indexerId, 0L))))
+			.onComplete(testContext.failing(error -> testContext.verify(() -> {
+				assertTrue(error.getMessage().startsWith(
+					"Indexer version conflict for id"
+				));
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
 	void publishFailsWhenIndexerIsDeleting(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
