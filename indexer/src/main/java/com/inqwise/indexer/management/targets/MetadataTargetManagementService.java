@@ -1,4 +1,4 @@
-package com.inqwise.indexer.provisioning;
+package com.inqwise.indexer.management.targets;
 
 import java.util.Objects;
 
@@ -27,14 +27,15 @@ import com.inqwise.indexer.publication.IndexPublicationService;
 import com.inqwise.indexer.publication.MarkIndexReadyRequest;
 import com.inqwise.indexer.publication.MetadataIndexPublicationService;
 import com.inqwise.indexer.publication.PublishIndexRequest;
-import com.inqwise.indexer.management.targets.CreateTargetIndexerRequest;
-import com.inqwise.indexer.management.targets.CreateTargetRequest;
-import com.inqwise.indexer.management.targets.TargetManagementService;
+import com.inqwise.indexer.provisioning.CreateIndexerProvisioningRequest;
+import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
+import com.inqwise.indexer.provisioning.IndexerProvisioningService;
 
 import io.vertx.core.Future;
 
-public class CreateTargetOperation implements TargetManagementService {
+public class MetadataTargetManagementService implements TargetManagementService {
 	private static final String CHANGE_TYPE = "target.create";
+	private static final String RECOVERY_CHANGE_TYPE = "target.provisioning.recover";
 	private final DocumentStoreMetadataRepository repository;
 	private final TargetDefinitionProvider targetDefinitionProvider;
 	private final IndexerProvisioningService provisioningService;
@@ -42,7 +43,7 @@ public class CreateTargetOperation implements TargetManagementService {
 	private final TargetPeriodResolver periodResolver = new TargetPeriodResolver();
 	private final IndexPublicationService publicationService;
 
-	public CreateTargetOperation(
+	public MetadataTargetManagementService(
 		DocumentStoreMetadataRepository repository,
 		TargetDefinitionProvider targetDefinitionProvider,
 		IndexerDefinitionProvider indexerDefinitionProvider,
@@ -90,6 +91,48 @@ public class CreateTargetOperation implements TargetManagementService {
 								.compose(ignored -> publishMetadataChanged(preparedIndexer))
 								.map(readyTarget))))
 					.recover(error -> markTargetFailed(target).compose(ignored -> Future.failedFuture(error))));
+	}
+
+	@Override
+	public Future<TargetRecord> recoverProvisioning(RecoverTargetProvisioningRequest request) {
+		Objects.requireNonNull(request, "request");
+		return getTarget(request.targetId()).compose(target -> {
+			if (alreadyRecovered(target, request)) {
+				return publishTargetMetadataChanged(target, RECOVERY_CHANGE_TYPE).map(target);
+			}
+			if (target.version() != request.expectedVersion()) {
+				return Future.failedFuture(
+					"Target version conflict for id " + target.id() + ": expected "
+						+ request.expectedVersion() + " but was " + target.version()
+				);
+			}
+			if (target.status() != TargetStatus.ACTIVE) {
+				return Future.failedFuture("Target is not active: " + target.id());
+			}
+			if (target.provisioningState() != TargetProvisioningState.FAILED) {
+				return Future.failedFuture("Target provisioning is not failed: " + target.id());
+			}
+			return repository.updateTargetProvisioningState(new UpdateTargetProvisioningState(
+				target.id(),
+				TargetProvisioningState.READY,
+				request.expectedVersion()
+			)).compose(ignored -> publishTargetMetadataChanged(
+				target,
+				RECOVERY_CHANGE_TYPE,
+				request.expectedVersion() + 1L
+			)).compose(ignored -> getTarget(target.id()));
+		});
+	}
+
+	private boolean alreadyRecovered(
+		TargetRecord target,
+		RecoverTargetProvisioningRequest request
+	) {
+		return request.expectedVersion() >= 0L
+			&& request.expectedVersion() < Long.MAX_VALUE
+			&& target.version() == request.expectedVersion() + 1L
+			&& target.status() == TargetStatus.ACTIVE
+			&& target.provisioningState() == TargetProvisioningState.READY;
 	}
 
 	private Future<TargetDefinition> resolveDefinition(CreateTargetRequest create) {
@@ -224,12 +267,24 @@ public class CreateTargetOperation implements TargetManagementService {
 	}
 
 	private Future<Void> publishTargetMetadataChanged(TargetRecord target) {
+		return publishTargetMetadataChanged(target, CHANGE_TYPE);
+	}
+
+	private Future<Void> publishTargetMetadataChanged(TargetRecord target, String changeType) {
+		return publishTargetMetadataChanged(target, changeType, target.version());
+	}
+
+	private Future<Void> publishTargetMetadataChanged(
+		TargetRecord target,
+		String changeType,
+		long version
+	) {
 		return metadataChangeNotifier.targetChanged(new TargetMetadataChanged(
 			target.id(),
 			target.targetName(),
 			target.periodKey(),
-			CHANGE_TYPE,
-			target.version()
+			changeType,
+			version
 		));
 	}
 

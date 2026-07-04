@@ -6,25 +6,38 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import com.inqwise.indexer.InMemoryIndexerLifecycleEventBus;
+import com.inqwise.indexer.IndexerQueueResourceManager;
 import com.inqwise.indexer.TestMetadataChangeNotifiers;
+import com.inqwise.indexer.definitions.IndexDefinition;
+import com.inqwise.indexer.definitions.IndexerDefinition;
+import com.inqwise.indexer.definitions.QueueDefinition;
+import com.inqwise.indexer.definitions.StaticIndexerDefinitionProvider;
+import com.inqwise.indexer.definitions.StaticTargetDefinitionProvider;
+import com.inqwise.indexer.definitions.TargetDefinition;
+import com.inqwise.indexer.management.targets.MetadataTargetManagementService;
+import com.inqwise.indexer.management.targets.RecoverTargetProvisioningRequest;
+import com.inqwise.indexer.management.targets.TargetManagementService;
 import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.metadata.TargetProvisioningState;
 import com.inqwise.indexer.metadata.TargetStatus;
 import com.inqwise.indexer.metadata.UpdateTargetProvisioningState;
 import com.inqwise.indexer.metadata.UpdateTargetStatus;
+import com.inqwise.indexer.metadata.TargetPeriodStrategy;
+import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 
+import io.vertx.core.json.JsonObject;
 import io.vertx.junit5.VertxExtension;
 import io.vertx.junit5.VertxTestContext;
 
 @ExtendWith(VertxExtension.class)
-class RecoverTargetProvisioningCommandTest {
+class TargetProvisioningRecoveryServiceTest {
 	@Test
 	void recoversFailedActiveTargetToReady(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
-		InMemoryCommandEngine commands = commandService(repository, eventBus);
+		TargetManagementService service = targetManagementService(repository, eventBus);
 
 		repository.insertTarget(new InsertTarget(
 			"target-customers",
@@ -34,7 +47,7 @@ class RecoverTargetProvisioningCommandTest {
 			null,
 			TargetStatus.ACTIVE,
 			TargetProvisioningState.FAILED
-		)).compose(targetId -> commands.submit(new RecoverTargetProvisioningCommand(
+		)).compose(targetId -> service.recoverProvisioning(new RecoverTargetProvisioningRequest(
 			targetId,
 			0L
 		)).compose(ignored -> repository.getTargetById(targetId)))
@@ -51,10 +64,10 @@ class RecoverTargetProvisioningCommandTest {
 	void failsWhenTargetIsNotFailed(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
-		InMemoryCommandEngine commands = commandService(repository);
+		TargetManagementService service = targetManagementService(repository);
 
 		repository.insertTarget(new InsertTarget("target-customers", "customers", null))
-			.compose(targetId -> commands.submit(new RecoverTargetProvisioningCommand(
+			.compose(targetId -> service.recoverProvisioning(new RecoverTargetProvisioningRequest(
 				targetId,
 				0L
 			))).onComplete(testContext.failing(error -> testContext.verify(() -> {
@@ -68,7 +81,7 @@ class RecoverTargetProvisioningCommandTest {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
-		InMemoryCommandEngine commands = commandService(repository, eventBus);
+		TargetManagementService service = targetManagementService(repository, eventBus);
 
 		repository.insertTarget(new InsertTarget(
 			"target-customers",
@@ -79,10 +92,10 @@ class RecoverTargetProvisioningCommandTest {
 			TargetStatus.ACTIVE,
 			TargetProvisioningState.FAILED
 		)).compose(targetId -> {
-			RecoverTargetProvisioningCommand recover =
-				new RecoverTargetProvisioningCommand(targetId, 0L);
-			return commands.submit(recover)
-				.compose(ignored -> commands.submit(recover))
+			RecoverTargetProvisioningRequest recover =
+				new RecoverTargetProvisioningRequest(targetId, 0L);
+			return service.recoverProvisioning(recover)
+				.compose(ignored -> service.recoverProvisioning(recover))
 				.compose(ignored -> repository.getTargetById(targetId));
 		}).onComplete(testContext.succeeding(found -> testContext.verify(() -> {
 			assertEquals(TargetProvisioningState.READY, found.orElseThrow().provisioningState());
@@ -96,7 +109,7 @@ class RecoverTargetProvisioningCommandTest {
 	void recoveryRedeliveryRejectsLaterReadyVersion(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
-		InMemoryCommandEngine commands = commandService(repository);
+		TargetManagementService service = targetManagementService(repository);
 
 		repository.insertTarget(new InsertTarget(
 			"target-customers",
@@ -106,7 +119,7 @@ class RecoverTargetProvisioningCommandTest {
 			null,
 			TargetStatus.ACTIVE,
 			TargetProvisioningState.FAILED
-		)).compose(targetId -> commands.submit(new RecoverTargetProvisioningCommand(
+		)).compose(targetId -> service.recoverProvisioning(new RecoverTargetProvisioningRequest(
 			targetId,
 			0L
 		)).compose(ignored -> repository.updateTargetProvisioningState(
@@ -121,7 +134,7 @@ class RecoverTargetProvisioningCommandTest {
 				TargetProvisioningState.READY,
 				2L
 			)
-		)).compose(ignored -> commands.submit(new RecoverTargetProvisioningCommand(
+		)).compose(ignored -> service.recoverProvisioning(new RecoverTargetProvisioningRequest(
 			targetId,
 			0L
 		)))).onComplete(testContext.failing(error -> testContext.verify(() -> {
@@ -137,7 +150,7 @@ class RecoverTargetProvisioningCommandTest {
 	void failsWhenTargetIsNotActive(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
-		InMemoryCommandEngine commands = commandService(repository);
+		TargetManagementService service = targetManagementService(repository);
 
 		repository.insertTarget(new InsertTarget(
 			"target-customers",
@@ -151,7 +164,7 @@ class RecoverTargetProvisioningCommandTest {
 			targetId,
 			TargetStatus.NON_ACTIVE,
 			0L
-		)).compose(ignored -> commands.submit(new RecoverTargetProvisioningCommand(
+		)).compose(ignored -> service.recoverProvisioning(new RecoverTargetProvisioningRequest(
 			targetId,
 			1L
 		)))).onComplete(testContext.failing(error -> testContext.verify(() -> {
@@ -164,7 +177,7 @@ class RecoverTargetProvisioningCommandTest {
 	void failsOnExpectedVersionConflict(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
-		InMemoryCommandEngine commands = commandService(repository);
+		TargetManagementService service = targetManagementService(repository);
 
 		repository.insertTarget(new InsertTarget(
 			"target-customers",
@@ -186,7 +199,7 @@ class RecoverTargetProvisioningCommandTest {
 				TargetProvisioningState.FAILED,
 				1L
 			)
-		)).compose(ignored -> commands.submit(new RecoverTargetProvisioningCommand(
+		)).compose(ignored -> service.recoverProvisioning(new RecoverTargetProvisioningRequest(
 			targetId,
 			0L
 		)))).onComplete(testContext.failing(error -> testContext.verify(() -> {
@@ -198,20 +211,28 @@ class RecoverTargetProvisioningCommandTest {
 		})));
 	}
 
-	private InMemoryCommandEngine commandService(
+	private TargetManagementService targetManagementService(
 		InMemoryDocumentStoreMetadataRepository repository
 	) {
-		return commandService(repository, new InMemoryIndexerLifecycleEventBus());
+		return targetManagementService(repository, new InMemoryIndexerLifecycleEventBus());
 	}
 
-	private InMemoryCommandEngine commandService(
+	private TargetManagementService targetManagementService(
 		InMemoryDocumentStoreMetadataRepository repository,
 		InMemoryIndexerLifecycleEventBus eventBus
 	) {
-		return new InMemoryCommandEngine()
-			.register(new RecoverTargetProvisioningCommandHandler(
-				repository,
-				TestMetadataChangeNotifiers.create(eventBus)
-			));
+		return new MetadataTargetManagementService(
+			repository,
+			new StaticTargetDefinitionProvider(java.util.List.of(
+				new TargetDefinition("customers", TargetPeriodStrategy.MONTHLY)
+			)),
+			new StaticIndexerDefinitionProvider(new IndexerDefinition(
+				new IndexDefinition("customers", "v1", new JsonObject(), new JsonObject()),
+				new QueueDefinition(new JsonObject())
+			)),
+			IndexerDocumentIndexResourceManager.NOOP,
+			IndexerQueueResourceManager.NOOP,
+			TestMetadataChangeNotifiers.create(eventBus)
+		);
 	}
 }

@@ -29,10 +29,6 @@ public final class DocumentStoreCommandHandlers {
 				config.queueResources(),
 				config.metadataChangeNotifier()
 			),
-			new RecoverTargetProvisioningCommandHandler(
-				config.repository(),
-				config.metadataChangeNotifier()
-			),
 			new ActivateIndexerCommandHandler(config.repository(), config.metadataChangeNotifier()),
 			new DeactivateIndexerCommandHandler(config.repository(), config.metadataChangeNotifier()),
 			new CleanupDeletingIndexerCommandHandler(

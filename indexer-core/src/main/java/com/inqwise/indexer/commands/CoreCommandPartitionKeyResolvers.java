@@ -15,7 +15,6 @@ final class CoreCommandPartitionKeyResolvers {
 	static void registerWith(CommandPartitionKeyRouter router) {
 		router
 			.register(CreateIndexerCommand.TYPE, command -> target(command, "target_id"))
-			.register(RecoverTargetProvisioningCommand.TYPE, command -> target(command, "target_id"))
 			.register(ActivateIndexerCommand.TYPE, command -> indexer(command, "indexer_id"))
 			.register(DeactivateIndexerCommand.TYPE, command -> indexer(command, "indexer_id"))
 			.register(DeleteIndexerCommand.TYPE, command -> indexer(command, "indexer_id"))

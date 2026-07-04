@@ -13,8 +13,6 @@ import com.inqwise.indexer.commands.CleanupDeletingIndexerCommand;
 import com.inqwise.indexer.commands.CommandService;
 import com.inqwise.indexer.commands.DeactivateIndexerCommand;
 import com.inqwise.indexer.commands.DeactivateIndexerCommandHandler;
-import com.inqwise.indexer.commands.RecoverTargetProvisioningCommand;
-import com.inqwise.indexer.commands.RecoverTargetProvisioningCommandHandler;
 import com.inqwise.indexer.commands.ResetIndexerQueueCommand;
 import com.inqwise.indexer.commands.ResetIndexerQueueCommandHandler;
 import com.inqwise.indexer.definitions.IndexerDefinitionProvider;
@@ -25,7 +23,8 @@ import com.inqwise.indexer.metadata.IndexerRecord;
 import com.inqwise.indexer.metadata.TargetRecord;
 import com.inqwise.indexer.operations.IndexerOperations;
 import com.inqwise.indexer.operations.MarkIndexerDeletingRequest;
-import com.inqwise.indexer.provisioning.CreateTargetOperation;
+import com.inqwise.indexer.management.targets.MetadataTargetManagementService;
+import com.inqwise.indexer.management.targets.RecoverTargetProvisioningRequest;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 import com.inqwise.indexer.provisioning.IndexerProvisioningService;
 import com.inqwise.indexer.management.targets.TargetManagementService;
@@ -35,7 +34,6 @@ import io.vertx.core.Future;
 public class AdminServiceImpl implements AdminService {
 	private final DocumentStoreMetadataRepository repository;
 	private final MetadataChangeNotifier metadataChangeNotifier;
-	private final RecoverTargetProvisioningCommandHandler recoverTargetProvisioning;
 	private final ActivateIndexerCommandHandler activateIndexer;
 	private final DeactivateIndexerCommandHandler deactivateIndexer;
 	private final CommandService commandService;
@@ -61,10 +59,6 @@ public class AdminServiceImpl implements AdminService {
 		);
 		Objects.requireNonNull(queueResources, "queueResources");
 		Objects.requireNonNull(targetDefinitionProvider, "targetDefinitionProvider");
-		this.recoverTargetProvisioning = new RecoverTargetProvisioningCommandHandler(
-			repository,
-			metadataChangeNotifier
-		);
 		this.activateIndexer = new ActivateIndexerCommandHandler(repository, metadataChangeNotifier);
 		this.deactivateIndexer = new DeactivateIndexerCommandHandler(repository, metadataChangeNotifier);
 		this.commandService = Objects.requireNonNull(commandService, "commandService");
@@ -75,7 +69,7 @@ public class AdminServiceImpl implements AdminService {
 			queueResources,
 			commandService
 		);
-		this.targetManagementService = new CreateTargetOperation(
+		this.targetManagementService = new MetadataTargetManagementService(
 			repository,
 			targetDefinitionProvider,
 			indexerDefinitionProvider,
@@ -156,12 +150,11 @@ public class AdminServiceImpl implements AdminService {
 				throw IndexerErrors.invalidRequest("Target id is required");
 			}
 
-			return recoverTargetProvisioning.handle(new RecoverTargetProvisioningCommand(
+			return targetManagementService.recoverProvisioning(new RecoverTargetProvisioningRequest(
 				request.getTargetId(),
 				request.getExpectedVersion()
 			))
-				.compose(ignored -> repository.getTargetById(request.getTargetId()))
-				.map(this::targetResult)
+				.map(target -> new AdminTargetResult().setTarget(AdminTargetView.from(target)))
 				.recover(error -> Future.failedFuture(IndexerErrors.normalize(error)));
 		} catch (Throwable error) {
 			return Future.failedFuture(IndexerErrors.normalize(error));

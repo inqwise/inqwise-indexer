@@ -34,7 +34,7 @@ import com.inqwise.indexer.metadata.TargetProvisioningState;
 import com.inqwise.indexer.management.targets.CreateTargetIndexerRequest;
 import com.inqwise.indexer.management.targets.CreateTargetRequest;
 import com.inqwise.indexer.management.targets.TargetManagementService;
-import com.inqwise.indexer.provisioning.CreateTargetOperation;
+import com.inqwise.indexer.management.targets.MetadataTargetManagementService;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 
 import io.vertx.core.Future;
@@ -201,7 +201,7 @@ class TargetManagementServiceTest {
 		RecordingQueueResourceManager queueResources,
 		InMemoryIndexerLifecycleEventBus eventBus
 	) {
-		return new CreateTargetOperation(
+		return new MetadataTargetManagementService(
 			repository,
 			new StaticTargetDefinitionProvider(List.of(
 				new TargetDefinition("customers", TargetPeriodStrategy.MONTHLY)

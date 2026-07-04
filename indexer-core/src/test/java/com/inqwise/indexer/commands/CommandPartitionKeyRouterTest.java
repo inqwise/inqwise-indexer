@@ -19,7 +19,6 @@ class CommandPartitionKeyRouterTest {
 	@Test
 	void resolvesCoreResourceIdentities() {
 		assertKey(CreateIndexerCommand.TYPE, "target_id", 12, "target:12");
-		assertKey(RecoverTargetProvisioningCommand.TYPE, "target_id", 12, "target:12");
 		assertKey(ActivateIndexerCommand.TYPE, "indexer_id", 31, "indexer:31");
 		assertKey(DeactivateIndexerCommand.TYPE, "indexer_id", 31, "indexer:31");
 		assertKey(DeleteIndexerCommand.TYPE, "indexer_id", 31, "indexer:31");

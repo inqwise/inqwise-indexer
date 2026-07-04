@@ -11,4 +11,6 @@ import io.vertx.core.Future;
  */
 public interface TargetManagementService {
 	Future<TargetRecord> createTarget(CreateTargetRequest request);
+
+	Future<TargetRecord> recoverProvisioning(RecoverTargetProvisioningRequest request);
 }
