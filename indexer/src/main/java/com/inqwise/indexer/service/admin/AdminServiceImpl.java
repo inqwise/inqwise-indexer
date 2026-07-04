@@ -28,6 +28,7 @@ import com.inqwise.indexer.operations.MarkIndexerDeletingRequest;
 import com.inqwise.indexer.provisioning.CreateTargetOperation;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 import com.inqwise.indexer.provisioning.IndexerProvisioningService;
+import com.inqwise.indexer.management.targets.TargetManagementService;
 
 import io.vertx.core.Future;
 
@@ -40,7 +41,7 @@ public class AdminServiceImpl implements AdminService {
 	private final CommandService commandService;
 	private final IndexerOperations indexerOperations;
 	private final ResetIndexerQueueCommandHandler resetIndexerQueue;
-	private final CreateTargetOperation createTarget;
+	private final TargetManagementService targetManagementService;
 	private final IndexerProvisioningService indexerProvisioning;
 
 	public AdminServiceImpl(
@@ -74,7 +75,7 @@ public class AdminServiceImpl implements AdminService {
 			queueResources,
 			commandService
 		);
-		this.createTarget = new CreateTargetOperation(
+		this.targetManagementService = new CreateTargetOperation(
 			repository,
 			targetDefinitionProvider,
 			indexerDefinitionProvider,
@@ -263,7 +264,7 @@ public class AdminServiceImpl implements AdminService {
 				throw IndexerErrors.invalidRequest("Initial publication mode is required");
 			}
 
-			return createTarget.create(request.toCommand())
+			return targetManagementService.createTarget(request.toTargetRequest())
 				.map(target -> new AdminTargetResult().setTarget(AdminTargetView.from(target)))
 				.recover(error -> Future.failedFuture(IndexerErrors.normalize(error)));
 		} catch (Throwable error) {

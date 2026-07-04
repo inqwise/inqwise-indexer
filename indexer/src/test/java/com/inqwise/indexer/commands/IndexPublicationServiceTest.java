@@ -27,6 +27,11 @@ import com.inqwise.indexer.metadata.ReadinessState;
 import com.inqwise.indexer.metadata.UpdateIndexerRuntimeState;
 import com.inqwise.indexer.metadata.UpdatePublicationReadiness;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
+import com.inqwise.indexer.publication.IndexPublicationService;
+import com.inqwise.indexer.publication.MarkIndexReadyRequest;
+import com.inqwise.indexer.publication.MetadataIndexPublicationService;
+import com.inqwise.indexer.publication.PublishIndexRequest;
+import com.inqwise.indexer.publication.RetireIndexRequest;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
@@ -34,15 +39,15 @@ import io.vertx.junit5.VertxExtension;
 import io.vertx.junit5.VertxTestContext;
 
 @ExtendWith(VertxExtension.class)
-class IndexPublicationCommandTest {
+class IndexPublicationServiceTest {
 	@Test
 	void markIndexReadyUpdatesPublicationReadiness(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
-		InMemoryCommandEngine commandService = commandService(repository);
+		IndexPublicationService publicationService = publicationService(repository);
 
 		insertPublication(repository, ReadinessState.PENDING)
-			.compose(publicationId -> commandService.submit(new MarkIndexReadyCommand(
+			.compose(publicationId -> publicationService.markReady(new MarkIndexReadyRequest(
 				publicationId,
 				"baseline loaded",
 				0L
@@ -60,17 +65,17 @@ class IndexPublicationCommandTest {
 	void exactMarkReadyRedeliveryDoesNotAdvanceVersion(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
-		InMemoryCommandEngine commandService = commandService(repository);
+		IndexPublicationService publicationService = publicationService(repository);
 
 		insertPublication(repository, ReadinessState.PENDING)
 			.compose(publicationId -> {
-				MarkIndexReadyCommand ready = new MarkIndexReadyCommand(
+				MarkIndexReadyRequest ready = new MarkIndexReadyRequest(
 					publicationId,
 					"baseline loaded",
 					0L
 				);
-				return commandService.submit(ready)
-					.compose(ignored -> commandService.submit(ready))
+				return publicationService.markReady(ready)
+					.compose(ignored -> publicationService.markReady(ready))
 					.compose(ignored -> repository.getPublicationById(publicationId));
 			})
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
@@ -86,14 +91,14 @@ class IndexPublicationCommandTest {
 	void markReadyRedeliveryRejectsDifferentReason(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
-		InMemoryCommandEngine commandService = commandService(repository);
+		IndexPublicationService publicationService = publicationService(repository);
 
 		insertPublication(repository, ReadinessState.PENDING)
-			.compose(publicationId -> commandService.submit(new MarkIndexReadyCommand(
+			.compose(publicationId -> publicationService.markReady(new MarkIndexReadyRequest(
 				publicationId,
 				"baseline loaded",
 				0L
-			)).compose(ignored -> commandService.submit(new MarkIndexReadyCommand(
+			)).compose(ignored -> publicationService.markReady(new MarkIndexReadyRequest(
 				publicationId,
 				"different completion",
 				0L
@@ -110,10 +115,10 @@ class IndexPublicationCommandTest {
 	void markReadyRedeliveryRejectsLaterVersion(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
-		InMemoryCommandEngine commandService = commandService(repository);
+		IndexPublicationService publicationService = publicationService(repository);
 
 		insertPublication(repository, ReadinessState.PENDING)
-			.compose(publicationId -> commandService.submit(new MarkIndexReadyCommand(
+			.compose(publicationId -> publicationService.markReady(new MarkIndexReadyRequest(
 				publicationId,
 				"baseline loaded",
 				0L
@@ -124,7 +129,7 @@ class IndexPublicationCommandTest {
 					"reopened",
 					1L
 				)
-			)).compose(ignored -> commandService.submit(new MarkIndexReadyCommand(
+			)).compose(ignored -> publicationService.markReady(new MarkIndexReadyRequest(
 				publicationId,
 				"baseline loaded",
 				0L
@@ -141,10 +146,10 @@ class IndexPublicationCommandTest {
 	void publishFailsWhenIndexIsNotReady(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
-		InMemoryCommandEngine commandService = commandService(repository);
+		IndexPublicationService publicationService = publicationService(repository);
 
 		insertPublishableIndexer(repository, MutationState.WRITABLE, ReadinessState.PENDING)
-			.compose(indexerId -> commandService.submit(new PublishIndexCommand(indexerId, 0L)))
+			.compose(indexerId -> publicationService.publish(new PublishIndexRequest(indexerId, 0L)))
 			.onComplete(testContext.failing(error -> testContext.verify(() -> {
 				assertTrue(error.getMessage().startsWith("Index is not ready"));
 				testContext.completeNow();
@@ -157,14 +162,14 @@ class IndexPublicationCommandTest {
 			new InMemoryDocumentStoreMetadataRepository();
 		RecordingDocumentResources documentResources = new RecordingDocumentResources();
 		RecordingQueueResources queueResources = new RecordingQueueResources();
-		InMemoryCommandEngine commandService = commandService(
+		IndexPublicationService publicationService = publicationService(
 			repository,
 			documentResources,
 			queueResources
 		);
 
 		insertPublishableIndexer(repository, MutationState.WRITABLE, ReadinessState.READY)
-			.compose(indexerId -> commandService.submit(new PublishIndexCommand(indexerId, 0L))
+			.compose(indexerId -> publicationService.publish(new PublishIndexRequest(indexerId, 0L))
 				.compose(ignored -> repository.getIndexerById(indexerId)))
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
 				assertTrue(found.isPresent());
@@ -184,14 +189,14 @@ class IndexPublicationCommandTest {
 			new InMemoryDocumentStoreMetadataRepository();
 		RecordingDocumentResources documentResources = new RecordingDocumentResources();
 		documentResources.failure = new IllegalStateException("index unavailable");
-		InMemoryCommandEngine commandService = commandService(
+		IndexPublicationService publicationService = publicationService(
 			repository,
 			documentResources,
 			new RecordingQueueResources()
 		);
 
 		insertPublishableIndexer(repository, MutationState.WRITABLE, ReadinessState.READY)
-			.compose(indexerId -> commandService.submit(new PublishIndexCommand(indexerId, 0L))
+			.compose(indexerId -> publicationService.publish(new PublishIndexRequest(indexerId, 0L))
 				.transform(result -> repository.getIndexerById(indexerId).map(found -> {
 					assertTrue(result.failed());
 					assertEquals("index unavailable", result.cause().getMessage());
@@ -213,7 +218,7 @@ class IndexPublicationCommandTest {
 			new InMemoryDocumentStoreMetadataRepository();
 		RecordingDocumentResources documentResources = new RecordingDocumentResources();
 		RecordingQueueResources queueResources = new RecordingQueueResources();
-		InMemoryCommandEngine commandService = commandService(
+		IndexPublicationService publicationService = publicationService(
 			repository,
 			documentResources,
 			queueResources
@@ -221,9 +226,9 @@ class IndexPublicationCommandTest {
 
 		insertPublishableIndexer(repository, MutationState.WRITABLE, ReadinessState.READY)
 			.compose(indexerId -> {
-				PublishIndexCommand publish = new PublishIndexCommand(indexerId, 0L);
-				return commandService.submit(publish)
-					.compose(ignored -> commandService.submit(publish))
+				PublishIndexRequest publish = new PublishIndexRequest(indexerId, 0L);
+				return publicationService.publish(publish)
+					.compose(ignored -> publicationService.publish(publish))
 					.compose(ignored -> repository.getIndexerById(indexerId));
 			})
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
@@ -240,12 +245,12 @@ class IndexPublicationCommandTest {
 	void publishRedeliveryRejectsLaterRetiredState(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
-		InMemoryCommandEngine commandService = commandService(repository);
+		IndexPublicationService publicationService = publicationService(repository);
 
 		insertPublishableIndexer(repository, MutationState.WRITABLE, ReadinessState.READY)
-			.compose(indexerId -> commandService.submit(new PublishIndexCommand(indexerId, 0L))
-				.compose(ignored -> commandService.submit(new RetireIndexCommand(indexerId, 1L)))
-				.compose(ignored -> commandService.submit(new PublishIndexCommand(indexerId, 0L))))
+			.compose(indexerId -> publicationService.publish(new PublishIndexRequest(indexerId, 0L))
+				.compose(ignored -> publicationService.retire(new RetireIndexRequest(indexerId, 1L)))
+				.compose(ignored -> publicationService.publish(new PublishIndexRequest(indexerId, 0L))))
 			.onComplete(testContext.failing(error -> testContext.verify(() -> {
 				assertTrue(error.getMessage().startsWith(
 					"Indexer version conflict for id"
@@ -258,10 +263,10 @@ class IndexPublicationCommandTest {
 	void publishFailsWhenIndexerIsDeleting(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
-		InMemoryCommandEngine commandService = commandService(repository);
+		IndexPublicationService publicationService = publicationService(repository);
 
 		insertPublishableIndexer(repository, MutationState.DELETING, ReadinessState.READY)
-			.compose(indexerId -> commandService.submit(new PublishIndexCommand(indexerId, 0L)))
+			.compose(indexerId -> publicationService.publish(new PublishIndexRequest(indexerId, 0L)))
 			.onComplete(testContext.failing(error -> testContext.verify(() -> {
 				assertTrue(error.getMessage().startsWith("Index is deleting"));
 				testContext.completeNow();
@@ -272,10 +277,10 @@ class IndexPublicationCommandTest {
 	void retireChangesPublicationStateToRetired(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
-		InMemoryCommandEngine commandService = commandService(repository);
+		IndexPublicationService publicationService = publicationService(repository);
 
 		insertPublishedIndexer(repository)
-			.compose(indexerId -> commandService.submit(new RetireIndexCommand(indexerId, 0L))
+			.compose(indexerId -> publicationService.retire(new RetireIndexRequest(indexerId, 0L))
 				.compose(ignored -> repository.getIndexerById(indexerId)))
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
 				assertTrue(found.isPresent());
@@ -288,13 +293,13 @@ class IndexPublicationCommandTest {
 	void exactRetireRedeliveryDoesNotAdvanceVersion(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
-		InMemoryCommandEngine commandService = commandService(repository);
+		IndexPublicationService publicationService = publicationService(repository);
 
 		insertPublishedIndexer(repository)
 			.compose(indexerId -> {
-				RetireIndexCommand retire = new RetireIndexCommand(indexerId, 0L);
-				return commandService.submit(retire)
-					.compose(ignored -> commandService.submit(retire))
+				RetireIndexRequest retire = new RetireIndexRequest(indexerId, 0L);
+				return publicationService.retire(retire)
+					.compose(ignored -> publicationService.retire(retire))
 					.compose(ignored -> repository.getIndexerById(indexerId));
 			})
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
@@ -309,10 +314,10 @@ class IndexPublicationCommandTest {
 	void retireRedeliveryRejectsLaterVersion(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
-		InMemoryCommandEngine commandService = commandService(repository);
+		IndexPublicationService publicationService = publicationService(repository);
 
 		insertPublishedIndexer(repository)
-			.compose(indexerId -> commandService.submit(new RetireIndexCommand(indexerId, 0L))
+			.compose(indexerId -> publicationService.retire(new RetireIndexRequest(indexerId, 0L))
 				.compose(ignored -> repository.updateIndexerRuntimeState(
 					new UpdateIndexerRuntimeState(
 						indexerId,
@@ -320,7 +325,7 @@ class IndexPublicationCommandTest {
 						1L
 					)
 				))
-				.compose(ignored -> commandService.submit(new RetireIndexCommand(indexerId, 0L))))
+				.compose(ignored -> publicationService.retire(new RetireIndexRequest(indexerId, 0L))))
 			.onComplete(testContext.failing(error -> testContext.verify(() -> {
 				assertTrue(error.getMessage().startsWith(
 					"Indexer version conflict for id"
@@ -329,31 +334,31 @@ class IndexPublicationCommandTest {
 			})));
 	}
 
-	private InMemoryCommandEngine commandService(InMemoryDocumentStoreMetadataRepository repository) {
-		return commandService(
+	private IndexPublicationService publicationService(
+		InMemoryDocumentStoreMetadataRepository repository
+	) {
+		return publicationService(
 			repository,
 			new RecordingDocumentResources(),
 			new RecordingQueueResources()
 		);
 	}
 
-	private InMemoryCommandEngine commandService(
+	private IndexPublicationService publicationService(
 		InMemoryDocumentStoreMetadataRepository repository,
 		IndexerDocumentIndexResourceManager documentResources,
 		IndexerQueueResourceManager queueResources
 	) {
-		return new InMemoryCommandEngine()
-			.register(new MarkIndexReadyCommandHandler(repository))
-			.register(new PublishIndexCommandHandler(
-				repository,
-				new StaticIndexerDefinitionProvider(new IndexerDefinition(
-					new IndexDefinition("customers", "v1", new JsonObject(), new JsonObject()),
-					new QueueDefinition(new JsonObject())
-				)),
-				documentResources,
-				queueResources
-			))
-			.register(new RetireIndexCommandHandler(repository));
+		IndexPublicationService publicationService = new MetadataIndexPublicationService(
+			repository,
+			new StaticIndexerDefinitionProvider(new IndexerDefinition(
+				new IndexDefinition("customers", "v1", new JsonObject(), new JsonObject()),
+				new QueueDefinition(new JsonObject())
+			)),
+			documentResources,
+			queueResources
+		);
+		return publicationService;
 	}
 
 	private Future<Integer> insertPublication(

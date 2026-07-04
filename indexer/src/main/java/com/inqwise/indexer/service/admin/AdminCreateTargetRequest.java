@@ -2,7 +2,7 @@ package com.inqwise.indexer.service.admin;
 
 import java.time.Instant;
 
-import com.inqwise.indexer.commands.CreateTargetCommand;
+import com.inqwise.indexer.management.targets.CreateTargetRequest;
 
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
@@ -47,12 +47,12 @@ public class AdminCreateTargetRequest {
 			.put(Keys.CREATE_INDEXER, createIndexer == null ? null : createIndexer.toJson());
 	}
 
-	CreateTargetCommand toCommand() {
-		return new CreateTargetCommand(
+	CreateTargetRequest toTargetRequest() {
+		return new CreateTargetRequest(
 			prefix,
 			targetName,
 			timestamp,
-			createIndexer == null ? null : createIndexer.toCommand()
+			createIndexer == null ? null : createIndexer.toTargetRequest()
 		);
 	}
 

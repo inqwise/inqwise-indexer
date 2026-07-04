@@ -119,7 +119,6 @@ public final class DefaultIndexerNodeComponentsFactory {
 			commandEngine,
 			new DocumentStoreCommandHandlers.Config(
 				repository,
-				targetDefinitionProvider,
 				indexerDefinitionProvider,
 				documentStore,
 				queue,

@@ -86,12 +86,21 @@ class CommandEnvelopeTest {
 
 	@Test
 	void domainCommandPayloadsDoNotContainTransportIdentity() {
-		assertFalse(new PublishIndexCommand(1, 0L).toJson().containsKey("command_id"));
-		assertFalse(new RetireIndexCommand(1, 0L).toJson().containsKey("command_id"));
-		assertFalse(new MarkIndexReadyCommand(1, null, 0L)
-			.toJson().containsKey("command_id"));
-		assertFalse(new CreateTargetCommand(null, "customers", null, null)
-			.toJson().containsKey("command_id"));
+		assertFalse(new DeleteIndexerCommand(1, 0L).toJson().containsKey("command_id"));
+		assertFalse(new CleanupDeletingIndexerCommand(1).toJson().containsKey("command_id"));
+		assertFalse(new CreateIndexerCommand(
+			"indexer-prefix",
+			1,
+			"customers",
+			"customers-index",
+			null,
+			null,
+			null,
+			null,
+			null,
+			null,
+			null
+		).toJson().containsKey("command_id"));
 	}
 
 	private CommandEnvelope envelope() {

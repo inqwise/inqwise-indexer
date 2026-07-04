@@ -14,7 +14,6 @@ final class CoreCommandPartitionKeyResolvers {
 
 	static void registerWith(CommandPartitionKeyRouter router) {
 		router
-			.register(CreateTargetCommand.TYPE, command -> targetName(command, "target_name"))
 			.register(CreateIndexerCommand.TYPE, command -> target(command, "target_id"))
 			.register(RecoverTargetProvisioningCommand.TYPE, command -> target(command, "target_id"))
 			.register(ActivateIndexerCommand.TYPE, command -> indexer(command, "indexer_id"))
@@ -23,14 +22,7 @@ final class CoreCommandPartitionKeyResolvers {
 			.register(ResetIndexerQueueCommand.TYPE, command -> indexer(command, "indexer_id"))
 			.register(CleanupResetIndexerQueueCommand.TYPE, command -> indexer(command, "indexer_id"))
 			.register(CleanupDeletingIndexerCommand.TYPE, command -> indexer(command, "indexer_id"))
-			.register(PublishIndexCommand.TYPE, command -> indexer(command, "indexer_id"))
-			.register(RetireIndexCommand.TYPE, command -> indexer(command, "indexer_id"))
-			.register(MarkIndexReadyCommand.TYPE, command -> publication(command, "publication_id"))
 			.register(SubmitIndexActionsCommand.TYPE, CoreCommandPartitionKeyResolvers::actions);
-	}
-
-	private static CommandPartitionKey targetName(Command command, String field) {
-		return CommandPartitionKey.targetName(command.toJson().getString(field));
 	}
 
 	private static CommandPartitionKey target(Command command, String field) {
@@ -39,10 +31,6 @@ final class CoreCommandPartitionKeyResolvers {
 
 	private static CommandPartitionKey indexer(Command command, String field) {
 		return CommandPartitionKey.indexer(command.toJson().getInteger(field));
-	}
-
-	private static CommandPartitionKey publication(Command command, String field) {
-		return CommandPartitionKey.publication(command.toJson().getInteger(field));
 	}
 
 	private static CommandPartitionKey actions(Command command) {

@@ -6,7 +6,6 @@ import java.util.Objects;
 import com.inqwise.indexer.IndexerQueueResourceManager;
 import com.inqwise.indexer.MetadataChangeNotifier;
 import com.inqwise.indexer.definitions.IndexerDefinitionProvider;
-import com.inqwise.indexer.definitions.TargetDefinitionProvider;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.operations.IndexerOperations;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
@@ -23,14 +22,6 @@ public final class DocumentStoreCommandHandlers {
 		Objects.requireNonNull(commandService, "commandService");
 
 		return List.of(
-			new CreateTargetCommandHandler(
-				config.repository(),
-				config.targetDefinitionProvider(),
-				config.indexerDefinitionProvider(),
-				config.documentIndexResources(),
-				config.queueResources(),
-				config.metadataChangeNotifier()
-			),
 			new CreateIndexerCommandHandler(
 				config.repository(),
 				config.indexerDefinitionProvider(),
@@ -38,14 +29,6 @@ public final class DocumentStoreCommandHandlers {
 				config.queueResources(),
 				config.metadataChangeNotifier()
 			),
-			new MarkIndexReadyCommandHandler(config.repository()),
-			new PublishIndexCommandHandler(
-				config.repository(),
-				config.indexerDefinitionProvider(),
-				config.documentIndexResources(),
-				config.queueResources()
-			),
-			new RetireIndexCommandHandler(config.repository()),
 			new RecoverTargetProvisioningCommandHandler(
 				config.repository(),
 				config.metadataChangeNotifier()
@@ -79,7 +62,6 @@ public final class DocumentStoreCommandHandlers {
 
 	public record Config(
 		DocumentStoreMetadataRepository repository,
-		TargetDefinitionProvider targetDefinitionProvider,
 		IndexerDefinitionProvider indexerDefinitionProvider,
 		IndexerDocumentIndexResourceManager documentIndexResources,
 		IndexerQueueResourceManager queueResources,
@@ -88,7 +70,6 @@ public final class DocumentStoreCommandHandlers {
 	) {
 		public Config {
 			Objects.requireNonNull(repository, "repository");
-			Objects.requireNonNull(targetDefinitionProvider, "targetDefinitionProvider");
 			Objects.requireNonNull(indexerDefinitionProvider, "indexerDefinitionProvider");
 			Objects.requireNonNull(documentIndexResources, "documentIndexResources");
 			Objects.requireNonNull(queueResources, "queueResources");

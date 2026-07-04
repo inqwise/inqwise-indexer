@@ -6,10 +6,7 @@ import com.inqwise.indexer.IndexerMetadataChanged;
 import com.inqwise.indexer.IndexerQueueResourceManager;
 import com.inqwise.indexer.MetadataChangeNotifier;
 import com.inqwise.indexer.TargetMetadataChanged;
-import com.inqwise.indexer.commands.CreateTargetCommand;
 import com.inqwise.indexer.commands.InitialPublicationMode;
-import com.inqwise.indexer.commands.PublishIndexCommand;
-import com.inqwise.indexer.commands.PublishIndexCommandHandler;
 import com.inqwise.indexer.commands.CommandFailure;
 import com.inqwise.indexer.definitions.IndexerDefinitionProvider;
 import com.inqwise.indexer.definitions.TargetDefinition;
@@ -19,25 +16,31 @@ import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.IndexerRecord;
 import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.metadata.PublicationRecord;
-import com.inqwise.indexer.metadata.ReadinessState;
 import com.inqwise.indexer.metadata.TargetPeriod;
 import com.inqwise.indexer.metadata.TargetPeriodResolver;
 import com.inqwise.indexer.metadata.TargetPeriodStrategy;
 import com.inqwise.indexer.metadata.TargetProvisioningState;
 import com.inqwise.indexer.metadata.TargetRecord;
 import com.inqwise.indexer.metadata.TargetStatus;
-import com.inqwise.indexer.metadata.UpdatePublicationReadiness;
 import com.inqwise.indexer.metadata.UpdateTargetProvisioningState;
+import com.inqwise.indexer.publication.IndexPublicationService;
+import com.inqwise.indexer.publication.MarkIndexReadyRequest;
+import com.inqwise.indexer.publication.MetadataIndexPublicationService;
+import com.inqwise.indexer.publication.PublishIndexRequest;
+import com.inqwise.indexer.management.targets.CreateTargetIndexerRequest;
+import com.inqwise.indexer.management.targets.CreateTargetRequest;
+import com.inqwise.indexer.management.targets.TargetManagementService;
 
 import io.vertx.core.Future;
 
-public class CreateTargetOperation {
+public class CreateTargetOperation implements TargetManagementService {
+	private static final String CHANGE_TYPE = "target.create";
 	private final DocumentStoreMetadataRepository repository;
 	private final TargetDefinitionProvider targetDefinitionProvider;
 	private final IndexerProvisioningService provisioningService;
 	private final MetadataChangeNotifier metadataChangeNotifier;
 	private final TargetPeriodResolver periodResolver = new TargetPeriodResolver();
-	private final PublishIndexCommandHandler publishIndex;
+	private final IndexPublicationService publicationService;
 
 	public CreateTargetOperation(
 		DocumentStoreMetadataRepository repository,
@@ -62,7 +65,7 @@ public class CreateTargetOperation {
 			metadataChangeNotifier,
 			"metadataChangeNotifier"
 		);
-		this.publishIndex = new PublishIndexCommandHandler(
+		this.publicationService = new MetadataIndexPublicationService(
 			repository,
 			indexerDefinitionProvider,
 			documentIndexResources,
@@ -70,17 +73,18 @@ public class CreateTargetOperation {
 		);
 	}
 
-	public Future<TargetRecord> create(CreateTargetCommand create) {
+	@Override
+	public Future<TargetRecord> createTarget(CreateTargetRequest create) {
 		return resolveDefinition(create)
 			.compose(definition -> resolvePeriod(create, definition)
 				.compose(period -> failIfTargetExists(definition, period)
 					.compose(ignored -> insertTarget(create, definition, period))))
-			.compose(target -> create.getCreateIndexer() == null
+			.compose(target -> create.createIndexer() == null
 				? markTargetReady(target)
 					.compose(readyTarget -> publishTargetMetadataChanged(readyTarget)
 						.map(readyTarget))
-				: provisionIndexer(create.getCreateIndexer(), target)
-					.compose(indexer -> preparePublication(indexer, create.getCreateIndexer())
+				: provisionIndexer(create.createIndexer(), target)
+					.compose(indexer -> preparePublication(indexer, create.createIndexer())
 						.compose(preparedIndexer -> markTargetReady(target)
 							.compose(readyTarget -> publishTargetMetadataChanged(readyTarget)
 								.compose(ignored -> publishMetadataChanged(preparedIndexer))
@@ -88,22 +92,22 @@ public class CreateTargetOperation {
 					.recover(error -> markTargetFailed(target).compose(ignored -> Future.failedFuture(error))));
 	}
 
-	private Future<TargetDefinition> resolveDefinition(CreateTargetCommand create) {
-		return targetDefinitionProvider.getByName(create.getTargetName())
+	private Future<TargetDefinition> resolveDefinition(CreateTargetRequest create) {
+		return targetDefinitionProvider.getByName(create.targetName())
 			.compose(found -> found
 				.map(Future::succeededFuture)
 				.orElseGet(() -> Future.failedFuture(
 					CommandFailure.stableInvalid(
-						"Target definition not found by name: " + create.getTargetName()
+						"Target definition not found by name: " + create.targetName()
 					)
 				)));
 	}
 
 	private Future<TargetPeriod> resolvePeriod(
-		CreateTargetCommand create,
+		CreateTargetRequest create,
 		TargetDefinition definition
 	) {
-		if (definition.periodStrategy() != TargetPeriodStrategy.NONE && create.getTimestamp() == null) {
+		if (definition.periodStrategy() != TargetPeriodStrategy.NONE && create.timestamp() == null) {
 			return Future.failedFuture(
 				"Timestamp is required for target period strategy: " + definition.periodStrategy()
 			);
@@ -112,7 +116,7 @@ public class CreateTargetOperation {
 		try {
 			return Future.succeededFuture(periodResolver.resolve(
 				definition.periodStrategy(),
-				create.getTimestamp()
+				create.timestamp()
 			));
 		} catch (RuntimeException error) {
 			return Future.failedFuture(error);
@@ -131,12 +135,12 @@ public class CreateTargetOperation {
 	}
 
 	private Future<TargetRecord> insertTarget(
-		CreateTargetCommand create,
+		CreateTargetRequest create,
 		TargetDefinition definition,
 		TargetPeriod period
 	) {
 		return repository.insertTarget(new InsertTarget(
-			create.getPrefix(),
+			create.prefix(),
 			definition.targetName(),
 			period.key(),
 			period.startInclusive(),
@@ -147,44 +151,45 @@ public class CreateTargetOperation {
 	}
 
 	private Future<IndexerRecord> provisionIndexer(
-		CreateTargetCommand.CreateIndexer create,
+		CreateTargetIndexerRequest create,
 		TargetRecord target
 	) {
 		return provisioningService.createIndexer(new CreateIndexerProvisioningRequest(
-			create.getPrefix(),
+			create.prefix(),
 			target.id(),
 			target.targetName(),
-			create.getIndexName(),
-			create.getQueueName(),
-			create.getIndexerType(),
-			create.getRole(),
-			create.getIndexOwnership(),
-			create.getRuntimeState(),
-			create.getPublicationState(),
-			create.getMutationState()
+			create.indexName(),
+			create.queueName(),
+			create.indexerType(),
+			create.role(),
+			create.indexOwnership(),
+			create.runtimeState(),
+			create.publicationState(),
+			create.mutationState()
 		));
 	}
 
 	private Future<IndexerRecord> preparePublication(
 		IndexerRecord indexer,
-		CreateTargetCommand.CreateIndexer create
+		CreateTargetIndexerRequest create
 	) {
 		return repository.getPublicationByIndexerId(indexer.id())
 			.compose(found -> found
 				.map(publication -> markPublicationReady(publication)
-					.compose(ignored -> create.getInitialPublicationMode() == InitialPublicationMode.PUBLISH
-						? publishIndex.handle(new PublishIndexCommand(indexer.id(), indexer.version()))
-							.compose(published -> getIndexer(indexer.id()))
+					.compose(ignored -> create.initialPublicationMode() == InitialPublicationMode.PUBLISH
+						? publicationService.publish(new PublishIndexRequest(
+							indexer.id(),
+							indexer.version()
+						))
 						: Future.succeededFuture(indexer)))
 				.orElseGet(() -> Future.failedFuture(
 					"Publication not found for indexer: " + indexer.id()
 				)));
 	}
 
-	private Future<Void> markPublicationReady(PublicationRecord publication) {
-		return repository.updatePublicationReadiness(new UpdatePublicationReadiness(
+	private Future<PublicationRecord> markPublicationReady(PublicationRecord publication) {
+		return publicationService.markReady(new MarkIndexReadyRequest(
 			publication.id(),
-			ReadinessState.READY,
 			"target creation",
 			publication.version()
 		));
@@ -213,7 +218,7 @@ public class CreateTargetOperation {
 		return metadataChangeNotifier.indexerChanged(new IndexerMetadataChanged(
 			indexer.id(),
 			indexer.targetId(),
-			CreateTargetCommand.TYPE,
+			CHANGE_TYPE,
 			indexer.version()
 		));
 	}
@@ -223,7 +228,7 @@ public class CreateTargetOperation {
 			target.id(),
 			target.targetName(),
 			target.periodKey(),
-			CreateTargetCommand.TYPE,
+			CHANGE_TYPE,
 			target.version()
 		));
 	}

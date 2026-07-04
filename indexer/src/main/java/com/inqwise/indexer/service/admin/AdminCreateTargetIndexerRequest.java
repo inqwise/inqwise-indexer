@@ -4,10 +4,10 @@ import com.inqwise.indexer.IndexResourceOwnership;
 import com.inqwise.indexer.IndexerRole;
 import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.IndexerType;
-import com.inqwise.indexer.commands.CreateTargetCommand;
 import com.inqwise.indexer.commands.InitialPublicationMode;
 import com.inqwise.indexer.metadata.MutationState;
 import com.inqwise.indexer.metadata.PublicationState;
+import com.inqwise.indexer.management.targets.CreateTargetIndexerRequest;
 
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
@@ -86,8 +86,8 @@ public class AdminCreateTargetIndexerRequest {
 				: initialPublicationMode.name());
 	}
 
-	CreateTargetCommand.CreateIndexer toCommand() {
-		return new CreateTargetCommand.CreateIndexer(
+	CreateTargetIndexerRequest toTargetRequest() {
+		return new CreateTargetIndexerRequest(
 			prefix,
 			indexName,
 			queueName,

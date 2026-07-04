@@ -31,6 +31,10 @@ import com.inqwise.indexer.metadata.PublicationState;
 import com.inqwise.indexer.metadata.ReadinessState;
 import com.inqwise.indexer.metadata.TargetPeriodStrategy;
 import com.inqwise.indexer.metadata.TargetProvisioningState;
+import com.inqwise.indexer.management.targets.CreateTargetIndexerRequest;
+import com.inqwise.indexer.management.targets.CreateTargetRequest;
+import com.inqwise.indexer.management.targets.TargetManagementService;
+import com.inqwise.indexer.provisioning.CreateTargetOperation;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 
 import io.vertx.core.Future;
@@ -39,20 +43,20 @@ import io.vertx.junit5.VertxExtension;
 import io.vertx.junit5.VertxTestContext;
 
 @ExtendWith(VertxExtension.class)
-class CreateTargetCommandTest {
+class TargetManagementServiceTest {
 	@Test
 	void createsConcreteTargetWithoutIndexer(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
-		InMemoryCommandEngine commandService = commandService(
+		TargetManagementService targetManagementService = targetManagementService(
 			repository,
 			new RecordingDocumentIndexResourceManager(),
 			new RecordingQueueResourceManager(),
 			eventBus
 		);
 
-		commandService.submit(new CreateTargetCommand(
+		targetManagementService.createTarget(new CreateTargetRequest(
 			"target-customers",
 			"customers",
 			Instant.parse("2026-05-18T10:15:00Z"),
@@ -73,14 +77,14 @@ class CreateTargetCommandTest {
 	void failsWhenConcreteTargetAlreadyExists(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
-		InMemoryCommandEngine commandService = commandService(repository);
+		TargetManagementService targetManagementService = targetManagementService(repository);
 
-		commandService.submit(new CreateTargetCommand(
+		targetManagementService.createTarget(new CreateTargetRequest(
 			"target-customers",
 			"customers",
 			Instant.parse("2026-05-18T10:15:00Z"),
 			null
-		)).compose(ignored -> commandService.submit(new CreateTargetCommand(
+		)).compose(ignored -> targetManagementService.createTarget(new CreateTargetRequest(
 			"target-customers-2",
 			"customers",
 			Instant.parse("2026-05-18T10:15:00Z"),
@@ -99,14 +103,14 @@ class CreateTargetCommandTest {
 			new RecordingDocumentIndexResourceManager();
 		RecordingQueueResourceManager queueResources = new RecordingQueueResourceManager();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
-		InMemoryCommandEngine commandService = commandService(
+		TargetManagementService targetManagementService = targetManagementService(
 			repository,
 			documentResources,
 			queueResources,
 			eventBus
 		);
 
-		commandService.submit(new CreateTargetCommand(
+		targetManagementService.createTarget(new CreateTargetRequest(
 			"target-customers",
 			"customers",
 			Instant.parse("2026-05-18T10:15:00Z"),
@@ -134,9 +138,9 @@ class CreateTargetCommandTest {
 	void createsTargetWithPublishedIndexer(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
-		InMemoryCommandEngine commandService = commandService(repository);
+		TargetManagementService targetManagementService = targetManagementService(repository);
 
-		commandService.submit(new CreateTargetCommand(
+		targetManagementService.createTarget(new CreateTargetRequest(
 			"target-customers",
 			"customers",
 			Instant.parse("2026-05-18T10:15:00Z"),
@@ -158,14 +162,14 @@ class CreateTargetCommandTest {
 		RecordingDocumentIndexResourceManager documentResources =
 			new RecordingDocumentIndexResourceManager();
 		documentResources.failure = new IllegalStateException("index create failed");
-		InMemoryCommandEngine commandService = commandService(
+		TargetManagementService targetManagementService = targetManagementService(
 			repository,
 			documentResources,
 			new RecordingQueueResourceManager(),
 			new InMemoryIndexerLifecycleEventBus()
 		);
 
-		commandService.submit(new CreateTargetCommand(
+		targetManagementService.createTarget(new CreateTargetRequest(
 			"target-customers",
 			"customers",
 			Instant.parse("2026-05-18T10:15:00Z"),
@@ -180,8 +184,10 @@ class CreateTargetCommandTest {
 		})))));
 	}
 
-	private InMemoryCommandEngine commandService(InMemoryDocumentStoreMetadataRepository repository) {
-		return commandService(
+	private TargetManagementService targetManagementService(
+		InMemoryDocumentStoreMetadataRepository repository
+	) {
+		return targetManagementService(
 			repository,
 			new RecordingDocumentIndexResourceManager(),
 			new RecordingQueueResourceManager(),
@@ -189,30 +195,29 @@ class CreateTargetCommandTest {
 		);
 	}
 
-	private InMemoryCommandEngine commandService(
+	private TargetManagementService targetManagementService(
 		InMemoryDocumentStoreMetadataRepository repository,
 		RecordingDocumentIndexResourceManager documentResources,
 		RecordingQueueResourceManager queueResources,
 		InMemoryIndexerLifecycleEventBus eventBus
 	) {
-		return new InMemoryCommandEngine()
-			.register(new CreateTargetCommandHandler(
-				repository,
-				new StaticTargetDefinitionProvider(List.of(
-					new TargetDefinition("customers", TargetPeriodStrategy.MONTHLY)
-				)),
-				new StaticIndexerDefinitionProvider(new IndexerDefinition(
-					new IndexDefinition("customers", "v1", new JsonObject(), new JsonObject()),
-					new QueueDefinition(new JsonObject())
-				)),
-				documentResources,
-				queueResources,
-				TestMetadataChangeNotifiers.create(eventBus)
-			));
+		return new CreateTargetOperation(
+			repository,
+			new StaticTargetDefinitionProvider(List.of(
+				new TargetDefinition("customers", TargetPeriodStrategy.MONTHLY)
+			)),
+			new StaticIndexerDefinitionProvider(new IndexerDefinition(
+				new IndexDefinition("customers", "v1", new JsonObject(), new JsonObject()),
+				new QueueDefinition(new JsonObject())
+			)),
+			documentResources,
+			queueResources,
+			TestMetadataChangeNotifiers.create(eventBus)
+		);
 	}
 
-	private CreateTargetCommand.CreateIndexer createIndexer(InitialPublicationMode mode) {
-		return new CreateTargetCommand.CreateIndexer(
+	private CreateTargetIndexerRequest createIndexer(InitialPublicationMode mode) {
+		return new CreateTargetIndexerRequest(
 			"indexer-customers",
 			"customers-index",
 			"customers-queue",
