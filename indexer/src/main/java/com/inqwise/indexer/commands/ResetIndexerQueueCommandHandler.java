@@ -53,6 +53,14 @@ public class ResetIndexerQueueCommandHandler implements CommandHandler {
 				}
 
 				IndexerRecord indexer = found.get();
+				if (reset.getExpectedVersion() < 0L
+					|| reset.getExpectedVersion() == Long.MAX_VALUE) {
+					return Future.failedFuture(
+						"Invalid expected version for indexer queue reset: "
+							+ reset.getExpectedVersion()
+					);
+				}
+
 				if (indexer.status() != IndexerStatus.AVAILABLE
 					|| indexer.mutationState() == MutationState.DELETING) {
 					return Future.failedFuture("Cannot reset deleted indexer queue: " + reset.getIndexerId());
@@ -63,7 +71,12 @@ public class ResetIndexerQueueCommandHandler implements CommandHandler {
 					reset.getExpectedVersion()
 				);
 				if (alreadyApplied(indexer, reset, newQueueName)) {
-					return completeReset(indexer, reset.getExpectedQueueName());
+					return completeReset(
+						indexer.id(),
+						indexer.targetId(),
+						indexer.version(),
+						reset.getExpectedQueueName()
+					);
 				}
 
 				if (indexer.version() != reset.getExpectedVersion()
@@ -85,10 +98,12 @@ public class ResetIndexerQueueCommandHandler implements CommandHandler {
 							reset.getExpectedVersion()
 						)
 					))
-					.compose(ignored -> metadataRepository.getIndexerById(indexer.id()))
-					.compose(updated -> updated
-						.map(value -> completeReset(value, reset.getExpectedQueueName()))
-						.orElseGet(() -> Future.failedFuture("Indexer not found: " + indexer.id())));
+					.compose(ignored -> completeReset(
+						indexer.id(),
+						indexer.targetId(),
+						reset.getExpectedVersion() + 1L,
+						reset.getExpectedQueueName()
+					));
 			});
 	}
 
@@ -101,19 +116,24 @@ public class ResetIndexerQueueCommandHandler implements CommandHandler {
 			&& indexer.queueName().equals(newQueueName);
 	}
 
-	private Future<Void> publish(IndexerRecord indexer) {
+	private Future<Void> publish(Integer indexerId, Integer targetId, long version) {
 		return metadataChangeNotifier.indexerChanged(new IndexerMetadataChanged(
-			indexer.id(),
-			indexer.targetId(),
+			indexerId,
+			targetId,
 			getType(),
-			indexer.version()
+			version
 		));
 	}
 
-	private Future<Void> completeReset(IndexerRecord indexer, String previousQueueName) {
-		return publish(indexer)
+	private Future<Void> completeReset(
+		Integer indexerId,
+		Integer targetId,
+		long version,
+		String previousQueueName
+	) {
+		return publish(indexerId, targetId, version)
 			.compose(ignored -> commandService.submit(new CleanupResetIndexerQueueCommand(
-				indexer.id(),
+				indexerId,
 				previousQueueName
 			)));
 	}

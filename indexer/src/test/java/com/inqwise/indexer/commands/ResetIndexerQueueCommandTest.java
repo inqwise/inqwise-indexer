@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,6 +23,7 @@ import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.IndexerRuntimeState;
 import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.metadata.InsertTarget;
+import com.inqwise.indexer.metadata.IndexerRecord;
 import com.inqwise.indexer.metadata.MutationState;
 import com.inqwise.indexer.metadata.PublicationState;
 
@@ -62,6 +64,53 @@ class ResetIndexerQueueCommandTest {
 				assertEquals(1, events.size());
 				assertEquals(ResetIndexerQueueCommand.TYPE, events.get(0).getCommandType());
 				assertEquals(1L, events.get(0).getVersion());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void resetQueueDoesNotReloadMetadataAfterMutation(VertxTestContext testContext) {
+		CountingIndexerReadsRepository repository = new CountingIndexerReadsRepository();
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		RecordingQueueResourceManager resources = new RecordingQueueResourceManager();
+		InMemoryCommandEngine commandService = commandService(repository, eventBus, resources);
+
+		insertIndexer(repository, "queue-customers-1", IndexerRuntimeState.ACTIVE)
+			.compose(indexerId -> commandService.submit(new ResetIndexerQueueCommand(
+				indexerId,
+				"queue-customers-1",
+				0L
+			)).map(indexerId))
+			.onComplete(testContext.succeeding(indexerId -> testContext.verify(() -> {
+				assertEquals(1, repository.indexerReads);
+				assertEquals(List.of("queue-customers-1"), resources.deleted);
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void resetQueueRejectsVersionOverflowBeforeProvisioning(VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		RecordingQueueResourceManager resources = new RecordingQueueResourceManager();
+		InMemoryCommandEngine commandService = commandService(
+			repository,
+			new InMemoryIndexerLifecycleEventBus(),
+			resources
+		);
+
+		insertIndexer(repository, "queue-customers-1", IndexerRuntimeState.ACTIVE)
+			.compose(indexerId -> commandService.submit(new ResetIndexerQueueCommand(
+				indexerId,
+				"queue-customers-1",
+				Long.MAX_VALUE
+			)))
+			.onComplete(testContext.failing(error -> testContext.verify(() -> {
+				assertEquals(
+					"Invalid expected version for indexer queue reset: " + Long.MAX_VALUE,
+					error.getMessage()
+				);
+				assertTrue(resources.ensured.isEmpty());
 				testContext.completeNow();
 			})));
 	}
@@ -417,6 +466,17 @@ class ResetIndexerQueueCommandTest {
 				return Future.failedFuture("topic delete failed");
 			}
 			return Future.succeededFuture();
+		}
+	}
+
+	private static class CountingIndexerReadsRepository
+		extends InMemoryDocumentStoreMetadataRepository {
+		private int indexerReads;
+
+		@Override
+		public Future<Optional<IndexerRecord>> getIndexerById(Integer id) {
+			indexerReads++;
+			return super.getIndexerById(id);
 		}
 	}
 
