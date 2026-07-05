@@ -12,29 +12,42 @@ import com.inqwise.indexer.IndexerRole;
 import com.inqwise.indexer.IndexerType;
 import com.inqwise.indexer.InMemoryIndexerLifecycleEventBus;
 import com.inqwise.indexer.TestMetadataChangeNotifiers;
+import com.inqwise.indexer.IndexerQueueResourceManager;
+import com.inqwise.indexer.definitions.IndexDefinition;
+import com.inqwise.indexer.definitions.IndexerDefinition;
+import com.inqwise.indexer.definitions.QueueDefinition;
+import com.inqwise.indexer.definitions.StaticIndexerDefinitionProvider;
 import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.metadata.MutationState;
 import com.inqwise.indexer.metadata.PublicationState;
+import com.inqwise.indexer.provisioning.CreateIndexerProvisioningRequest;
+import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
+import com.inqwise.indexer.provisioning.IndexerProvisioningService;
 
+import io.vertx.core.json.JsonObject;
 import io.vertx.junit5.VertxExtension;
 import io.vertx.junit5.VertxTestContext;
 
 @ExtendWith(VertxExtension.class)
-class CreateIndexerCommandTest {
+class IndexerProvisioningServiceTest {
 	@Test
 	void createsIndexerWithRoleAndOwnership(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
-		InMemoryCommandEngine commandService = new InMemoryCommandEngine()
-			.register(new CreateIndexerCommandHandler(
-				repository,
-				TestMetadataChangeNotifiers.create(eventBus)
-			));
+		IndexerProvisioningService service = new IndexerProvisioningService(
+			repository,
+			new StaticIndexerDefinitionProvider(new IndexerDefinition(
+				new IndexDefinition("default", "1", new JsonObject(), new JsonObject()),
+				new QueueDefinition(new JsonObject())
+			)),
+			IndexerDocumentIndexResourceManager.NOOP,
+			IndexerQueueResourceManager.NOOP
+		);
 
 		repository.insertTarget(new InsertTarget(null, "customers", null))
-			.compose(targetId -> commandService.submit(new CreateIndexerCommand(
+			.compose(targetId -> service.createIndexer(new CreateIndexerProvisioningRequest(
 				"load-writer",
 				targetId,
 				"customers",
@@ -46,6 +59,10 @@ class CreateIndexerCommandTest {
 				IndexerRuntimeState.ACTIVE,
 				PublicationState.UNPUBLISHED,
 				MutationState.WRITABLE
+			)).compose(indexer -> TestMetadataChangeNotifiers.create(eventBus).indexerChanged(
+				new com.inqwise.indexer.IndexerMetadataChanged(
+					indexer.id(), indexer.targetId(), "indexer.create", indexer.version()
+				)
 			)).compose(ignored -> repository.listIndexersByTargetId(targetId)))
 			.onComplete(testContext.succeeding(indexers -> testContext.verify(() -> {
 				assertEquals(1, indexers.size());
@@ -54,7 +71,7 @@ class CreateIndexerCommandTest {
 				assertEquals(IndexerRuntimeState.ACTIVE, indexers.get(0).runtimeState());
 				assertTrue(eventBus.events().stream()
 					.anyMatch(event -> event.getIndexerId().equals(indexers.get(0).id())
-						&& CreateIndexerCommand.TYPE.equals(event.getCommandType())));
+						&& "indexer.create".equals(event.getCommandType())));
 				testContext.completeNow();
 			})));
 	}

@@ -5,7 +5,6 @@ import java.util.Objects;
 
 import com.inqwise.indexer.IndexerQueueResourceManager;
 import com.inqwise.indexer.MetadataChangeNotifier;
-import com.inqwise.indexer.definitions.IndexerDefinitionProvider;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.operations.IndexerOperations;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
@@ -22,13 +21,6 @@ public final class DocumentStoreCommandHandlers {
 		Objects.requireNonNull(commandService, "commandService");
 
 		return List.of(
-			new CreateIndexerCommandHandler(
-				config.repository(),
-				config.indexerDefinitionProvider(),
-				config.documentIndexResources(),
-				config.queueResources(),
-				config.metadataChangeNotifier()
-			),
 			new CleanupDeletingIndexerCommandHandler(
 				config.repository(),
 				config.queueResources(),
@@ -56,7 +48,6 @@ public final class DocumentStoreCommandHandlers {
 
 	public record Config(
 		DocumentStoreMetadataRepository repository,
-		IndexerDefinitionProvider indexerDefinitionProvider,
 		IndexerDocumentIndexResourceManager documentIndexResources,
 		IndexerQueueResourceManager queueResources,
 		MetadataChangeNotifier metadataChangeNotifier,
@@ -64,7 +55,6 @@ public final class DocumentStoreCommandHandlers {
 	) {
 		public Config {
 			Objects.requireNonNull(repository, "repository");
-			Objects.requireNonNull(indexerDefinitionProvider, "indexerDefinitionProvider");
 			Objects.requireNonNull(documentIndexResources, "documentIndexResources");
 			Objects.requireNonNull(queueResources, "queueResources");
 			Objects.requireNonNull(metadataChangeNotifier, "metadataChangeNotifier");

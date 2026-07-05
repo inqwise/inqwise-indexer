@@ -6,7 +6,6 @@ import java.util.Optional;
 import com.inqwise.indexer.IndexerMetadataChanged;
 import com.inqwise.indexer.IndexerQueueResourceManager;
 import com.inqwise.indexer.MetadataChangeNotifier;
-import com.inqwise.indexer.commands.CreateIndexerCommand;
 import com.inqwise.indexer.commands.CleanupDeletingIndexerCommand;
 import com.inqwise.indexer.commands.CommandService;
 import com.inqwise.indexer.commands.ResetIndexerQueueCommand;
@@ -271,7 +270,7 @@ public class AdminServiceImpl implements AdminService {
 				.compose(indexer -> metadataChangeNotifier.indexerChanged(new IndexerMetadataChanged(
 						indexer.id(),
 						indexer.targetId(),
-						CreateIndexerCommand.TYPE,
+						"indexer.create",
 						indexer.version()
 					)).map(ignored -> indexer))
 				.map(indexer -> new AdminIndexerResult().setIndexer(AdminIndexerView.from(indexer)))

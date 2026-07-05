@@ -13,15 +13,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import com.inqwise.indexer.IndexerQueueResourceManager;
 import com.inqwise.indexer.InMemoryIndexerLifecycleEventBus;
 import com.inqwise.indexer.TestMetadataChangeNotifiers;
-import com.inqwise.indexer.definitions.IndexDefinition;
-import com.inqwise.indexer.definitions.IndexerDefinition;
-import com.inqwise.indexer.definitions.QueueDefinition;
-import com.inqwise.indexer.definitions.StaticIndexerDefinitionProvider;
 import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.operations.MetadataIndexerOperations;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 
-import io.vertx.core.json.JsonObject;
 import io.vertx.junit5.VertxExtension;
 
 @ExtendWith(VertxExtension.class)
@@ -38,8 +33,7 @@ class DocumentStoreCommandHandlersTest {
 			.map(CommandHandler::getType)
 			.collect(Collectors.toSet());
 
-		assertEquals(5, handlers.size());
-		assertTrue(types.contains(CreateIndexerCommand.TYPE));
+		assertEquals(4, handlers.size());
 		assertTrue(types.contains(DeleteIndexerCommand.TYPE));
 		assertTrue(types.contains(CleanupDeletingIndexerCommand.TYPE));
 		assertTrue(types.contains(CleanupResetIndexerQueueCommand.TYPE));
@@ -52,10 +46,6 @@ class DocumentStoreCommandHandlersTest {
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		return new DocumentStoreCommandHandlers.Config(
 			repository,
-			new StaticIndexerDefinitionProvider(new IndexerDefinition(
-				new IndexDefinition("customers", "v1", new JsonObject(), new JsonObject()),
-				new QueueDefinition(new JsonObject())
-			)),
 			IndexerDocumentIndexResourceManager.NOOP,
 			IndexerQueueResourceManager.NOOP,
 			TestMetadataChangeNotifiers.create(eventBus),
