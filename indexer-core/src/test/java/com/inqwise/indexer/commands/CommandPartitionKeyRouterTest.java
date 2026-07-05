@@ -19,7 +19,6 @@ class CommandPartitionKeyRouterTest {
 	@Test
 	void resolvesCoreResourceIdentities() {
 		assertKey(DeleteIndexerCommand.TYPE, "indexer_id", 31, "indexer:31");
-		assertKey(ResetIndexerQueueCommand.TYPE, "indexer_id", 31, "indexer:31");
 		assertKey(CleanupResetIndexerQueueCommand.TYPE, "indexer_id", 31, "indexer:31");
 		assertKey(CleanupDeletingIndexerCommand.TYPE, "indexer_id", 31, "indexer:31");
 	}

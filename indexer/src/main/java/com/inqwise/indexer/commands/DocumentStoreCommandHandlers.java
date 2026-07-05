@@ -27,13 +27,7 @@ public final class DocumentStoreCommandHandlers {
 				config.documentIndexResources()
 			),
 			new CleanupResetIndexerQueueCommandHandler(config.queueResources()),
-			new DeleteIndexerCommandHandler(config.indexerOperations(), commandService),
-			new ResetIndexerQueueCommandHandler(
-				config.repository(),
-				config.metadataChangeNotifier(),
-				config.queueResources(),
-				commandService
-			)
+			new DeleteIndexerCommandHandler(config.indexerOperations(), commandService)
 		);
 	}
 

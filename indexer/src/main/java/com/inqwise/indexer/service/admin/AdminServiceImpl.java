@@ -8,8 +8,6 @@ import com.inqwise.indexer.IndexerQueueResourceManager;
 import com.inqwise.indexer.MetadataChangeNotifier;
 import com.inqwise.indexer.commands.CleanupDeletingIndexerCommand;
 import com.inqwise.indexer.commands.CommandService;
-import com.inqwise.indexer.commands.ResetIndexerQueueCommand;
-import com.inqwise.indexer.commands.ResetIndexerQueueCommandHandler;
 import com.inqwise.indexer.definitions.IndexerDefinitionProvider;
 import com.inqwise.indexer.definitions.TargetDefinitionProvider;
 import com.inqwise.indexer.errors.IndexerErrors;
@@ -23,6 +21,9 @@ import com.inqwise.indexer.management.targets.RecoverTargetProvisioningRequest;
 import com.inqwise.indexer.management.indexers.IndexerManagementService;
 import com.inqwise.indexer.management.indexers.IndexerRuntimeStateRequest;
 import com.inqwise.indexer.management.indexers.MetadataIndexerManagementService;
+import com.inqwise.indexer.management.queues.IndexerQueueManagementService;
+import com.inqwise.indexer.management.queues.MetadataIndexerQueueManagementService;
+import com.inqwise.indexer.management.queues.ResetIndexerQueueRequest;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 import com.inqwise.indexer.provisioning.IndexerProvisioningService;
 import com.inqwise.indexer.management.targets.TargetManagementService;
@@ -35,7 +36,7 @@ public class AdminServiceImpl implements AdminService {
 	private final IndexerManagementService indexerManagementService;
 	private final CommandService commandService;
 	private final IndexerOperations indexerOperations;
-	private final ResetIndexerQueueCommandHandler resetIndexerQueue;
+	private final IndexerQueueManagementService queueManagementService;
 	private final TargetManagementService targetManagementService;
 	private final IndexerProvisioningService indexerProvisioning;
 
@@ -62,7 +63,7 @@ public class AdminServiceImpl implements AdminService {
 		);
 		this.commandService = Objects.requireNonNull(commandService, "commandService");
 		this.indexerOperations = Objects.requireNonNull(indexerOperations, "indexerOperations");
-		this.resetIndexerQueue = new ResetIndexerQueueCommandHandler(
+		this.queueManagementService = new MetadataIndexerQueueManagementService(
 			repository,
 			metadataChangeNotifier,
 			queueResources,
@@ -227,7 +228,7 @@ public class AdminServiceImpl implements AdminService {
 			Integer indexerId = request.getIndexerId();
 			return repository.getIndexerById(indexerId)
 				.compose(found -> found
-					.map(indexer -> resetIndexerQueue.handle(new ResetIndexerQueueCommand(
+					.map(indexer -> queueManagementService.reset(new ResetIndexerQueueRequest(
 						indexerId,
 						indexer.queueName(),
 						request.getExpectedVersion()
