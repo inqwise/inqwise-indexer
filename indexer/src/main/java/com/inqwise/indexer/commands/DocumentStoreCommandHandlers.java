@@ -29,8 +29,6 @@ public final class DocumentStoreCommandHandlers {
 				config.queueResources(),
 				config.metadataChangeNotifier()
 			),
-			new ActivateIndexerCommandHandler(config.repository(), config.metadataChangeNotifier()),
-			new DeactivateIndexerCommandHandler(config.repository(), config.metadataChangeNotifier()),
 			new CleanupDeletingIndexerCommandHandler(
 				config.repository(),
 				config.queueResources(),

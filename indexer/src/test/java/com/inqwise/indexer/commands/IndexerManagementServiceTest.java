@@ -20,13 +20,16 @@ import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.metadata.MutationState;
 import com.inqwise.indexer.metadata.PublicationState;
 import com.inqwise.indexer.metadata.UpdateIndexerMutationState;
+import com.inqwise.indexer.management.indexers.IndexerManagementService;
+import com.inqwise.indexer.management.indexers.IndexerRuntimeStateRequest;
+import com.inqwise.indexer.management.indexers.MetadataIndexerManagementService;
 
 import io.vertx.core.Future;
 import io.vertx.junit5.VertxExtension;
 import io.vertx.junit5.VertxTestContext;
 
 @ExtendWith(VertxExtension.class)
-class MetadataIndexerLifecycleCommandTest {
+class IndexerManagementServiceTest {
 	@Test
 	void activateCommandUpdatesMetadataRepositoryAndPublishesEvent(
 		VertxTestContext testContext
@@ -34,19 +37,19 @@ class MetadataIndexerLifecycleCommandTest {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
-		InMemoryCommandEngine commandService = commandService(repository, eventBus);
+		IndexerManagementService service = service(repository, eventBus);
 		List<IndexerMetadataChanged> events = new ArrayList<>();
 
 		eventBus.subscribe(events::add)
 			.compose(ignored -> insertIndexer(repository, IndexerRuntimeState.NON_ACTIVE))
-			.compose(indexerId -> commandService.submit(new ActivateIndexerCommand(indexerId, 0L))
+			.compose(indexerId -> service.activate(new IndexerRuntimeStateRequest(indexerId, 0L))
 				.compose(ignored -> repository.getIndexerById(indexerId)))
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
 				assertTrue(found.isPresent());
 				assertEquals(IndexerRuntimeState.ACTIVE, found.get().runtimeState());
 				assertEquals(1L, found.get().version());
 				assertEquals(1, events.size());
-				assertEquals(ActivateIndexerCommand.TYPE, events.get(0).getCommandType());
+				assertEquals("indexer.activate", events.get(0).getCommandType());
 				assertEquals(1L, events.get(0).getVersion());
 				testContext.completeNow();
 			})));
@@ -59,18 +62,18 @@ class MetadataIndexerLifecycleCommandTest {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
-		InMemoryCommandEngine commandService = commandService(repository, eventBus);
+		IndexerManagementService service = service(repository, eventBus);
 		List<IndexerMetadataChanged> events = new ArrayList<>();
 
 		eventBus.subscribe(events::add)
 			.compose(ignored -> insertIndexer(repository, IndexerRuntimeState.NON_ACTIVE))
 			.compose(indexerId -> {
-				ActivateIndexerCommand activate = new ActivateIndexerCommand(indexerId, 0L);
-				DeactivateIndexerCommand deactivate = new DeactivateIndexerCommand(indexerId, 1L);
-				return commandService.submit(activate)
-					.compose(ignored -> commandService.submit(activate))
-					.compose(ignored -> commandService.submit(deactivate))
-					.compose(ignored -> commandService.submit(deactivate))
+				IndexerRuntimeStateRequest activate = new IndexerRuntimeStateRequest(indexerId, 0L);
+				IndexerRuntimeStateRequest deactivate = new IndexerRuntimeStateRequest(indexerId, 1L);
+				return service.activate(activate)
+					.compose(ignored -> service.activate(activate))
+					.compose(ignored -> service.deactivate(deactivate))
+					.compose(ignored -> service.deactivate(deactivate))
 					.compose(ignored -> repository.getIndexerById(indexerId));
 			})
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
@@ -93,10 +96,10 @@ class MetadataIndexerLifecycleCommandTest {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
-		InMemoryCommandEngine commandService = commandService(repository, eventBus);
+		IndexerManagementService service = service(repository, eventBus);
 
 		insertIndexer(repository, IndexerRuntimeState.NON_ACTIVE, MutationState.DELETING)
-			.compose(indexerId -> commandService.submit(new ActivateIndexerCommand(indexerId, 0L)))
+			.compose(indexerId -> service.activate(new IndexerRuntimeStateRequest(indexerId, 0L)))
 			.onComplete(testContext.failing(error -> testContext.verify(() -> {
 				assertTrue(error.getMessage().startsWith("Cannot activate deleted indexer"));
 				testContext.completeNow();
@@ -107,15 +110,15 @@ class MetadataIndexerLifecycleCommandTest {
 	void activateRedeliveryRejectsLaterInactiveVersion(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
-		InMemoryCommandEngine commandService = commandService(
+		IndexerManagementService service = service(
 			repository,
 			new InMemoryIndexerLifecycleEventBus()
 		);
 
 		insertIndexer(repository, IndexerRuntimeState.NON_ACTIVE)
-			.compose(indexerId -> commandService.submit(new ActivateIndexerCommand(indexerId, 0L))
-				.compose(ignored -> commandService.submit(new DeactivateIndexerCommand(indexerId, 1L)))
-				.compose(ignored -> commandService.submit(new ActivateIndexerCommand(indexerId, 0L))))
+			.compose(indexerId -> service.activate(new IndexerRuntimeStateRequest(indexerId, 0L))
+				.compose(ignored -> service.deactivate(new IndexerRuntimeStateRequest(indexerId, 1L)))
+				.compose(ignored -> service.activate(new IndexerRuntimeStateRequest(indexerId, 0L))))
 			.onComplete(testContext.failing(error -> testContext.verify(() -> {
 				assertTrue(error.getMessage().startsWith("Indexer version conflict for id"));
 				testContext.completeNow();
@@ -126,15 +129,15 @@ class MetadataIndexerLifecycleCommandTest {
 	void deactivateRedeliveryRejectsLaterActiveVersion(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
-		InMemoryCommandEngine commandService = commandService(
+		IndexerManagementService service = service(
 			repository,
 			new InMemoryIndexerLifecycleEventBus()
 		);
 
 		insertIndexer(repository, IndexerRuntimeState.ACTIVE)
-			.compose(indexerId -> commandService.submit(new DeactivateIndexerCommand(indexerId, 0L))
-				.compose(ignored -> commandService.submit(new ActivateIndexerCommand(indexerId, 1L)))
-				.compose(ignored -> commandService.submit(new DeactivateIndexerCommand(indexerId, 0L))))
+			.compose(indexerId -> service.deactivate(new IndexerRuntimeStateRequest(indexerId, 0L))
+				.compose(ignored -> service.activate(new IndexerRuntimeStateRequest(indexerId, 1L)))
+				.compose(ignored -> service.deactivate(new IndexerRuntimeStateRequest(indexerId, 0L))))
 			.onComplete(testContext.failing(error -> testContext.verify(() -> {
 				assertTrue(error.getMessage().startsWith("Indexer version conflict for id"));
 				testContext.completeNow();
@@ -145,7 +148,7 @@ class MetadataIndexerLifecycleCommandTest {
 	void deactivateDoesNotClaimDeletingTransition(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
-		InMemoryCommandEngine commandService = commandService(
+		IndexerManagementService service = service(
 			repository,
 			new InMemoryIndexerLifecycleEventBus()
 		);
@@ -153,7 +156,7 @@ class MetadataIndexerLifecycleCommandTest {
 		insertIndexer(repository, IndexerRuntimeState.NON_ACTIVE)
 			.compose(indexerId -> repository.updateIndexerMutationState(
 				new UpdateIndexerMutationState(indexerId, MutationState.DELETING, 0L)
-			).compose(ignored -> commandService.submit(new DeactivateIndexerCommand(
+			).compose(ignored -> service.deactivate(new IndexerRuntimeStateRequest(
 				indexerId,
 				0L
 			))))
@@ -163,19 +166,14 @@ class MetadataIndexerLifecycleCommandTest {
 			})));
 	}
 
-	private InMemoryCommandEngine commandService(
+	private IndexerManagementService service(
 		InMemoryDocumentStoreMetadataRepository repository,
 		InMemoryIndexerLifecycleEventBus eventBus
 	) {
-		return new InMemoryCommandEngine()
-			.register(new ActivateIndexerCommandHandler(
-				repository,
-				TestMetadataChangeNotifiers.create(eventBus)
-			))
-			.register(new DeactivateIndexerCommandHandler(
-				repository,
-				TestMetadataChangeNotifiers.create(eventBus)
-			));
+		return new MetadataIndexerManagementService(
+			repository,
+			TestMetadataChangeNotifiers.create(eventBus)
+		);
 	}
 
 	private Future<Integer> insertIndexer(

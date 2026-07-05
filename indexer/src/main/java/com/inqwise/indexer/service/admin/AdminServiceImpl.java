@@ -6,13 +6,9 @@ import java.util.Optional;
 import com.inqwise.indexer.IndexerMetadataChanged;
 import com.inqwise.indexer.IndexerQueueResourceManager;
 import com.inqwise.indexer.MetadataChangeNotifier;
-import com.inqwise.indexer.commands.ActivateIndexerCommand;
-import com.inqwise.indexer.commands.ActivateIndexerCommandHandler;
 import com.inqwise.indexer.commands.CreateIndexerCommand;
 import com.inqwise.indexer.commands.CleanupDeletingIndexerCommand;
 import com.inqwise.indexer.commands.CommandService;
-import com.inqwise.indexer.commands.DeactivateIndexerCommand;
-import com.inqwise.indexer.commands.DeactivateIndexerCommandHandler;
 import com.inqwise.indexer.commands.ResetIndexerQueueCommand;
 import com.inqwise.indexer.commands.ResetIndexerQueueCommandHandler;
 import com.inqwise.indexer.definitions.IndexerDefinitionProvider;
@@ -25,6 +21,9 @@ import com.inqwise.indexer.operations.IndexerOperations;
 import com.inqwise.indexer.operations.MarkIndexerDeletingRequest;
 import com.inqwise.indexer.management.targets.MetadataTargetManagementService;
 import com.inqwise.indexer.management.targets.RecoverTargetProvisioningRequest;
+import com.inqwise.indexer.management.indexers.IndexerManagementService;
+import com.inqwise.indexer.management.indexers.IndexerRuntimeStateRequest;
+import com.inqwise.indexer.management.indexers.MetadataIndexerManagementService;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 import com.inqwise.indexer.provisioning.IndexerProvisioningService;
 import com.inqwise.indexer.management.targets.TargetManagementService;
@@ -34,8 +33,7 @@ import io.vertx.core.Future;
 public class AdminServiceImpl implements AdminService {
 	private final DocumentStoreMetadataRepository repository;
 	private final MetadataChangeNotifier metadataChangeNotifier;
-	private final ActivateIndexerCommandHandler activateIndexer;
-	private final DeactivateIndexerCommandHandler deactivateIndexer;
+	private final IndexerManagementService indexerManagementService;
 	private final CommandService commandService;
 	private final IndexerOperations indexerOperations;
 	private final ResetIndexerQueueCommandHandler resetIndexerQueue;
@@ -59,8 +57,10 @@ public class AdminServiceImpl implements AdminService {
 		);
 		Objects.requireNonNull(queueResources, "queueResources");
 		Objects.requireNonNull(targetDefinitionProvider, "targetDefinitionProvider");
-		this.activateIndexer = new ActivateIndexerCommandHandler(repository, metadataChangeNotifier);
-		this.deactivateIndexer = new DeactivateIndexerCommandHandler(repository, metadataChangeNotifier);
+		this.indexerManagementService = new MetadataIndexerManagementService(
+			repository,
+			metadataChangeNotifier
+		);
 		this.commandService = Objects.requireNonNull(commandService, "commandService");
 		this.indexerOperations = Objects.requireNonNull(indexerOperations, "indexerOperations");
 		this.resetIndexerQueue = new ResetIndexerQueueCommandHandler(
@@ -165,11 +165,10 @@ public class AdminServiceImpl implements AdminService {
 	public Future<AdminIndexerResult> activateIndexer(AdminIndexerLifecycleRequest request) {
 		try {
 			Integer indexerId = validateIndexerLifecycle(request);
-			return activateIndexer.handle(new ActivateIndexerCommand(
+			return indexerManagementService.activate(new IndexerRuntimeStateRequest(
 				indexerId,
 				request.getExpectedVersion()
-			))
-				.compose(ignored -> loadIndexerResult(indexerId))
+			)).map(indexer -> new AdminIndexerResult().setIndexer(AdminIndexerView.from(indexer)))
 				.recover(error -> Future.failedFuture(IndexerErrors.normalize(error)));
 		} catch (Throwable error) {
 			return Future.failedFuture(IndexerErrors.normalize(error));
@@ -180,11 +179,10 @@ public class AdminServiceImpl implements AdminService {
 	public Future<AdminIndexerResult> deactivateIndexer(AdminIndexerLifecycleRequest request) {
 		try {
 			Integer indexerId = validateIndexerLifecycle(request);
-			return deactivateIndexer.handle(new DeactivateIndexerCommand(
+			return indexerManagementService.deactivate(new IndexerRuntimeStateRequest(
 				indexerId,
 				request.getExpectedVersion()
-			))
-				.compose(ignored -> loadIndexerResult(indexerId))
+			)).map(indexer -> new AdminIndexerResult().setIndexer(AdminIndexerView.from(indexer)))
 				.recover(error -> Future.failedFuture(IndexerErrors.normalize(error)));
 		} catch (Throwable error) {
 			return Future.failedFuture(IndexerErrors.normalize(error));

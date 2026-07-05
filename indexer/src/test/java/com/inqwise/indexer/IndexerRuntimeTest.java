@@ -6,10 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-import com.inqwise.indexer.commands.ActivateIndexerCommand;
-import com.inqwise.indexer.commands.ActivateIndexerCommandHandler;
-import com.inqwise.indexer.commands.DeactivateIndexerCommand;
-import com.inqwise.indexer.commands.DeactivateIndexerCommandHandler;
 import com.inqwise.indexer.commands.DeleteIndexerCommand;
 import com.inqwise.indexer.commands.DeleteIndexerCommandHandler;
 import com.inqwise.indexer.commands.CleanupDeletingIndexerCommandHandler;
@@ -21,6 +17,8 @@ import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.metadata.MutationState;
 import com.inqwise.indexer.metadata.PublicationState;
+import com.inqwise.indexer.management.indexers.IndexerRuntimeStateRequest;
+import com.inqwise.indexer.management.indexers.MetadataIndexerManagementService;
 import com.inqwise.indexer.metadata.UpdateIndexerQueueName;
 import com.inqwise.indexer.operations.IndexerOperations;
 import com.inqwise.indexer.operations.MetadataIndexerOperations;
@@ -65,7 +63,10 @@ class IndexerRuntimeTest {
 
 		insertIndexer(repository, IndexerRuntimeState.NON_ACTIVE, MutationState.WRITABLE)
 			.compose(id -> new IndexerRuntimeReconciler(vertx, repository, eventBus, runtime).start()
-				.compose(ignored -> commandService.submit(new ActivateIndexerCommand(id, 0L)))
+				.compose(ignored -> new MetadataIndexerManagementService(
+					repository,
+					TestMetadataChangeNotifiers.create(eventBus)
+				).activate(new IndexerRuntimeStateRequest(id, 0L)))
 				.compose(ignored -> repository.getIndexerById(id)))
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
 				assertEquals(IndexerRuntimeState.ACTIVE, found.orElseThrow().runtimeState());
@@ -105,7 +106,10 @@ class IndexerRuntimeTest {
 		insertIndexer(repository, IndexerRuntimeState.ACTIVE, MutationState.WRITABLE)
 			.compose(id -> new IndexerRuntimeReconciler(vertx, repository, eventBus, runtime).start()
 				.compose(ignored -> reconcile(runtime, repository, id))
-				.compose(ignored -> commandService.submit(new DeactivateIndexerCommand(id, 0L)))
+				.compose(ignored -> new MetadataIndexerManagementService(
+					repository,
+					TestMetadataChangeNotifiers.create(eventBus)
+				).deactivate(new IndexerRuntimeStateRequest(id, 0L)))
 				.compose(ignored -> reconcile(runtime, repository, id))
 				.compose(ignored -> repository.getIndexerById(id)))
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
@@ -371,14 +375,6 @@ class IndexerRuntimeTest {
 	) {
 		InMemoryCommandEngine commandService = new InMemoryCommandEngine();
 		return commandService
-			.register(new ActivateIndexerCommandHandler(
-				repository,
-				TestMetadataChangeNotifiers.create(eventBus)
-			))
-			.register(new DeactivateIndexerCommandHandler(
-				repository,
-				TestMetadataChangeNotifiers.create(eventBus)
-			))
 			.register(new CleanupDeletingIndexerCommandHandler(
 				repository,
 				IndexerQueueResourceManager.NOOP,
