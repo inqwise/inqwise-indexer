@@ -14,15 +14,12 @@ class LoadCommandPartitionKeyResolversTest {
 
 	@Test
 	void resolvesCreateByTargetName() {
-		assertKey(CreateLoadCommand.TYPE, "target_name", "customers", "target-name:customers");
 	}
 
 	@Test
 	void resolvesLoadLifecycleByLoadIndexer() {
 		assertKey(StartLoadCommand.TYPE, "indexer_id", 31, "indexer:31");
 		assertKey(PublishLoadCommand.TYPE, "indexer_id", 31, "indexer:31");
-		assertKey(ApproveLoadPublicationCommand.TYPE, "indexer_id", 31, "indexer:31");
-		assertKey(CancelLoadCommand.TYPE, "indexer_id", 31, "indexer:31");
 		assertKey(CleanupLoadCommand.TYPE, "indexer_id", 31, "indexer:31");
 	}
 

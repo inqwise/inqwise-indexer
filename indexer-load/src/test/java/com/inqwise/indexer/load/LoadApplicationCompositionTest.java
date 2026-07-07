@@ -76,7 +76,7 @@ class LoadApplicationCompositionTest {
 			lifecycleEvents,
 			runtime
 		);
-		CreateLoadCommand create = new CreateLoadCommand(
+		CreateLoadRequest create = new CreateLoadRequest(
 			"load",
 			"history",
 			"customers",
@@ -93,7 +93,9 @@ class LoadApplicationCompositionTest {
 			false
 		);
 
-		commands.submit(create)
+		new MetadataLoadManagementService(
+			metadata, loads, providers, lifecycleEvents, commands
+		).create(create)
 			.compose(ignored -> reconciler.reconcile(provider.request.indexerId()))
 			.compose(ignored -> provider.writer.complete(new LoadCompletion(null)))
 			.compose(ignored -> awaitPublishedAndCleaned(

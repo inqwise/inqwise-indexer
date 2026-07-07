@@ -9,6 +9,8 @@ public interface IndexerLoadRepository {
 
 	Future<Optional<IndexerLoadRecord>> getByIndexerId(Integer indexerId);
 
+	Future<Optional<IndexerLoadCompletion>> getCompletionByIndexerId(Integer indexerId);
+
 	Future<Optional<IndexerLoadRecord>> getActiveByTargetId(Integer targetId);
 
 	Future<Optional<IndexerLoadRecord>> getActiveByTargetIndexerId(Integer indexerId);
@@ -25,5 +27,5 @@ public interface IndexerLoadRepository {
 
 	Future<Void> markFailed(UpdateIndexerLoadFailure update);
 
-	Future<Void> delete(Integer indexerId, long expectedVersion);
+	Future<Void> finalizeCleanup(Integer indexerId, long expectedVersion);
 }

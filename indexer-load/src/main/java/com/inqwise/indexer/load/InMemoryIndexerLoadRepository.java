@@ -10,6 +10,7 @@ import io.vertx.core.Future;
 
 public class InMemoryIndexerLoadRepository implements IndexerLoadRepository {
 	private final Map<Integer, IndexerLoadRecord> loadsByIndexerId = new ConcurrentHashMap<>();
+	private final Map<Integer, IndexerLoadCompletion> completionsByIndexerId = new ConcurrentHashMap<>();
 
 	@Override
 	public synchronized Future<Void> insert(InsertIndexerLoad load) {
@@ -18,6 +19,9 @@ public class InMemoryIndexerLoadRepository implements IndexerLoadRepository {
 			require(load.targetId(), "targetId");
 			if (loadsByIndexerId.containsKey(load.indexerId())) {
 				throw new IllegalStateException("Indexer load already exists: " + load.indexerId());
+			}
+			if (completionsByIndexerId.containsKey(load.indexerId())) {
+				throw new IllegalStateException("Indexer load was already completed: " + load.indexerId());
 			}
 			if (findActiveByTargetId(load.targetId()).isPresent()) {
 				throw new IllegalStateException("Active indexer load already exists for target: " + load.targetId());
@@ -60,6 +64,11 @@ public class InMemoryIndexerLoadRepository implements IndexerLoadRepository {
 	@Override
 	public Future<Optional<IndexerLoadRecord>> getByIndexerId(Integer indexerId) {
 		return Future.succeededFuture(Optional.ofNullable(loadsByIndexerId.get(indexerId)));
+	}
+
+	@Override
+	public Future<Optional<IndexerLoadCompletion>> getCompletionByIndexerId(Integer indexerId) {
+		return Future.succeededFuture(Optional.ofNullable(completionsByIndexerId.get(indexerId)));
 	}
 
 	@Override
@@ -256,9 +265,19 @@ public class InMemoryIndexerLoadRepository implements IndexerLoadRepository {
 	}
 
 	@Override
-	public synchronized Future<Void> delete(Integer indexerId, long expectedVersion) {
+	public synchronized Future<Void> finalizeCleanup(Integer indexerId, long expectedVersion) {
 		try {
-			requireLoad(indexerId, expectedVersion);
+			IndexerLoadRecord existing = requireLoad(indexerId, expectedVersion);
+			if (existing.state() != IndexerLoadState.CANCELLED
+				&& existing.state() != IndexerLoadState.PUBLISHED) {
+				throw new IllegalStateException("Indexer load is not cleanup-ready: " + existing.state());
+			}
+			completionsByIndexerId.put(indexerId, new IndexerLoadCompletion(
+				indexerId,
+				existing.state(),
+				existing.version(),
+				Instant.now()
+			));
 			loadsByIndexerId.remove(indexerId);
 			return Future.succeededFuture();
 		} catch (RuntimeException error) {

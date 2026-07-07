@@ -195,11 +195,13 @@ class PublishLoadCommandTest {
 		InMemoryDocumentStoreMetadataRepository metadata = new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
 		InMemoryCommandEngine commands = commandService(metadata, loads);
-		commands.register(new ApproveLoadPublicationCommandHandler(
+		LoadManagementService loadService = new MetadataLoadManagementService(
+			metadata,
 			loads,
+			new InMemoryLoadProviderRegistry(),
 			new InMemoryIndexerLifecycleEventBus(),
 			commands
-		));
+		);
 
 		metadata.insertTarget(new InsertTarget(null, "customers", null))
 			.compose(targetId -> metadata.insertIndexer(new InsertIndexer(
@@ -228,7 +230,7 @@ class PublishLoadCommandTest {
 				null,
 				null,
 				true
-			)).compose(ignored -> commands.submit(new ApproveLoadPublicationCommand(
+			)).compose(ignored -> loadService.approvePublication(new ApproveLoadPublicationRequest(
 				indexerId,
 				Instant.parse("2026-06-05T11:00:00Z"),
 				"reviewer",

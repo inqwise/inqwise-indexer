@@ -54,7 +54,7 @@ public final class CleanupLoadCommandHandler implements CommandHandler {
 			submitted = submitted.compose(ignored -> deleteIfPresent(indexerId));
 		}
 
-		return submitted.compose(ignored -> loadRepository.delete(
+		return submitted.compose(ignored -> loadRepository.finalizeCleanup(
 			load.indexerId(),
 			load.version()
 		));

@@ -19,12 +19,6 @@ public final class LoadCommandHandlers {
 		Objects.requireNonNull(commandService, "commandService");
 
 		return List.of(
-			new CreateLoadCommandHandler(
-				config.metadataRepository(),
-				config.loadRepository(),
-				config.eventBus(),
-				commandService
-			),
 			new StartLoadCommandHandler(
 				config.metadataRepository(),
 				config.loadRepository(),
@@ -36,16 +30,6 @@ public final class LoadCommandHandlers {
 				config.metadataRepository(),
 				config.loadRepository(),
 				config.eventBus(),
-				commandService
-			),
-			new ApproveLoadPublicationCommandHandler(
-				config.loadRepository(),
-				config.eventBus(),
-				commandService
-			),
-			new CancelLoadCommandHandler(
-				config.loadRepository(),
-				config.loadProviderRegistry(),
 				commandService
 			),
 			new CleanupLoadCommandHandler(
