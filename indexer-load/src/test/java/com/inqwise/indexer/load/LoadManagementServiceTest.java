@@ -24,7 +24,10 @@ import com.inqwise.indexer.commands.DeleteIndexerCommandHandler;
 import com.inqwise.indexer.commands.InMemoryCommandEngine;
 import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.IndexerRecord;
+import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.metadata.MutationState;
+import com.inqwise.indexer.metadata.TargetProvisioningState;
+import com.inqwise.indexer.metadata.TargetStatus;
 import com.inqwise.indexer.operations.IndexerOperations;
 import com.inqwise.indexer.operations.MetadataIndexerOperations;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
@@ -37,31 +40,29 @@ import io.vertx.junit5.VertxTestContext;
 @ExtendWith(VertxExtension.class)
 class LoadManagementServiceTest {
 	@Test
-	void createsLoadWriterStoresSourceFieldsAndStartsProvider(VertxTestContext testContext) {
+	void createsLoadWriterStoresSourceFieldsAndStartsProviderAfterExplicitStart(
+		VertxTestContext testContext
+	) {
 		InMemoryDocumentStoreMetadataRepository metadata = new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
 		CapturingLoadProvider provider = new CapturingLoadProvider();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
-		InMemoryCommandEngine commands = new InMemoryCommandEngine().register(new StartLoadCommandHandler(
+		InMemoryLoadProviderRegistry registry = new InMemoryLoadProviderRegistry()
+			.register("default", provider);
+		LoadManagementService service = new MetadataLoadManagementService(
 			metadata,
 			loads,
 			new InMemoryIndexerQueue(),
-			new InMemoryLoadProviderRegistry().register("default", provider),
-			eventBus
-		));
-		LoadManagementService service = new MetadataLoadManagementService(
-			metadata, loads, new InMemoryLoadProviderRegistry(), eventBus, commands
+			registry,
+			eventBus,
+			command -> Future.succeededFuture()
 		);
 		JsonObject sourceQuery = new JsonObject().put("segment", "vip");
 
-		service.create(new CreateLoadRequest(
-			"load",
+		createReadyTarget(metadata).compose(targetId -> service.create(new CreateLoadRequest(
 			"default",
-			"customers",
-			"customers--idx-load",
-			"customers--queue-load",
+			targetId,
 			LiveWriterPolicy.NONE,
-			null,
 			Instant.parse("2026-06-05T10:00:00Z"),
 			null,
 			Instant.parse("2020-01-01T00:00:00Z"),
@@ -69,7 +70,14 @@ class LoadManagementServiceTest {
 			sourceQuery,
 			"customers-history",
 			false
-		)).compose(createdLoad -> metadata.listTargets(null)
+		))).compose(createdLoad -> {
+			assertEquals(IndexerLoadState.CREATED, createdLoad.state());
+			assertNull(provider.request);
+			return service.start(new StartLoadRequest(
+				createdLoad.indexerId(),
+				createdLoad.version()
+			));
+		}).compose(startedLoad -> metadata.listTargets(null)
 			.compose(targets -> metadata.listIndexersByTargetId(targets.get(0).id())
 				.compose(indexers -> loads.getActiveByTargetId(targets.get(0).id())
 					.map(load -> new Created(indexers, load.orElseThrow())))))
@@ -78,6 +86,8 @@ class LoadManagementServiceTest {
 				IndexerRecord indexer = created.indexers().get(0);
 				assertEquals(IndexerRole.LOAD_WRITER, indexer.role());
 				assertEquals(IndexResourceOwnership.OWNER, indexer.indexOwnership());
+				assertTrue(indexer.indexName().matches("customers--idx-[a-f0-9-]{36}"));
+				assertTrue(indexer.queueName().matches("customers--queue-[a-f0-9-]{36}"));
 				assertEquals(indexer.id(), created.load().indexerId());
 				assertEquals(LiveWriterPolicy.NONE, created.load().liveWriterPolicy());
 				assertEquals(IndexerLoadState.HISTORICAL_LOADING, created.load().state());
@@ -95,26 +105,27 @@ class LoadManagementServiceTest {
 	}
 
 	@Test
-	void recoversPersistedCreatedLoadAfterStartSubmissionFailure(VertxTestContext testContext) {
+	void startRetryAfterProviderAcceptanceReturnsExistingHistoricalLoading(
+		VertxTestContext testContext
+	) {
 		InMemoryDocumentStoreMetadataRepository metadata = new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
-		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		CapturingLoadProvider provider = new CapturingLoadProvider();
-		LoadManagementService failingService = new MetadataLoadManagementService(
+		InMemoryLoadProviderRegistry registry = new InMemoryLoadProviderRegistry()
+			.register("default", provider);
+		LoadManagementService service = new MetadataLoadManagementService(
 			metadata,
 			loads,
-			new InMemoryLoadProviderRegistry(),
-			eventBus,
-			command -> Future.failedFuture("command service unavailable")
+			new InMemoryIndexerQueue(),
+			registry,
+			new InMemoryIndexerLifecycleEventBus(),
+			command -> Future.succeededFuture()
 		);
-		CreateLoadRequest request = new CreateLoadRequest(
-			"load",
+
+		createReadyTarget(metadata).compose(targetId -> service.create(new CreateLoadRequest(
 			"default",
-			"customers",
-			"customers--idx-load",
-			"customers--queue-load",
+			targetId,
 			LiveWriterPolicy.NONE,
-			null,
 			Instant.parse("2026-06-05T10:00:00Z"),
 			null,
 			null,
@@ -122,29 +133,47 @@ class LoadManagementServiceTest {
 			null,
 			null,
 			false
-		);
+		))).compose(created -> service.start(new StartLoadRequest(
+			created.indexerId(),
+			created.version()
+		)).compose(started -> service.start(new StartLoadRequest(
+			created.indexerId(),
+			created.version()
+		))))
+			.onComplete(testContext.succeeding(retried -> testContext.verify(() -> {
+				assertEquals(IndexerLoadState.HISTORICAL_LOADING, retried.state());
+				assertEquals(1, provider.startCount);
+				testContext.completeNow();
+			})));
+	}
 
-		failingService.create(request)
-			.recover(error -> metadata.listTargets(null)
-				.compose(targets -> loads.getActiveByTargetId(targets.get(0).id()))
-				.map(found -> found.orElseThrow()))
-			.compose(created -> {
-				InMemoryCommandEngine commands = new InMemoryCommandEngine().register(
-					new StartLoadCommandHandler(
-						metadata,
-						loads,
-						new InMemoryIndexerQueue(),
-						new InMemoryLoadProviderRegistry().register("default", provider),
-						eventBus
-					)
-				);
-				LoadManagementService recoveryService = new MetadataLoadManagementService(
-					metadata, loads, new InMemoryLoadProviderRegistry(), eventBus, commands
-				);
-				return recoveryService.recoverCreated(new RecoverCreatedLoadRequest(
-					created.indexerId(), created.version()
-				));
-			})
+	@Test
+	void recoversPersistedCreatedLoadByStartingIt(VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository metadata = new InMemoryDocumentStoreMetadataRepository();
+		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		CapturingLoadProvider provider = new CapturingLoadProvider();
+		InMemoryLoadProviderRegistry registry = new InMemoryLoadProviderRegistry()
+			.register("default", provider);
+		LoadManagementService service = new MetadataLoadManagementService(
+			metadata, loads, new InMemoryIndexerQueue(), registry, eventBus,
+			command -> Future.succeededFuture()
+		);
+		createReadyTarget(metadata).compose(targetId -> service.create(new CreateLoadRequest(
+			"default",
+			targetId,
+			LiveWriterPolicy.NONE,
+			Instant.parse("2026-06-05T10:00:00Z"),
+			null,
+			null,
+			null,
+			null,
+			null,
+			false
+		)))
+			.compose(created -> service.recoverCreated(new RecoverCreatedLoadRequest(
+				created.indexerId(), created.version()
+			)))
 			.compose(recovered -> metadata.listIndexersByTargetId(recovered.targetId())
 				.map(indexers -> new Created(indexers, recovered)))
 			.onComplete(testContext.succeeding(created -> testContext.verify(() -> {
@@ -156,22 +185,80 @@ class LoadManagementServiceTest {
 	}
 
 	@Test
+	void rejectsLoadCreationWhenTargetDoesNotExist(VertxTestContext testContext) {
+		LoadManagementService service = new MetadataLoadManagementService(
+			new InMemoryDocumentStoreMetadataRepository(),
+			new InMemoryIndexerLoadRepository(),
+			new InMemoryIndexerQueue(),
+			new InMemoryLoadProviderRegistry(),
+			new InMemoryIndexerLifecycleEventBus(),
+			command -> Future.succeededFuture()
+		);
+
+		service.create(new CreateLoadRequest(
+			"default",
+			999,
+			LiveWriterPolicy.NONE,
+			null,
+			null,
+			null,
+			null,
+			null,
+			null,
+			false
+		)).onComplete(testContext.failing(error -> testContext.verify(() -> {
+			assertTrue(error.getMessage().contains("Target not found"));
+			testContext.completeNow();
+		})));
+	}
+
+	@Test
+	void rejectsLoadCreationWhenTargetIsNotReady(VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository metadata = new InMemoryDocumentStoreMetadataRepository();
+		LoadManagementService service = new MetadataLoadManagementService(
+			metadata,
+			new InMemoryIndexerLoadRepository(),
+			new InMemoryIndexerQueue(),
+			new InMemoryLoadProviderRegistry(),
+			new InMemoryIndexerLifecycleEventBus(),
+			command -> Future.succeededFuture()
+		);
+
+		createTarget(metadata, TargetStatus.ACTIVE, TargetProvisioningState.PROVISIONING)
+			.compose(ignored -> service.create(new CreateLoadRequest(
+				"default",
+				1,
+				LiveWriterPolicy.NONE,
+				null,
+				null,
+				null,
+				null,
+				null,
+				null,
+				false
+			))).onComplete(testContext.failing(error -> testContext.verify(() -> {
+				assertTrue(error.getMessage().contains("not ready"));
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
 	void rejectsCreatedLoadRecoveryAtStaleVersion(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository metadata = new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		AtomicInteger submissions = new AtomicInteger();
 		LoadManagementService createService = new MetadataLoadManagementService(
-			metadata, loads, new InMemoryLoadProviderRegistry(), eventBus,
+			metadata, loads, new InMemoryIndexerQueue(), new InMemoryLoadProviderRegistry(), eventBus,
 			command -> Future.succeededFuture()
 		);
 
-		createService.create(new CreateLoadRequest(
-			"load", "default", "customers", "customers--idx-load", "customers--queue-load",
-			LiveWriterPolicy.NONE, null, null, null, null, null, null, null, false
-		)).compose(created -> new MetadataLoadManagementService(
+		createReadyTarget(metadata).compose(targetId -> createService.create(new CreateLoadRequest(
+			"default", targetId, LiveWriterPolicy.NONE, null, null, null, null, null, null, false
+		))).compose(created -> new MetadataLoadManagementService(
 			metadata,
 			loads,
+			new InMemoryIndexerQueue(),
 			new InMemoryLoadProviderRegistry(),
 			eventBus,
 			command -> {
@@ -195,6 +282,7 @@ class LoadManagementServiceTest {
 		LoadManagementService service = new MetadataLoadManagementService(
 			metadata,
 			loads,
+			new InMemoryIndexerQueue(),
 			new InMemoryLoadProviderRegistry(),
 			new InMemoryIndexerLifecycleEventBus(),
 			command -> {
@@ -246,6 +334,7 @@ class LoadManagementServiceTest {
 		LoadManagementService service = new MetadataLoadManagementService(
 			metadata,
 			loads,
+			new InMemoryIndexerQueue(),
 			new InMemoryLoadProviderRegistry(),
 			new InMemoryIndexerLifecycleEventBus(),
 			command -> {
@@ -293,6 +382,7 @@ class LoadManagementServiceTest {
 		LoadManagementService service = new MetadataLoadManagementService(
 			new InMemoryDocumentStoreMetadataRepository(),
 			new InMemoryIndexerLoadRepository(),
+			new InMemoryIndexerQueue(),
 			new InMemoryLoadProviderRegistry(),
 			new InMemoryIndexerLifecycleEventBus(),
 			command -> Future.succeededFuture()
@@ -313,18 +403,23 @@ class LoadManagementServiceTest {
 		InMemoryLoadProviderRegistry registry = new InMemoryLoadProviderRegistry()
 			.register("default", provider);
 		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
-		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
-		InMemoryCommandEngine commands = new InMemoryCommandEngine()
-			.register(new StartLoadCommandHandler(metadata, loads, queue, registry, eventBus));
+		LoadManagementService service = new MetadataLoadManagementService(
+			metadata,
+			loads,
+			queue,
+			registry,
+			new InMemoryIndexerLifecycleEventBus(),
+			command -> Future.succeededFuture()
+		);
 
-		loadService(metadata, loads, command -> Future.succeededFuture()).create(new CreateLoadRequest(
-			"load",
+		createReadyTarget(metadata).compose(targetId -> loadService(
+			metadata,
+			loads,
+			command -> Future.succeededFuture()
+		).create(new CreateLoadRequest(
 			"default",
-			"customers",
-			"customers--idx-load",
-			"customers--queue-load",
+			targetId,
 			LiveWriterPolicy.NONE,
-			null,
 			Instant.parse("2026-06-05T10:00:00Z"),
 			null,
 			null,
@@ -332,7 +427,7 @@ class LoadManagementServiceTest {
 			null,
 			null,
 			false
-		)).compose(ignored -> metadata.listTargets(null)
+		))).compose(ignored -> metadata.listTargets(null)
 			.compose(targets -> loads.getActiveByTargetId(targets.get(0).id())))
 			.compose(found -> {
 				IndexerLoadRecord load = found.orElseThrow();
@@ -340,7 +435,7 @@ class LoadManagementServiceTest {
 					load.indexerId(),
 					IndexerLoadState.STARTING,
 					load.version()
-				)).compose(ignored -> commands.submit(new StartLoadCommand(
+				)).compose(ignored -> service.start(new StartLoadRequest(
 					load.indexerId(),
 					0L
 				))).compose(ignored -> loads.getByIndexerId(load.indexerId()));
@@ -366,14 +461,12 @@ class LoadManagementServiceTest {
 			.register("history", historyProvider);
 		InMemoryCommandEngine commands = commandService(metadata, loads, registry);
 
-		loadService(metadata, loads, commands).create(new CreateLoadRequest(
-			"load",
+		LoadManagementService service = loadService(metadata, loads, registry, commands);
+
+		createReadyTarget(metadata).compose(targetId -> service.create(new CreateLoadRequest(
 			"history",
-			"customers",
-			"customers--idx-load",
-			"customers--queue-load",
+			targetId,
 			LiveWriterPolicy.NONE,
-			null,
 			Instant.parse("2026-06-05T10:00:00Z"),
 			null,
 			null,
@@ -381,7 +474,10 @@ class LoadManagementServiceTest {
 			null,
 			"customers-history",
 			false
-		)).compose(ignored -> metadata.listTargets(null)
+		))).compose(created -> service.start(new StartLoadRequest(
+			created.indexerId(),
+			created.version()
+		))).compose(ignored -> metadata.listTargets(null)
 			.compose(targets -> loads.getActiveByTargetId(targets.get(0).id())))
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
 				IndexerLoadRecord load = found.orElseThrow();
@@ -398,16 +494,16 @@ class LoadManagementServiceTest {
 		InMemoryDocumentStoreMetadataRepository metadata = new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
 		CapturingLoadProvider provider = new CapturingLoadProvider();
+		InMemoryLoadProviderRegistry registry = new InMemoryLoadProviderRegistry()
+			.register("default", provider);
 		InMemoryCommandEngine commands = commandService(metadata, loads, provider);
 
-		loadService(metadata, loads, commands).create(new CreateLoadRequest(
-			"load",
+		LoadManagementService service = loadService(metadata, loads, registry, commands);
+
+		createReadyTarget(metadata).compose(targetId -> service.create(new CreateLoadRequest(
 			"default",
-			"customers",
-			"customers--idx-load",
-			"customers--queue-load",
+			targetId,
 			LiveWriterPolicy.CREATE_IMMEDIATELY,
-			"customers--queue-live",
 			Instant.parse("2026-06-05T10:00:00Z"),
 			Instant.parse("2026-06-05T09:55:00Z"),
 			null,
@@ -415,7 +511,10 @@ class LoadManagementServiceTest {
 			null,
 			null,
 			true
-		)).compose(ignored -> metadata.listTargets(null)
+		))).compose(created -> service.start(new StartLoadRequest(
+			created.indexerId(),
+			created.version()
+		))).compose(ignored -> metadata.listTargets(null)
 			.compose(targets -> metadata.listIndexersByTargetId(targets.get(0).id())
 				.compose(indexers -> loads.getActiveByTargetId(targets.get(0).id())
 					.map(load -> new Created(indexers, load.orElseThrow())))))
@@ -435,7 +534,8 @@ class LoadManagementServiceTest {
 				assertEquals(liveWriter.id(), created.load().liveIndexerId());
 				assertEquals(LiveWriterPolicy.CREATE_IMMEDIATELY, created.load().liveWriterPolicy());
 				assertEquals(liveWriter.id(), provider.request.liveIndexerId());
-				assertEquals("customers--queue-live", liveWriter.queueName());
+				assertEquals(loadWriter.indexName(), liveWriter.indexName());
+				assertEquals(loadWriter.queueName() + "--live", liveWriter.queueName());
 				testContext.completeNow();
 			})));
 	}
@@ -450,14 +550,17 @@ class LoadManagementServiceTest {
 			new FailingLoadProvider()
 		);
 
-		loadService(metadata, loads, commands).create(new CreateLoadRequest(
-			"load",
+		LoadManagementService service = loadService(
+			metadata,
+			loads,
+			new InMemoryLoadProviderRegistry().register("default", new FailingLoadProvider()),
+			commands
+		);
+
+		createReadyTarget(metadata).compose(targetId -> service.create(new CreateLoadRequest(
 			"default",
-			"customers",
-			"customers--idx-load",
-			"customers--queue-load",
+			targetId,
 			LiveWriterPolicy.NONE,
-			null,
 			Instant.parse("2026-06-05T10:00:00Z"),
 			null,
 			null,
@@ -465,7 +568,11 @@ class LoadManagementServiceTest {
 			null,
 			null,
 			false
-		)).compose(ignored -> Future.failedFuture("Expected provider start failure"))
+		))).compose(created -> service.start(new StartLoadRequest(
+			created.indexerId(),
+			created.version()
+		)))
+			.compose(ignored -> Future.failedFuture("Expected provider start failure"))
 			.recover(error -> metadata.listTargets(null)
 			.compose(targets -> loads.getActiveByTargetId(targets.get(0).id()))
 			.map(load -> {
@@ -494,14 +601,10 @@ class LoadManagementServiceTest {
 		registerCleanupHandlers(commands, metadata, loads);
 		LoadManagementService service = loadService(metadata, loads, registry, commands);
 
-		service.create(new CreateLoadRequest(
-			"load",
+		createReadyTarget(metadata).compose(targetId -> service.create(new CreateLoadRequest(
 			"history",
-			"customers",
-			"customers--idx-load",
-			"customers--queue-load",
+			targetId,
 			LiveWriterPolicy.CREATE_IMMEDIATELY,
-			"customers--queue-live",
 			Instant.parse("2026-06-05T10:00:00Z"),
 			Instant.parse("2026-06-05T09:55:00Z"),
 			null,
@@ -509,7 +612,10 @@ class LoadManagementServiceTest {
 			null,
 			null,
 			false
-		)).compose(ignored -> loads.getByIndexerId(provider.request.indexerId()))
+		))).compose(created -> service.start(new StartLoadRequest(
+			created.indexerId(),
+			created.version()
+		))).compose(ignored -> loads.getByIndexerId(provider.request.indexerId()))
 			.compose(found -> {
 				IndexerLoadRecord load = found.orElseThrow();
 				return service.cancel(new CancelLoadRequest(
@@ -548,14 +654,14 @@ class LoadManagementServiceTest {
 		registerCleanupHandlers(commands, metadata, loads);
 		LoadManagementService cancelService = loadService(metadata, loads, registry, commands);
 
-		loadService(metadata, loads, command -> Future.succeededFuture()).create(new CreateLoadRequest(
-			"load",
+		createReadyTarget(metadata).compose(targetId -> loadService(
+			metadata,
+			loads,
+			command -> Future.succeededFuture()
+		).create(new CreateLoadRequest(
 			"default",
-			"customers",
-			"customers--idx-load",
-			"customers--queue-load",
+			targetId,
 			LiveWriterPolicy.CREATE_IMMEDIATELY,
-			"customers--queue-live",
 			Instant.parse("2026-06-05T10:00:00Z"),
 			null,
 			null,
@@ -563,7 +669,7 @@ class LoadManagementServiceTest {
 			null,
 			null,
 			false
-		)).compose(ignored -> metadata.listTargets(null)
+		))).compose(ignored -> metadata.listTargets(null)
 			.compose(targets -> loads.getActiveByTargetId(targets.get(0).id())))
 			.compose(found -> {
 				IndexerLoadRecord load = found.orElseThrow();
@@ -596,14 +702,14 @@ class LoadManagementServiceTest {
 		registerCleanupHandlers(commands, metadata, loads);
 		LoadManagementService cancelService = loadService(metadata, loads, registry, commands);
 
-		loadService(metadata, loads, command -> Future.succeededFuture()).create(new CreateLoadRequest(
-			"load",
+		createReadyTarget(metadata).compose(targetId -> loadService(
+			metadata,
+			loads,
+			command -> Future.succeededFuture()
+		).create(new CreateLoadRequest(
 			"default",
-			"customers",
-			"customers--idx-load",
-			"customers--queue-load",
+			targetId,
 			LiveWriterPolicy.NONE,
-			null,
 			Instant.parse("2026-06-05T10:00:00Z"),
 			null,
 			null,
@@ -611,7 +717,7 @@ class LoadManagementServiceTest {
 			null,
 			null,
 			false
-		)).compose(ignored -> metadata.listTargets(null)
+		))).compose(ignored -> metadata.listTargets(null)
 			.compose(targets -> loads.getActiveByTargetId(targets.get(0).id())))
 			.compose(found -> {
 				IndexerLoadRecord load = found.orElseThrow();
@@ -661,10 +767,31 @@ class LoadManagementServiceTest {
 		return new MetadataLoadManagementService(
 			metadata,
 			loads,
+			new InMemoryIndexerQueue(),
 			loadProviderRegistry,
 			new InMemoryIndexerLifecycleEventBus(),
 			commandService
 		);
+	}
+
+	private Future<Integer> createReadyTarget(InMemoryDocumentStoreMetadataRepository metadata) {
+		return createTarget(metadata, TargetStatus.ACTIVE, TargetProvisioningState.READY);
+	}
+
+	private Future<Integer> createTarget(
+		InMemoryDocumentStoreMetadataRepository metadata,
+		TargetStatus status,
+		TargetProvisioningState provisioningState
+	) {
+		return metadata.insertTarget(new InsertTarget(
+			"target",
+			"customers",
+			null,
+			null,
+			null,
+			status,
+			provisioningState
+		));
 	}
 
 	private void registerCleanupHandlers(
@@ -694,12 +821,7 @@ class LoadManagementServiceTest {
 		InMemoryIndexerLoadRepository loads,
 		LoadProvider provider
 	) {
-		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
-		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
-		InMemoryLoadProviderRegistry registry = new InMemoryLoadProviderRegistry()
-			.register("default", provider);
-		InMemoryCommandEngine commands = new InMemoryCommandEngine();
-		return commands.register(new StartLoadCommandHandler(metadata, loads, queue, registry, eventBus));
+		return new InMemoryCommandEngine();
 	}
 
 	private InMemoryCommandEngine commandService(
@@ -707,10 +829,7 @@ class LoadManagementServiceTest {
 		InMemoryIndexerLoadRepository loads,
 		LoadProviderRegistry registry
 	) {
-		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
-		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
-		InMemoryCommandEngine commands = new InMemoryCommandEngine();
-		return commands.register(new StartLoadCommandHandler(metadata, loads, queue, registry, eventBus));
+		return new InMemoryCommandEngine();
 	}
 
 	private record Created(

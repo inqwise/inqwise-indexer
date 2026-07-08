@@ -9,9 +9,6 @@ public final class LoadCommandPartitionKeyResolvers {
 
 	public static void registerWith(CommandPartitionKeyRouter router) {
 		router
-			.register(StartLoadCommand.TYPE, command -> CommandPartitionKey.indexer(
-				command.toJson().getInteger("indexer_id")
-			))
 			.register(PublishLoadCommand.TYPE, command -> CommandPartitionKey.indexer(
 				command.toJson().getInteger("indexer_id")
 			))

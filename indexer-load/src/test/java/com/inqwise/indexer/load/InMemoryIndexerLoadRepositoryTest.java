@@ -7,8 +7,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.time.Instant;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
-class InMemoryIndexerLoadRepositoryTest {
+import io.vertx.junit5.VertxExtension;
+
+@ExtendWith(VertxExtension.class)
+class InMemoryIndexerLoadRepositoryTest extends IndexerLoadRepositoryCompletionContract {
+	@Override
+	IndexerLoadRepository createRepository() {
+		return new InMemoryIndexerLoadRepository();
+	}
+
 	@Test
 	void rejectsSecondActiveLoadForSameTarget() {
 		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();

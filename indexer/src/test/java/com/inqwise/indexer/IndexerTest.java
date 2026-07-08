@@ -31,13 +31,13 @@ class IndexerTest {
 			.withIndexName("customers-2024-a")
 			.build();
 		Indexer indexer = new Indexer(vertx, model, store);
-		PutDocumentActionItem item = PutDocumentActionItem.builder()
-			.withTargetId(10)
-			.withIndexerId(20)
-			.withIndexName("customers-2024-a")
-			.withUid("42")
-			.withDocument(new JsonObject().put("name", "Ada"))
-			.build();
+		PutDocumentActionItem item = IndexerActionItems.concretePutDocument(
+			10,
+			20,
+			"customers-2024-a",
+			"42",
+			new JsonObject().put("name", "Ada")
+		);
 
 		indexer.processActionItem(item)
 			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
@@ -59,13 +59,13 @@ class IndexerTest {
 			.withIndexName("customers-2024-a")
 			.build();
 		Indexer indexer = new Indexer(vertx, model, store);
-		PutDocumentActionItem item = PutDocumentActionItem.builder()
-			.withTargetId(10)
-			.withIndexerId(21)
-			.withIndexName("customers-2024-a")
-			.withUid("42")
-			.withDocument(new JsonObject().put("name", "Ada"))
-			.build();
+		PutDocumentActionItem item = IndexerActionItems.concretePutDocument(
+			10,
+			21,
+			"customers-2024-a",
+			"42",
+			new JsonObject().put("name", "Ada")
+		);
 
 		indexer.processActionItem(item)
 			.onComplete(testContext.failing(error -> testContext.verify(() -> {

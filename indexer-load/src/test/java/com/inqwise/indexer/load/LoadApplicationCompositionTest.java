@@ -17,6 +17,7 @@ import com.inqwise.indexer.InMemoryIndexerLifecycleEventBus;
 import com.inqwise.indexer.InMemoryIndexerQueue;
 import com.inqwise.indexer.commands.InMemoryCommandEngine;
 import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
+import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.metadata.PublicationState;
 import com.inqwise.indexer.providers.IndexerPlugins;
 
@@ -50,8 +51,6 @@ class LoadApplicationCompositionTest {
 		LoadCommandHandlers.register(commands, new LoadCommandHandlers.Config(
 			metadata,
 			loads,
-			queue,
-			providers,
 			lifecycleEvents
 		));
 		LoadIndexerPlugin loadPlugin = new LoadIndexerPlugin(
@@ -76,26 +75,27 @@ class LoadApplicationCompositionTest {
 			lifecycleEvents,
 			runtime
 		);
-		CreateLoadRequest create = new CreateLoadRequest(
-			"load",
-			"history",
-			"customers",
-			"customers--history",
-			"customers--load",
-			LiveWriterPolicy.NONE,
-			null,
-			Instant.parse("2026-06-22T06:00:00Z"),
-			null,
-			null,
-			Instant.parse("2026-06-22T06:00:00Z"),
-			new JsonObject().put("segment", "all"),
-			"customers-history",
-			false
+		LoadManagementService loadService = new MetadataLoadManagementService(
+			metadata, loads, queue, providers, lifecycleEvents, commands
 		);
 
-		new MetadataLoadManagementService(
-			metadata, loads, providers, lifecycleEvents, commands
-		).create(create)
+		metadata.insertTarget(new InsertTarget(null, "customers", null))
+			.compose(targetId -> loadService.create(new CreateLoadRequest(
+				"history",
+				targetId,
+				LiveWriterPolicy.NONE,
+				Instant.parse("2026-06-22T06:00:00Z"),
+				null,
+				null,
+				Instant.parse("2026-06-22T06:00:00Z"),
+				new JsonObject().put("segment", "all"),
+				"customers-history",
+				false
+			)))
+			.compose(created -> loadService.start(new StartLoadRequest(
+				created.indexerId(),
+				created.version()
+			)))
 			.compose(ignored -> reconciler.reconcile(provider.request.indexerId()))
 			.compose(ignored -> provider.writer.complete(new LoadCompletion(null)))
 			.compose(ignored -> awaitPublishedAndCleaned(

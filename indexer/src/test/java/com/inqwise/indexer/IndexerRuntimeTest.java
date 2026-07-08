@@ -141,13 +141,13 @@ class IndexerRuntimeTest {
 		insertIndexer(repository, IndexerRuntimeState.ACTIVE, MutationState.WRITABLE)
 			.compose(id -> reconcile(runtime, repository, id))
 			.compose(ignored -> queue.publisher("queue-customers-1"))
-			.compose(publisher -> publisher.publish(PutDocumentActionItem.builder()
-				.withTargetId(1)
-				.withIndexerId(1)
-				.withIndexName("customers_1")
-				.withUid("42")
-				.withDocument(new io.vertx.core.json.JsonObject().put("name", "Ada"))
-				.build()).eventually(publisher::close))
+			.compose(publisher -> publisher.publish(IndexerActionItems.concretePutDocument(
+				1,
+				1,
+				"customers_1",
+				"42",
+				new io.vertx.core.json.JsonObject().put("name", "Ada")
+			)).eventually(publisher::close))
 			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
 				assertEquals("Ada", documentStore.get("customers_1", "42").getString("name"));
 				testContext.completeNow();
@@ -177,13 +177,13 @@ class IndexerRuntimeTest {
 				.compose(ignored -> runtime.close(id))
 				.compose(ignored -> reconcile(runtime, repository, id)))
 			.compose(ignored -> queue.publisher("queue-customers-1"))
-			.compose(publisher -> publisher.publish(PutDocumentActionItem.builder()
-				.withTargetId(1)
-				.withIndexerId(1)
-				.withIndexName("customers_1")
-				.withUid("43")
-				.withDocument(new io.vertx.core.json.JsonObject().put("name", "Grace"))
-				.build()).eventually(publisher::close))
+			.compose(publisher -> publisher.publish(IndexerActionItems.concretePutDocument(
+				1,
+				1,
+				"customers_1",
+				"43",
+				new io.vertx.core.json.JsonObject().put("name", "Grace")
+			)).eventually(publisher::close))
 			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
 				assertEquals("Grace", documentStore.get("customers_1", "43").getString("name"));
 				testContext.completeNow();

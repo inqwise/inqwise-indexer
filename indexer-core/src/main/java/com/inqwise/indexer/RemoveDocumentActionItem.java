@@ -86,27 +86,9 @@ public class RemoveDocumentActionItem implements IndexerActionItem {
 	}
 
 	public static final class Builder {
-		private Integer targetId;
-		private Integer indexerId;
-		private String indexName;
 		private String uid;
 
 		private Builder() {
-		}
-
-		Builder withTargetId(Integer targetId) {
-			this.targetId = targetId;
-			return this;
-		}
-
-		Builder withIndexerId(Integer indexerId) {
-			this.indexerId = indexerId;
-			return this;
-		}
-
-		Builder withIndexName(String indexName) {
-			this.indexName = indexName;
-			return this;
 		}
 
 		public Builder withUid(String uid) {
@@ -116,9 +98,9 @@ public class RemoveDocumentActionItem implements IndexerActionItem {
 
 		public RemoveDocumentActionItem build() {
 			return new RemoveDocumentActionItem(
-				targetId,
-				indexerId,
-				indexName,
+				null,
+				null,
+				null,
 				uid
 			);
 		}

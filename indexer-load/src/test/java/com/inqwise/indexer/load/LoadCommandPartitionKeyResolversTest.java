@@ -13,12 +13,7 @@ class LoadCommandPartitionKeyResolversTest {
 	private final CommandPartitionKeyRouter router = createRouter();
 
 	@Test
-	void resolvesCreateByTargetName() {
-	}
-
-	@Test
 	void resolvesLoadLifecycleByLoadIndexer() {
-		assertKey(StartLoadCommand.TYPE, "indexer_id", 31, "indexer:31");
 		assertKey(PublishLoadCommand.TYPE, "indexer_id", 31, "indexer:31");
 		assertKey(CleanupLoadCommand.TYPE, "indexer_id", 31, "indexer:31");
 	}

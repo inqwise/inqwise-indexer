@@ -6,6 +6,8 @@ import io.vertx.core.Future;
 public interface LoadManagementService {
 	Future<IndexerLoadRecord> create(CreateLoadRequest request);
 
+	Future<IndexerLoadRecord> start(StartLoadRequest request);
+
 	Future<IndexerLoadRecord> recoverCreated(RecoverCreatedLoadRequest request);
 
 	Future<IndexerLoadRecord> approvePublication(ApproveLoadPublicationRequest request);

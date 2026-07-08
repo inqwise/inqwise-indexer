@@ -6,13 +6,9 @@ import java.util.Objects;
 import io.vertx.core.json.JsonObject;
 
 public record CreateLoadRequest(
-	String prefix,
 	String providerId,
-	String targetName,
-	String indexName,
-	String queueName,
+	Integer targetId,
 	LiveWriterPolicy liveWriterPolicy,
-	String liveQueueName,
 	Instant reloadStartAt,
 	Instant liveReplayFrom,
 	Instant sourceFrom,
@@ -23,9 +19,7 @@ public record CreateLoadRequest(
 ) {
 	public CreateLoadRequest {
 		Objects.requireNonNull(providerId, "providerId");
-		Objects.requireNonNull(targetName, "targetName");
-		Objects.requireNonNull(indexName, "indexName");
-		Objects.requireNonNull(queueName, "queueName");
+		Objects.requireNonNull(targetId, "targetId");
 		liveWriterPolicy = liveWriterPolicy == null ? LiveWriterPolicy.NONE : liveWriterPolicy;
 		sourceQuery = sourceQuery == null ? null : sourceQuery.copy();
 	}

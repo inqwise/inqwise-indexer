@@ -4,7 +4,6 @@ import java.util.List;
 import java.util.Objects;
 
 import com.inqwise.indexer.IndexerLifecycleEventBus;
-import com.inqwise.indexer.IndexerQueueClient;
 import com.inqwise.indexer.commands.CommandEngine;
 import com.inqwise.indexer.commands.CommandHandler;
 import com.inqwise.indexer.commands.CommandService;
@@ -19,13 +18,6 @@ public final class LoadCommandHandlers {
 		Objects.requireNonNull(commandService, "commandService");
 
 		return List.of(
-			new StartLoadCommandHandler(
-				config.metadataRepository(),
-				config.loadRepository(),
-				config.queueClient(),
-				config.loadProviderRegistry(),
-				config.eventBus()
-			),
 			new PublishLoadCommandHandler(
 				config.metadataRepository(),
 				config.loadRepository(),
@@ -49,15 +41,11 @@ public final class LoadCommandHandlers {
 	public record Config(
 		DocumentStoreMetadataRepository metadataRepository,
 		IndexerLoadRepository loadRepository,
-		IndexerQueueClient queueClient,
-		LoadProviderRegistry loadProviderRegistry,
 		IndexerLifecycleEventBus eventBus
 	) {
 		public Config {
 			Objects.requireNonNull(metadataRepository, "metadataRepository");
 			Objects.requireNonNull(loadRepository, "loadRepository");
-			Objects.requireNonNull(queueClient, "queueClient");
-			Objects.requireNonNull(loadProviderRegistry, "loadProviderRegistry");
 			eventBus = eventBus == null ? IndexerLifecycleEventBus.NOOP : eventBus;
 		}
 	}

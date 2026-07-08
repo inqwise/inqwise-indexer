@@ -81,11 +81,11 @@ class SubmitIndexActionsCommandTest {
 				PublicationState.PUBLISHED,
 				MutationState.WRITABLE
 			)).compose(secondIndexerId -> {
-				PutDocumentActionItem action = PutDocumentActionItem.builder()
-					.withTargetId(targetId)
-					.withUid("42")
-					.withDocument(new JsonObject().put("name", "Ada"))
-					.build();
+				PutDocumentActionItem action = partialPutByTargetId(
+					targetId,
+					"42",
+					new JsonObject().put("name", "Ada")
+				);
 
 				return eventBus.subscribe(events::add)
 					.compose(ignored -> commandService.submit(new SubmitIndexActionsCommand(List.of(action))))
@@ -141,11 +141,11 @@ class SubmitIndexActionsCommandTest {
 				PublicationState.PUBLISHED,
 				MutationState.WRITABLE
 			))).compose(ignored -> {
-				PutDocumentActionItem action = PutDocumentActionItem.builder()
-					.withTargetId(targetId)
-					.withUid("42")
-					.withDocument(new JsonObject().put("name", "Ada"))
-					.build();
+				PutDocumentActionItem action = partialPutByTargetId(
+					targetId,
+					"42",
+					new JsonObject().put("name", "Ada")
+				);
 
 				return commandService.submit(new SubmitIndexActionsCommand(List.of(action)));
 			}))
@@ -178,11 +178,11 @@ class SubmitIndexActionsCommandTest {
 				PublicationState.UNPUBLISHED,
 				MutationState.WRITABLE
 			)).compose(ignored -> {
-				PutDocumentActionItem action = PutDocumentActionItem.builder()
-					.withTargetId(targetId)
-					.withUid("42")
-					.withDocument(new JsonObject().put("name", "Ada"))
-					.build();
+				PutDocumentActionItem action = partialPutByTargetId(
+					targetId,
+					"42",
+					new JsonObject().put("name", "Ada")
+				);
 
 				return commandService.submit(new SubmitIndexActionsCommand(List.of(action)));
 			}))
@@ -213,13 +213,13 @@ class SubmitIndexActionsCommandTest {
 				PublicationState.UNPUBLISHED,
 				MutationState.WRITABLE
 			)).compose(indexerId -> {
-				PutDocumentActionItem action = PutDocumentActionItem.builder()
-					.withTargetId(targetId)
-					.withIndexerId(indexerId)
-					.withIndexName("customers_1")
-					.withUid("42")
-					.withDocument(new JsonObject().put("name", "Ada"))
-					.build();
+				PutDocumentActionItem action = IndexerActionItems.concretePutDocument(
+					targetId,
+					indexerId,
+					"customers_1",
+					"42",
+					new JsonObject().put("name", "Ada")
+				);
 
 				return commandService.submit(new SubmitIndexActionsCommand(List.of(action)))
 					.compose(ignored -> {
@@ -725,11 +725,11 @@ class SubmitIndexActionsCommandTest {
 			() -> new SubmitIndexActionsCommand(
 				"customers",
 				Instant.parse("2026-05-18T10:15:00Z"),
-				List.of(PutDocumentActionItem.builder()
-					.withTargetId(10)
-					.withUid("42")
-					.withDocument(new JsonObject().put("name", "Ada"))
-					.build())
+				List.of(partialPutByTargetId(
+					10,
+					"42",
+					new JsonObject().put("name", "Ada")
+				))
 			)
 		);
 		assertEquals("Target envelope actions must not include concrete destination fields", error.getMessage());
@@ -756,11 +756,11 @@ class SubmitIndexActionsCommandTest {
 				"command-1",
 				null,
 				Instant.parse("2026-05-18T10:15:00Z"),
-				List.of(PutDocumentActionItem.builder()
-					.withTargetId(10)
-					.withUid("42")
-					.withDocument(new JsonObject().put("name", "Ada"))
-					.build())
+				List.of(partialPutByTargetId(
+					10,
+					"42",
+					new JsonObject().put("name", "Ada")
+				))
 			)
 		);
 		assertEquals("Timestamp is allowed only with target envelope routing", error.getMessage());
@@ -770,11 +770,11 @@ class SubmitIndexActionsCommandTest {
 	void concreteCommandRejectsIndexNameOnlyDestination() {
 		IllegalArgumentException error = assertThrows(
 			IllegalArgumentException.class,
-			() -> new SubmitIndexActionsCommand(List.of(PutDocumentActionItem.builder()
-				.withIndexName("customers_1")
-				.withUid("42")
-				.withDocument(new JsonObject().put("name", "Ada"))
-				.build()))
+			() -> new SubmitIndexActionsCommand(List.of(partialPutByIndexName(
+				"customers_1",
+				"42",
+				new JsonObject().put("name", "Ada")
+			)))
 		);
 		assertEquals("Concrete action requires target id or indexer id", error.getMessage());
 	}
@@ -834,13 +834,13 @@ class SubmitIndexActionsCommandTest {
 				PublicationState.PUBLISHED,
 				MutationState.READ_ONLY
 			)).compose(indexerId -> {
-				PutDocumentActionItem action = PutDocumentActionItem.builder()
-					.withTargetId(targetId)
-					.withIndexerId(indexerId)
-					.withIndexName("customers_1")
-					.withUid("42")
-					.withDocument(new JsonObject().put("name", "Ada"))
-					.build();
+				PutDocumentActionItem action = IndexerActionItems.concretePutDocument(
+					targetId,
+					indexerId,
+					"customers_1",
+					"42",
+					new JsonObject().put("name", "Ada")
+				);
 
 				return commandService.submit(new SubmitIndexActionsCommand(List.of(action)));
 			}))
@@ -873,13 +873,13 @@ class SubmitIndexActionsCommandTest {
 				PublicationState.PUBLISHED,
 				MutationState.WRITABLE
 			)).compose(indexerId -> {
-				PutDocumentActionItem action = PutDocumentActionItem.builder()
-					.withTargetId(targetId)
-					.withIndexerId(indexerId)
-					.withIndexName("customers_1")
-					.withUid("42")
-					.withDocument(new JsonObject().put("name", "Ada"))
-					.build();
+				PutDocumentActionItem action = IndexerActionItems.concretePutDocument(
+					targetId,
+					indexerId,
+					"customers_1",
+					"42",
+					new JsonObject().put("name", "Ada")
+				);
 
 				return commandService.submit(new SubmitIndexActionsCommand(List.of(action)));
 			}))
@@ -935,6 +935,28 @@ class SubmitIndexActionsCommandTest {
 				.build()))
 		);
 		assertEquals("Concrete action destination is required", error.getMessage());
+	}
+
+	private PutDocumentActionItem partialPutByTargetId(
+		Integer targetId,
+		String uid,
+		JsonObject document
+	) {
+		return new PutDocumentActionItem(new JsonObject()
+			.put(PutDocumentActionItem.TARGET_ID, targetId)
+			.put(PutDocumentActionItem.UID, uid)
+			.put(PutDocumentActionItem.DOCUMENT, document));
+	}
+
+	private PutDocumentActionItem partialPutByIndexName(
+		String indexName,
+		String uid,
+		JsonObject document
+	) {
+		return new PutDocumentActionItem(new JsonObject()
+			.put(PutDocumentActionItem.INDEX_NAME, indexName)
+			.put(PutDocumentActionItem.UID, uid)
+			.put(PutDocumentActionItem.DOCUMENT, document));
 	}
 
 	private InMemoryCommandEngine metadataCommandService(

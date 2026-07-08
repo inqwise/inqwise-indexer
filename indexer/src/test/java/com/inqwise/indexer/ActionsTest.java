@@ -91,13 +91,13 @@ class ActionsTest {
 
 	@Test
 	void putActionRoundTripsConcreteIdentityFields() {
-		PutDocumentActionItem item = PutDocumentActionItem.builder()
-			.withTargetId(10)
-			.withIndexerId(20)
-			.withIndexName("customers-2024-a")
-			.withUid("42")
-			.withDocument(new JsonObject().put("name", "Ada"))
-			.build();
+		PutDocumentActionItem item = IndexerActionItems.concretePutDocument(
+			10,
+			20,
+			"customers-2024-a",
+			"42",
+			new JsonObject().put("name", "Ada")
+		);
 
 		IndexerActionItem parsed = IndexerActionItem.fromJson(item.toJson());
 
@@ -121,12 +121,12 @@ class ActionsTest {
 
 	@Test
 	void removeActionRoundTripsConcreteIdentityFields() {
-		RemoveDocumentActionItem item = RemoveDocumentActionItem.builder()
-			.withTargetId(10)
-			.withIndexerId(20)
-			.withIndexName("customers-2024-a")
-			.withUid("42")
-			.build();
+		RemoveDocumentActionItem item = IndexerActionItems.concreteRemoveDocument(
+			10,
+			20,
+			"customers-2024-a",
+			"42"
+		);
 
 		IndexerActionItem parsed = IndexerActionItem.fromJson(item.toJson());
 
@@ -141,11 +141,13 @@ class ActionsTest {
 			.withTargetName("customers")
 			.withIndexName("customers_1")
 			.build();
-		PutDocumentActionItem item = PutDocumentActionItem.builder()
-			.withIndexName("customers_1")
-			.withUid("42")
-			.withDocument(new JsonObject().put("name", "Ada"))
-			.build();
+		PutDocumentActionItem item = IndexerActionItems.concretePutDocument(
+			10,
+			20,
+			"customers_1",
+			"42",
+			new JsonObject().put("name", "Ada")
+		);
 
 		Actions.getProvider(IndexerActionType.PUT_DOCUMENT)
 			.action()
