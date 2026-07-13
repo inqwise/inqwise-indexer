@@ -10,6 +10,7 @@ import com.inqwise.indexer.load.api.IndexerLoadRecord;
 import com.inqwise.indexer.load.api.IndexerLoadState;
 import com.inqwise.indexer.load.api.LiveWriterPolicy;
 import com.inqwise.indexer.load.repository.InsertIndexerLoad;
+import com.inqwise.indexer.load.repository.MetadataLoadPublicationRepository;
 import com.inqwise.indexer.load.testing.LoadTestMetadataChangeNotifiers;
 import com.inqwise.indexer.load.workflow.MetadataLoadManagementService;
 
@@ -323,7 +324,7 @@ class PublishLoadCommandTest {
 	) {
 		return new InMemoryCommandEngine()
 			.register(new PublishLoadCommandHandler(
-				metadata,
+				new MetadataLoadPublicationRepository(metadata),
 				loads,
 				new InMemoryIndexerLifecycleEventBus()
 			));
@@ -335,6 +336,8 @@ class PublishLoadCommandTest {
 	) {
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		InMemoryCommandEngine commands = new InMemoryCommandEngine();
+		MetadataLoadPublicationRepository publicationRepository =
+			new MetadataLoadPublicationRepository(metadata);
 		commands
 			.register(new CleanupDeletingIndexerCommandHandler(
 				metadata,
@@ -348,8 +351,13 @@ class PublishLoadCommandTest {
 				),
 				commands
 			))
-			.register(new CleanupLoadCommandHandler(metadata, loads, commands))
-			.register(new PublishLoadCommandHandler(metadata, loads, eventBus, commands));
+			.register(new CleanupLoadCommandHandler(publicationRepository, loads, commands))
+			.register(new PublishLoadCommandHandler(
+				publicationRepository,
+				loads,
+				eventBus,
+				commands
+			));
 		return commands;
 	}
 

@@ -33,15 +33,16 @@ public final class MetadataLoadPublicationRepository
 					.compose(valid -> metadataRepository.listPublishedIndexersByTargetId(load.targetId())
 						.compose(previous -> replace(load, loadWriter, candidate, previous)
 							.map(ignored -> new LoadPublication(
-								loadWriter,
-								candidate,
-								previous.isEmpty() ? null : previous.get(0)
+								reference(loadWriter),
+								reference(candidate),
+								previous.isEmpty() ? null : reference(previous.get(0))
 							))))));
 	}
 
 	@Override
-	public Future<Optional<IndexerRecord>> getIndexer(Integer indexerId) {
-		return metadataRepository.getIndexerById(indexerId);
+	public Future<Optional<LoadIndexerReference>> getIndexer(Integer indexerId) {
+		return metadataRepository.getIndexerById(indexerId)
+			.map(found -> found.map(this::reference));
 	}
 
 	private Future<IndexerRecord> resolveCandidate(IndexerLoadRecord load) {
@@ -125,5 +126,14 @@ public final class MetadataLoadPublicationRepository
 			load.liveIndexerId() == null ? null : loadWriter.id(),
 			load.liveIndexerId() == null ? null : loadWriter.version()
 		));
+	}
+
+	private LoadIndexerReference reference(IndexerRecord indexer) {
+		return new LoadIndexerReference(
+			indexer.id(),
+			indexer.targetId(),
+			indexer.indexName(),
+			indexer.version()
+		);
 	}
 }

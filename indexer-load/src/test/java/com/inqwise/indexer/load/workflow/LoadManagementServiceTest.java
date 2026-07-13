@@ -21,6 +21,7 @@ import com.inqwise.indexer.load.commands.CleanupLoadCommandHandler;
 import com.inqwise.indexer.load.commands.PublishLoadCommand;
 import com.inqwise.indexer.load.repository.UpdateIndexerLoadState;
 import com.inqwise.indexer.load.repository.InsertIndexerLoad;
+import com.inqwise.indexer.load.repository.MetadataLoadPublicationRepository;
 import com.inqwise.indexer.load.testing.LoadTestMetadataChangeNotifiers;
 
 
@@ -835,7 +836,11 @@ class LoadManagementServiceTest {
 				),
 				commands
 			))
-			.register(new CleanupLoadCommandHandler(metadata, loads, commands));
+			.register(new CleanupLoadCommandHandler(
+				new MetadataLoadPublicationRepository(metadata),
+				loads,
+				commands
+			));
 	}
 
 	private InMemoryCommandEngine commandService(

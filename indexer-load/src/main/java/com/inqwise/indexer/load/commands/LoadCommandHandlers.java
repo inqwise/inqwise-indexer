@@ -1,6 +1,7 @@
 package com.inqwise.indexer.load.commands;
 
 import com.inqwise.indexer.load.repository.IndexerLoadRepository;
+import com.inqwise.indexer.load.repository.MetadataLoadPublicationRepository;
 
 
 import java.util.List;
@@ -19,16 +20,18 @@ public final class LoadCommandHandlers {
 	public static List<CommandHandler> create(Config config, CommandService commandService) {
 		Objects.requireNonNull(config, "config");
 		Objects.requireNonNull(commandService, "commandService");
+		MetadataLoadPublicationRepository publicationRepository =
+			new MetadataLoadPublicationRepository(config.metadataRepository());
 
 		return List.of(
 			new PublishLoadCommandHandler(
-				config.metadataRepository(),
+				publicationRepository,
 				config.loadRepository(),
 				config.eventBus(),
 				commandService
 			),
 			new CleanupLoadCommandHandler(
-				config.metadataRepository(),
+				publicationRepository,
 				config.loadRepository(),
 				commandService
 			)

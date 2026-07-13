@@ -4,7 +4,7 @@ import com.inqwise.indexer.load.api.IndexerLoadRecord;
 import com.inqwise.indexer.load.api.IndexerLoadState;
 import com.inqwise.indexer.load.repository.IndexerLoadRepository;
 import com.inqwise.indexer.load.repository.LoadCleanupRepository;
-import com.inqwise.indexer.load.repository.MetadataLoadPublicationRepository;
+import com.inqwise.indexer.load.repository.LoadIndexerReference;
 
 import java.util.LinkedHashSet;
 import java.util.Objects;
@@ -14,8 +14,6 @@ import com.inqwise.indexer.commands.Command;
 import com.inqwise.indexer.commands.CommandHandler;
 import com.inqwise.indexer.commands.CommandService;
 import com.inqwise.indexer.cleanup.DeleteIndexerCommand;
-import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
-import com.inqwise.indexer.metadata.IndexerRecord;
 
 import io.vertx.core.Future;
 
@@ -25,11 +23,11 @@ public final class CleanupLoadCommandHandler implements CommandHandler {
 	private final CommandService commandService;
 
 	public CleanupLoadCommandHandler(
-		DocumentStoreMetadataRepository metadataRepository,
+		LoadCleanupRepository cleanupRepository,
 		IndexerLoadRepository loadRepository,
 		CommandService commandService
 	) {
-		this.cleanupRepository = new MetadataLoadPublicationRepository(metadataRepository);
+		this.cleanupRepository = Objects.requireNonNull(cleanupRepository, "cleanupRepository");
 		this.loadRepository = Objects.requireNonNull(loadRepository, "loadRepository");
 		this.commandService = Objects.requireNonNull(commandService, "commandService");
 	}
@@ -94,7 +92,7 @@ public final class CleanupLoadCommandHandler implements CommandHandler {
 				.orElseGet(Future::succeededFuture));
 	}
 
-	private Future<Void> submitDelete(IndexerRecord indexer) {
+	private Future<Void> submitDelete(LoadIndexerReference indexer) {
 		return commandService.submit(new DeleteIndexerCommand(indexer.id(), indexer.version()));
 	}
 }

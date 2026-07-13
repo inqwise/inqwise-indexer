@@ -64,16 +64,8 @@ class LoadPackageDependencyDirectionTest {
 		"com.inqwise.indexer.runtime.IndexerQueuePublisher"
 	);
 	private static final Map<String, Set<String>> PRE_SPLIT_TOLERATED_INDEXER_IMPORTS = Map.ofEntries(
-		entry("commands/CleanupLoadCommandHandler.java", Set.of(
-			"com.inqwise.indexer.metadata.DocumentStoreMetadataRepository",
-			"com.inqwise.indexer.metadata.IndexerRecord"
-		)),
 		entry("commands/LoadCommandHandlers.java", Set.of(
 			"com.inqwise.indexer.metadata.DocumentStoreMetadataRepository"
-		)),
-		entry("commands/PublishLoadCommandHandler.java", Set.of(
-			"com.inqwise.indexer.metadata.DocumentStoreMetadataRepository",
-			"com.inqwise.indexer.metadata.IndexerRecord"
 		)),
 		entry("runtime/LoadIndexerPlugin.java", Set.of(
 			"com.inqwise.indexer.metadata.DocumentStoreMetadataRepository"
@@ -106,12 +98,6 @@ class LoadPackageDependencyDirectionTest {
 			"com.inqwise.indexer.metadata.InsertIndexer",
 			"com.inqwise.indexer.metadata.MutationState",
 			"com.inqwise.indexer.metadata.PublicationState"
-		)),
-		entry("repository/LoadCleanupRepository.java", Set.of(
-			"com.inqwise.indexer.metadata.IndexerRecord"
-		)),
-		entry("repository/LoadPublication.java", Set.of(
-			"com.inqwise.indexer.metadata.IndexerRecord"
 		)),
 		entry("repository/MetadataLoadPublicationRepository.java", Set.of(
 			"com.inqwise.indexer.metadata.DocumentStoreMetadataRepository",

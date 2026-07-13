@@ -3,17 +3,15 @@ package com.inqwise.indexer.load.commands;
 import com.inqwise.indexer.load.api.IndexerLoadRecord;
 import com.inqwise.indexer.load.api.IndexerLoadState;
 import com.inqwise.indexer.load.repository.IndexerLoadRepository;
+import com.inqwise.indexer.load.repository.LoadIndexerReference;
 import com.inqwise.indexer.load.repository.LoadPublication;
 import com.inqwise.indexer.load.repository.LoadPublicationRepository;
-import com.inqwise.indexer.load.repository.MetadataLoadPublicationRepository;
 import com.inqwise.indexer.load.repository.UpdateIndexerLoadState;
 
 import java.util.Objects;
 
 import com.inqwise.indexer.lifecycle.IndexerLifecycleEventBus;
 import com.inqwise.indexer.lifecycle.IndexerMetadataChanged;
-import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
-import com.inqwise.indexer.metadata.IndexerRecord;
 import com.inqwise.indexer.commands.Command;
 import com.inqwise.indexer.commands.CommandHandler;
 import com.inqwise.indexer.commands.CommandService;
@@ -27,20 +25,23 @@ public class PublishLoadCommandHandler implements CommandHandler {
 	private final CommandService commandService;
 
 	public PublishLoadCommandHandler(
-		DocumentStoreMetadataRepository metadataRepository,
+		LoadPublicationRepository publicationRepository,
 		IndexerLoadRepository loadRepository,
 		IndexerLifecycleEventBus eventBus
 	) {
-		this(metadataRepository, loadRepository, eventBus, null);
+		this(publicationRepository, loadRepository, eventBus, null);
 	}
 
 	public PublishLoadCommandHandler(
-		DocumentStoreMetadataRepository metadataRepository,
+		LoadPublicationRepository publicationRepository,
 		IndexerLoadRepository loadRepository,
 		IndexerLifecycleEventBus eventBus,
 		CommandService commandService
 	) {
-		this.publicationRepository = new MetadataLoadPublicationRepository(metadataRepository);
+		this.publicationRepository = Objects.requireNonNull(
+			publicationRepository,
+			"publicationRepository"
+		);
 		this.loadRepository = Objects.requireNonNull(loadRepository, "loadRepository");
 		this.eventBus = eventBus == null ? IndexerLifecycleEventBus.NOOP : eventBus;
 		this.commandService = commandService;
@@ -94,8 +95,8 @@ public class PublishLoadCommandHandler implements CommandHandler {
 		IndexerLoadRecord load,
 		LoadPublication publication
 	) {
-		IndexerRecord loadIndexer = publication.loadWriter();
-		IndexerRecord candidate = publication.candidate();
+		LoadIndexerReference loadIndexer = publication.loadWriter();
+		LoadIndexerReference candidate = publication.candidate();
 		eventBus.publishIndexerWakeUp(new IndexerMetadataChanged(
 			candidate.id(),
 			candidate.targetId(),
@@ -113,7 +114,7 @@ public class PublishLoadCommandHandler implements CommandHandler {
 		}
 
 		if (publication.oldPublished() != null) {
-			IndexerRecord oldPublished = publication.oldPublished();
+			LoadIndexerReference oldPublished = publication.oldPublished();
 			eventBus.publishIndexerWakeUp(new IndexerMetadataChanged(
 				oldPublished.id(),
 				oldPublished.targetId(),
@@ -130,7 +131,7 @@ public class PublishLoadCommandHandler implements CommandHandler {
 			return Future.succeededFuture();
 		}
 
-		IndexerRecord oldPublished = publication.oldPublished();
+		LoadIndexerReference oldPublished = publication.oldPublished();
 		return commandService.submit(new CleanupLoadCommand(
 			load.indexerId(),
 			oldPublished == null ? null : oldPublished.id()
