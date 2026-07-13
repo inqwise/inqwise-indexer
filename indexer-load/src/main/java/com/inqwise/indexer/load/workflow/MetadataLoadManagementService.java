@@ -9,11 +9,13 @@ import com.inqwise.indexer.load.api.LiveWriterPolicy;
 import com.inqwise.indexer.load.api.LoadCompletion;
 import com.inqwise.indexer.load.api.LoadManagementService;
 import com.inqwise.indexer.load.api.LoadProviderRegistry;
-import com.inqwise.indexer.load.api.LoadRequest;
 import com.inqwise.indexer.load.api.LoadStopRequest;
 import com.inqwise.indexer.load.api.LoadWriter;
 import com.inqwise.indexer.load.api.RecoverCreatedLoadRequest;
 import com.inqwise.indexer.load.api.StartLoadRequest;
+import com.inqwise.indexer.load.catalog.LoadCreationCatalog;
+import com.inqwise.indexer.load.catalog.LoadStartContext;
+import com.inqwise.indexer.load.catalog.MetadataLoadCreationCatalog;
 import com.inqwise.indexer.load.commands.CleanupLoadCommand;
 import com.inqwise.indexer.load.commands.LoadPublicationOrchestrator;
 import com.inqwise.indexer.load.repository.IndexerLoadCompletion;
@@ -23,39 +25,24 @@ import com.inqwise.indexer.load.repository.UpdateIndexerLoadApproval;
 import com.inqwise.indexer.load.repository.UpdateIndexerLoadFailure;
 import com.inqwise.indexer.load.repository.UpdateIndexerLoadState;
 
-
 import java.util.Objects;
 
-import com.inqwise.indexer.catalog.indexers.IndexResourceOwnership;
 import com.inqwise.indexer.lifecycle.IndexerLifecycleEventBus;
 import com.inqwise.indexer.lifecycle.IndexerMetadataChanged;
 import com.inqwise.indexer.runtime.IndexerQueueClient;
-import com.inqwise.indexer.catalog.indexers.IndexerRole;
-import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
-import com.inqwise.indexer.catalog.indexers.IndexerType;
 import com.inqwise.indexer.commands.CommandService;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.IndexerRecord;
-import com.inqwise.indexer.metadata.InsertIndexer;
-import com.inqwise.indexer.metadata.MutationState;
-import com.inqwise.indexer.metadata.PublicationState;
-import com.inqwise.indexer.metadata.TargetProvisioningState;
 import com.inqwise.indexer.metadata.TargetRecord;
-import com.inqwise.indexer.metadata.TargetStatus;
-import com.inqwise.indexer.provisioning.GeneratedIndexerResources;
-import com.inqwise.indexer.catalog.indexers.CreateIndexerOperation;
-import com.inqwise.indexer.provisioning.IndexerResourceNameGenerator;
 
 import io.vertx.core.Future;
-import io.vertx.core.json.JsonObject;
 
 public final class MetadataLoadManagementService implements LoadManagementService {
 	private static final String CHANGE_TYPE = "indexer.load.create";
-	private final DocumentStoreMetadataRepository metadataRepository;
+	private final LoadCreationCatalog loadCreationCatalog;
 	private final IndexerLoadRepository loadRepository;
 	private final IndexerQueueClient queueClient;
 	private final IndexerLifecycleEventBus eventBus;
-	private final CreateIndexerOperation createIndexer;
 	private final CommandService commandService;
 	private final LoadPublicationOrchestrator publicationOrchestrator;
 	private final LoadProviderRegistry loadProviderRegistry;
@@ -68,12 +55,11 @@ public final class MetadataLoadManagementService implements LoadManagementServic
 		IndexerLifecycleEventBus eventBus,
 		CommandService commandService
 	) {
-		this.metadataRepository = Objects.requireNonNull(metadataRepository, "metadataRepository");
+		this.loadCreationCatalog = new MetadataLoadCreationCatalog(metadataRepository);
 		this.loadRepository = Objects.requireNonNull(loadRepository, "loadRepository");
 		this.queueClient = Objects.requireNonNull(queueClient, "queueClient");
 		this.loadProviderRegistry = Objects.requireNonNull(loadProviderRegistry, "loadProviderRegistry");
 		this.eventBus = eventBus == null ? IndexerLifecycleEventBus.NOOP : eventBus;
-		this.createIndexer = new CreateIndexerOperation(metadataRepository);
 		this.commandService = Objects.requireNonNull(commandService, "commandService");
 		this.publicationOrchestrator = new LoadPublicationOrchestrator(commandService);
 	}
@@ -81,14 +67,14 @@ public final class MetadataLoadManagementService implements LoadManagementServic
 	@Override
 	public Future<IndexerLoadRecord> create(CreateLoadRequest request) {
 		Objects.requireNonNull(request, "request");
-		return resolveExistingTarget(request)
+		return loadCreationCatalog.getReadyTarget(request.targetId())
 			.compose(target -> loadRepository.getActiveByTargetId(target.id())
 				.compose(active -> active
 					.map(load -> Future.<TargetRecord>failedFuture(
 						"Active indexer load already exists for target: " + target.id()
 					))
 					.orElseGet(() -> Future.succeededFuture(target))))
-			.compose(target -> createLoadIndexer(request, target, resources(target))
+			.compose(target -> loadCreationCatalog.createLoadWriter(target)
 				.compose(loadIndexer -> createLiveIndexer(request, target, loadIndexer)
 				.compose(liveIndexer -> insertLoad(request, target, loadIndexer, liveIndexer)
 					.compose(ignored -> publishCreatedEvents(loadIndexer, liveIndexer))
@@ -109,28 +95,6 @@ public final class MetadataLoadManagementService implements LoadManagementServic
 		return load(request.indexerId())
 			.compose(load -> validateRecoverable(load, request))
 			.compose(load -> start(new StartLoadRequest(load.indexerId(), load.version())));
-	}
-
-	private Future<TargetRecord> resolveExistingTarget(CreateLoadRequest request) {
-		return metadataRepository.getTargetById(request.targetId())
-			.compose(found -> found
-				.map(this::validateTargetReady)
-				.orElseGet(() -> Future.failedFuture(
-					"Target not found for load creation: " + request.targetId()
-				)));
-	}
-
-	private Future<TargetRecord> validateTargetReady(TargetRecord target) {
-		if (target.status() != TargetStatus.ACTIVE) {
-			return Future.failedFuture("Target is not active: " + target.id());
-		}
-		if (target.provisioningState() != TargetProvisioningState.READY) {
-			return Future.failedFuture(
-				"Target provisioning is not ready: " + target.id() + " state "
-					+ target.provisioningState()
-			);
-		}
-		return Future.succeededFuture(target);
 	}
 
 	@Override
@@ -307,65 +271,20 @@ public final class MetadataLoadManagementService implements LoadManagementServic
 	}
 
 	private Future<Void> startProvider(IndexerLoadRecord load) {
-		return metadataRepository.getIndexerById(load.indexerId())
-			.compose(found -> found
-				.map(Future::succeededFuture)
-				.orElseGet(() -> Future.failedFuture("Load writer not found: " + load.indexerId())))
-			.compose(loadWriter -> metadataRepository.getTargetById(load.targetId())
-				.compose(found -> found
-					.map(Future::succeededFuture)
-					.orElseGet(() -> Future.failedFuture("Target not found: " + load.targetId())))
-				.compose(target -> buildRequest(load, loadWriter, target)
-					.compose(request -> loadProviderRegistry.get(load.providerId())
-						.compose(provider -> provider.start(request, writer(load, loadWriter)))
-						.compose(ignored -> markHistoricalLoading(load.indexerId()))
-						.recover(error -> markProviderStartFailed(load.indexerId(), error)
-							.compose(ignored -> Future.failedFuture(error))))));
+		return loadCreationCatalog.prepareStart(load)
+			.compose(context -> loadProviderRegistry.get(load.providerId())
+				.compose(provider -> provider.start(context.request(), writer(load, context)))
+				.compose(ignored -> markHistoricalLoading(load.indexerId()))
+				.recover(error -> markProviderStartFailed(load.indexerId(), error)
+					.compose(ignored -> Future.failedFuture(error))));
 	}
 
-	private Future<LoadRequest> buildRequest(
-		IndexerLoadRecord load,
-		IndexerRecord loadWriter,
-		TargetRecord target
-	) {
-		if (load.liveIndexerId() == null) {
-			return Future.succeededFuture(loadRequest(load, loadWriter, target));
-		}
-
-		return metadataRepository.getIndexerById(load.liveIndexerId())
-			.compose(found -> found
-				.map(ignored -> Future.succeededFuture(loadRequest(load, loadWriter, target)))
-				.orElseGet(() -> Future.failedFuture("Live writer not found: " + load.liveIndexerId())));
-	}
-
-	private LoadRequest loadRequest(
-		IndexerLoadRecord load,
-		IndexerRecord loadWriter,
-		TargetRecord target
-	) {
-		return new LoadRequest(
-			load.indexerId(),
-			load.targetId(),
-			load.liveIndexerId(),
-			load.providerId(),
-			target.targetName(),
-			loadWriter.indexName(),
-			loadWriter.queueName(),
-			load.reloadStartAt(),
-			load.liveReplayFrom(),
-			load.sourceFrom(),
-			load.sourceTo(),
-			copy(load.sourceQuery()),
-			load.sourcePlaybookId()
-		);
-	}
-
-	private QueueLoadWriter writer(IndexerLoadRecord load, IndexerRecord loadWriter) {
+	private QueueLoadWriter writer(IndexerLoadRecord load, LoadStartContext context) {
 		return new QueueLoadWriter(
 			load.targetId(),
 			load.indexerId(),
-			loadWriter.indexName(),
-			loadWriter.queueName(),
+			context.indexName(),
+			context.queueName(),
 			queueClient,
 			loadRepository
 		);
@@ -399,22 +318,6 @@ public final class MetadataLoadManagementService implements LoadManagementServic
 				.compose(this::publishStateChanged));
 	}
 
-	private GeneratedIndexerResources resources(TargetRecord target) {
-		return IndexerResourceNameGenerator.forTarget(target.targetName());
-	}
-
-	private Future<IndexerRecord> createLoadIndexer(
-		CreateLoadRequest request,
-		TargetRecord target,
-		GeneratedIndexerResources resources
-	) {
-		return createIndexer.create(new InsertIndexer(
-			resources.prefix(), target.id(), target.targetName(), resources.indexName(), resources.queueName(),
-			IndexerType.INDEX, IndexerRole.LOAD_WRITER, IndexResourceOwnership.OWNER,
-			IndexerRuntimeState.ACTIVE, PublicationState.UNPUBLISHED, MutationState.WRITABLE
-		));
-	}
-
 	private Future<IndexerRecord> createLiveIndexer(
 		CreateLoadRequest request,
 		TargetRecord target,
@@ -423,12 +326,7 @@ public final class MetadataLoadManagementService implements LoadManagementServic
 		if (request.liveWriterPolicy() != LiveWriterPolicy.CREATE_IMMEDIATELY) {
 			return Future.succeededFuture();
 		}
-		return createIndexer.create(new InsertIndexer(
-			loadIndexer.prefix(), target.id(), target.targetName(), loadIndexer.indexName(),
-			loadIndexer.queueName() + "--live",
-			IndexerType.INDEX, IndexerRole.LIVE_WRITER, IndexResourceOwnership.ATTACHED,
-			IndexerRuntimeState.ACTIVE, PublicationState.UNPUBLISHED, MutationState.WRITABLE
-		));
+		return loadCreationCatalog.createImmediateLiveWriter(target, loadIndexer);
 	}
 
 	private Future<Void> insertLoad(
@@ -466,10 +364,6 @@ public final class MetadataLoadManagementService implements LoadManagementServic
 			load.version()
 		));
 		return Future.succeededFuture();
-	}
-
-	private JsonObject copy(JsonObject json) {
-		return json == null ? null : json.copy();
 	}
 
 	private Future<IndexerLoadRecord> load(Integer indexerId) {

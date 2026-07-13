@@ -88,15 +88,11 @@ class LoadPackageDependencyDirectionTest {
 		"catalog/LazyLiveWriterCatalog.java", Set.of(
 			"com.inqwise.indexer.metadata.IndexerRecord"
 		),
-		"catalog/MetadataLazyLiveWriterCatalog.java", Set.of(
-			"com.inqwise.indexer.catalog.indexers.CreateIndexerOperation",
-			"com.inqwise.indexer.metadata.DocumentStoreMetadataRepository",
+		"catalog/LoadCreationCatalog.java", Set.of(
 			"com.inqwise.indexer.metadata.IndexerRecord",
-			"com.inqwise.indexer.metadata.InsertIndexer",
-			"com.inqwise.indexer.metadata.MutationState",
-			"com.inqwise.indexer.metadata.PublicationState"
+			"com.inqwise.indexer.metadata.TargetRecord"
 		),
-		"workflow/MetadataLoadManagementService.java", Set.of(
+		"catalog/MetadataLoadCreationCatalog.java", Set.of(
 			"com.inqwise.indexer.catalog.indexers.CreateIndexerOperation",
 			"com.inqwise.indexer.metadata.DocumentStoreMetadataRepository",
 			"com.inqwise.indexer.metadata.IndexerRecord",
@@ -106,6 +102,19 @@ class LoadPackageDependencyDirectionTest {
 			"com.inqwise.indexer.metadata.TargetProvisioningState",
 			"com.inqwise.indexer.metadata.TargetRecord",
 			"com.inqwise.indexer.metadata.TargetStatus"
+		),
+		"catalog/MetadataLazyLiveWriterCatalog.java", Set.of(
+			"com.inqwise.indexer.catalog.indexers.CreateIndexerOperation",
+			"com.inqwise.indexer.metadata.DocumentStoreMetadataRepository",
+			"com.inqwise.indexer.metadata.IndexerRecord",
+			"com.inqwise.indexer.metadata.InsertIndexer",
+			"com.inqwise.indexer.metadata.MutationState",
+			"com.inqwise.indexer.metadata.PublicationState"
+		),
+		"workflow/MetadataLoadManagementService.java", Set.of(
+			"com.inqwise.indexer.metadata.DocumentStoreMetadataRepository",
+			"com.inqwise.indexer.metadata.IndexerRecord",
+			"com.inqwise.indexer.metadata.TargetRecord"
 		)
 	);
 	private static final Set<String> ALLOWED_ROOT_TESTS = Set.of(
@@ -131,7 +140,7 @@ class LoadPackageDependencyDirectionTest {
 		"api", Set.of(),
 		"catalog", Set.of("api"),
 		"repository", Set.of("api"),
-		"workflow", Set.of("api", "commands", "repository"),
+		"workflow", Set.of("api", "catalog", "commands", "repository"),
 		"runtime", Set.of("api", "catalog", "commands", "events", "repository"),
 		"commands", Set.of("api", "repository"),
 		"events", Set.of(),
