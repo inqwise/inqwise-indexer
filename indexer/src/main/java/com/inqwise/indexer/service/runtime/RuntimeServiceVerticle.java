@@ -2,8 +2,8 @@ package com.inqwise.indexer.service.runtime;
 
 import java.util.Objects;
 
-import com.inqwise.indexer.IndexerRuntime;
-import com.inqwise.indexer.IndexerRuntimeReconciler;
+import com.inqwise.indexer.runtime.IndexerRuntime;
+import com.inqwise.indexer.runtime.IndexerRuntimeReconciler;
 import com.inqwise.indexer.service.ServiceProxyVerticle;
 
 import io.vertx.serviceproxy.ProxyHandler;

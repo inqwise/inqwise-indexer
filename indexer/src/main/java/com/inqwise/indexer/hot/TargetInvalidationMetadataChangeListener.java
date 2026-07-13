@@ -5,10 +5,10 @@ import java.util.Objects;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.inqwise.indexer.IndexerLifecycleEventBus;
-import com.inqwise.indexer.IndexerLifecycleSubscription;
-import com.inqwise.indexer.IndexerMetadataChanged;
-import com.inqwise.indexer.TargetMetadataChanged;
+import com.inqwise.indexer.lifecycle.IndexerLifecycleEventBus;
+import com.inqwise.indexer.lifecycle.IndexerLifecycleSubscription;
+import com.inqwise.indexer.lifecycle.IndexerMetadataChanged;
+import com.inqwise.indexer.lifecycle.TargetMetadataChanged;
 
 import io.vertx.core.Future;
 

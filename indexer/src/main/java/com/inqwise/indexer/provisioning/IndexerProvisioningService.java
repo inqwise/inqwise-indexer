@@ -2,7 +2,6 @@ package com.inqwise.indexer.provisioning;
 
 import java.util.Objects;
 
-import com.inqwise.indexer.IndexerQueueResourceManager;
 import com.inqwise.indexer.definitions.IndexerDefinition;
 import com.inqwise.indexer.definitions.IndexerDefinitionProvider;
 import com.inqwise.indexer.definitions.IndexerDefinitionRequest;
@@ -20,6 +19,10 @@ import com.inqwise.indexer.metadata.UpdateIndexerProvisioningState;
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 
+/**
+ * Request/reply boundary for creating physical indexer resources and their
+ * initial metadata. Catalog lifecycle operations stay in IndexerManagementService.
+ */
 public class IndexerProvisioningService {
 	private final DocumentStoreMetadataRepository repository;
 	private final IndexerDefinitionProvider definitionProvider;

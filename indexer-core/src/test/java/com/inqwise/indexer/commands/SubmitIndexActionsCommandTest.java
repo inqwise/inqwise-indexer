@@ -6,8 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import java.time.Instant;
 import java.util.List;
 
-import com.inqwise.indexer.IndexerActionItems;
-import com.inqwise.indexer.PutDocumentActionItem;
+import com.inqwise.indexer.actions.IndexerActionItems;
+import com.inqwise.indexer.actions.PutDocumentActionItem;
 
 import org.junit.jupiter.api.Test;
 

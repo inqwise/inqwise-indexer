@@ -10,11 +10,11 @@ import java.net.ServerSocket;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import com.inqwise.indexer.IndexerActionType;
-import com.inqwise.indexer.IndexerMetadataChanged;
-import com.inqwise.indexer.IndexerRuntimeState;
-import com.inqwise.indexer.IndexerType;
-import com.inqwise.indexer.TargetMetadataChanged;
+import com.inqwise.indexer.actions.IndexerActionType;
+import com.inqwise.indexer.lifecycle.IndexerMetadataChanged;
+import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
+import com.inqwise.indexer.catalog.indexers.IndexerType;
+import com.inqwise.indexer.lifecycle.TargetMetadataChanged;
 import com.inqwise.indexer.commands.InMemoryCommandEngine;
 import com.inqwise.indexer.gateway.GatewayRestOptions;
 import com.inqwise.indexer.hot.InvalidRouteSignature;

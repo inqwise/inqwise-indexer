@@ -9,13 +9,13 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import com.inqwise.indexer.IndexerQueueClient;
-import com.inqwise.indexer.IndexerQueueConsumer;
-import com.inqwise.indexer.IndexerQueueConsumerOptions;
-import com.inqwise.indexer.IndexerQueuePublisher;
+import com.inqwise.indexer.runtime.IndexerQueueClient;
+import com.inqwise.indexer.runtime.IndexerQueueConsumer;
+import com.inqwise.indexer.runtime.IndexerQueueConsumerOptions;
+import com.inqwise.indexer.runtime.IndexerQueuePublisher;
 import com.inqwise.indexer.commands.Command;
 import com.inqwise.indexer.commands.CommandService;
-import com.inqwise.indexer.commands.RoutedIndexActionPublisher;
+import com.inqwise.indexer.routing.RoutedIndexActionPublisher;
 import com.inqwise.indexer.hot.HotIndexActionsRequest;
 import com.inqwise.indexer.hot.HotIndexActionsService;
 import com.inqwise.indexer.hot.HotIndexer;

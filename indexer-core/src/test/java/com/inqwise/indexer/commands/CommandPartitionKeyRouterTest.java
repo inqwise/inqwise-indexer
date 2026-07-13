@@ -5,10 +5,14 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 
-import com.inqwise.indexer.IndexerActionType;
-import com.inqwise.indexer.PutDocumentActionItem;
+import com.inqwise.indexer.actions.IndexerActionType;
+import com.inqwise.indexer.actions.PutDocumentActionItem;
 
 import org.junit.jupiter.api.Test;
+
+import com.inqwise.indexer.cleanup.CleanupDeletingIndexerCommand;
+import com.inqwise.indexer.cleanup.CleanupResetIndexerQueueCommand;
+import com.inqwise.indexer.cleanup.DeleteIndexerCommand;
 
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;

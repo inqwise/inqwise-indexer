@@ -1,5 +1,21 @@
 package com.inqwise.indexer.load;
 
+import com.inqwise.indexer.load.adapters.local.InMemoryIndexerLoadRepository;
+import com.inqwise.indexer.load.adapters.local.InMemoryLoadProviderRegistry;
+import com.inqwise.indexer.load.api.CreateLoadRequest;
+import com.inqwise.indexer.load.api.LiveWriterPolicy;
+import com.inqwise.indexer.load.api.LoadCompletion;
+import com.inqwise.indexer.load.api.LoadManagementService;
+import com.inqwise.indexer.load.api.LoadProvider;
+import com.inqwise.indexer.load.api.LoadRequest;
+import com.inqwise.indexer.load.api.LoadStopRequest;
+import com.inqwise.indexer.load.api.LoadWriter;
+import com.inqwise.indexer.load.api.StartLoadRequest;
+import com.inqwise.indexer.load.commands.LoadCommandHandlers;
+import com.inqwise.indexer.load.runtime.LoadIndexerPlugin;
+import com.inqwise.indexer.load.workflow.MetadataLoadManagementService;
+
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.time.Instant;
@@ -7,16 +23,16 @@ import java.util.List;
 
 import com.inqwise.coordination.LocalExclusiveFlowCoordinator;
 import com.inqwise.events.EventPublisher;
-import com.inqwise.indexer.IndexerEventPublisher;
-import com.inqwise.indexer.IndexerOptions;
-import com.inqwise.indexer.IndexerRole;
-import com.inqwise.indexer.IndexerRuntime;
-import com.inqwise.indexer.IndexerRuntimeReconciler;
-import com.inqwise.indexer.InMemoryIndexerDocumentStore;
-import com.inqwise.indexer.InMemoryIndexerLifecycleEventBus;
-import com.inqwise.indexer.InMemoryIndexerQueue;
+import com.inqwise.indexer.runtime.IndexerEventPublisher;
+import com.inqwise.indexer.runtime.IndexerOptions;
+import com.inqwise.indexer.catalog.indexers.IndexerRole;
+import com.inqwise.indexer.runtime.IndexerRuntime;
+import com.inqwise.indexer.runtime.IndexerRuntimeReconciler;
+import com.inqwise.indexer.adapters.local.InMemoryIndexerDocumentStore;
+import com.inqwise.indexer.adapters.local.InMemoryIndexerLifecycleEventBus;
+import com.inqwise.indexer.adapters.local.InMemoryIndexerQueue;
 import com.inqwise.indexer.commands.InMemoryCommandEngine;
-import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
+import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.metadata.PublicationState;
 import com.inqwise.indexer.providers.IndexerPlugins;

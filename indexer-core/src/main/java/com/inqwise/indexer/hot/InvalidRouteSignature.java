@@ -2,7 +2,7 @@ package com.inqwise.indexer.hot;
 
 import java.util.Objects;
 
-import com.inqwise.indexer.IndexerActionType;
+import com.inqwise.indexer.actions.IndexerActionType;
 
 public record InvalidRouteSignature(
 	String targetName,

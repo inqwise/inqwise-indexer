@@ -2,7 +2,7 @@ package com.inqwise.indexer.hot;
 
 import java.util.List;
 
-import com.inqwise.indexer.IndexerActionItem;
+import com.inqwise.indexer.actions.IndexerActionItem;
 import com.inqwise.indexer.commands.ActionDestination;
 import com.inqwise.indexer.commands.SubmitIndexActionsCommand;
 

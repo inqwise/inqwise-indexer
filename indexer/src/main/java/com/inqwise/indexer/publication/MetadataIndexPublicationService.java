@@ -2,7 +2,7 @@ package com.inqwise.indexer.publication;
 
 import java.util.Objects;
 
-import com.inqwise.indexer.IndexerQueueResourceManager;
+import com.inqwise.indexer.provisioning.IndexerQueueResourceManager;
 import com.inqwise.indexer.definitions.IndexerDefinitionProvider;
 import com.inqwise.indexer.definitions.IndexerDefinitionRequest;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;

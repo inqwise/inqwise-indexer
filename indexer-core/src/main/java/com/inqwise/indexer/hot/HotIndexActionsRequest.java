@@ -4,7 +4,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 
-import com.inqwise.indexer.IndexerActionItem;
+import com.inqwise.indexer.actions.IndexerActionItem;
 
 public record HotIndexActionsRequest(
 	String targetName,

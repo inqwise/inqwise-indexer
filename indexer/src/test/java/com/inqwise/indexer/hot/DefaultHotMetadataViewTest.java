@@ -1,5 +1,8 @@
 package com.inqwise.indexer.hot;
 
+import com.inqwise.indexer.adapters.local.InMemoryTargetInvalidationRegistry;
+import com.inqwise.indexer.adapters.local.InMemoryTargetInvalidationRegistryProvider;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -9,14 +12,14 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import com.inqwise.indexer.IndexerActionItems;
-import com.inqwise.indexer.IndexerRuntimeState;
-import com.inqwise.indexer.IndexerType;
-import com.inqwise.indexer.definitions.StaticTargetDefinitionProvider;
+import com.inqwise.indexer.actions.IndexerActionItems;
+import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
+import com.inqwise.indexer.catalog.indexers.IndexerType;
+import com.inqwise.indexer.adapters.local.StaticTargetDefinitionProvider;
 import com.inqwise.indexer.definitions.TargetDefinition;
 import com.inqwise.indexer.metadata.ConcreteTargetKey;
 import com.inqwise.indexer.metadata.DeleteTarget;
-import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
+import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.metadata.MutationState;
 import com.inqwise.indexer.metadata.PublicationState;

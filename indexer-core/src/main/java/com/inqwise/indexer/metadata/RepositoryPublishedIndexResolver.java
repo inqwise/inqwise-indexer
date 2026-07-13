@@ -10,7 +10,7 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import com.inqwise.indexer.IndexerType;
+import com.inqwise.indexer.catalog.indexers.IndexerType;
 
 import io.vertx.core.Future;
 

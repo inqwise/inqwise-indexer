@@ -7,14 +7,14 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-import com.inqwise.indexer.IndexerActionItem;
+import com.inqwise.indexer.actions.IndexerActionItem;
 import com.inqwise.indexer.actions.IndexerActionRouteMode;
 import com.inqwise.indexer.commands.CommandFailure;
 import com.inqwise.indexer.commands.ActionDestination;
 import com.inqwise.indexer.commands.CommandService;
-import com.inqwise.indexer.commands.RoutedIndexActionPublisher;
 import com.inqwise.indexer.commands.RoutedIndexActions;
 import com.inqwise.indexer.commands.SubmitIndexActionsCommand;
+import com.inqwise.indexer.routing.RoutedIndexActionPublisher;
 
 import io.vertx.core.Future;
 

@@ -2,11 +2,11 @@ package com.inqwise.indexer.commands;
 
 import java.util.Objects;
 
-import com.inqwise.indexer.CatchUpBarrierActionItem;
-import com.inqwise.indexer.CompleteIndexActionItem;
-import com.inqwise.indexer.IndexerActionItem;
-import com.inqwise.indexer.PutDocumentActionItem;
-import com.inqwise.indexer.RemoveDocumentActionItem;
+import com.inqwise.indexer.actions.CatchUpBarrierActionItem;
+import com.inqwise.indexer.actions.CompleteIndexActionItem;
+import com.inqwise.indexer.actions.IndexerActionItem;
+import com.inqwise.indexer.actions.PutDocumentActionItem;
+import com.inqwise.indexer.actions.RemoveDocumentActionItem;
 
 public final class ActionDestination {
 	private final Integer targetId;

@@ -1,9 +1,9 @@
 package com.inqwise.indexer.node;
 
-import com.inqwise.indexer.IndexerRuntime;
-import com.inqwise.indexer.IndexerRuntimeReconciler;
-import com.inqwise.indexer.IndexerLifecycleEventBus;
-import com.inqwise.indexer.IndexerQueueResourceManager;
+import com.inqwise.indexer.runtime.IndexerRuntime;
+import com.inqwise.indexer.runtime.IndexerRuntimeReconciler;
+import com.inqwise.indexer.lifecycle.IndexerLifecycleEventBus;
+import com.inqwise.indexer.provisioning.IndexerQueueResourceManager;
 import com.inqwise.indexer.commands.CommandEngine;
 import com.inqwise.indexer.definitions.IndexerDefinitionProvider;
 import com.inqwise.indexer.definitions.TargetDefinitionProvider;
@@ -14,7 +14,7 @@ import com.inqwise.indexer.hot.TargetInvalidationMetadataChangeListener;
 import com.inqwise.indexer.hot.TargetInvalidationPoller;
 import com.inqwise.indexer.hot.TargetInvalidationRegistry;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
-import com.inqwise.indexer.operations.IndexerOperations;
+import com.inqwise.indexer.catalog.indexers.IndexerOperations;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 
 public record IndexerNodeComponents(

@@ -8,11 +8,11 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import com.inqwise.indexer.IndexResourceOwnership;
-import com.inqwise.indexer.IndexerRole;
-import com.inqwise.indexer.IndexerRuntimeState;
-import com.inqwise.indexer.IndexerType;
-import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
+import com.inqwise.indexer.catalog.indexers.IndexResourceOwnership;
+import com.inqwise.indexer.catalog.indexers.IndexerRole;
+import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
+import com.inqwise.indexer.catalog.indexers.IndexerType;
+import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.metadata.MutationState;

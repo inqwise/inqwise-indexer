@@ -4,9 +4,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import java.util.UUID;
 
-import com.inqwise.indexer.IndexerActionItem;
-import com.inqwise.indexer.IndexerActionType;
-import com.inqwise.indexer.PutDocumentActionItem;
+import com.inqwise.indexer.actions.IndexerActionItem;
+import com.inqwise.indexer.actions.IndexerActionType;
+import com.inqwise.indexer.actions.PutDocumentActionItem;
 import com.inqwise.indexer.commands.ActionDestination;
 import com.inqwise.indexer.commands.SubmitIndexActionsCommand;
 import com.inqwise.indexer.errors.IndexerErrors;

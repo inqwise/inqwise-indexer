@@ -9,9 +9,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import com.inqwise.indexer.InMemoryIndexerDocumentStore;
-import com.inqwise.indexer.InMemoryIndexerQueue;
-import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
+import com.inqwise.indexer.adapters.local.InMemoryIndexerDocumentStore;
+import com.inqwise.indexer.adapters.local.InMemoryIndexerQueue;
+import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepository;
 
 import io.vertx.core.Vertx;
 import io.vertx.junit5.VertxExtension;

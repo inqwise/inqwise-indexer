@@ -3,7 +3,7 @@ package com.inqwise.indexer.providers;
 import java.util.List;
 import java.util.Optional;
 
-import com.inqwise.indexer.IndexerType;
+import com.inqwise.indexer.catalog.indexers.IndexerType;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.IndexerMetadataQuery;
 

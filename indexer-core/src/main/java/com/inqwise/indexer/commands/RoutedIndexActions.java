@@ -3,7 +3,7 @@ package com.inqwise.indexer.commands;
 import java.util.List;
 import java.util.Objects;
 
-import com.inqwise.indexer.IndexerActionItem;
+import com.inqwise.indexer.actions.IndexerActionItem;
 
 public record RoutedIndexActions(
 	Integer indexerId,

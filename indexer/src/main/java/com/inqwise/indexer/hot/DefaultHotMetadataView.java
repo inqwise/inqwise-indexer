@@ -10,9 +10,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 
-import com.inqwise.indexer.IndexerRole;
-import com.inqwise.indexer.IndexerRuntimeState;
-import com.inqwise.indexer.IndexerType;
+import com.inqwise.indexer.catalog.indexers.IndexerRole;
+import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
+import com.inqwise.indexer.catalog.indexers.IndexerType;
 import com.inqwise.indexer.definitions.TargetDefinition;
 import com.inqwise.indexer.definitions.TargetDefinitionProvider;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;

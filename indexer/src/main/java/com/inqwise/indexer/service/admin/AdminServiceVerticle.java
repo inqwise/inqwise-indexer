@@ -2,13 +2,13 @@ package com.inqwise.indexer.service.admin;
 
 import java.util.Objects;
 
-import com.inqwise.indexer.IndexerQueueResourceManager;
-import com.inqwise.indexer.MetadataChangeNotifier;
+import com.inqwise.indexer.provisioning.IndexerQueueResourceManager;
+import com.inqwise.indexer.lifecycle.MetadataChangeNotifier;
 import com.inqwise.indexer.commands.CommandService;
 import com.inqwise.indexer.definitions.IndexerDefinitionProvider;
 import com.inqwise.indexer.definitions.TargetDefinitionProvider;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
-import com.inqwise.indexer.operations.IndexerOperations;
+import com.inqwise.indexer.catalog.indexers.IndexerOperations;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 import com.inqwise.indexer.service.ServiceProxyVerticle;
 

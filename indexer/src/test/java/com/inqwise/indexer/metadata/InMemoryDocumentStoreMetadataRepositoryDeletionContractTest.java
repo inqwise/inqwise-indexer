@@ -2,6 +2,8 @@ package com.inqwise.indexer.metadata;
 
 import org.junit.jupiter.api.extension.ExtendWith;
 
+import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepository;
+
 import io.vertx.junit5.VertxExtension;
 
 @ExtendWith(VertxExtension.class)

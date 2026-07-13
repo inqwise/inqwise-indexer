@@ -2,10 +2,10 @@ package com.inqwise.indexer.service.admin;
 
 import java.time.Instant;
 
-import com.inqwise.indexer.IndexResourceOwnership;
-import com.inqwise.indexer.IndexerRole;
-import com.inqwise.indexer.IndexerRuntimeState;
-import com.inqwise.indexer.IndexerType;
+import com.inqwise.indexer.catalog.indexers.IndexResourceOwnership;
+import com.inqwise.indexer.catalog.indexers.IndexerRole;
+import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
+import com.inqwise.indexer.catalog.indexers.IndexerType;
 import com.inqwise.indexer.metadata.IndexerProvisioningState;
 import com.inqwise.indexer.metadata.IndexerRecord;
 import com.inqwise.indexer.metadata.IndexerStatus;

@@ -3,7 +3,10 @@ package com.inqwise.indexer.commands;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
-import com.inqwise.indexer.IndexerActionItem;
+import com.inqwise.indexer.actions.IndexerActionItem;
+import com.inqwise.indexer.cleanup.CleanupDeletingIndexerCommand;
+import com.inqwise.indexer.cleanup.CleanupResetIndexerQueueCommand;
+import com.inqwise.indexer.cleanup.DeleteIndexerCommand;
 
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;

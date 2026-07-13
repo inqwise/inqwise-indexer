@@ -1,6 +1,6 @@
 package com.inqwise.indexer.spi;
 
-import com.inqwise.indexer.IndexerActionType;
+import com.inqwise.indexer.actions.IndexerActionType;
 import com.inqwise.indexer.actions.IndexerAction;
 import com.inqwise.indexer.actions.IndexerActionRouter;
 

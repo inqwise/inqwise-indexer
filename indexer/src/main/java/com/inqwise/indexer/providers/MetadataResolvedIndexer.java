@@ -2,8 +2,8 @@ package com.inqwise.indexer.providers;
 
 import java.util.Optional;
 
-import com.inqwise.indexer.IndexerRole;
-import com.inqwise.indexer.IndexerRuntimeState;
+import com.inqwise.indexer.catalog.indexers.IndexerRole;
+import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
 import com.inqwise.indexer.hot.HotIndexer;
 import com.inqwise.indexer.hot.MetadataHotIndexer;
 import com.inqwise.indexer.metadata.IndexerProvisioningState;

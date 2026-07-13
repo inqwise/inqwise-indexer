@@ -37,7 +37,7 @@ public record InvalidRouteInvalidation(
 		);
 	}
 
-	boolean matches(InvalidRouteSignature signature) {
+	public boolean matches(InvalidRouteSignature signature) {
 		return matches(targetName, signature.targetName())
 			&& matchesPeriodKey(signature.periodKey())
 			&& matches(targetId, signature.targetId())

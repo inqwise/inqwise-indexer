@@ -6,10 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.List;
 import java.util.Optional;
 
-import com.inqwise.indexer.CatchUpBarrierActionItem;
-import com.inqwise.indexer.CompleteIndexActionItem;
-import com.inqwise.indexer.IndexerMarkerHandler;
-import com.inqwise.indexer.IndexerModel;
+import com.inqwise.indexer.actions.CatchUpBarrierActionItem;
+import com.inqwise.indexer.actions.CompleteIndexActionItem;
+import com.inqwise.indexer.runtime.IndexerMarkerHandler;
+import com.inqwise.indexer.catalog.indexers.IndexerModel;
 
 import org.junit.jupiter.api.Test;
 

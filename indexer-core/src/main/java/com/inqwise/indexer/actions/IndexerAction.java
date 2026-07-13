@@ -1,8 +1,8 @@
 package com.inqwise.indexer.actions;
 
-import com.inqwise.indexer.IndexerActionItem;
-import com.inqwise.indexer.IndexerDocumentStore;
-import com.inqwise.indexer.IndexerModel;
+import com.inqwise.indexer.actions.IndexerActionItem;
+import com.inqwise.indexer.documents.IndexerDocumentStore;
+import com.inqwise.indexer.catalog.indexers.IndexerModel;
 
 import io.vertx.core.Future;
 

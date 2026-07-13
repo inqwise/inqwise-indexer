@@ -3,7 +3,7 @@ package com.inqwise.indexer.service.action;
 import java.time.Instant;
 import java.util.List;
 
-import com.inqwise.indexer.IndexerActionItem;
+import com.inqwise.indexer.actions.IndexerActionItem;
 
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonArray;

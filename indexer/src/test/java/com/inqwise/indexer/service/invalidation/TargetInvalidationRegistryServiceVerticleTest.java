@@ -11,7 +11,7 @@ import java.time.Duration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import com.inqwise.indexer.hot.InMemoryTargetInvalidationRegistry;
+import com.inqwise.indexer.adapters.local.InMemoryTargetInvalidationRegistry;
 import com.inqwise.indexer.hot.TargetInvalidationRegistry;
 
 import io.vertx.core.Vertx;

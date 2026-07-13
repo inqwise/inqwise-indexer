@@ -8,7 +8,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-import com.inqwise.indexer.IndexerActionItem;
+import com.inqwise.indexer.actions.IndexerActionItem;
 import com.inqwise.indexer.actions.IndexerActionRouteMode;
 import com.inqwise.indexer.commands.RoutedIndexActions;
 import com.inqwise.indexer.metadata.TargetPeriod;

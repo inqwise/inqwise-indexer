@@ -2,7 +2,7 @@ package com.inqwise.indexer.hot;
 
 import java.util.Optional;
 
-import com.inqwise.indexer.IndexerActionItem;
+import com.inqwise.indexer.actions.IndexerActionItem;
 import com.inqwise.indexer.actions.IndexerActionRouteMode;
 
 public interface HotIndexer {

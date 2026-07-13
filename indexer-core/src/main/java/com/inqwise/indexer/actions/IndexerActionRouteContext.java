@@ -1,6 +1,6 @@
 package com.inqwise.indexer.actions;
 
-import com.inqwise.indexer.IndexerRole;
+import com.inqwise.indexer.catalog.indexers.IndexerRole;
 
 public record IndexerActionRouteContext(
 	Integer targetId,

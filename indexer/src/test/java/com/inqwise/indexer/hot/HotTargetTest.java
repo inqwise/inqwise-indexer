@@ -1,5 +1,8 @@
 package com.inqwise.indexer.hot;
 
+import com.inqwise.indexer.adapters.local.InMemoryTargetInvalidationRegistry;
+import com.inqwise.indexer.adapters.local.InMemoryTargetInvalidationRegistryProvider;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
@@ -9,9 +12,9 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 
-import com.inqwise.indexer.IndexerActionItem;
-import com.inqwise.indexer.IndexerActionItems;
-import com.inqwise.indexer.PutDocumentActionItem;
+import com.inqwise.indexer.actions.IndexerActionItem;
+import com.inqwise.indexer.actions.IndexerActionItems;
+import com.inqwise.indexer.actions.PutDocumentActionItem;
 import com.inqwise.indexer.actions.IndexerActionRouteMode;
 import com.inqwise.indexer.metadata.TargetPeriodStrategy;
 

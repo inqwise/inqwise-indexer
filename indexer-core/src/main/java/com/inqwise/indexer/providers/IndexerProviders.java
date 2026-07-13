@@ -6,7 +6,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.ServiceLoader;
 
-import com.inqwise.indexer.IndexerType;
+import com.inqwise.indexer.catalog.indexers.IndexerType;
 
 import io.vertx.core.Future;
 

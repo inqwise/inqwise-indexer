@@ -1,5 +1,8 @@
 package com.inqwise.indexer.hot;
 
+import com.inqwise.indexer.adapters.local.InMemoryTargetInvalidationRegistry;
+import com.inqwise.indexer.adapters.local.InMemoryTargetInvalidationRegistryProvider;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.ArrayList;
@@ -9,9 +12,9 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import com.inqwise.indexer.InMemoryIndexerLifecycleEventBus;
-import com.inqwise.indexer.IndexerMetadataChanged;
-import com.inqwise.indexer.TargetMetadataChanged;
+import com.inqwise.indexer.adapters.local.InMemoryIndexerLifecycleEventBus;
+import com.inqwise.indexer.lifecycle.IndexerMetadataChanged;
+import com.inqwise.indexer.lifecycle.TargetMetadataChanged;
 
 import io.vertx.core.Future;
 import io.vertx.junit5.VertxExtension;

@@ -6,8 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.Test;
 
-import com.inqwise.indexer.IndexerRuntimeReconcilerOptions;
-import com.inqwise.indexer.VertxIndexerLifecycleEventBusOptions;
+import com.inqwise.indexer.runtime.IndexerRuntimeReconcilerOptions;
+import com.inqwise.indexer.lifecycle.VertxIndexerLifecycleEventBusOptions;
 import com.inqwise.indexer.gateway.GatewayRestOptions;
 import com.inqwise.indexer.rest.action.TargetActionRestOptions;
 import com.inqwise.indexer.rest.admin.AdminRestOptions;

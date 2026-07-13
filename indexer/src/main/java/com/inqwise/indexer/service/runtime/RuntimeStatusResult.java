@@ -2,7 +2,7 @@ package com.inqwise.indexer.service.runtime;
 
 import java.util.List;
 
-import com.inqwise.indexer.IndexerSnapshot;
+import com.inqwise.indexer.runtime.IndexerSnapshot;
 
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonArray;

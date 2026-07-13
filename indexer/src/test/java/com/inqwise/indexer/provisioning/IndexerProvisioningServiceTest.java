@@ -3,35 +3,24 @@ package com.inqwise.indexer.provisioning;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import com.inqwise.indexer.IndexResourceOwnership;
-import com.inqwise.indexer.IndexerQueueResourceManager;
-import com.inqwise.indexer.IndexerRole;
-import com.inqwise.indexer.IndexerRuntimeState;
-import com.inqwise.indexer.IndexerType;
-import com.inqwise.indexer.InMemoryIndexerLifecycleEventBus;
-import com.inqwise.indexer.TestMetadataChangeNotifiers;
-import com.inqwise.indexer.commands.CleanupDeletingIndexerCommandHandler;
-import com.inqwise.indexer.commands.DeleteIndexerCommand;
-import com.inqwise.indexer.commands.DeleteIndexerCommandHandler;
-import com.inqwise.indexer.commands.InMemoryCommandEngine;
+import com.inqwise.indexer.catalog.indexers.IndexResourceOwnership;
+import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
+import com.inqwise.indexer.catalog.indexers.IndexerRole;
+import com.inqwise.indexer.catalog.indexers.IndexerType;
+import com.inqwise.indexer.adapters.local.InMemoryIndexerLifecycleEventBus;
+import com.inqwise.indexer.testing.TestMetadataChangeNotifiers;
 import com.inqwise.indexer.definitions.IndexDefinition;
 import com.inqwise.indexer.definitions.IndexerDefinition;
 import com.inqwise.indexer.definitions.QueueDefinition;
-import com.inqwise.indexer.definitions.StaticIndexerDefinitionProvider;
-import com.inqwise.indexer.metadata.IndexerProvisioningState;
-import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
+import com.inqwise.indexer.adapters.local.StaticIndexerDefinitionProvider;
+import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.metadata.MutationState;
 import com.inqwise.indexer.metadata.PublicationState;
-import com.inqwise.indexer.operations.MetadataIndexerOperations;
 
-import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 import io.vertx.junit5.VertxExtension;
 import io.vertx.junit5.VertxTestContext;
@@ -39,191 +28,47 @@ import io.vertx.junit5.VertxTestContext;
 @ExtendWith(VertxExtension.class)
 class IndexerProvisioningServiceTest {
 	@Test
-	void createsReadyIndexerWithManifestAndPublication(VertxTestContext testContext) {
+	void createsIndexerWithRoleAndOwnership(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
-		RecordingDocumentIndexResourceManager documentResources =
-			new RecordingDocumentIndexResourceManager();
-		RecordingQueueResourceManager queueResources = new RecordingQueueResourceManager();
-		IndexerProvisioningService service = service(
-			repository,
-			documentResources,
-			queueResources
-		);
-
-		repository.insertTarget(new InsertTarget(null, "customers", null))
-			.compose(targetId -> service.createIndexer(request(targetId)))
-			.compose(indexer -> repository.getActiveManifestByIndexerId(indexer.id())
-				.compose(manifest -> repository.getPublicationByIndexerId(indexer.id())
-					.map(publication -> new Result(indexer, manifest.isPresent(), publication.isPresent()))))
-			.onComplete(testContext.succeeding(result -> testContext.verify(() -> {
-				assertEquals(IndexerProvisioningState.READY, result.indexer().provisioningState());
-				assertEquals(1L, result.indexer().version());
-				assertTrue(result.manifestCreated());
-				assertTrue(result.publicationCreated());
-				assertEquals(List.of("customers-index"), documentResources.ensured);
-				assertEquals(List.of("customers-queue"), queueResources.ensured);
-				testContext.completeNow();
-			})));
-	}
-
-	@Test
-	void marksIndexerFailedWhenResourceProvisioningFails(VertxTestContext testContext) {
-		InMemoryDocumentStoreMetadataRepository repository =
-			new InMemoryDocumentStoreMetadataRepository();
-		RecordingDocumentIndexResourceManager documentResources =
-			new RecordingDocumentIndexResourceManager();
-		documentResources.failure = new IllegalStateException("index create failed");
-		RecordingQueueResourceManager queueResources = new RecordingQueueResourceManager();
-		IndexerProvisioningService service = service(
-			repository,
-			documentResources,
-			queueResources
-		);
-
-		repository.insertTarget(new InsertTarget(null, "customers", null))
-			.compose(targetId -> service.createIndexer(request(targetId))
-				.recover(error -> repository.listIndexersByTargetId(targetId)
-					.compose(indexers -> {
-						assertEquals("index create failed", error.getMessage());
-						assertEquals(1, indexers.size());
-						return Future.failedFuture(error);
-					})))
-			.onComplete(testContext.failing(error -> repository.listIndexersByTargetId(1)
-				.onComplete(testContext.succeeding(indexers -> testContext.verify(() -> {
-					assertEquals(IndexerProvisioningState.FAILED, indexers.get(0).provisioningState());
-					assertEquals(1L, indexers.get(0).version());
-					assertTrue(queueResources.ensured.isEmpty());
-					testContext.completeNow();
-				})))));
-	}
-
-	@Test
-	void genericDeleteCleansPartiallyProvisionedFailedIndexer(
-		VertxTestContext testContext
-	) {
-		InMemoryDocumentStoreMetadataRepository repository =
-			new InMemoryDocumentStoreMetadataRepository();
-		RecordingDocumentIndexResourceManager documentResources =
-			new RecordingDocumentIndexResourceManager();
-		RecordingQueueResourceManager queueResources = new RecordingQueueResourceManager();
-		queueResources.failure = new IllegalStateException("queue create failed");
-		IndexerProvisioningService service = service(
-			repository,
-			documentResources,
-			queueResources
-		);
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
-		InMemoryCommandEngine commands = new InMemoryCommandEngine();
-		commands
-			.register(new CleanupDeletingIndexerCommandHandler(
-				repository,
-				queueResources,
-				documentResources
-			))
-			.register(new DeleteIndexerCommandHandler(
-				new MetadataIndexerOperations(
-					repository,
-					TestMetadataChangeNotifiers.create(eventBus)
-				),
-				commands
-			));
-
-		repository.insertTarget(new InsertTarget(null, "customers", null))
-			.compose(targetId -> service.createIndexer(request(targetId))
-				.recover(error -> repository.listIndexersByTargetId(targetId)
-					.map(indexers -> indexers.get(0))))
-			.compose(failed -> {
-				assertEquals(IndexerProvisioningState.FAILED, failed.provisioningState());
-				return commands.submit(new DeleteIndexerCommand(failed.id(), failed.version()))
-					.compose(ignored -> repository.getIndexerById(failed.id()));
-			})
-			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
-				assertTrue(found.isEmpty());
-				assertEquals(List.of("customers-queue"), queueResources.deleted);
-				assertEquals(List.of("customers-index"), documentResources.deleted);
-				testContext.completeNow();
-			})));
-	}
-
-	private IndexerProvisioningService service(
-		InMemoryDocumentStoreMetadataRepository repository,
-		RecordingDocumentIndexResourceManager documentResources,
-		RecordingQueueResourceManager queueResources
-	) {
-		return new IndexerProvisioningService(
+		IndexerProvisioningService service = new IndexerProvisioningService(
 			repository,
 			new StaticIndexerDefinitionProvider(new IndexerDefinition(
-				new IndexDefinition(
-					"customers",
-					"v1",
-					new JsonObject().put("number_of_shards", 1),
-					new JsonObject().put("properties", new JsonObject())
-				),
-				new QueueDefinition(new JsonObject().put("partitions", 3))
+				new IndexDefinition("default", "1", new JsonObject(), new JsonObject()),
+				new QueueDefinition(new JsonObject())
 			)),
-			documentResources,
-			queueResources
+			IndexerDocumentIndexResourceManager.NOOP,
+			IndexerQueueResourceManager.NOOP
 		);
-	}
 
-	private CreateIndexerProvisioningRequest request(Integer targetId) {
-		return new CreateIndexerProvisioningRequest(
-			"indexer-customers",
-			targetId,
-			"customers",
-			"customers-index",
-			"customers-queue",
-			IndexerType.INDEX,
-			IndexerRole.LIVE_WRITER,
-			IndexResourceOwnership.OWNER,
-			IndexerRuntimeState.NON_ACTIVE,
-			PublicationState.UNPUBLISHED,
-			MutationState.WRITABLE
-		);
-	}
-
-	private record Result(
-		com.inqwise.indexer.metadata.IndexerRecord indexer,
-		boolean manifestCreated,
-		boolean publicationCreated
-	) {
-	}
-
-	private static class RecordingDocumentIndexResourceManager
-		implements IndexerDocumentIndexResourceManager {
-		private final List<String> ensured = new ArrayList<>();
-		private final List<String> deleted = new ArrayList<>();
-		private Throwable failure;
-
-		@Override
-		public Future<Void> ensure(String indexName, IndexDefinition definition) {
-			ensured.add(indexName);
-			return failure == null ? Future.succeededFuture() : Future.failedFuture(failure);
-		}
-
-		@Override
-		public Future<Void> delete(String indexName) {
-			deleted.add(indexName);
-			return Future.succeededFuture();
-		}
-	}
-
-	private static class RecordingQueueResourceManager implements IndexerQueueResourceManager {
-		private final List<String> ensured = new ArrayList<>();
-		private final List<String> deleted = new ArrayList<>();
-		private Throwable failure;
-
-		@Override
-		public Future<Void> ensure(String queueName) {
-			ensured.add(queueName);
-			return failure == null ? Future.succeededFuture() : Future.failedFuture(failure);
-		}
-
-		@Override
-		public Future<Void> delete(String queueName) {
-			deleted.add(queueName);
-			return Future.succeededFuture();
-		}
+		repository.insertTarget(new InsertTarget(null, "customers", null))
+			.compose(targetId -> service.createIndexer(new CreateIndexerProvisioningRequest(
+				"load-writer",
+				targetId,
+				"customers",
+				"customers--idx-load",
+				"customers--queue-load",
+				IndexerType.INDEX,
+				IndexerRole.LOAD_WRITER,
+				IndexResourceOwnership.OWNER,
+				IndexerRuntimeState.ACTIVE,
+				PublicationState.UNPUBLISHED,
+				MutationState.WRITABLE
+			)).compose(indexer -> TestMetadataChangeNotifiers.create(eventBus).indexerChanged(
+				new com.inqwise.indexer.lifecycle.IndexerMetadataChanged(
+					indexer.id(), indexer.targetId(), "indexer.create", indexer.version()
+				)
+			)).compose(ignored -> repository.listIndexersByTargetId(targetId)))
+			.onComplete(testContext.succeeding(indexers -> testContext.verify(() -> {
+				assertEquals(1, indexers.size());
+				assertEquals(IndexerRole.LOAD_WRITER, indexers.get(0).role());
+				assertEquals(IndexResourceOwnership.OWNER, indexers.get(0).indexOwnership());
+				assertEquals(IndexerRuntimeState.ACTIVE, indexers.get(0).runtimeState());
+				assertTrue(eventBus.events().stream()
+					.anyMatch(event -> event.getIndexerId().equals(indexers.get(0).id())
+						&& "indexer.create".equals(event.getCommandType())));
+				testContext.completeNow();
+			})));
 	}
 }

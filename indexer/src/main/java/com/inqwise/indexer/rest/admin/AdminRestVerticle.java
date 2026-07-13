@@ -5,9 +5,9 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Objects;
 
-import com.inqwise.indexer.IndexerRole;
-import com.inqwise.indexer.IndexerRuntimeState;
-import com.inqwise.indexer.IndexerType;
+import com.inqwise.indexer.catalog.indexers.IndexerRole;
+import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
+import com.inqwise.indexer.catalog.indexers.IndexerType;
 import com.inqwise.indexer.commands.InitialPublicationMode;
 import com.inqwise.indexer.errors.IndexerErrors;
 import com.inqwise.indexer.metadata.IndexerProvisioningState;

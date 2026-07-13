@@ -3,7 +3,7 @@ package com.inqwise.indexer.providers;
 import java.time.Instant;
 import java.util.List;
 
-import com.inqwise.indexer.IndexerActionItem;
+import com.inqwise.indexer.actions.IndexerActionItem;
 import com.inqwise.indexer.metadata.IndexerRecord;
 import com.inqwise.indexer.metadata.TargetRecord;
 

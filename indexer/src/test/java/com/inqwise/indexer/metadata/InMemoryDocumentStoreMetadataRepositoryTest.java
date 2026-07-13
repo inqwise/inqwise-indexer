@@ -1,7 +1,7 @@
 package com.inqwise.indexer.metadata;
 
-import com.inqwise.indexer.IndexResourceOwnership;
-import com.inqwise.indexer.IndexerRuntimeState;
+import com.inqwise.indexer.catalog.indexers.IndexResourceOwnership;
+import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -14,8 +14,9 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import com.inqwise.indexer.IndexerRole;
-import com.inqwise.indexer.IndexerType;
+import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepository;
+import com.inqwise.indexer.catalog.indexers.IndexerRole;
+import com.inqwise.indexer.catalog.indexers.IndexerType;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;

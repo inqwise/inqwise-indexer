@@ -1,5 +1,9 @@
 package com.inqwise.indexer.hot;
 
+import com.inqwise.indexer.adapters.local.InMemoryInvalidRouteCache;
+import com.inqwise.indexer.adapters.local.InMemoryTargetInvalidationRegistry;
+import com.inqwise.indexer.adapters.local.InMemoryTargetInvalidationRegistryProvider;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -12,24 +16,24 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import com.inqwise.indexer.IndexerActionItem;
-import com.inqwise.indexer.IndexerActionItems;
-import com.inqwise.indexer.IndexerQueueClient;
-import com.inqwise.indexer.IndexerQueueConsumer;
-import com.inqwise.indexer.IndexerQueueConsumerOptions;
-import com.inqwise.indexer.IndexerQueuePublisher;
-import com.inqwise.indexer.IndexerRuntimeState;
-import com.inqwise.indexer.IndexerType;
-import com.inqwise.indexer.PutDocumentActionItem;
+import com.inqwise.indexer.actions.IndexerActionItem;
+import com.inqwise.indexer.actions.IndexerActionItems;
+import com.inqwise.indexer.runtime.IndexerQueueClient;
+import com.inqwise.indexer.runtime.IndexerQueueConsumer;
+import com.inqwise.indexer.runtime.IndexerQueueConsumerOptions;
+import com.inqwise.indexer.runtime.IndexerQueuePublisher;
+import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
+import com.inqwise.indexer.catalog.indexers.IndexerType;
+import com.inqwise.indexer.actions.PutDocumentActionItem;
 import com.inqwise.indexer.commands.Command;
 import com.inqwise.indexer.commands.CommandFailure;
 import com.inqwise.indexer.commands.CommandService;
-import com.inqwise.indexer.commands.RoutedIndexActionPublisher;
+import com.inqwise.indexer.routing.RoutedIndexActionPublisher;
 import com.inqwise.indexer.commands.SubmitIndexActionsCommand;
-import com.inqwise.indexer.definitions.StaticTargetDefinitionProvider;
+import com.inqwise.indexer.adapters.local.StaticTargetDefinitionProvider;
 import com.inqwise.indexer.definitions.TargetDefinition;
 import com.inqwise.indexer.metadata.ConcreteTargetKey;
-import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
+import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.metadata.MutationState;
 import com.inqwise.indexer.metadata.PublicationState;

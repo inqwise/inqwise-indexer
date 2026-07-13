@@ -3,8 +3,8 @@ package com.inqwise.indexer.hot;
 import java.util.Objects;
 import java.util.Optional;
 
-import com.inqwise.indexer.Actions;
-import com.inqwise.indexer.IndexerActionItem;
+import com.inqwise.indexer.actions.Actions;
+import com.inqwise.indexer.actions.IndexerActionItem;
 import com.inqwise.indexer.actions.IndexerActionRouteContext;
 import com.inqwise.indexer.actions.IndexerActionRouteMode;
 import com.inqwise.indexer.metadata.IndexerRecord;

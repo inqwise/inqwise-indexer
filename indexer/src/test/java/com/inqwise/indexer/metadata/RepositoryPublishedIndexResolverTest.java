@@ -1,6 +1,6 @@
 package com.inqwise.indexer.metadata;
 
-import com.inqwise.indexer.IndexerRuntimeState;
+import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -9,9 +9,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.time.Instant;
 import java.util.List;
 
-import com.inqwise.indexer.IndexResourceOwnership;
-import com.inqwise.indexer.IndexerRole;
-import com.inqwise.indexer.IndexerType;
+import com.inqwise.indexer.catalog.indexers.IndexResourceOwnership;
+import com.inqwise.indexer.catalog.indexers.IndexerRole;
+import com.inqwise.indexer.catalog.indexers.IndexerType;
+import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepository;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

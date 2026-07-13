@@ -2,7 +2,7 @@ package com.inqwise.indexer.service.admin;
 
 import java.time.Instant;
 
-import com.inqwise.indexer.management.targets.CreateTargetRequest;
+import com.inqwise.indexer.catalog.targets.CreateTargetRequest;
 
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;

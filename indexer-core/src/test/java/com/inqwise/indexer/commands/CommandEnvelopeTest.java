@@ -10,6 +10,10 @@ import java.time.Instant;
 
 import org.junit.jupiter.api.Test;
 
+import com.inqwise.indexer.cleanup.CleanupDeletingIndexerCommand;
+import com.inqwise.indexer.cleanup.CleanupResetIndexerQueueCommand;
+import com.inqwise.indexer.cleanup.DeleteIndexerCommand;
+
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonObject;
 

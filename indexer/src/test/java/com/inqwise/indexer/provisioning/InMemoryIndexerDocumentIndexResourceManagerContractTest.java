@@ -2,7 +2,7 @@ package com.inqwise.indexer.provisioning;
 
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import com.inqwise.indexer.InMemoryIndexerDocumentStore;
+import com.inqwise.indexer.adapters.local.InMemoryIndexerDocumentStore;
 
 import io.vertx.junit5.VertxExtension;
 

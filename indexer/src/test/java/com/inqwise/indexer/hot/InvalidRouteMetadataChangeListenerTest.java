@@ -1,15 +1,19 @@
 package com.inqwise.indexer.hot;
 
+import com.inqwise.indexer.adapters.local.InMemoryInvalidRouteCache;
+import com.inqwise.indexer.adapters.local.InMemoryTargetInvalidationRegistry;
+import com.inqwise.indexer.adapters.local.InMemoryTargetInvalidationRegistryProvider;
+
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Duration;
 
-import com.inqwise.indexer.IndexerMetadataChanged;
-import com.inqwise.indexer.IndexerRuntimeState;
-import com.inqwise.indexer.IndexerType;
-import com.inqwise.indexer.InMemoryIndexerLifecycleEventBus;
-import com.inqwise.indexer.TargetMetadataChanged;
-import com.inqwise.indexer.metadata.InMemoryDocumentStoreMetadataRepository;
+import com.inqwise.indexer.lifecycle.IndexerMetadataChanged;
+import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
+import com.inqwise.indexer.catalog.indexers.IndexerType;
+import com.inqwise.indexer.adapters.local.InMemoryIndexerLifecycleEventBus;
+import com.inqwise.indexer.lifecycle.TargetMetadataChanged;
+import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.metadata.MutationState;
@@ -40,7 +44,7 @@ class InvalidRouteMetadataChangeListenerTest {
 			null,
 			null,
 			null,
-			com.inqwise.indexer.IndexerActionType.PUT_DOCUMENT
+			com.inqwise.indexer.actions.IndexerActionType.PUT_DOCUMENT
 		);
 		InvalidRouteSignature mayRoute = new InvalidRouteSignature(
 			"customers",
@@ -48,7 +52,7 @@ class InvalidRouteMetadataChangeListenerTest {
 			null,
 			null,
 			null,
-			com.inqwise.indexer.IndexerActionType.PUT_DOCUMENT
+			com.inqwise.indexer.actions.IndexerActionType.PUT_DOCUMENT
 		);
 		InvalidRouteSignature juneRoute = new InvalidRouteSignature(
 			"customers",
@@ -56,7 +60,7 @@ class InvalidRouteMetadataChangeListenerTest {
 			null,
 			null,
 			null,
-			com.inqwise.indexer.IndexerActionType.PUT_DOCUMENT
+			com.inqwise.indexer.actions.IndexerActionType.PUT_DOCUMENT
 		);
 		cache.record(broadRoute, "missing target");
 		cache.record(mayRoute, "missing target");
@@ -127,7 +131,7 @@ class InvalidRouteMetadataChangeListenerTest {
 					targetId,
 					null,
 					null,
-					com.inqwise.indexer.IndexerActionType.PUT_DOCUMENT
+					com.inqwise.indexer.actions.IndexerActionType.PUT_DOCUMENT
 				);
 				InvalidRouteSignature indexerIdRoute = new InvalidRouteSignature(
 					null,
@@ -135,7 +139,7 @@ class InvalidRouteMetadataChangeListenerTest {
 					null,
 					indexerId,
 					null,
-					com.inqwise.indexer.IndexerActionType.PUT_DOCUMENT
+					com.inqwise.indexer.actions.IndexerActionType.PUT_DOCUMENT
 				);
 				cache.record(targetIdRoute, "missing target");
 				cache.record(indexerIdRoute, "missing indexer");
@@ -176,7 +180,7 @@ class InvalidRouteMetadataChangeListenerTest {
 			null,
 			null,
 			null,
-			com.inqwise.indexer.IndexerActionType.PUT_DOCUMENT
+			com.inqwise.indexer.actions.IndexerActionType.PUT_DOCUMENT
 		);
 		InvalidRouteSignature targetIdRoute = new InvalidRouteSignature(
 			null,
@@ -184,7 +188,7 @@ class InvalidRouteMetadataChangeListenerTest {
 			1,
 			null,
 			null,
-			com.inqwise.indexer.IndexerActionType.PUT_DOCUMENT
+			com.inqwise.indexer.actions.IndexerActionType.PUT_DOCUMENT
 		);
 		InvalidRouteSignature indexerIdRoute = new InvalidRouteSignature(
 			null,
@@ -192,7 +196,7 @@ class InvalidRouteMetadataChangeListenerTest {
 			null,
 			404,
 			null,
-			com.inqwise.indexer.IndexerActionType.PUT_DOCUMENT
+			com.inqwise.indexer.actions.IndexerActionType.PUT_DOCUMENT
 		);
 		cache.record(envelopeRoute, "missing target");
 		cache.record(targetIdRoute, "missing target");
@@ -240,7 +244,7 @@ class InvalidRouteMetadataChangeListenerTest {
 					null,
 					null,
 					null,
-					com.inqwise.indexer.IndexerActionType.PUT_DOCUMENT
+					com.inqwise.indexer.actions.IndexerActionType.PUT_DOCUMENT
 				);
 				InvalidRouteSignature mayTargetNameRoute = new InvalidRouteSignature(
 					"customers",
@@ -248,7 +252,7 @@ class InvalidRouteMetadataChangeListenerTest {
 					null,
 					null,
 					null,
-					com.inqwise.indexer.IndexerActionType.PUT_DOCUMENT
+					com.inqwise.indexer.actions.IndexerActionType.PUT_DOCUMENT
 				);
 				InvalidRouteSignature juneTargetNameRoute = new InvalidRouteSignature(
 					"customers",
@@ -256,7 +260,7 @@ class InvalidRouteMetadataChangeListenerTest {
 					null,
 					null,
 					null,
-					com.inqwise.indexer.IndexerActionType.PUT_DOCUMENT
+					com.inqwise.indexer.actions.IndexerActionType.PUT_DOCUMENT
 				);
 				InvalidRouteSignature targetIdRoute = new InvalidRouteSignature(
 					null,
@@ -264,7 +268,7 @@ class InvalidRouteMetadataChangeListenerTest {
 					targetId,
 					null,
 					null,
-					com.inqwise.indexer.IndexerActionType.PUT_DOCUMENT
+					com.inqwise.indexer.actions.IndexerActionType.PUT_DOCUMENT
 				);
 				cache.record(broadTargetNameRoute, "missing target");
 				cache.record(mayTargetNameRoute, "missing target");
@@ -312,7 +316,7 @@ class InvalidRouteMetadataChangeListenerTest {
 			null,
 			null,
 			null,
-			com.inqwise.indexer.IndexerActionType.PUT_DOCUMENT
+			com.inqwise.indexer.actions.IndexerActionType.PUT_DOCUMENT
 		);
 		InvalidRouteSignature mayTargetNameRoute = new InvalidRouteSignature(
 			"customers",
@@ -320,7 +324,7 @@ class InvalidRouteMetadataChangeListenerTest {
 			null,
 			null,
 			null,
-			com.inqwise.indexer.IndexerActionType.PUT_DOCUMENT
+			com.inqwise.indexer.actions.IndexerActionType.PUT_DOCUMENT
 		);
 		InvalidRouteSignature juneTargetNameRoute = new InvalidRouteSignature(
 			"customers",
@@ -328,7 +332,7 @@ class InvalidRouteMetadataChangeListenerTest {
 			null,
 			null,
 			null,
-			com.inqwise.indexer.IndexerActionType.PUT_DOCUMENT
+			com.inqwise.indexer.actions.IndexerActionType.PUT_DOCUMENT
 		);
 		InvalidRouteSignature targetIdRoute = new InvalidRouteSignature(
 			null,
@@ -336,7 +340,7 @@ class InvalidRouteMetadataChangeListenerTest {
 			50,
 			null,
 			null,
-			com.inqwise.indexer.IndexerActionType.PUT_DOCUMENT
+			com.inqwise.indexer.actions.IndexerActionType.PUT_DOCUMENT
 		);
 		cache.record(broadTargetNameRoute, "missing target");
 		cache.record(mayTargetNameRoute, "missing target");
@@ -376,7 +380,7 @@ class InvalidRouteMetadataChangeListenerTest {
 			null,
 			null,
 			null,
-			com.inqwise.indexer.IndexerActionType.PUT_DOCUMENT
+			com.inqwise.indexer.actions.IndexerActionType.PUT_DOCUMENT
 		);
 		cache.record(route, "missing target");
 
