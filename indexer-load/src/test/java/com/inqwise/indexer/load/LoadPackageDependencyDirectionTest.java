@@ -1,5 +1,6 @@
 package com.inqwise.indexer.load;
 
+import static java.util.Map.entry;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -62,37 +63,32 @@ class LoadPackageDependencyDirectionTest {
 		"com.inqwise.indexer.runtime.IndexerQueueClient",
 		"com.inqwise.indexer.runtime.IndexerQueuePublisher"
 	);
-	private static final Map<String, Set<String>> PRE_SPLIT_TOLERATED_INDEXER_IMPORTS = Map.of(
-		"commands/CleanupLoadCommandHandler.java", Set.of(
+	private static final Map<String, Set<String>> PRE_SPLIT_TOLERATED_INDEXER_IMPORTS = Map.ofEntries(
+		entry("commands/CleanupLoadCommandHandler.java", Set.of(
 			"com.inqwise.indexer.metadata.DocumentStoreMetadataRepository",
 			"com.inqwise.indexer.metadata.IndexerRecord"
-		),
-		"commands/LoadCommandHandlers.java", Set.of(
+		)),
+		entry("commands/LoadCommandHandlers.java", Set.of(
 			"com.inqwise.indexer.metadata.DocumentStoreMetadataRepository"
-		),
-		"commands/PublishLoadCommandHandler.java", Set.of(
+		)),
+		entry("commands/PublishLoadCommandHandler.java", Set.of(
 			"com.inqwise.indexer.metadata.DocumentStoreMetadataRepository",
-			"com.inqwise.indexer.metadata.IndexerProvisioningState",
-			"com.inqwise.indexer.metadata.IndexerRecord",
-			"com.inqwise.indexer.metadata.IndexerStatus",
-			"com.inqwise.indexer.metadata.MutationState",
-			"com.inqwise.indexer.metadata.PublicationState",
-			"com.inqwise.indexer.metadata.ReplacePublishedIndexer"
-		),
-		"runtime/LoadIndexerPlugin.java", Set.of(
+			"com.inqwise.indexer.metadata.IndexerRecord"
+		)),
+		entry("runtime/LoadIndexerPlugin.java", Set.of(
 			"com.inqwise.indexer.metadata.DocumentStoreMetadataRepository"
-		),
-		"runtime/LoadWriterActionReceiveCapability.java", Set.of(
+		)),
+		entry("runtime/LoadWriterActionReceiveCapability.java", Set.of(
 			"com.inqwise.indexer.metadata.IndexerRecord"
-		),
-		"catalog/LazyLiveWriterCatalog.java", Set.of(
+		)),
+		entry("catalog/LazyLiveWriterCatalog.java", Set.of(
 			"com.inqwise.indexer.metadata.IndexerRecord"
-		),
-		"catalog/LoadCreationCatalog.java", Set.of(
+		)),
+		entry("catalog/LoadCreationCatalog.java", Set.of(
 			"com.inqwise.indexer.metadata.IndexerRecord",
 			"com.inqwise.indexer.metadata.TargetRecord"
-		),
-		"catalog/MetadataLoadCreationCatalog.java", Set.of(
+		)),
+		entry("catalog/MetadataLoadCreationCatalog.java", Set.of(
 			"com.inqwise.indexer.catalog.indexers.CreateIndexerOperation",
 			"com.inqwise.indexer.metadata.DocumentStoreMetadataRepository",
 			"com.inqwise.indexer.metadata.IndexerRecord",
@@ -102,20 +98,35 @@ class LoadPackageDependencyDirectionTest {
 			"com.inqwise.indexer.metadata.TargetProvisioningState",
 			"com.inqwise.indexer.metadata.TargetRecord",
 			"com.inqwise.indexer.metadata.TargetStatus"
-		),
-		"catalog/MetadataLazyLiveWriterCatalog.java", Set.of(
+		)),
+		entry("catalog/MetadataLazyLiveWriterCatalog.java", Set.of(
 			"com.inqwise.indexer.catalog.indexers.CreateIndexerOperation",
 			"com.inqwise.indexer.metadata.DocumentStoreMetadataRepository",
 			"com.inqwise.indexer.metadata.IndexerRecord",
 			"com.inqwise.indexer.metadata.InsertIndexer",
 			"com.inqwise.indexer.metadata.MutationState",
 			"com.inqwise.indexer.metadata.PublicationState"
-		),
-		"workflow/MetadataLoadManagementService.java", Set.of(
+		)),
+		entry("repository/LoadCleanupRepository.java", Set.of(
+			"com.inqwise.indexer.metadata.IndexerRecord"
+		)),
+		entry("repository/LoadPublication.java", Set.of(
+			"com.inqwise.indexer.metadata.IndexerRecord"
+		)),
+		entry("repository/MetadataLoadPublicationRepository.java", Set.of(
+			"com.inqwise.indexer.metadata.DocumentStoreMetadataRepository",
+			"com.inqwise.indexer.metadata.IndexerProvisioningState",
+			"com.inqwise.indexer.metadata.IndexerRecord",
+			"com.inqwise.indexer.metadata.IndexerStatus",
+			"com.inqwise.indexer.metadata.MutationState",
+			"com.inqwise.indexer.metadata.PublicationState",
+			"com.inqwise.indexer.metadata.ReplacePublishedIndexer"
+		)),
+		entry("workflow/MetadataLoadManagementService.java", Set.of(
 			"com.inqwise.indexer.metadata.DocumentStoreMetadataRepository",
 			"com.inqwise.indexer.metadata.IndexerRecord",
 			"com.inqwise.indexer.metadata.TargetRecord"
-		)
+		))
 	);
 	private static final Set<String> ALLOWED_ROOT_TESTS = Set.of(
 		"LoadApplicationCompositionTest.java",

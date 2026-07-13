@@ -3,22 +3,17 @@ package com.inqwise.indexer.load.commands;
 import com.inqwise.indexer.load.api.IndexerLoadRecord;
 import com.inqwise.indexer.load.api.IndexerLoadState;
 import com.inqwise.indexer.load.repository.IndexerLoadRepository;
+import com.inqwise.indexer.load.repository.LoadPublication;
+import com.inqwise.indexer.load.repository.LoadPublicationRepository;
+import com.inqwise.indexer.load.repository.MetadataLoadPublicationRepository;
 import com.inqwise.indexer.load.repository.UpdateIndexerLoadState;
 
-
-import java.util.List;
 import java.util.Objects;
 
 import com.inqwise.indexer.lifecycle.IndexerLifecycleEventBus;
 import com.inqwise.indexer.lifecycle.IndexerMetadataChanged;
-import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
-import com.inqwise.indexer.metadata.IndexerProvisioningState;
 import com.inqwise.indexer.metadata.IndexerRecord;
-import com.inqwise.indexer.metadata.IndexerStatus;
-import com.inqwise.indexer.metadata.MutationState;
-import com.inqwise.indexer.metadata.PublicationState;
-import com.inqwise.indexer.metadata.ReplacePublishedIndexer;
 import com.inqwise.indexer.commands.Command;
 import com.inqwise.indexer.commands.CommandHandler;
 import com.inqwise.indexer.commands.CommandService;
@@ -26,7 +21,7 @@ import com.inqwise.indexer.commands.CommandService;
 import io.vertx.core.Future;
 
 public class PublishLoadCommandHandler implements CommandHandler {
-	private final DocumentStoreMetadataRepository metadataRepository;
+	private final LoadPublicationRepository publicationRepository;
 	private final IndexerLoadRepository loadRepository;
 	private final IndexerLifecycleEventBus eventBus;
 	private final CommandService commandService;
@@ -45,7 +40,7 @@ public class PublishLoadCommandHandler implements CommandHandler {
 		IndexerLifecycleEventBus eventBus,
 		CommandService commandService
 	) {
-		this.metadataRepository = Objects.requireNonNull(metadataRepository, "metadataRepository");
+		this.publicationRepository = new MetadataLoadPublicationRepository(metadataRepository);
 		this.loadRepository = Objects.requireNonNull(loadRepository, "loadRepository");
 		this.eventBus = eventBus == null ? IndexerLifecycleEventBus.NOOP : eventBus;
 		this.commandService = commandService;
@@ -81,88 +76,10 @@ public class PublishLoadCommandHandler implements CommandHandler {
 	}
 
 	private Future<Void> publish(IndexerLoadRecord load) {
-		return metadataRepository.getIndexerById(load.indexerId())
-			.compose(found -> found
-				.map(Future::succeededFuture)
-				.orElseGet(() -> Future.failedFuture("Load indexer not found: " + load.indexerId())))
-			.compose(loadIndexer -> resolveCandidate(load)
-					.compose(candidate -> validate(load, loadIndexer, candidate)
-						.compose(valid -> metadataRepository.listPublishedIndexersByTargetId(load.targetId())
-							.compose(previous -> replace(load, loadIndexer, candidate, previous)
-								.compose(ignored -> markPublished(load))
-								.compose(ignored -> publishEvents(load, loadIndexer, candidate, previous))
-								.compose(ignored -> cleanup(load, previous))))));
-	}
-
-	private Future<IndexerRecord> resolveCandidate(IndexerLoadRecord load) {
-		Integer candidateId = load.liveIndexerId() == null
-			? load.indexerId()
-			: load.liveIndexerId();
-		return metadataRepository.getIndexerById(candidateId)
-			.compose(found -> found
-				.map(Future::succeededFuture)
-				.orElseGet(() -> Future.failedFuture("Candidate indexer not found: " + candidateId)));
-	}
-
-	private Future<Void> validate(
-		IndexerLoadRecord load,
-		IndexerRecord loadIndexer,
-		IndexerRecord candidate
-	) {
-		if (!load.targetId().equals(loadIndexer.targetId()) || !load.targetId().equals(candidate.targetId())) {
-			return Future.failedFuture("Load target mismatch: " + load.indexerId());
-		}
-
-		if (load.liveIndexerId() != null) {
-			if (!candidate.indexName().equals(loadIndexer.indexName())) {
-				return Future.failedFuture("Linked live writer index mismatch: " + candidate.id());
-			}
-			if (load.lastBarrierId() == null || load.lastBarrierReachedAt() == null) {
-				return Future.failedFuture("Catch-up barrier was not reached for load: " + load.indexerId());
-			}
-			if (load.state() != IndexerLoadState.CATCH_UP_READY && load.state() != IndexerLoadState.APPROVED) {
-				return Future.failedFuture("Load is not publishable: " + load.state());
-			}
-		} else if (load.state() != IndexerLoadState.HISTORICAL_COMPLETE
-			&& load.state() != IndexerLoadState.APPROVED) {
-			return Future.failedFuture("Load is not publishable: " + load.state());
-		}
-
-		if (load.reviewRequired() && load.approvedAt() == null) {
-			return Future.failedFuture("Load publication review is not approved: " + load.indexerId());
-		}
-
-		if (candidate.status() != IndexerStatus.AVAILABLE
-			|| candidate.provisioningState() != IndexerProvisioningState.READY
-			|| candidate.runtimeState() != IndexerRuntimeState.ACTIVE
-			|| candidate.mutationState() != MutationState.WRITABLE
-			|| candidate.publicationState() != PublicationState.UNPUBLISHED) {
-			return Future.failedFuture("Candidate indexer is not publishable: " + candidate.id());
-		}
-
-		return Future.succeededFuture();
-	}
-
-	private Future<Void> replace(
-		IndexerLoadRecord load,
-		IndexerRecord loadIndexer,
-		IndexerRecord candidate,
-		List<IndexerRecord> previous
-	) {
-		if (previous.size() > 1) {
-			return Future.failedFuture("Multiple published indexers for target: " + load.targetId());
-		}
-
-		IndexerRecord oldPublished = previous.isEmpty() ? null : previous.get(0);
-		return metadataRepository.replacePublishedIndexer(new ReplacePublishedIndexer(
-			load.targetId(),
-			candidate.id(),
-			candidate.version(),
-			oldPublished == null ? null : oldPublished.id(),
-			oldPublished == null ? null : oldPublished.version(),
-			load.liveIndexerId() == null ? null : loadIndexer.id(),
-			load.liveIndexerId() == null ? null : loadIndexer.version()
-		));
+		return publicationRepository.publish(load)
+			.compose(publication -> markPublished(load)
+				.compose(ignored -> publishEvents(load, publication))
+				.compose(ignored -> cleanup(load, publication)));
 	}
 
 	private Future<Void> markPublished(IndexerLoadRecord load) {
@@ -175,10 +92,10 @@ public class PublishLoadCommandHandler implements CommandHandler {
 
 	private Future<Void> publishEvents(
 		IndexerLoadRecord load,
-		IndexerRecord loadIndexer,
-		IndexerRecord candidate,
-		List<IndexerRecord> previous
+		LoadPublication publication
 	) {
+		IndexerRecord loadIndexer = publication.loadWriter();
+		IndexerRecord candidate = publication.candidate();
 		eventBus.publishIndexerWakeUp(new IndexerMetadataChanged(
 			candidate.id(),
 			candidate.targetId(),
@@ -195,8 +112,8 @@ public class PublishLoadCommandHandler implements CommandHandler {
 			));
 		}
 
-		if (!previous.isEmpty()) {
-			IndexerRecord oldPublished = previous.get(0);
+		if (publication.oldPublished() != null) {
+			IndexerRecord oldPublished = publication.oldPublished();
 			eventBus.publishIndexerWakeUp(new IndexerMetadataChanged(
 				oldPublished.id(),
 				oldPublished.targetId(),
@@ -208,12 +125,12 @@ public class PublishLoadCommandHandler implements CommandHandler {
 		return Future.succeededFuture();
 	}
 
-	private Future<Void> cleanup(IndexerLoadRecord load, List<IndexerRecord> previous) {
+	private Future<Void> cleanup(IndexerLoadRecord load, LoadPublication publication) {
 		if (commandService == null) {
 			return Future.succeededFuture();
 		}
 
-		IndexerRecord oldPublished = previous.isEmpty() ? null : previous.get(0);
+		IndexerRecord oldPublished = publication.oldPublished();
 		return commandService.submit(new CleanupLoadCommand(
 			load.indexerId(),
 			oldPublished == null ? null : oldPublished.id()

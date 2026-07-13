@@ -3,7 +3,8 @@ package com.inqwise.indexer.load.commands;
 import com.inqwise.indexer.load.api.IndexerLoadRecord;
 import com.inqwise.indexer.load.api.IndexerLoadState;
 import com.inqwise.indexer.load.repository.IndexerLoadRepository;
-
+import com.inqwise.indexer.load.repository.LoadCleanupRepository;
+import com.inqwise.indexer.load.repository.MetadataLoadPublicationRepository;
 
 import java.util.LinkedHashSet;
 import java.util.Objects;
@@ -19,7 +20,7 @@ import com.inqwise.indexer.metadata.IndexerRecord;
 import io.vertx.core.Future;
 
 public final class CleanupLoadCommandHandler implements CommandHandler {
-	private final DocumentStoreMetadataRepository metadataRepository;
+	private final LoadCleanupRepository cleanupRepository;
 	private final IndexerLoadRepository loadRepository;
 	private final CommandService commandService;
 
@@ -28,7 +29,7 @@ public final class CleanupLoadCommandHandler implements CommandHandler {
 		IndexerLoadRepository loadRepository,
 		CommandService commandService
 	) {
-		this.metadataRepository = Objects.requireNonNull(metadataRepository, "metadataRepository");
+		this.cleanupRepository = new MetadataLoadPublicationRepository(metadataRepository);
 		this.loadRepository = Objects.requireNonNull(loadRepository, "loadRepository");
 		this.commandService = Objects.requireNonNull(commandService, "commandService");
 	}
@@ -87,7 +88,7 @@ public final class CleanupLoadCommandHandler implements CommandHandler {
 	}
 
 	private Future<Void> deleteIfPresent(Integer indexerId) {
-		return metadataRepository.getIndexerById(indexerId)
+		return cleanupRepository.getIndexer(indexerId)
 			.compose(found -> found
 				.map(this::submitDelete)
 				.orElseGet(Future::succeededFuture));
