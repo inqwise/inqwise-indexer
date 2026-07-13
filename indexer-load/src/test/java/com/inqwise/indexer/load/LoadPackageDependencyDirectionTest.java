@@ -100,9 +100,6 @@ class LoadPackageDependencyDirectionTest {
 			"com.inqwise.indexer.metadata.MutationState",
 			"com.inqwise.indexer.metadata.PublicationState",
 			"com.inqwise.indexer.metadata.ReplacePublishedIndexer"
-		)),
-		entry("workflow/MetadataLoadManagementService.java", Set.of(
-			"com.inqwise.indexer.metadata.DocumentStoreMetadataRepository"
 		))
 	);
 	private static final Set<String> ALLOWED_ROOT_TESTS = Set.of(

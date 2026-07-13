@@ -17,7 +17,6 @@ import com.inqwise.indexer.load.catalog.LoadCreationCatalog;
 import com.inqwise.indexer.load.catalog.LoadCreatedIndexer;
 import com.inqwise.indexer.load.catalog.LoadCreationTarget;
 import com.inqwise.indexer.load.catalog.LoadStartContext;
-import com.inqwise.indexer.load.catalog.MetadataLoadCreationCatalog;
 import com.inqwise.indexer.load.commands.CleanupLoadCommand;
 import com.inqwise.indexer.load.commands.LoadPublicationOrchestrator;
 import com.inqwise.indexer.load.repository.IndexerLoadCompletion;
@@ -33,11 +32,10 @@ import com.inqwise.indexer.lifecycle.IndexerLifecycleEventBus;
 import com.inqwise.indexer.lifecycle.IndexerMetadataChanged;
 import com.inqwise.indexer.runtime.IndexerQueueClient;
 import com.inqwise.indexer.commands.CommandService;
-import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 
 import io.vertx.core.Future;
 
-public final class MetadataLoadManagementService implements LoadManagementService {
+public final class DefaultLoadManagementService implements LoadManagementService {
 	private static final String CHANGE_TYPE = "indexer.load.create";
 	private final LoadCreationCatalog loadCreationCatalog;
 	private final IndexerLoadRepository loadRepository;
@@ -47,15 +45,18 @@ public final class MetadataLoadManagementService implements LoadManagementServic
 	private final LoadPublicationOrchestrator publicationOrchestrator;
 	private final LoadProviderRegistry loadProviderRegistry;
 
-	public MetadataLoadManagementService(
-		DocumentStoreMetadataRepository metadataRepository,
+	public DefaultLoadManagementService(
+		LoadCreationCatalog loadCreationCatalog,
 		IndexerLoadRepository loadRepository,
 		IndexerQueueClient queueClient,
 		LoadProviderRegistry loadProviderRegistry,
 		IndexerLifecycleEventBus eventBus,
 		CommandService commandService
 	) {
-		this.loadCreationCatalog = new MetadataLoadCreationCatalog(metadataRepository);
+		this.loadCreationCatalog = Objects.requireNonNull(
+			loadCreationCatalog,
+			"loadCreationCatalog"
+		);
 		this.loadRepository = Objects.requireNonNull(loadRepository, "loadRepository");
 		this.queueClient = Objects.requireNonNull(queueClient, "queueClient");
 		this.loadProviderRegistry = Objects.requireNonNull(loadProviderRegistry, "loadProviderRegistry");

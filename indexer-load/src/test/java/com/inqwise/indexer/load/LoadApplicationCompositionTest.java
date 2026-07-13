@@ -11,10 +11,11 @@ import com.inqwise.indexer.load.api.LoadRequest;
 import com.inqwise.indexer.load.api.LoadStopRequest;
 import com.inqwise.indexer.load.api.LoadWriter;
 import com.inqwise.indexer.load.api.StartLoadRequest;
+import com.inqwise.indexer.load.catalog.MetadataLoadCreationCatalog;
 import com.inqwise.indexer.load.catalog.MetadataLazyLiveWriterCatalog;
 import com.inqwise.indexer.load.commands.LoadCommandHandlers;
 import com.inqwise.indexer.load.runtime.LoadIndexerPlugin;
-import com.inqwise.indexer.load.workflow.MetadataLoadManagementService;
+import com.inqwise.indexer.load.workflow.DefaultLoadManagementService;
 
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -92,8 +93,9 @@ class LoadApplicationCompositionTest {
 			lifecycleEvents,
 			runtime
 		);
-		LoadManagementService loadService = new MetadataLoadManagementService(
-			metadata, loads, queue, providers, lifecycleEvents, commands
+		LoadManagementService loadService = new DefaultLoadManagementService(
+			new MetadataLoadCreationCatalog(metadata),
+			loads, queue, providers, lifecycleEvents, commands
 		);
 
 		metadata.insertTarget(new InsertTarget(null, "customers", null))

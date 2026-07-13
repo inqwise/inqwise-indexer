@@ -16,6 +16,7 @@ import com.inqwise.indexer.load.api.LoadStopRequest;
 import com.inqwise.indexer.load.api.LoadWriter;
 import com.inqwise.indexer.load.api.RecoverCreatedLoadRequest;
 import com.inqwise.indexer.load.api.StartLoadRequest;
+import com.inqwise.indexer.load.catalog.MetadataLoadCreationCatalog;
 import com.inqwise.indexer.load.commands.CleanupLoadCommand;
 import com.inqwise.indexer.load.commands.CleanupLoadCommandHandler;
 import com.inqwise.indexer.load.commands.PublishLoadCommand;
@@ -72,8 +73,8 @@ class LoadManagementServiceTest {
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		InMemoryLoadProviderRegistry registry = new InMemoryLoadProviderRegistry()
 			.register("default", provider);
-		LoadManagementService service = new MetadataLoadManagementService(
-			metadata,
+		LoadManagementService service = new DefaultLoadManagementService(
+			new MetadataLoadCreationCatalog(metadata),
 			loads,
 			new InMemoryIndexerQueue(),
 			registry,
@@ -136,8 +137,8 @@ class LoadManagementServiceTest {
 		CapturingLoadProvider provider = new CapturingLoadProvider();
 		InMemoryLoadProviderRegistry registry = new InMemoryLoadProviderRegistry()
 			.register("default", provider);
-		LoadManagementService service = new MetadataLoadManagementService(
-			metadata,
+		LoadManagementService service = new DefaultLoadManagementService(
+			new MetadataLoadCreationCatalog(metadata),
 			loads,
 			new InMemoryIndexerQueue(),
 			registry,
@@ -178,8 +179,9 @@ class LoadManagementServiceTest {
 		CapturingLoadProvider provider = new CapturingLoadProvider();
 		InMemoryLoadProviderRegistry registry = new InMemoryLoadProviderRegistry()
 			.register("default", provider);
-		LoadManagementService service = new MetadataLoadManagementService(
-			metadata, loads, new InMemoryIndexerQueue(), registry, eventBus,
+		LoadManagementService service = new DefaultLoadManagementService(
+			new MetadataLoadCreationCatalog(metadata), loads,
+			new InMemoryIndexerQueue(), registry, eventBus,
 			command -> Future.succeededFuture()
 		);
 		createReadyTarget(metadata).compose(targetId -> service.create(new CreateLoadRequest(
@@ -209,8 +211,8 @@ class LoadManagementServiceTest {
 
 	@Test
 	void rejectsLoadCreationWhenTargetDoesNotExist(VertxTestContext testContext) {
-		LoadManagementService service = new MetadataLoadManagementService(
-			new InMemoryDocumentStoreMetadataRepository(),
+		LoadManagementService service = new DefaultLoadManagementService(
+			new MetadataLoadCreationCatalog(new InMemoryDocumentStoreMetadataRepository()),
 			new InMemoryIndexerLoadRepository(),
 			new InMemoryIndexerQueue(),
 			new InMemoryLoadProviderRegistry(),
@@ -238,8 +240,8 @@ class LoadManagementServiceTest {
 	@Test
 	void rejectsLoadCreationWhenTargetIsNotReady(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository metadata = new InMemoryDocumentStoreMetadataRepository();
-		LoadManagementService service = new MetadataLoadManagementService(
-			metadata,
+		LoadManagementService service = new DefaultLoadManagementService(
+			new MetadataLoadCreationCatalog(metadata),
 			new InMemoryIndexerLoadRepository(),
 			new InMemoryIndexerQueue(),
 			new InMemoryLoadProviderRegistry(),
@@ -271,15 +273,16 @@ class LoadManagementServiceTest {
 		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		AtomicInteger submissions = new AtomicInteger();
-		LoadManagementService createService = new MetadataLoadManagementService(
-			metadata, loads, new InMemoryIndexerQueue(), new InMemoryLoadProviderRegistry(), eventBus,
+		LoadManagementService createService = new DefaultLoadManagementService(
+			new MetadataLoadCreationCatalog(metadata), loads, new InMemoryIndexerQueue(),
+			new InMemoryLoadProviderRegistry(), eventBus,
 			command -> Future.succeededFuture()
 		);
 
 		createReadyTarget(metadata).compose(targetId -> createService.create(new CreateLoadRequest(
 			"default", targetId, LiveWriterPolicy.NONE, null, null, null, null, null, null, false
-		))).compose(created -> new MetadataLoadManagementService(
-			metadata,
+		))).compose(created -> new DefaultLoadManagementService(
+			new MetadataLoadCreationCatalog(metadata),
 			loads,
 			new InMemoryIndexerQueue(),
 			new InMemoryLoadProviderRegistry(),
@@ -302,8 +305,8 @@ class LoadManagementServiceTest {
 		InMemoryDocumentStoreMetadataRepository metadata = new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
 		AtomicInteger submissions = new AtomicInteger();
-		LoadManagementService service = new MetadataLoadManagementService(
-			metadata,
+		LoadManagementService service = new DefaultLoadManagementService(
+			new MetadataLoadCreationCatalog(metadata),
 			loads,
 			new InMemoryIndexerQueue(),
 			new InMemoryLoadProviderRegistry(),
@@ -354,8 +357,8 @@ class LoadManagementServiceTest {
 		InMemoryDocumentStoreMetadataRepository metadata = new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
 		AtomicInteger submissions = new AtomicInteger();
-		LoadManagementService service = new MetadataLoadManagementService(
-			metadata,
+		LoadManagementService service = new DefaultLoadManagementService(
+			new MetadataLoadCreationCatalog(metadata),
 			loads,
 			new InMemoryIndexerQueue(),
 			new InMemoryLoadProviderRegistry(),
@@ -402,8 +405,8 @@ class LoadManagementServiceTest {
 
 	@Test
 	void cancellationDoesNotTreatUnknownLoadAsCompleted(VertxTestContext testContext) {
-		LoadManagementService service = new MetadataLoadManagementService(
-			new InMemoryDocumentStoreMetadataRepository(),
+		LoadManagementService service = new DefaultLoadManagementService(
+			new MetadataLoadCreationCatalog(new InMemoryDocumentStoreMetadataRepository()),
 			new InMemoryIndexerLoadRepository(),
 			new InMemoryIndexerQueue(),
 			new InMemoryLoadProviderRegistry(),
@@ -426,8 +429,8 @@ class LoadManagementServiceTest {
 		InMemoryLoadProviderRegistry registry = new InMemoryLoadProviderRegistry()
 			.register("default", provider);
 		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
-		LoadManagementService service = new MetadataLoadManagementService(
-			metadata,
+		LoadManagementService service = new DefaultLoadManagementService(
+			new MetadataLoadCreationCatalog(metadata),
 			loads,
 			queue,
 			registry,
@@ -787,8 +790,8 @@ class LoadManagementServiceTest {
 		LoadProviderRegistry loadProviderRegistry,
 		CommandService commandService
 	) {
-		return new MetadataLoadManagementService(
-			metadata,
+		return new DefaultLoadManagementService(
+			new MetadataLoadCreationCatalog(metadata),
 			loads,
 			new InMemoryIndexerQueue(),
 			loadProviderRegistry,
