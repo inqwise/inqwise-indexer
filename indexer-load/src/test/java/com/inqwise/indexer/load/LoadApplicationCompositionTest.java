@@ -11,6 +11,7 @@ import com.inqwise.indexer.load.api.LoadRequest;
 import com.inqwise.indexer.load.api.LoadStopRequest;
 import com.inqwise.indexer.load.api.LoadWriter;
 import com.inqwise.indexer.load.api.StartLoadRequest;
+import com.inqwise.indexer.load.catalog.MetadataLazyLiveWriterCatalog;
 import com.inqwise.indexer.load.commands.LoadCommandHandlers;
 import com.inqwise.indexer.load.runtime.LoadIndexerPlugin;
 import com.inqwise.indexer.load.workflow.MetadataLoadManagementService;
@@ -70,7 +71,7 @@ class LoadApplicationCompositionTest {
 			lifecycleEvents
 		));
 		LoadIndexerPlugin loadPlugin = new LoadIndexerPlugin(
-			metadata,
+			new MetadataLazyLiveWriterCatalog(metadata),
 			loads,
 			commands,
 			EventPublisher.NOOP,

@@ -1,7 +1,6 @@
 package com.inqwise.indexer.load.runtime;
 
 import com.inqwise.indexer.load.catalog.LazyLiveWriterCatalog;
-import com.inqwise.indexer.load.catalog.MetadataLazyLiveWriterCatalog;
 import com.inqwise.indexer.load.repository.IndexerLoadRepository;
 
 import java.util.List;
@@ -16,7 +15,6 @@ import com.inqwise.indexer.runtime.IndexerMarkerHandler;
 import com.inqwise.indexer.catalog.indexers.IndexerModel;
 import com.inqwise.indexer.catalog.indexers.IndexerRole;
 import com.inqwise.indexer.commands.CommandService;
-import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.providers.IndexerActionReceiveCapability;
 import com.inqwise.indexer.providers.IndexerPlugin;
 
@@ -29,13 +27,13 @@ public class LoadIndexerPlugin implements IndexerPlugin {
 	private final IndexerMarkerHandler markerHandler;
 
 	public LoadIndexerPlugin(
-		DocumentStoreMetadataRepository metadataRepository,
+		LazyLiveWriterCatalog lazyLiveWriterCatalog,
 		IndexerLoadRepository loadRepository,
 		CommandService commandService,
 		EventPublisher eventPublisher
 	) {
 		this(
-			metadataRepository,
+			lazyLiveWriterCatalog,
 			loadRepository,
 			commandService,
 			eventPublisher,
@@ -45,14 +43,14 @@ public class LoadIndexerPlugin implements IndexerPlugin {
 	}
 
 	public LoadIndexerPlugin(
-		DocumentStoreMetadataRepository metadataRepository,
+		LazyLiveWriterCatalog lazyLiveWriterCatalog,
 		IndexerLoadRepository loadRepository,
 		CommandService commandService,
 		EventPublisher eventPublisher,
 		ExclusiveFlowCoordinator flowCoordinator
 	) {
 		this(
-			metadataRepository,
+			lazyLiveWriterCatalog,
 			loadRepository,
 			commandService,
 			eventPublisher,
@@ -62,14 +60,17 @@ public class LoadIndexerPlugin implements IndexerPlugin {
 	}
 
 	public LoadIndexerPlugin(
-		DocumentStoreMetadataRepository metadataRepository,
+		LazyLiveWriterCatalog lazyLiveWriterCatalog,
 		IndexerLoadRepository loadRepository,
 		CommandService commandService,
 		EventPublisher eventPublisher,
 		ExclusiveFlowCoordinator flowCoordinator,
 		IndexerLifecycleEventBus lifecycleEventBus
 	) {
-		this.lazyLiveWriterCatalog = new MetadataLazyLiveWriterCatalog(metadataRepository);
+		this.lazyLiveWriterCatalog = Objects.requireNonNull(
+			lazyLiveWriterCatalog,
+			"lazyLiveWriterCatalog"
+		);
 		this.loadRepository = Objects.requireNonNull(loadRepository, "loadRepository");
 		this.commandService = Objects.requireNonNull(commandService, "commandService");
 		this.eventPublisher = eventPublisher == null ? EventPublisher.NOOP : eventPublisher;

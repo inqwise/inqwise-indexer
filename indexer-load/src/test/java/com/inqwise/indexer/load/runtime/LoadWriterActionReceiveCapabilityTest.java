@@ -79,7 +79,7 @@ class LoadWriterActionReceiveCapabilityTest {
 		InMemoryDocumentStoreMetadataRepository metadata = new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
 		IndexerPlugins plugins = new IndexerPlugins(List.of(new LoadIndexerPlugin(
-			metadata,
+			new MetadataLazyLiveWriterCatalog(metadata),
 			loads,
 			command -> Future.succeededFuture(),
 			EventPublisher.NOOP

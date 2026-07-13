@@ -67,9 +67,6 @@ class LoadPackageDependencyDirectionTest {
 		entry("commands/LoadCommandHandlers.java", Set.of(
 			"com.inqwise.indexer.metadata.DocumentStoreMetadataRepository"
 		)),
-		entry("runtime/LoadIndexerPlugin.java", Set.of(
-			"com.inqwise.indexer.metadata.DocumentStoreMetadataRepository"
-		)),
 		entry("runtime/LoadWriterActionReceiveCapability.java", Set.of(
 			"com.inqwise.indexer.metadata.IndexerRecord"
 		)),
