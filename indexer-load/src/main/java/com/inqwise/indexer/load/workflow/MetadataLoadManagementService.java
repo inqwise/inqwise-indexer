@@ -14,6 +14,8 @@ import com.inqwise.indexer.load.api.LoadWriter;
 import com.inqwise.indexer.load.api.RecoverCreatedLoadRequest;
 import com.inqwise.indexer.load.api.StartLoadRequest;
 import com.inqwise.indexer.load.catalog.LoadCreationCatalog;
+import com.inqwise.indexer.load.catalog.LoadCreatedIndexer;
+import com.inqwise.indexer.load.catalog.LoadCreationTarget;
 import com.inqwise.indexer.load.catalog.LoadStartContext;
 import com.inqwise.indexer.load.catalog.MetadataLoadCreationCatalog;
 import com.inqwise.indexer.load.commands.CleanupLoadCommand;
@@ -32,8 +34,6 @@ import com.inqwise.indexer.lifecycle.IndexerMetadataChanged;
 import com.inqwise.indexer.runtime.IndexerQueueClient;
 import com.inqwise.indexer.commands.CommandService;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
-import com.inqwise.indexer.metadata.IndexerRecord;
-import com.inqwise.indexer.metadata.TargetRecord;
 
 import io.vertx.core.Future;
 
@@ -70,7 +70,7 @@ public final class MetadataLoadManagementService implements LoadManagementServic
 		return loadCreationCatalog.getReadyTarget(request.targetId())
 			.compose(target -> loadRepository.getActiveByTargetId(target.id())
 				.compose(active -> active
-					.map(load -> Future.<TargetRecord>failedFuture(
+					.map(load -> Future.<LoadCreationTarget>failedFuture(
 						"Active indexer load already exists for target: " + target.id()
 					))
 					.orElseGet(() -> Future.succeededFuture(target))))
@@ -318,10 +318,10 @@ public final class MetadataLoadManagementService implements LoadManagementServic
 				.compose(this::publishStateChanged));
 	}
 
-	private Future<IndexerRecord> createLiveIndexer(
+	private Future<LoadCreatedIndexer> createLiveIndexer(
 		CreateLoadRequest request,
-		TargetRecord target,
-		IndexerRecord loadIndexer
+		LoadCreationTarget target,
+		LoadCreatedIndexer loadIndexer
 	) {
 		if (request.liveWriterPolicy() != LiveWriterPolicy.CREATE_IMMEDIATELY) {
 			return Future.succeededFuture();
@@ -331,9 +331,9 @@ public final class MetadataLoadManagementService implements LoadManagementServic
 
 	private Future<Void> insertLoad(
 		CreateLoadRequest request,
-		TargetRecord target,
-		IndexerRecord loadIndexer,
-		IndexerRecord liveIndexer
+		LoadCreationTarget target,
+		LoadCreatedIndexer loadIndexer,
+		LoadCreatedIndexer liveIndexer
 	) {
 		return loadRepository.insert(new InsertIndexerLoad(
 			loadIndexer.id(), target.id(), liveIndexer == null ? null : liveIndexer.id(),
@@ -344,7 +344,10 @@ public final class MetadataLoadManagementService implements LoadManagementServic
 		));
 	}
 
-	private Future<Void> publishCreatedEvents(IndexerRecord loadIndexer, IndexerRecord liveIndexer) {
+	private Future<Void> publishCreatedEvents(
+		LoadCreatedIndexer loadIndexer,
+		LoadCreatedIndexer liveIndexer
+	) {
 		eventBus.publishIndexerWakeUp(new IndexerMetadataChanged(
 			loadIndexer.id(), loadIndexer.targetId(), CHANGE_TYPE, loadIndexer.version()
 		));

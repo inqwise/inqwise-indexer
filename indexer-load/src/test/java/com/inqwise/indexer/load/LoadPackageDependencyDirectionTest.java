@@ -76,10 +76,6 @@ class LoadPackageDependencyDirectionTest {
 		entry("catalog/LazyLiveWriterCatalog.java", Set.of(
 			"com.inqwise.indexer.metadata.IndexerRecord"
 		)),
-		entry("catalog/LoadCreationCatalog.java", Set.of(
-			"com.inqwise.indexer.metadata.IndexerRecord",
-			"com.inqwise.indexer.metadata.TargetRecord"
-		)),
 		entry("catalog/MetadataLoadCreationCatalog.java", Set.of(
 			"com.inqwise.indexer.catalog.indexers.CreateIndexerOperation",
 			"com.inqwise.indexer.metadata.DocumentStoreMetadataRepository",
@@ -109,9 +105,7 @@ class LoadPackageDependencyDirectionTest {
 			"com.inqwise.indexer.metadata.ReplacePublishedIndexer"
 		)),
 		entry("workflow/MetadataLoadManagementService.java", Set.of(
-			"com.inqwise.indexer.metadata.DocumentStoreMetadataRepository",
-			"com.inqwise.indexer.metadata.IndexerRecord",
-			"com.inqwise.indexer.metadata.TargetRecord"
+			"com.inqwise.indexer.metadata.DocumentStoreMetadataRepository"
 		))
 	);
 	private static final Set<String> ALLOWED_ROOT_TESTS = Set.of(

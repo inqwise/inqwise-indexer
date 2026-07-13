@@ -33,7 +33,7 @@ public final class MetadataLoadCreationCatalog implements LoadCreationCatalog {
 	}
 
 	@Override
-	public Future<TargetRecord> getReadyTarget(Integer targetId) {
+	public Future<LoadCreationTarget> getReadyTarget(Integer targetId) {
 		return metadataRepository.getTargetById(targetId)
 			.compose(found -> found
 				.map(this::validateTargetReady)
@@ -43,7 +43,7 @@ public final class MetadataLoadCreationCatalog implements LoadCreationCatalog {
 	}
 
 	@Override
-	public Future<IndexerRecord> createLoadWriter(TargetRecord target) {
+	public Future<LoadCreatedIndexer> createLoadWriter(LoadCreationTarget target) {
 		GeneratedIndexerResources resources = IndexerResourceNameGenerator.forTarget(
 			target.targetName()
 		);
@@ -59,13 +59,13 @@ public final class MetadataLoadCreationCatalog implements LoadCreationCatalog {
 			IndexerRuntimeState.ACTIVE,
 			PublicationState.UNPUBLISHED,
 			MutationState.WRITABLE
-		));
+		)).map(this::creationIndexer);
 	}
 
 	@Override
-	public Future<IndexerRecord> createImmediateLiveWriter(
-		TargetRecord target,
-		IndexerRecord loadWriter
+	public Future<LoadCreatedIndexer> createImmediateLiveWriter(
+		LoadCreationTarget target,
+		LoadCreatedIndexer loadWriter
 	) {
 		return createIndexer.create(new InsertIndexer(
 			loadWriter.prefix(),
@@ -79,7 +79,7 @@ public final class MetadataLoadCreationCatalog implements LoadCreationCatalog {
 			IndexerRuntimeState.ACTIVE,
 			PublicationState.UNPUBLISHED,
 			MutationState.WRITABLE
-		));
+		)).map(this::creationIndexer);
 	}
 
 	@Override
@@ -94,7 +94,7 @@ public final class MetadataLoadCreationCatalog implements LoadCreationCatalog {
 					))));
 	}
 
-	private Future<TargetRecord> validateTargetReady(TargetRecord target) {
+	private Future<LoadCreationTarget> validateTargetReady(TargetRecord target) {
 		if (target.status() != TargetStatus.ACTIVE) {
 			return Future.failedFuture("Target is not active: " + target.id());
 		}
@@ -104,7 +104,18 @@ public final class MetadataLoadCreationCatalog implements LoadCreationCatalog {
 					+ target.provisioningState()
 			);
 		}
-		return Future.succeededFuture(target);
+		return Future.succeededFuture(new LoadCreationTarget(target.id(), target.targetName()));
+	}
+
+	private LoadCreatedIndexer creationIndexer(IndexerRecord indexer) {
+		return new LoadCreatedIndexer(
+			indexer.id(),
+			indexer.targetId(),
+			indexer.prefix(),
+			indexer.indexName(),
+			indexer.queueName(),
+			indexer.version()
+		);
 	}
 
 	private Future<IndexerRecord> getLoadWriter(Integer indexerId) {
