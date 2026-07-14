@@ -69,7 +69,7 @@ class IndexerProvidersTest {
 			)))))
 			.onComplete(testContext.succeeding(indexers -> testContext.verify(() -> {
 				assertEquals(1, indexers.size());
-				assertEquals(IndexerRole.LIVE_WRITER, indexers.get(0).record().role());
+				assertEquals(IndexerRole.LIVE_WRITER, indexers.get(0).model().getRole());
 				testContext.completeNow();
 			})));
 	}
@@ -97,7 +97,7 @@ class IndexerProvidersTest {
 			.compose(providers::getIndexerById)
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
 				assertTrue(found.isPresent());
-				assertEquals("customers-a", found.get().record().indexName());
+				assertEquals("customers-a", found.get().model().getIndexName());
 				testContext.completeNow();
 			})));
 	}

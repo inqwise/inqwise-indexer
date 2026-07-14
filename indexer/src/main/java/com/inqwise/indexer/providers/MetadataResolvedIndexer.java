@@ -2,6 +2,7 @@ package com.inqwise.indexer.providers;
 
 import java.util.Optional;
 
+import com.inqwise.indexer.catalog.indexers.IndexerModel;
 import com.inqwise.indexer.catalog.indexers.IndexerRole;
 import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
 import com.inqwise.indexer.hot.HotIndexer;
@@ -10,13 +11,14 @@ import com.inqwise.indexer.metadata.IndexerProvisioningState;
 import com.inqwise.indexer.metadata.IndexerRecord;
 import com.inqwise.indexer.metadata.IndexerStatus;
 import com.inqwise.indexer.metadata.MutationState;
+import com.inqwise.indexer.metadata.MetadataIndexerModels;
 
 public record MetadataResolvedIndexer(
-	IndexerRecord record,
+	IndexerModel model,
 	Optional<HotIndexer> hotIndexer
 ) implements ResolvedIndexer {
 	public MetadataResolvedIndexer(IndexerRecord record) {
-		this(record, toHotIndexer(record));
+		this(MetadataIndexerModels.fromRecord(record), toHotIndexer(record));
 	}
 
 	public MetadataResolvedIndexer {

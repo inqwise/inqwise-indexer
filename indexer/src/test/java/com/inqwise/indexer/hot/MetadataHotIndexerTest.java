@@ -50,7 +50,7 @@ class MetadataHotIndexerTest {
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
 				assertTrue(found.isPresent());
 				assertTrue(found.get().hotIndexer().isPresent());
-				assertEquals(found.get().record().id(), found.get().hotIndexer().get().id());
+				assertEquals(found.get().model().getId(), found.get().hotIndexer().get().id());
 				testContext.completeNow();
 			})));
 	}
@@ -94,7 +94,7 @@ class MetadataHotIndexerTest {
 				).orElseThrow();
 
 				assertEquals(1, routed.getTargetId());
-				assertEquals(found.get().record().id(), routed.getIndexerId());
+				assertEquals(found.get().model().getId(), routed.getIndexerId());
 				assertEquals("customers-a", routed.getIndexName());
 				assertEquals("Ada", routed.getDocument().getString("name"));
 				testContext.completeNow();
