@@ -14,6 +14,7 @@ import com.inqwise.indexer.load.api.StartLoadRequest;
 import com.inqwise.indexer.load.catalog.MetadataLoadCreationCatalog;
 import com.inqwise.indexer.load.catalog.MetadataLazyLiveWriterCatalog;
 import com.inqwise.indexer.load.commands.LoadCommandHandlers;
+import com.inqwise.indexer.load.repository.MetadataLoadPublicationRepository;
 import com.inqwise.indexer.load.runtime.LoadIndexerPlugin;
 import com.inqwise.indexer.load.workflow.DefaultLoadManagementService;
 
@@ -66,8 +67,11 @@ class LoadApplicationCompositionTest {
 			.register("history", provider);
 		InMemoryCommandEngine commands = new InMemoryCommandEngine();
 
+		MetadataLoadPublicationRepository publicationRepository =
+			new MetadataLoadPublicationRepository(metadata);
 		LoadCommandHandlers.register(commands, new LoadCommandHandlers.Config(
-			metadata,
+			publicationRepository,
+			publicationRepository,
 			loads,
 			lifecycleEvents
 		));

@@ -64,9 +64,6 @@ class LoadPackageDependencyDirectionTest {
 		"com.inqwise.indexer.runtime.IndexerQueuePublisher"
 	);
 	private static final Map<String, Set<String>> PRE_SPLIT_TOLERATED_INDEXER_IMPORTS = Map.ofEntries(
-		entry("commands/LoadCommandHandlers.java", Set.of(
-			"com.inqwise.indexer.metadata.DocumentStoreMetadataRepository"
-		)),
 		entry("runtime/LoadWriterActionReceiveCapability.java", Set.of(
 			"com.inqwise.indexer.metadata.IndexerRecord"
 		)),
