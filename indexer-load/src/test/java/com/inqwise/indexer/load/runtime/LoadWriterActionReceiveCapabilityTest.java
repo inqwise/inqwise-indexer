@@ -43,6 +43,7 @@ import com.inqwise.indexer.runtime.IndexerQueueConsumerOptions;
 import com.inqwise.indexer.runtime.IndexerQueuePublisher;
 import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
 import com.inqwise.indexer.catalog.indexers.IndexerRole;
+import com.inqwise.indexer.metadata.MetadataIndexerModels;
 import com.inqwise.indexer.catalog.indexers.IndexerType;
 import com.inqwise.indexer.actions.PutDocumentActionItem;
 import com.inqwise.indexer.lifecycle.TargetMetadataChanged;
@@ -129,18 +130,17 @@ class LoadWriterActionReceiveCapabilityTest {
 		insertLazyLoad(metadata, loads)
 			.compose(load -> metadata.getIndexerById(load.indexerId())
 				.compose(loadWriter -> capability.canReceive(
-					loadWriter.orElseThrow(),
+					MetadataIndexerModels.fromRecord(loadWriter.orElseThrow()),
 					targetedPut(load.targetId(), "42", "Ada")
 				).compose(readiness -> {
 					assertEquals(ActionReceiveReadiness.REQUIRES_PREPARE, readiness);
 					return capability.prepareToReceive(new com.inqwise.indexer.providers.PrepareIndexerForActionsRequest(
 						"command-1",
-						null,
-						loadWriter.orElseThrow(),
+						MetadataIndexerModels.fromRecord(loadWriter.orElseThrow()),
 						List.of(targetedPut(load.targetId(), "42", "Ada")),
 						null
 					)).compose(ignored -> capability.canReceive(
-						loadWriter.orElseThrow(),
+						MetadataIndexerModels.fromRecord(loadWriter.orElseThrow()),
 						targetedPut(load.targetId(), "43", "Grace")
 					));
 				})))
@@ -163,16 +163,14 @@ class LoadWriterActionReceiveCapabilityTest {
 					com.inqwise.indexer.providers.PrepareIndexerForActionsRequest firstRequest =
 						new com.inqwise.indexer.providers.PrepareIndexerForActionsRequest(
 							"command-1",
-							null,
-							loadWriter.orElseThrow(),
+							MetadataIndexerModels.fromRecord(loadWriter.orElseThrow()),
 							List.of(),
 							null
 						);
 					com.inqwise.indexer.providers.PrepareIndexerForActionsRequest secondRequest =
 						new com.inqwise.indexer.providers.PrepareIndexerForActionsRequest(
 							"command-2",
-							null,
-							loadWriter.orElseThrow(),
+							MetadataIndexerModels.fromRecord(loadWriter.orElseThrow()),
 							List.of(),
 							null
 						);
@@ -188,7 +186,7 @@ class LoadWriterActionReceiveCapabilityTest {
 			.onComplete(testContext.succeeding(results -> testContext.verify(() -> {
 				com.inqwise.indexer.providers.PreparedIndexers first = results.resultAt(0);
 				com.inqwise.indexer.providers.PreparedIndexers second = results.resultAt(1);
-				assertEquals(first.indexers().get(0).id(), second.indexers().get(0).id());
+				assertEquals(first.indexers().get(0).getId(), second.indexers().get(0).getId());
 				assertEquals(first, second);
 				assertEquals(1, loads.attachCalls);
 				testContext.completeNow();
@@ -212,16 +210,15 @@ class LoadWriterActionReceiveCapabilityTest {
 			.compose(load -> metadata.getIndexerById(load.indexerId())
 				.compose(loadWriter -> capability.prepareToReceive(new com.inqwise.indexer.providers.PrepareIndexerForActionsRequest(
 					"command-1",
-					null,
-					loadWriter.orElseThrow(),
+					MetadataIndexerModels.fromRecord(loadWriter.orElseThrow()),
 					List.of(targetedPut(load.targetId(), "42", "Ada")),
 					null
 				)).compose(prepared -> loads.getByIndexerId(load.indexerId())
 					.map(updated -> new PrepareResult(prepared, updated.orElseThrow())))))
 			.onComplete(testContext.succeeding(result -> testContext.verify(() -> {
 				assertEquals(1, result.prepared().indexers().size());
-				assertEquals(IndexerRole.LIVE_WRITER, result.prepared().indexers().get(0).role());
-				assertEquals(result.prepared().indexers().get(0).id(), result.load().liveIndexerId());
+				assertEquals(IndexerRole.LIVE_WRITER, result.prepared().indexers().get(0).getRole());
+				assertEquals(result.prepared().indexers().get(0).getId(), result.load().liveIndexerId());
 				assertEquals(2L, result.load().version());
 				assertEquals(1, submittedCommands.size());
 				DeleteIndexerCommand cleanup = assertInstanceOf(
@@ -278,15 +275,14 @@ class LoadWriterActionReceiveCapabilityTest {
 					return capability.prepareToReceive(
 						new com.inqwise.indexer.providers.PrepareIndexerForActionsRequest(
 							"command-2",
-							null,
-							loadWriter.orElseThrow(),
+							MetadataIndexerModels.fromRecord(loadWriter.orElseThrow()),
 							List.of(),
 							null
 						)
 					).map(prepared -> new WinnerResult(prepared, winnerId));
 				})))
 			.onComplete(testContext.succeeding(result -> testContext.verify(() -> {
-				assertEquals(result.winnerId(), result.prepared().indexers().get(0).id());
+				assertEquals(result.winnerId(), result.prepared().indexers().get(0).getId());
 				assertEquals(false, result.prepared().metadataChanged());
 				assertEquals(1, submittedCommands.size());
 				LazyLiveWriterPreparationConflictEvent event = assertInstanceOf(
@@ -319,8 +315,7 @@ class LoadWriterActionReceiveCapabilityTest {
 				.compose(loadWriter -> capability.prepareToReceive(
 					new com.inqwise.indexer.providers.PrepareIndexerForActionsRequest(
 						"command-3",
-						null,
-						loadWriter.orElseThrow(),
+						MetadataIndexerModels.fromRecord(loadWriter.orElseThrow()),
 						List.of(),
 						null
 					)
@@ -349,8 +344,7 @@ class LoadWriterActionReceiveCapabilityTest {
 			.compose(load -> metadata.getIndexerById(load.indexerId())
 				.compose(loadWriter -> capability.prepareToReceive(new com.inqwise.indexer.providers.PrepareIndexerForActionsRequest(
 					"command-1",
-					null,
-					loadWriter.orElseThrow(),
+					MetadataIndexerModels.fromRecord(loadWriter.orElseThrow()),
 					List.of(targetedPut(load.targetId(), "42", "Ada")),
 					null
 				))))

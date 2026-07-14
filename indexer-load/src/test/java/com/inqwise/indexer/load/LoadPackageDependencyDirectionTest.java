@@ -64,12 +64,6 @@ class LoadPackageDependencyDirectionTest {
 		"com.inqwise.indexer.runtime.IndexerQueuePublisher"
 	);
 	private static final Map<String, Set<String>> PRE_SPLIT_TOLERATED_INDEXER_IMPORTS = Map.ofEntries(
-		entry("runtime/LoadWriterActionReceiveCapability.java", Set.of(
-			"com.inqwise.indexer.metadata.IndexerRecord"
-		)),
-		entry("catalog/LazyLiveWriterCatalog.java", Set.of(
-			"com.inqwise.indexer.metadata.IndexerRecord"
-		)),
 		entry("catalog/MetadataLoadCreationCatalog.java", Set.of(
 			"com.inqwise.indexer.catalog.indexers.CreateIndexerOperation",
 			"com.inqwise.indexer.metadata.DocumentStoreMetadataRepository",
@@ -84,8 +78,8 @@ class LoadPackageDependencyDirectionTest {
 		entry("catalog/MetadataLazyLiveWriterCatalog.java", Set.of(
 			"com.inqwise.indexer.catalog.indexers.CreateIndexerOperation",
 			"com.inqwise.indexer.metadata.DocumentStoreMetadataRepository",
-			"com.inqwise.indexer.metadata.IndexerRecord",
 			"com.inqwise.indexer.metadata.InsertIndexer",
+			"com.inqwise.indexer.metadata.MetadataIndexerModels",
 			"com.inqwise.indexer.metadata.MutationState",
 			"com.inqwise.indexer.metadata.PublicationState"
 		)),

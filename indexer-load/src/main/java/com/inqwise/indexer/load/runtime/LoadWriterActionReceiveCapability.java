@@ -16,16 +16,15 @@ import java.util.Objects;
 import java.util.UUID;
 
 import com.inqwise.coordination.ExclusiveFlowCoordinator;
-import com.inqwise.coordination.LocalExclusiveFlowCoordinator;
 import com.inqwise.events.EventEnvelope;
 import com.inqwise.events.EventPublisher;
 import com.inqwise.indexer.actions.IndexerActionItem;
 import com.inqwise.indexer.actions.IndexerActionType;
+import com.inqwise.indexer.catalog.indexers.IndexerModel;
 import com.inqwise.indexer.catalog.indexers.IndexerRole;
 import com.inqwise.indexer.commands.CommandService;
 import com.inqwise.indexer.cleanup.DeleteIndexerCommand;
 import com.inqwise.indexer.errors.RetryableStaleStateException;
-import com.inqwise.indexer.metadata.IndexerRecord;
 import com.inqwise.indexer.providers.ActionReceiveReadiness;
 import com.inqwise.indexer.providers.IndexerActionReceiveCapability;
 import com.inqwise.indexer.providers.PrepareIndexerForActionsRequest;
@@ -55,15 +54,15 @@ public class LoadWriterActionReceiveCapability implements IndexerActionReceiveCa
 	}
 
 	@Override
-	public Future<ActionReceiveReadiness> canReceive(IndexerRecord indexer, IndexerActionItem action) {
+	public Future<ActionReceiveReadiness> canReceive(IndexerModel indexer, IndexerActionItem action) {
 		Objects.requireNonNull(indexer, "indexer");
 		Objects.requireNonNull(action, "action");
 
-		if (indexer.role() != IndexerRole.LOAD_WRITER || !isLiveAction(action)) {
+		if (indexer.getRole() != IndexerRole.LOAD_WRITER || !isLiveAction(action)) {
 			return Future.succeededFuture(ActionReceiveReadiness.NO);
 		}
 
-		return loadRepository.getByIndexerId(indexer.id())
+		return loadRepository.getByIndexerId(indexer.getId())
 			.map(found -> {
 				if (found.isEmpty()) {
 					return ActionReceiveReadiness.NO;
@@ -83,16 +82,16 @@ public class LoadWriterActionReceiveCapability implements IndexerActionReceiveCa
 	@Override
 	public Future<PreparedIndexers> prepareToReceive(PrepareIndexerForActionsRequest request) {
 		Objects.requireNonNull(request, "request");
-		IndexerRecord loadIndexer = Objects.requireNonNull(request.indexer(), "indexer");
+		IndexerModel loadIndexer = Objects.requireNonNull(request.indexer(), "indexer");
 
 		return flowCoordinator.execute(
-			lazyLiveWriterFlowKey(loadIndexer.id()),
+			lazyLiveWriterFlowKey(loadIndexer.getId()),
 			PreparedIndexers.class,
-			promise -> loadRepository.getByIndexerId(loadIndexer.id())
+			promise -> loadRepository.getByIndexerId(loadIndexer.getId())
 				.compose(found -> found
 					.map(Future::succeededFuture)
 					.orElseGet(() -> Future.failedFuture(
-						"Indexer load not found: " + loadIndexer.id()
+						"Indexer load not found: " + loadIndexer.getId()
 					)))
 				.compose(load -> prepare(load, loadIndexer, true, request.commandId()))
 				.onComplete(promise)
@@ -101,7 +100,7 @@ public class LoadWriterActionReceiveCapability implements IndexerActionReceiveCa
 
 	private Future<PreparedIndexers> prepare(
 		IndexerLoadRecord load,
-		IndexerRecord loadIndexer,
+		IndexerModel loadIndexer,
 		boolean retryStaleState,
 		String correlationId
 	) {
@@ -116,7 +115,7 @@ public class LoadWriterActionReceiveCapability implements IndexerActionReceiveCa
 		if (load.liveWriterPolicy() != LiveWriterPolicy.CREATE_ON_FIRST_LIVE_ACTION) {
 			return Future.failedFuture("Indexer load does not allow lazy live writer: " + load.indexerId());
 		}
-		if (!load.targetId().equals(loadIndexer.targetId())) {
+		if (!load.targetId().equals(loadIndexer.getTargetId())) {
 			return Future.failedFuture("Load target mismatch: " + load.indexerId());
 		}
 
@@ -132,14 +131,14 @@ public class LoadWriterActionReceiveCapability implements IndexerActionReceiveCa
 
 	private Future<PreparedIndexers> attachPreparedLiveWriter(
 		IndexerLoadRecord load,
-		IndexerRecord loadIndexer,
-		IndexerRecord liveWriter,
+		IndexerModel loadIndexer,
+		IndexerModel liveWriter,
 		boolean retryStaleState,
 		String correlationId
 	) {
 		return loadRepository.attachLiveWriterIfAbsent(new AttachLiveWriterRequest(
 			load.indexerId(),
-			liveWriter.id(),
+			liveWriter.getId(),
 			load.version()
 		)).compose(attached -> preparedLiveWriter(
 			load,
@@ -158,8 +157,8 @@ public class LoadWriterActionReceiveCapability implements IndexerActionReceiveCa
 
 	private Future<PreparedIndexers> recoverStaleState(
 		IndexerLoadRecord load,
-		IndexerRecord loadIndexer,
-		IndexerRecord candidate,
+		IndexerModel loadIndexer,
+		IndexerModel candidate,
 		boolean retryStaleState,
 		String correlationId,
 		Throwable error
@@ -204,11 +203,11 @@ public class LoadWriterActionReceiveCapability implements IndexerActionReceiveCa
 
 	private Future<PreparedIndexers> preparedLiveWriter(
 		IndexerLoadRecord load,
-		IndexerRecord candidate,
+		IndexerModel candidate,
 		AttachLiveWriterResult attached,
 		String correlationId
 	) {
-		if (attached.liveIndexerId().equals(candidate.id())) {
+		if (attached.liveIndexerId().equals(candidate.getId())) {
 			return Future.succeededFuture(new PreparedIndexers(java.util.List.of(candidate), true));
 		}
 
@@ -224,7 +223,7 @@ public class LoadWriterActionReceiveCapability implements IndexerActionReceiveCa
 
 	private Future<Void> abandonCandidate(
 		IndexerLoadRecord load,
-		IndexerRecord candidate,
+		IndexerModel candidate,
 		Integer winnerLiveIndexerId,
 		LazyLiveWriterPreparationConflictReason reason,
 		String correlationId
@@ -232,7 +231,7 @@ public class LoadWriterActionReceiveCapability implements IndexerActionReceiveCa
 		if (commandService == null) {
 			return publishConflict(
 				load,
-				candidate.id(),
+				candidate.getId(),
 				winnerLiveIndexerId,
 				reason,
 				false,
@@ -241,10 +240,13 @@ public class LoadWriterActionReceiveCapability implements IndexerActionReceiveCa
 			);
 		}
 
-		return commandService.submit(new DeleteIndexerCommand(candidate.id(), candidate.version()))
+		return commandService.submit(new DeleteIndexerCommand(
+			candidate.getId(),
+			candidate.getVersion()
+		))
 			.compose(ignored -> publishConflict(
 				load,
-				candidate.id(),
+				candidate.getId(),
 				winnerLiveIndexerId,
 				reason,
 				true,
@@ -253,7 +255,7 @@ public class LoadWriterActionReceiveCapability implements IndexerActionReceiveCa
 			))
 			.recover(error -> publishConflict(
 				load,
-				candidate.id(),
+				candidate.getId(),
 				winnerLiveIndexerId,
 				LazyLiveWriterPreparationConflictReason.CLEANUP_FAILED,
 				false,
@@ -298,11 +300,11 @@ public class LoadWriterActionReceiveCapability implements IndexerActionReceiveCa
 		).recover(error -> Future.succeededFuture());
 	}
 
-	private boolean isEligible(IndexerLoadRecord load, IndexerRecord loadIndexer) {
+	private boolean isEligible(IndexerLoadRecord load, IndexerModel loadIndexer) {
 		return load.liveIndexerId() == null
 			&& isActive(load.state())
 			&& load.liveWriterPolicy() == LiveWriterPolicy.CREATE_ON_FIRST_LIVE_ACTION
-			&& load.targetId().equals(loadIndexer.targetId());
+			&& load.targetId().equals(loadIndexer.getTargetId());
 	}
 
 	private boolean isLiveAction(IndexerActionItem action) {

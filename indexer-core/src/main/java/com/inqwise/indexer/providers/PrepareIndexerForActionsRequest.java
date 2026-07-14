@@ -4,13 +4,11 @@ import java.time.Instant;
 import java.util.List;
 
 import com.inqwise.indexer.actions.IndexerActionItem;
-import com.inqwise.indexer.metadata.IndexerRecord;
-import com.inqwise.indexer.metadata.TargetRecord;
+import com.inqwise.indexer.catalog.indexers.IndexerModel;
 
 public record PrepareIndexerForActionsRequest(
 	String commandId,
-	TargetRecord target,
-	IndexerRecord indexer,
+	IndexerModel indexer,
 	List<IndexerActionItem> actions,
 	Instant timestamp
 ) {

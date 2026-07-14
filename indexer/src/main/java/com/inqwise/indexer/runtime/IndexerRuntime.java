@@ -12,6 +12,7 @@ import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
 import com.inqwise.indexer.documents.IndexerDocumentStore;
 import com.inqwise.indexer.metadata.IndexerProvisioningState;
 import com.inqwise.indexer.metadata.IndexerRecord;
+import com.inqwise.indexer.metadata.MetadataIndexerModels;
 import com.inqwise.indexer.metadata.IndexerStatus;
 import com.inqwise.indexer.metadata.MutationState;
 import com.inqwise.indexer.providers.IndexerPlugins;
@@ -152,19 +153,7 @@ public class IndexerRuntime {
 	}
 
 	public static IndexerModel toModel(IndexerRecord indexer) {
-		return IndexerModel.builder()
-			.withId(indexer.id())
-			.withUid(indexer.uid())
-			.withTargetId(indexer.targetId())
-			.withTargetName(indexer.targetName())
-			.withIndexName(indexer.indexName())
-			.withQueueName(indexer.queueName())
-			.withType(indexer.type())
-			.withRole(indexer.role())
-			.withIndexOwnership(indexer.indexOwnership())
-			.withRuntimeState(indexer.runtimeState())
-			.withVersion(indexer.version())
-			.build();
+		return MetadataIndexerModels.fromRecord(indexer);
 	}
 
 	private static Indexer createVerticleBackedIndexer(

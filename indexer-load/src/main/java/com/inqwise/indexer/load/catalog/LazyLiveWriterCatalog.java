@@ -1,15 +1,15 @@
 package com.inqwise.indexer.load.catalog;
 
 import com.inqwise.indexer.load.api.IndexerLoadRecord;
-import com.inqwise.indexer.metadata.IndexerRecord;
+import com.inqwise.indexer.catalog.indexers.IndexerModel;
 
 import io.vertx.core.Future;
 
 public interface LazyLiveWriterCatalog {
-	Future<IndexerRecord> getLiveWriter(Integer liveWriterId);
+	Future<IndexerModel> getLiveWriter(Integer liveWriterId);
 
-	Future<IndexerRecord> createAttachedLiveWriter(
+	Future<IndexerModel> createAttachedLiveWriter(
 		IndexerLoadRecord load,
-		IndexerRecord loadIndexer
+		IndexerModel loadIndexer
 	);
 }

@@ -2,10 +2,10 @@ package com.inqwise.indexer.providers;
 
 import java.util.List;
 
-import com.inqwise.indexer.metadata.IndexerRecord;
+import com.inqwise.indexer.catalog.indexers.IndexerModel;
 
 public record PreparedIndexers(
-	List<IndexerRecord> indexers,
+	List<IndexerModel> indexers,
 	boolean metadataChanged
 ) {
 	public PreparedIndexers {

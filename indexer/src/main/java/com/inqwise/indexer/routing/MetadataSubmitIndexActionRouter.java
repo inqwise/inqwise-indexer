@@ -16,6 +16,7 @@ import com.inqwise.indexer.provisioning.IndexerQueueResourceManager;
 import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
 import com.inqwise.indexer.catalog.indexers.IndexerRole;
 import com.inqwise.indexer.catalog.indexers.IndexerType;
+import com.inqwise.indexer.catalog.indexers.IndexerModel;
 import com.inqwise.indexer.actions.Actions;
 import com.inqwise.indexer.actions.IndexerActionRouteContext;
 import com.inqwise.indexer.actions.IndexerActionRouteMode;
@@ -32,6 +33,7 @@ import com.inqwise.indexer.metadata.IndexerProvisioningState;
 import com.inqwise.indexer.metadata.IndexerRecord;
 import com.inqwise.indexer.metadata.IndexerStatus;
 import com.inqwise.indexer.metadata.MutationState;
+import com.inqwise.indexer.metadata.MetadataIndexerModels;
 import com.inqwise.indexer.metadata.PublicationState;
 import com.inqwise.indexer.metadata.TargetPeriod;
 import com.inqwise.indexer.metadata.TargetPeriodResolver;
@@ -90,7 +92,7 @@ class MetadataSubmitIndexActionRouter {
 		}
 
 		MetadataRoutingContext routingContext = new MetadataRoutingContext();
-		Future<Map<IndexerRecord, List<IndexerActionItem>>> actionsByIndexer =
+		Future<Map<IndexerRouteKey, IndexerActionGroup>> actionsByIndexer =
 			Future.succeededFuture(new LinkedHashMap<>());
 
 		for (IndexerActionItem action : submit.getActions()) {
@@ -102,9 +104,11 @@ class MetadataSubmitIndexActionRouter {
 			actionsByIndexer = actionsByIndexer.compose(groups ->
 				resolveIndexers(submit, action, destination, routingContext)
 					.compose(indexers -> {
-						for (IndexerRecord indexer : indexers) {
-							groups.computeIfAbsent(indexer, ignored -> new ArrayList<>())
-								.add(toConcreteAction(action, indexer));
+						for (IndexerModel indexer : indexers) {
+							groups.computeIfAbsent(
+								IndexerRouteKey.from(indexer),
+								ignored -> new IndexerActionGroup(indexer, new ArrayList<>())
+							).actions().add(toConcreteAction(action, indexer));
 						}
 
 						return Future.succeededFuture(groups);
@@ -112,18 +116,22 @@ class MetadataSubmitIndexActionRouter {
 		}
 
 		return actionsByIndexer.map(groups -> groups.entrySet().stream()
-			.map(entry -> new RoutedIndexActions(
-				entry.getKey().id(),
-				entry.getKey().targetId(),
-				entry.getKey().version(),
-				getQueueName(entry.getKey()),
-				entry.getValue(),
-				routingContext.metadataChanged(entry.getKey().id())
-			))
+			.map(entry -> {
+				IndexerActionGroup group = entry.getValue();
+				IndexerModel indexer = group.indexer();
+				return new RoutedIndexActions(
+					indexer.getId(),
+					indexer.getTargetId(),
+					indexer.getVersion(),
+					getQueueName(indexer),
+					group.actions(),
+					routingContext.metadataChanged(indexer.getId())
+				);
+			})
 			.toList());
 	}
 
-	private Future<List<IndexerRecord>> resolveIndexers(
+	private Future<List<IndexerModel>> resolveIndexers(
 		SubmitIndexActionsCommand submit,
 		IndexerActionItem action,
 		ActionDestination destination,
@@ -133,6 +141,7 @@ class MetadataSubmitIndexActionRouter {
 			return repository.getIndexerById(destination.indexerId())
 				.compose(found -> found
 					.map(indexer -> verifyIndexer(destination, indexer)
+						.map(MetadataIndexerModels::fromRecord)
 						.map(List::of))
 					.orElseGet(() -> Future.failedFuture(
 						CommandFailure.stableInvalid("Indexer not found: " + destination.indexerId())
@@ -173,7 +182,7 @@ class MetadataSubmitIndexActionRouter {
 			));
 	}
 
-	private Future<List<IndexerRecord>> resolveIndexersByTarget(
+	private Future<List<IndexerModel>> resolveIndexersByTarget(
 		SubmitIndexActionsCommand submit,
 		IndexerActionItem action,
 		ActionDestination destination,
@@ -210,32 +219,35 @@ class MetadataSubmitIndexActionRouter {
 					.toList();
 
 				if (matches.isEmpty()) {
-					return prepareReceivers(submit, action, target, activeCandidates, routingContext)
+					return prepareReceivers(submit, action, activeCandidates, routingContext)
 						.compose(prepared -> {
 							if (!prepared.isEmpty()) {
 								return Future.succeededFuture(prepared);
 							}
 
 							return autoProvision
-								? ensureWritableIndexer(target, routingContext).map(List::of)
+								? ensureWritableIndexer(target, routingContext)
+									.map(MetadataIndexerModels::fromRecord)
+									.map(List::of)
 								: Future.failedFuture(CommandFailure.stableInvalid(
 									"No writable indexers found for target id: " + target.id()
 								));
 						});
 				}
 
-				return Future.succeededFuture(matches);
+				return Future.succeededFuture(matches.stream()
+					.map(MetadataIndexerModels::fromRecord)
+					.toList());
 			});
 	}
 
-	private Future<List<IndexerRecord>> prepareReceivers(
+	private Future<List<IndexerModel>> prepareReceivers(
 		SubmitIndexActionsCommand submit,
 		IndexerActionItem action,
-		TargetRecord target,
 		List<IndexerRecord> candidates,
 		MetadataRoutingContext routingContext
 	) {
-		Future<List<IndexerRecord>> prepared = Future.succeededFuture(List.of());
+		Future<List<IndexerModel>> prepared = Future.succeededFuture(List.of());
 
 		for (IndexerRecord candidate : candidates) {
 			prepared = prepared.compose(current -> {
@@ -243,21 +255,21 @@ class MetadataSubmitIndexActionRouter {
 					return Future.succeededFuture(current);
 				}
 
-				return prepareReceiver(submit, action, target, candidate, routingContext);
+				return prepareReceiver(submit, action, candidate, routingContext);
 			});
 		}
 
 		return prepared;
 	}
 
-	private Future<List<IndexerRecord>> prepareReceiver(
+	private Future<List<IndexerModel>> prepareReceiver(
 		SubmitIndexActionsCommand submit,
 		IndexerActionItem action,
-		TargetRecord target,
 		IndexerRecord candidate,
 		MetadataRoutingContext routingContext
 	) {
-		Future<List<IndexerRecord>> prepared = Future.succeededFuture(List.of());
+		Future<List<IndexerModel>> prepared = Future.succeededFuture(List.of());
+		IndexerModel candidateModel = MetadataIndexerModels.fromRecord(candidate);
 
 		for (IndexerActionReceiveCapability capability : receiveCapabilities) {
 			prepared = prepared.compose(current -> {
@@ -265,19 +277,18 @@ class MetadataSubmitIndexActionRouter {
 					return Future.succeededFuture(current);
 				}
 
-				return capability.canReceive(candidate, action)
+				return capability.canReceive(candidateModel, action)
 					.compose(readiness -> {
 						if (readiness == ActionReceiveReadiness.NO) {
 							return Future.succeededFuture(List.of());
 						}
 						if (readiness == ActionReceiveReadiness.YES) {
-							return Future.succeededFuture(List.of(candidate));
+							return Future.succeededFuture(List.of(candidateModel));
 						}
 
 						return capability.prepareToReceive(new PrepareIndexerForActionsRequest(
 							submit.getCorrelationId(),
-							target,
-							candidate,
+							candidateModel,
 							List.of(action),
 							submit.getTimestamp()
 						)).map(result -> preparedIndexers(result, routingContext));
@@ -288,13 +299,13 @@ class MetadataSubmitIndexActionRouter {
 		return prepared;
 	}
 
-	private List<IndexerRecord> preparedIndexers(
+	private List<IndexerModel> preparedIndexers(
 		PreparedIndexers prepared,
 		MetadataRoutingContext routingContext
 	) {
 		if (prepared.metadataChanged()) {
-			for (IndexerRecord indexer : prepared.indexers()) {
-				routingContext.markMetadataChanged(indexer.id());
+			for (IndexerModel indexer : prepared.indexers()) {
+				routingContext.markMetadataChanged(indexer.getId());
 			}
 		}
 
@@ -460,7 +471,7 @@ class MetadataSubmitIndexActionRouter {
 
 	private IndexerActionItem toConcreteAction(
 		IndexerActionItem action,
-		IndexerRecord indexer
+		IndexerModel indexer
 	) {
 		return switch (action.getActionType()) {
 			case PUT_DOCUMENT -> {
@@ -468,14 +479,14 @@ class MetadataSubmitIndexActionRouter {
 			}
 			case REMOVE_DOCUMENT -> routeAction(action, indexer);
 			case COMPLETE -> CompleteIndexActionItem.builder()
-				.withTargetId(indexer.targetId())
-				.withIndexerId(indexer.id())
+				.withTargetId(indexer.getTargetId())
+				.withIndexerId(indexer.getId())
 				.build();
 			case CATCH_UP_BARRIER -> {
 				CatchUpBarrierActionItem barrier = (CatchUpBarrierActionItem) action;
 				yield CatchUpBarrierActionItem.builder()
-					.withTargetId(indexer.targetId())
-					.withIndexerId(indexer.id())
+					.withTargetId(indexer.getTargetId())
+					.withIndexerId(indexer.getId())
 					.withBarrierId(barrier.getBarrierId())
 					.withBarrierTimestamp(barrier.getBarrierTimestamp())
 					.build();
@@ -485,25 +496,25 @@ class MetadataSubmitIndexActionRouter {
 
 	private IndexerActionItem routeAction(
 		IndexerActionItem action,
-		IndexerRecord indexer
+		IndexerModel indexer
 	) {
 		return Actions.getProvider(action.getActionType())
 			.router()
 			.route(new IndexerActionRouteContext(
-				indexer.targetId(),
-				indexer.id(),
-				indexer.targetName(),
-				indexer.indexName(),
+				indexer.getTargetId(),
+				indexer.getId(),
+				indexer.getTargetName(),
+				indexer.getIndexName(),
 				getQueueName(indexer),
-				indexer.role()
+				indexer.getRole()
 			), action, IndexerActionRouteMode.DIRECT)
 			.orElseThrow(() -> new IllegalArgumentException(
-				"Action is not accepted by indexer: " + indexer.indexName()
+				"Action is not accepted by indexer: " + indexer.getIndexName()
 			));
 	}
 
-	private String getQueueName(IndexerRecord indexer) {
-		return indexer.queueName() == null ? indexer.indexName() : indexer.queueName();
+	private String getQueueName(IndexerModel indexer) {
+		return indexer.getQueueName() == null ? indexer.getIndexName() : indexer.getQueueName();
 	}
 
 	private boolean hasPublicTarget(SubmitIndexActionsCommand submit) {
@@ -519,6 +530,34 @@ class MetadataSubmitIndexActionRouter {
 
 		private boolean metadataChanged(Integer indexerId) {
 			return metadataChangedIndexerIds.contains(indexerId);
+		}
+	}
+
+	private record IndexerActionGroup(
+		IndexerModel indexer,
+		List<IndexerActionItem> actions
+	) {
+	}
+
+	private record IndexerRouteKey(
+		Integer id,
+		Integer targetId,
+		String targetName,
+		String indexName,
+		String queueName,
+		IndexerRole role,
+		long version
+	) {
+		private static IndexerRouteKey from(IndexerModel indexer) {
+			return new IndexerRouteKey(
+				indexer.getId(),
+				indexer.getTargetId(),
+				indexer.getTargetName(),
+				indexer.getIndexName(),
+				indexer.getQueueName(),
+				indexer.getRole(),
+				indexer.getVersion()
+			);
 		}
 	}
 

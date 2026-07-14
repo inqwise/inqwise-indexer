@@ -8,8 +8,9 @@ import com.inqwise.indexer.catalog.indexers.IndexResourceOwnership;
 import com.inqwise.indexer.catalog.indexers.IndexerRole;
 import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
 import com.inqwise.indexer.catalog.indexers.IndexerType;
+import com.inqwise.indexer.catalog.indexers.IndexerModel;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
-import com.inqwise.indexer.metadata.IndexerRecord;
+import com.inqwise.indexer.metadata.MetadataIndexerModels;
 import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.metadata.MutationState;
 import com.inqwise.indexer.metadata.PublicationState;
@@ -26,25 +27,25 @@ public final class MetadataLazyLiveWriterCatalog implements LazyLiveWriterCatalo
 	}
 
 	@Override
-	public Future<IndexerRecord> getLiveWriter(Integer liveWriterId) {
+	public Future<IndexerModel> getLiveWriter(Integer liveWriterId) {
 		return metadataRepository.getIndexerById(liveWriterId)
 			.compose(found -> found
-				.map(Future::succeededFuture)
+				.map(indexer -> Future.succeededFuture(MetadataIndexerModels.fromRecord(indexer)))
 				.orElseGet(() -> Future.failedFuture(
 					"Linked live writer not found: " + liveWriterId
 				)));
 	}
 
 	@Override
-	public Future<IndexerRecord> createAttachedLiveWriter(
+	public Future<IndexerModel> createAttachedLiveWriter(
 		IndexerLoadRecord load,
-		IndexerRecord loadIndexer
+		IndexerModel loadIndexer
 	) {
 		return createIndexer.create(new InsertIndexer(
 			"live" + load.indexerId(),
 			load.targetId(),
-			loadIndexer.targetName(),
-			loadIndexer.indexName(),
+			loadIndexer.getTargetName(),
+			loadIndexer.getIndexName(),
 			liveQueueName(loadIndexer),
 			IndexerType.INDEX,
 			IndexerRole.LIVE_WRITER,
@@ -52,10 +53,10 @@ public final class MetadataLazyLiveWriterCatalog implements LazyLiveWriterCatalo
 			IndexerRuntimeState.ACTIVE,
 			PublicationState.UNPUBLISHED,
 			MutationState.WRITABLE
-		));
+		)).map(MetadataIndexerModels::fromRecord);
 	}
 
-	private String liveQueueName(IndexerRecord loadIndexer) {
-		return loadIndexer.queueName() + "--live";
+	private String liveQueueName(IndexerModel loadIndexer) {
+		return loadIndexer.getQueueName() + "--live";
 	}
 }

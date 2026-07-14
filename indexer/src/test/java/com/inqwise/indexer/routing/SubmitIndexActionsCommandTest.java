@@ -255,6 +255,51 @@ class SubmitIndexActionsCommandTest {
 	}
 
 	@Test
+	void metadataCommandGroupsActionsForTheSameResolvedRoute(VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		RecordingQueue queue = new RecordingQueue();
+		InMemoryCommandEngine commandService = metadataCommandService(
+			repository,
+			new InMemoryIndexerLifecycleEventBus(),
+			queue
+		);
+
+		repository.insertTarget(new InsertTarget(null, "customers", null))
+			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
+				null,
+				targetId,
+				"customers",
+				"customers_1",
+				"queue-customers-1",
+				IndexerType.INDEX,
+				IndexerRuntimeState.ACTIVE,
+				PublicationState.UNPUBLISHED,
+				MutationState.WRITABLE
+			)).compose(indexerId -> commandService.submit(new SubmitIndexActionsCommand(List.of(
+				IndexerActionItems.concretePutDocument(
+					targetId,
+					indexerId,
+					"customers_1",
+					"42",
+					new JsonObject().put("name", "Ada")
+				),
+				IndexerActionItems.concretePutDocument(
+					targetId,
+					indexerId,
+					"customers_1",
+					"43",
+					new JsonObject().put("name", "Grace")
+				)
+			)))))
+			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
+				assertEquals(List.of("queue-customers-1"), queue.publisherRequests);
+				assertEquals(2, queue.published.size());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
 	void publicTargetCommandCreatesPeriodTargetAndWritableIndexer(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
@@ -1126,11 +1171,13 @@ class SubmitIndexActionsCommandTest {
 
 	private static class RecordingQueue implements IndexerQueueClient {
 		private final List<IndexerActionItem> published = new ArrayList<>();
+		private final List<String> publisherRequests = new ArrayList<>();
 		private final Map<String, List<IndexerActionItem>> publishedByQueueName =
 			new LinkedHashMap<>();
 
 		@Override
 		public Future<IndexerQueuePublisher> publisher(String queueName) {
+			publisherRequests.add(queueName);
 			return Future.succeededFuture(new IndexerQueuePublisher() {
 				@Override
 				public Future<Void> publish(IndexerActionItem item) {
