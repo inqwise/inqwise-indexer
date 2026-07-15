@@ -14,7 +14,7 @@ import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.MetadataIndexerModels;
 import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.catalog.indexers.MutationState;
-import com.inqwise.indexer.metadata.PublicationState;
+import com.inqwise.indexer.publication.PublicationState;
 
 import io.vertx.core.Future;
 

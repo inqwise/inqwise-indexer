@@ -32,7 +32,7 @@ import com.inqwise.indexer.metadata.IndexerRecord;
 import com.inqwise.indexer.catalog.indexers.IndexerStatus;
 import com.inqwise.indexer.catalog.indexers.MutationState;
 import com.inqwise.indexer.metadata.MetadataIndexerModels;
-import com.inqwise.indexer.metadata.PublicationState;
+import com.inqwise.indexer.publication.PublicationState;
 import com.inqwise.indexer.catalog.targets.TargetPeriod;
 import com.inqwise.indexer.catalog.targets.TargetPeriodResolver;
 import com.inqwise.indexer.catalog.targets.TargetPeriodStrategy;

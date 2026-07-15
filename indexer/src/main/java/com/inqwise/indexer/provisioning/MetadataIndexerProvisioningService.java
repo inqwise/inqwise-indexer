@@ -13,7 +13,7 @@ import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.metadata.InsertManifest;
 import com.inqwise.indexer.metadata.InsertPublication;
 import com.inqwise.indexer.metadata.ManifestStatus;
-import com.inqwise.indexer.metadata.ReadinessState;
+import com.inqwise.indexer.publication.ReadinessState;
 import com.inqwise.indexer.metadata.UpdateIndexerProvisioningState;
 
 import io.vertx.core.Future;

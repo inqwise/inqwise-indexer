@@ -16,7 +16,7 @@ import com.inqwise.indexer.catalog.indexers.IndexerProvisioningState;
 import com.inqwise.indexer.metadata.IndexerRecord;
 import com.inqwise.indexer.catalog.indexers.IndexerStatus;
 import com.inqwise.indexer.catalog.indexers.MutationState;
-import com.inqwise.indexer.metadata.PublicationState;
+import com.inqwise.indexer.publication.PublicationState;
 import com.inqwise.indexer.metadata.ReplacePublishedIndexer;
 
 import io.vertx.core.Future;

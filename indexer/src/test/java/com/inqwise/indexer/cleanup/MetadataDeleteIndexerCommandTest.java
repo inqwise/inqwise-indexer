@@ -18,7 +18,7 @@ import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
 import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.catalog.indexers.MutationState;
-import com.inqwise.indexer.metadata.PublicationState;
+import com.inqwise.indexer.publication.PublicationState;
 import com.inqwise.indexer.catalog.indexers.IndexerOperations;
 import com.inqwise.indexer.catalog.indexers.MetadataIndexerOperations;
 import com.inqwise.indexer.adapters.local.InMemoryCommandEngine;

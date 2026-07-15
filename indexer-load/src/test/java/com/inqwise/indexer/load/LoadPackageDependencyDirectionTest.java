@@ -73,7 +73,7 @@ class LoadPackageDependencyDirectionTest {
 			"com.inqwise.indexer.metadata.IndexerRecord",
 			"com.inqwise.indexer.metadata.InsertIndexer",
 			"com.inqwise.indexer.catalog.indexers.MutationState",
-			"com.inqwise.indexer.metadata.PublicationState",
+			"com.inqwise.indexer.publication.PublicationState",
 			"com.inqwise.indexer.catalog.targets.TargetProvisioningState",
 			"com.inqwise.indexer.metadata.TargetRecord",
 			"com.inqwise.indexer.catalog.targets.TargetStatus"
@@ -84,7 +84,7 @@ class LoadPackageDependencyDirectionTest {
 			"com.inqwise.indexer.metadata.InsertIndexer",
 			"com.inqwise.indexer.metadata.MetadataIndexerModels",
 			"com.inqwise.indexer.catalog.indexers.MutationState",
-			"com.inqwise.indexer.metadata.PublicationState"
+			"com.inqwise.indexer.publication.PublicationState"
 		)),
 		entry("adapters/metadata/MetadataLoadPublicationRepository.java", Set.of(
 			"com.inqwise.indexer.metadata.DocumentStoreMetadataRepository",
@@ -92,7 +92,7 @@ class LoadPackageDependencyDirectionTest {
 			"com.inqwise.indexer.metadata.IndexerRecord",
 			"com.inqwise.indexer.catalog.indexers.IndexerStatus",
 			"com.inqwise.indexer.catalog.indexers.MutationState",
-			"com.inqwise.indexer.metadata.PublicationState",
+			"com.inqwise.indexer.publication.PublicationState",
 			"com.inqwise.indexer.metadata.ReplacePublishedIndexer"
 		))
 	);

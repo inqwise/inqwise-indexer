@@ -3,6 +3,8 @@ package com.inqwise.indexer.metadata;
 import com.inqwise.indexer.catalog.indexers.IndexerProvisioningState;
 import com.inqwise.indexer.catalog.indexers.IndexerStatus;
 import com.inqwise.indexer.catalog.indexers.MutationState;
+import com.inqwise.indexer.publication.PublicationState;
+import com.inqwise.indexer.publication.ReadinessState;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;

@@ -9,7 +9,7 @@ import com.inqwise.indexer.metadata.IndexerMetadataQuery;
 import com.inqwise.indexer.catalog.indexers.IndexerProvisioningState;
 import com.inqwise.indexer.catalog.indexers.IndexerStatus;
 import com.inqwise.indexer.catalog.indexers.MutationState;
-import com.inqwise.indexer.metadata.PublicationState;
+import com.inqwise.indexer.publication.PublicationState;
 
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonArray;

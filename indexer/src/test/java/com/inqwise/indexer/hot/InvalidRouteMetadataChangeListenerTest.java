@@ -17,7 +17,7 @@ import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepositor
 import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.catalog.indexers.MutationState;
-import com.inqwise.indexer.metadata.PublicationState;
+import com.inqwise.indexer.publication.PublicationState;
 import com.inqwise.indexer.catalog.targets.TargetProvisioningState;
 import com.inqwise.indexer.catalog.targets.TargetStatus;
 import com.inqwise.indexer.routing.InvalidRouteSignature;

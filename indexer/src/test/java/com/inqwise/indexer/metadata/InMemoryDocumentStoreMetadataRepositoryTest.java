@@ -5,6 +5,8 @@ import com.inqwise.indexer.catalog.indexers.IndexerProvisioningState;
 import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
 import com.inqwise.indexer.catalog.indexers.IndexerStatus;
 import com.inqwise.indexer.catalog.indexers.MutationState;
+import com.inqwise.indexer.publication.PublicationState;
+import com.inqwise.indexer.publication.ReadinessState;
 import com.inqwise.indexer.catalog.targets.ConcreteTargetKey;
 import com.inqwise.indexer.catalog.targets.TargetNameValidator;
 import com.inqwise.indexer.catalog.targets.TargetPeriod;

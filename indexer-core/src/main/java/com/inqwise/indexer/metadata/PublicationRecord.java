@@ -2,6 +2,8 @@ package com.inqwise.indexer.metadata;
 
 import java.time.Instant;
 
+import com.inqwise.indexer.publication.ReadinessState;
+
 public record PublicationRecord(
 	Integer id,
 	String prefix,

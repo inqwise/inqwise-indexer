@@ -22,7 +22,7 @@ import com.inqwise.indexer.metadata.DeleteTarget;
 import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.catalog.indexers.MutationState;
-import com.inqwise.indexer.metadata.PublicationState;
+import com.inqwise.indexer.publication.PublicationState;
 import com.inqwise.indexer.catalog.targets.TargetPeriod;
 import com.inqwise.indexer.catalog.targets.TargetPeriodResolver;
 import com.inqwise.indexer.catalog.targets.TargetPeriodStrategy;

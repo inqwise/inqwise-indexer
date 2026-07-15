@@ -17,6 +17,8 @@ import com.inqwise.indexer.catalog.indexers.MutationState;
 import com.inqwise.indexer.catalog.targets.TargetCatalogQuery;
 import com.inqwise.indexer.catalog.targets.TargetProvisioningState;
 import com.inqwise.indexer.catalog.targets.TargetStatus;
+import com.inqwise.indexer.publication.PublicationState;
+import com.inqwise.indexer.publication.ReadinessState;
 
 import io.vertx.core.Future;
 

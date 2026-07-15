@@ -19,7 +19,7 @@ import com.inqwise.indexer.adapters.local.StaticIndexerDefinitionProvider;
 import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.catalog.indexers.MutationState;
-import com.inqwise.indexer.metadata.PublicationState;
+import com.inqwise.indexer.publication.PublicationState;
 
 import io.vertx.core.json.JsonObject;
 import io.vertx.junit5.VertxExtension;

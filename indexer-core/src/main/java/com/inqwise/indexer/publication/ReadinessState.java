@@ -1,4 +1,4 @@
-package com.inqwise.indexer.metadata;
+package com.inqwise.indexer.publication;
 
 public enum ReadinessState {
 	PENDING,
