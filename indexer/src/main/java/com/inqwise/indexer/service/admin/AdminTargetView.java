@@ -2,9 +2,9 @@ package com.inqwise.indexer.service.admin;
 
 import java.time.Instant;
 
-import com.inqwise.indexer.metadata.TargetProvisioningState;
+import com.inqwise.indexer.catalog.targets.TargetProvisioningState;
 import com.inqwise.indexer.metadata.TargetRecord;
-import com.inqwise.indexer.metadata.TargetStatus;
+import com.inqwise.indexer.catalog.targets.TargetStatus;
 
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;

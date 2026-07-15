@@ -11,6 +11,9 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import com.inqwise.indexer.catalog.indexers.IndexerType;
+import com.inqwise.indexer.catalog.targets.TargetCatalogQuery;
+import com.inqwise.indexer.catalog.targets.TargetProvisioningState;
+import com.inqwise.indexer.catalog.targets.TargetStatus;
 
 import io.vertx.core.Future;
 
@@ -25,7 +28,7 @@ public class RepositoryPublishedIndexResolver implements PublishedIndexResolver 
 	public Future<List<PublishedIndex>> resolvePublishedIndexes(PublishedIndexQuery query) {
 		Objects.requireNonNull(query, "query");
 
-		TargetMetadataQuery targetQuery = new TargetMetadataQuery(
+		TargetCatalogQuery targetQuery = new TargetCatalogQuery(
 			null,
 			List.of(query.targetName()),
 			List.of(TargetStatus.ACTIVE),

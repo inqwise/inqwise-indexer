@@ -74,9 +74,9 @@ class LoadPackageDependencyDirectionTest {
 			"com.inqwise.indexer.metadata.InsertIndexer",
 			"com.inqwise.indexer.metadata.MutationState",
 			"com.inqwise.indexer.metadata.PublicationState",
-			"com.inqwise.indexer.metadata.TargetProvisioningState",
+			"com.inqwise.indexer.catalog.targets.TargetProvisioningState",
 			"com.inqwise.indexer.metadata.TargetRecord",
-			"com.inqwise.indexer.metadata.TargetStatus"
+			"com.inqwise.indexer.catalog.targets.TargetStatus"
 		)),
 		entry("adapters/metadata/MetadataLazyLiveWriterCatalog.java", Set.of(
 			"com.inqwise.indexer.catalog.indexers.CreateIndexerOperation",

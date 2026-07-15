@@ -15,14 +15,14 @@ import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
 import com.inqwise.indexer.catalog.indexers.IndexerType;
 import com.inqwise.indexer.catalog.targets.TargetDefinition;
 import com.inqwise.indexer.catalog.targets.TargetDefinitionProvider;
+import com.inqwise.indexer.catalog.targets.TargetCatalogQuery;
+import com.inqwise.indexer.catalog.targets.TargetProvisioningState;
+import com.inqwise.indexer.catalog.targets.TargetStatus;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.IndexerProvisioningState;
 import com.inqwise.indexer.metadata.IndexerStatus;
 import com.inqwise.indexer.metadata.MutationState;
-import com.inqwise.indexer.metadata.TargetMetadataQuery;
-import com.inqwise.indexer.metadata.TargetProvisioningState;
 import com.inqwise.indexer.metadata.TargetRecord;
-import com.inqwise.indexer.metadata.TargetStatus;
 import com.inqwise.indexer.providers.IndexerProviderQuery;
 import com.inqwise.indexer.providers.IndexerProviders;
 import com.inqwise.indexer.providers.HotIndexerCapability;
@@ -111,7 +111,7 @@ public class DefaultHotMetadataView implements HotMetadataView {
 	}
 
 	private Future<List<TargetRecord>> loadConcreteTargets(TargetDefinition definition) {
-		return repository.listTargets(new TargetMetadataQuery(
+		return repository.listTargets(new TargetCatalogQuery(
 			null,
 			List.of(definition.targetName()),
 			List.of(TargetStatus.ACTIVE),

@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 
 import com.inqwise.indexer.catalog.targets.ConcreteTargetKey;
+import com.inqwise.indexer.catalog.targets.TargetCatalogQuery;
 import com.inqwise.indexer.catalog.targets.TargetPeriod;
 
 import io.vertx.core.Future;
@@ -17,7 +18,7 @@ public interface DocumentStoreMetadataRepository {
 
 	Future<Optional<TargetRecord>> getTargetByDefinitionAndPeriod(ConcreteTargetKey key);
 
-	Future<List<TargetRecord>> listTargets(TargetMetadataQuery query);
+	Future<List<TargetRecord>> listTargets(TargetCatalogQuery query);
 
 	Future<TargetRecord> ensureTarget(String targetName, TargetPeriod period);
 

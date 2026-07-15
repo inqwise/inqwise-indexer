@@ -2,6 +2,9 @@ package com.inqwise.indexer.metadata;
 
 import java.time.Instant;
 
+import com.inqwise.indexer.catalog.targets.TargetProvisioningState;
+import com.inqwise.indexer.catalog.targets.TargetStatus;
+
 public record TargetRecord(
 	Integer id,
 	String prefix,

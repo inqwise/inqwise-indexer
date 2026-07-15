@@ -1,5 +1,8 @@
 package com.inqwise.indexer.metadata;
 
+import com.inqwise.indexer.catalog.targets.TargetProvisioningState;
+import com.inqwise.indexer.catalog.targets.TargetStatus;
+
 public record InsertTarget(
 	String prefix,
 	String targetName,

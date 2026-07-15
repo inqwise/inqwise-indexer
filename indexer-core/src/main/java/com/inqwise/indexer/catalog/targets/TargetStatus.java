@@ -1,4 +1,4 @@
-package com.inqwise.indexer.metadata;
+package com.inqwise.indexer.catalog.targets;
 
 public enum TargetStatus {
 	ACTIVE,

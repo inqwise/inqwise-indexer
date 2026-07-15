@@ -1,14 +1,14 @@
-package com.inqwise.indexer.metadata;
+package com.inqwise.indexer.catalog.targets;
 
 import java.util.List;
 
-public record TargetMetadataQuery(
+public record TargetCatalogQuery(
 	List<Integer> ids,
 	List<String> targetNames,
 	List<TargetStatus> statuses,
 	List<TargetProvisioningState> provisioningStates
 ) {
-	public TargetMetadataQuery {
+	public TargetCatalogQuery {
 		ids = copy(ids);
 		targetNames = copy(targetNames);
 		statuses = copy(statuses);

@@ -13,6 +13,8 @@ import com.inqwise.indexer.catalog.indexers.IndexResourceOwnership;
 import com.inqwise.indexer.catalog.indexers.IndexerRole;
 import com.inqwise.indexer.catalog.indexers.IndexerType;
 import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepository;
+import com.inqwise.indexer.catalog.targets.TargetProvisioningState;
+import com.inqwise.indexer.catalog.targets.TargetStatus;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

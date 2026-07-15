@@ -18,9 +18,9 @@ import com.inqwise.indexer.metadata.IndexerRecord;
 import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.metadata.MutationState;
 import com.inqwise.indexer.metadata.PublicationState;
-import com.inqwise.indexer.metadata.TargetProvisioningState;
+import com.inqwise.indexer.catalog.targets.TargetProvisioningState;
 import com.inqwise.indexer.metadata.TargetRecord;
-import com.inqwise.indexer.metadata.TargetStatus;
+import com.inqwise.indexer.catalog.targets.TargetStatus;
 import com.inqwise.indexer.provisioning.GeneratedIndexerResources;
 import com.inqwise.indexer.provisioning.IndexerResourceNameGenerator;
 

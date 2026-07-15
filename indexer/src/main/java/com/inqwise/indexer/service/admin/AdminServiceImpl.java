@@ -97,7 +97,7 @@ public class AdminServiceImpl implements AdminService {
 	public Future<AdminTargetListResult> listTargets(AdminTargetQuery query) {
 		try {
 			AdminTargetQuery resolved = query == null ? new AdminTargetQuery() : query;
-			return repository.listTargets(resolved.toMetadataQuery())
+			return repository.listTargets(resolved.toCatalogQuery())
 				.map(targets -> new AdminTargetListResult().setTargets(targets.stream()
 					.map(AdminTargetView::from)
 					.toList()))

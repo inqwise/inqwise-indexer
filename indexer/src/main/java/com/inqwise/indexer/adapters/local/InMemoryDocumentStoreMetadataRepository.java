@@ -15,6 +15,8 @@ import com.inqwise.indexer.catalog.indexers.IndexerRole;
 import com.inqwise.indexer.catalog.indexers.IndexerType;
 import com.inqwise.indexer.errors.RetryableStaleStateException;
 import com.inqwise.indexer.catalog.targets.ConcreteTargetKey;
+import com.inqwise.indexer.catalog.targets.TargetCatalogQuery;
+import com.inqwise.indexer.catalog.targets.TargetProvisioningState;
 import com.inqwise.indexer.metadata.DeleteManifest;
 import com.inqwise.indexer.metadata.DeletePublication;
 import com.inqwise.indexer.metadata.DeleteTarget;
@@ -36,13 +38,11 @@ import com.inqwise.indexer.metadata.PublicationRecord;
 import com.inqwise.indexer.metadata.PublicationState;
 import com.inqwise.indexer.metadata.ReadinessState;
 import com.inqwise.indexer.metadata.ReplacePublishedIndexer;
-import com.inqwise.indexer.metadata.TargetMetadataQuery;
 import com.inqwise.indexer.catalog.targets.TargetNameValidator;
 import com.inqwise.indexer.catalog.targets.TargetPeriod;
 import com.inqwise.indexer.catalog.targets.TargetPeriodStrategy;
-import com.inqwise.indexer.metadata.TargetProvisioningState;
 import com.inqwise.indexer.metadata.TargetRecord;
-import com.inqwise.indexer.metadata.TargetStatus;
+import com.inqwise.indexer.catalog.targets.TargetStatus;
 import com.inqwise.indexer.metadata.UpdateIndexerMutationState;
 import com.inqwise.indexer.metadata.UpdateIndexerProvisioningState;
 import com.inqwise.indexer.metadata.UpdateIndexerPublicationState;
@@ -111,9 +111,9 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 	}
 
 	@Override
-	public Future<List<TargetRecord>> listTargets(TargetMetadataQuery query) {
-		TargetMetadataQuery resolvedQuery = query == null
-			? new TargetMetadataQuery(null, null, null, null)
+	public Future<List<TargetRecord>> listTargets(TargetCatalogQuery query) {
+		TargetCatalogQuery resolvedQuery = query == null
+			? new TargetCatalogQuery(null, null, null, null)
 			: query;
 		return Future.succeededFuture(targetsById.values().stream()
 			.filter(target -> matches(resolvedQuery.ids(), target.id()))

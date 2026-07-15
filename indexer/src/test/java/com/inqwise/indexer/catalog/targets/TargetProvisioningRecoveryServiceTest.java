@@ -15,8 +15,6 @@ import com.inqwise.indexer.adapters.local.StaticIndexerDefinitionProvider;
 import com.inqwise.indexer.adapters.local.StaticTargetDefinitionProvider;
 import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.InsertTarget;
-import com.inqwise.indexer.metadata.TargetProvisioningState;
-import com.inqwise.indexer.metadata.TargetStatus;
 import com.inqwise.indexer.metadata.UpdateTargetProvisioningState;
 import com.inqwise.indexer.metadata.UpdateTargetStatus;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;

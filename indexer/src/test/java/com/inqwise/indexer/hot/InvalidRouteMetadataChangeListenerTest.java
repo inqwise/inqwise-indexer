@@ -18,8 +18,8 @@ import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.metadata.MutationState;
 import com.inqwise.indexer.metadata.PublicationState;
-import com.inqwise.indexer.metadata.TargetProvisioningState;
-import com.inqwise.indexer.metadata.TargetStatus;
+import com.inqwise.indexer.catalog.targets.TargetProvisioningState;
+import com.inqwise.indexer.catalog.targets.TargetStatus;
 import com.inqwise.indexer.routing.InvalidRouteSignature;
 
 import org.junit.jupiter.api.Test;

@@ -28,7 +28,6 @@ import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepositor
 import com.inqwise.indexer.metadata.MutationState;
 import com.inqwise.indexer.metadata.PublicationState;
 import com.inqwise.indexer.metadata.ReadinessState;
-import com.inqwise.indexer.metadata.TargetProvisioningState;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 import com.inqwise.indexer.provisioning.IndexerProvisioningService;
 import com.inqwise.indexer.provisioning.MetadataIndexerProvisioningService;

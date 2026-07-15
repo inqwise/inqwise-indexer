@@ -2,9 +2,9 @@ package com.inqwise.indexer.service.admin;
 
 import java.util.List;
 
-import com.inqwise.indexer.metadata.TargetMetadataQuery;
-import com.inqwise.indexer.metadata.TargetProvisioningState;
-import com.inqwise.indexer.metadata.TargetStatus;
+import com.inqwise.indexer.catalog.targets.TargetCatalogQuery;
+import com.inqwise.indexer.catalog.targets.TargetProvisioningState;
+import com.inqwise.indexer.catalog.targets.TargetStatus;
 
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonArray;
@@ -56,8 +56,8 @@ public class AdminTargetQuery {
 			.put(Keys.PROVISIONING_STATES, new JsonArray(provisioningStates.stream().map(Enum::name).toList()));
 	}
 
-	public TargetMetadataQuery toMetadataQuery() {
-		return new TargetMetadataQuery(ids, targetNames, statuses, provisioningStates);
+	public TargetCatalogQuery toCatalogQuery() {
+		return new TargetCatalogQuery(ids, targetNames, statuses, provisioningStates);
 	}
 
 	public List<Integer> getIds() {
