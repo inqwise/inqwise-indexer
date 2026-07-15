@@ -2,12 +2,14 @@ package com.inqwise.indexer.hot;
 
 import java.util.Optional;
 
+import com.inqwise.indexer.providers.HotIndexerCapability;
+
 import io.vertx.core.Future;
 
 public interface HotMetadataView {
 	Optional<HotTarget> findTargetByName(String targetName);
 
-	Optional<HotIndexer> findIndexerById(Integer indexerId);
+	Optional<HotIndexerCapability> findIndexerById(Integer indexerId);
 
 	Future<Void> refreshHotTargetByConcreteTargetId(Integer targetId);
 

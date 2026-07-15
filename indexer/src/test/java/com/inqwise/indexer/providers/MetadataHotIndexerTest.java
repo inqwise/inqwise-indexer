@@ -1,4 +1,4 @@
-package com.inqwise.indexer.hot;
+package com.inqwise.indexer.providers;
 
 import com.inqwise.indexer.adapters.local.InMemoryTargetInvalidationRegistry;
 import com.inqwise.indexer.adapters.local.InMemoryTargetInvalidationRegistryProvider;
@@ -26,7 +26,6 @@ import com.inqwise.indexer.metadata.MutationState;
 import com.inqwise.indexer.metadata.PublicationState;
 import com.inqwise.indexer.providers.IndexerProviderQuery;
 import com.inqwise.indexer.providers.IndexerProviders;
-import com.inqwise.indexer.providers.MetadataIndexerProvider;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
@@ -87,7 +86,7 @@ class MetadataHotIndexerTest {
 			MutationState.WRITABLE
 		).compose(id -> providers.getIndexerById(id))
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
-				HotIndexer hotIndexer = found.orElseThrow().hotIndexer().orElseThrow();
+				HotIndexerCapability hotIndexer = found.orElseThrow().hotIndexer().orElseThrow();
 				PutDocumentActionItem routed = (PutDocumentActionItem) hotIndexer.route(
 					IndexerActionItems.putDocument("42", new JsonObject().put("name", "Ada")),
 					IndexerActionRouteMode.CANDIDATE
@@ -116,7 +115,7 @@ class MetadataHotIndexerTest {
 			MutationState.WRITABLE
 		).compose(id -> providers.getIndexerById(id))
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
-				HotIndexer hotIndexer = found.orElseThrow().hotIndexer().orElseThrow();
+				HotIndexerCapability hotIndexer = found.orElseThrow().hotIndexer().orElseThrow();
 				PutDocumentActionItem mismatched = IndexerActionItems.concretePutDocument(
 					1,
 					999,

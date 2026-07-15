@@ -25,6 +25,7 @@ import com.inqwise.indexer.metadata.TargetRecord;
 import com.inqwise.indexer.metadata.TargetStatus;
 import com.inqwise.indexer.providers.IndexerProviderQuery;
 import com.inqwise.indexer.providers.IndexerProviders;
+import com.inqwise.indexer.providers.HotIndexerCapability;
 
 import io.vertx.core.Future;
 
@@ -34,7 +35,7 @@ public class DefaultHotMetadataView implements HotMetadataView {
 	private final IndexerProviders indexerProviders;
 	private final ConcurrentMap<String, HotTarget> targetsByName = new ConcurrentHashMap<>();
 	private final ConcurrentMap<Integer, HotTarget> targetsByConcreteTargetId = new ConcurrentHashMap<>();
-	private final ConcurrentMap<Integer, HotIndexer> indexersById = new ConcurrentHashMap<>();
+	private final ConcurrentMap<Integer, HotIndexerCapability> indexersById = new ConcurrentHashMap<>();
 	private final ConcurrentMap<Integer, HotTarget> targetsByIndexerId = new ConcurrentHashMap<>();
 
 	public DefaultHotMetadataView(
@@ -56,7 +57,7 @@ public class DefaultHotMetadataView implements HotMetadataView {
 	}
 
 	@Override
-	public Optional<HotIndexer> findIndexerById(Integer indexerId) {
+	public Optional<HotIndexerCapability> findIndexerById(Integer indexerId) {
 		return Optional.ofNullable(indexersById.get(indexerId));
 	}
 
@@ -142,10 +143,10 @@ public class DefaultHotMetadataView implements HotMetadataView {
 			null,
 			List.of(MutationState.WRITABLE)
 		)).map(resolvedIndexers -> {
-			Map<Integer, List<HotIndexer>> liveWritersByTargetId = resolvedIndexers.stream()
+			Map<Integer, List<HotIndexerCapability>> liveWritersByTargetId = resolvedIndexers.stream()
 				.flatMap(resolved -> resolved.hotIndexer().stream())
 				.collect(Collectors.groupingBy(
-					HotIndexer::targetId,
+					HotIndexerCapability::targetId,
 					LinkedHashMap::new,
 					Collectors.toList()
 				));
@@ -178,7 +179,7 @@ public class DefaultHotMetadataView implements HotMetadataView {
 			targetsByConcreteTargetId.put(targetId, target);
 		}
 
-		for (HotIndexer indexer : target.indexers()) {
+		for (HotIndexerCapability indexer : target.indexers()) {
 			indexersById.put(indexer.id(), indexer);
 			targetsByIndexerId.put(indexer.id(), target);
 		}

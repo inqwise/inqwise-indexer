@@ -2,6 +2,7 @@ package com.inqwise.indexer.hot;
 
 import com.inqwise.indexer.adapters.local.InMemoryTargetInvalidationRegistry;
 import com.inqwise.indexer.adapters.local.InMemoryTargetInvalidationRegistryProvider;
+import com.inqwise.indexer.providers.HotIndexerCapability;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -101,7 +102,7 @@ class TargetInvalidationMetadataChangeListenerTest {
 		}
 
 		@Override
-		public Optional<HotIndexer> findIndexerById(Integer indexerId) {
+		public Optional<HotIndexerCapability> findIndexerById(Integer indexerId) {
 			return Optional.empty();
 		}
 

@@ -17,6 +17,7 @@ import com.inqwise.indexer.actions.IndexerActionItems;
 import com.inqwise.indexer.actions.PutDocumentActionItem;
 import com.inqwise.indexer.actions.IndexerActionRouteMode;
 import com.inqwise.indexer.metadata.TargetPeriodStrategy;
+import com.inqwise.indexer.providers.HotIndexerCapability;
 
 import io.vertx.core.json.JsonObject;
 
@@ -127,7 +128,7 @@ class HotTargetTest {
 
 	private HotConcreteTarget concreteTarget(
 		String periodKey,
-		List<HotIndexer> liveWriters
+		List<HotIndexerCapability> liveWriters
 	) {
 		return new HotConcreteTarget(
 			periodKey == null ? 10 : "2026-05".equals(periodKey) ? 11 : 10,
@@ -139,7 +140,7 @@ class HotTargetTest {
 		);
 	}
 
-	private static class FakeHotIndexer implements HotIndexer {
+	private static class FakeHotIndexer implements HotIndexerCapability {
 		private final Integer targetId;
 		private final Integer indexerId;
 		private final String queueName;

@@ -26,7 +26,7 @@ import com.inqwise.indexer.routing.RoutedIndexActionPublisher;
 import com.inqwise.indexer.errors.IndexerErrorCodes;
 import com.inqwise.indexer.hot.HotIndexActionsRequest;
 import com.inqwise.indexer.hot.HotIndexActionsService;
-import com.inqwise.indexer.hot.HotIndexer;
+import com.inqwise.indexer.providers.HotIndexerCapability;
 import com.inqwise.indexer.hot.HotMetadataView;
 import com.inqwise.indexer.hot.HotTarget;
 
@@ -161,7 +161,7 @@ class TargetActionServiceVerticleTest {
 		}
 
 		@Override
-		public Optional<HotIndexer> findIndexerById(Integer indexerId) {
+		public Optional<HotIndexerCapability> findIndexerById(Integer indexerId) {
 			return Optional.empty();
 		}
 

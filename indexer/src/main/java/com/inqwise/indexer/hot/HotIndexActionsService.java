@@ -18,6 +18,7 @@ import com.inqwise.indexer.routing.RoutedIndexActionPublisher;
 import com.inqwise.indexer.routing.InvalidRouteCache;
 import com.inqwise.indexer.routing.InvalidRouteRecord;
 import com.inqwise.indexer.routing.InvalidRouteSignature;
+import com.inqwise.indexer.providers.HotIndexerCapability;
 
 import io.vertx.core.Future;
 
@@ -85,7 +86,7 @@ public class HotIndexActionsService {
 	}
 
 	private HotRouteResult routeDirect(HotIndexActionsRequest request) {
-		Map<HotIndexer, List<IndexerActionItem>> actionsByIndexer = new LinkedHashMap<>();
+		Map<HotIndexerCapability, List<IndexerActionItem>> actionsByIndexer = new LinkedHashMap<>();
 
 		for (IndexerActionItem action : request.actions()) {
 			ActionDestination destination = ActionDestination.from(action);
@@ -93,7 +94,9 @@ public class HotIndexActionsService {
 				return new HotRouteResult.Miss("Direct hot route requires indexer id");
 			}
 
-			HotIndexer indexer = hotMetadataView.findIndexerById(destination.indexerId()).orElse(null);
+			HotIndexerCapability indexer = hotMetadataView.findIndexerById(
+				destination.indexerId()
+			).orElse(null);
 			if (indexer == null) {
 				return new HotRouteResult.Miss("Hot indexer not found: " + destination.indexerId());
 			}

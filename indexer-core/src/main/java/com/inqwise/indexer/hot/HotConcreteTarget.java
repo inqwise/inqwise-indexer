@@ -4,13 +4,15 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 
+import com.inqwise.indexer.providers.HotIndexerCapability;
+
 public record HotConcreteTarget(
 	Integer targetId,
 	String targetName,
 	String periodKey,
 	Instant periodStartInclusive,
 	Instant periodEndExclusive,
-	List<HotIndexer> liveWriters
+	List<HotIndexerCapability> liveWriters
 ) {
 	public HotConcreteTarget {
 		Objects.requireNonNull(targetId, "targetId");

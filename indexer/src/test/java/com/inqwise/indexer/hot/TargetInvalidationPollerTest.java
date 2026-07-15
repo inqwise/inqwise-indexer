@@ -4,6 +4,7 @@ import com.inqwise.indexer.adapters.local.InMemoryTargetInvalidationRegistry;
 import com.inqwise.indexer.adapters.local.InMemoryTargetInvalidationRegistryProvider;
 import com.inqwise.indexer.lifecycle.TargetInvalidationEntries;
 import com.inqwise.indexer.lifecycle.TargetInvalidationRegistry;
+import com.inqwise.indexer.providers.HotIndexerCapability;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -193,7 +194,7 @@ class TargetInvalidationPollerTest {
 		}
 
 		@Override
-		public Optional<HotIndexer> findIndexerById(Integer indexerId) {
+		public Optional<HotIndexerCapability> findIndexerById(Integer indexerId) {
 			return Optional.empty();
 		}
 

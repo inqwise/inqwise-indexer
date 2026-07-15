@@ -1,4 +1,4 @@
-package com.inqwise.indexer.hot;
+package com.inqwise.indexer.providers;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -9,7 +9,7 @@ import com.inqwise.indexer.actions.IndexerActionRouteContext;
 import com.inqwise.indexer.actions.IndexerActionRouteMode;
 import com.inqwise.indexer.metadata.IndexerRecord;
 
-public class MetadataHotIndexer implements HotIndexer {
+public class MetadataHotIndexer implements HotIndexerCapability {
 	private final IndexerRecord record;
 
 	public MetadataHotIndexer(IndexerRecord record) {

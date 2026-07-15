@@ -1,11 +1,11 @@
-package com.inqwise.indexer.hot;
+package com.inqwise.indexer.providers;
 
 import java.util.Optional;
 
 import com.inqwise.indexer.actions.IndexerActionItem;
 import com.inqwise.indexer.actions.IndexerActionRouteMode;
 
-public interface HotIndexer {
+public interface HotIndexerCapability {
 	Integer id();
 
 	Integer targetId();

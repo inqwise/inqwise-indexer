@@ -196,6 +196,28 @@ class DeploymentPackageDependencyDirectionTest {
 		assertTrue(violations.isEmpty(), () -> String.join(System.lineSeparator(), violations));
 	}
 
+	@Test
+	void providersDoNotDependOnHotRouting() throws IOException {
+		List<String> violations = new ArrayList<>();
+		for (Path providersPackage : List.of(
+			CORE_MAIN_PACKAGE.resolve("providers"),
+			MAIN_PACKAGE.resolve("providers")
+		)) {
+			try (Stream<Path> files = Files.walk(providersPackage)) {
+				files
+					.filter(path -> path.toString().endsWith(".java"))
+					.forEach(path -> inspectImports(
+						path,
+						Set.of("hot"),
+						"provider boundary must not depend on hot routing",
+						violations
+					));
+			}
+		}
+
+		assertTrue(violations.isEmpty(), () -> String.join(System.lineSeparator(), violations));
+	}
+
 	private static boolean isDeploymentEnvelope(Path path) {
 		return ENVELOPE_PACKAGES.stream().anyMatch(packageName -> isPackage(path, packageName));
 	}

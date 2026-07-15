@@ -14,6 +14,7 @@ import com.inqwise.indexer.commands.RoutedIndexActions;
 import com.inqwise.indexer.metadata.TargetPeriod;
 import com.inqwise.indexer.metadata.TargetPeriodResolver;
 import com.inqwise.indexer.metadata.TargetPeriodStrategy;
+import com.inqwise.indexer.providers.HotIndexerCapability;
 
 public class HotTarget {
 	private static final String NONE_PERIOD_KEY = "";
@@ -45,11 +46,11 @@ public class HotTarget {
 
 	public List<Integer> indexerIds() {
 		return indexers().stream()
-			.map(HotIndexer::id)
+			.map(HotIndexerCapability::id)
 			.toList();
 	}
 
-	public List<HotIndexer> indexers() {
+	public List<HotIndexerCapability> indexers() {
 		return concreteTargetsByPeriodKey.values().stream()
 			.flatMap(target -> target.liveWriters().stream())
 			.toList();
@@ -84,7 +85,7 @@ public class HotTarget {
 			return new HotRouteResult.Miss("No hot live writers for target: " + concreteTarget.targetId());
 		}
 
-		Map<HotIndexer, List<IndexerActionItem>> actionsByIndexer = new LinkedHashMap<>();
+		Map<HotIndexerCapability, List<IndexerActionItem>> actionsByIndexer = new LinkedHashMap<>();
 		for (IndexerActionItem action : request.actions()) {
 			if (!routeAction(concreteTarget, actionsByIndexer, action)) {
 				return new HotRouteResult.Miss("Action was not accepted by hot live writers");
@@ -104,11 +105,11 @@ public class HotTarget {
 
 	private boolean routeAction(
 		HotConcreteTarget concreteTarget,
-		Map<HotIndexer, List<IndexerActionItem>> actionsByIndexer,
+		Map<HotIndexerCapability, List<IndexerActionItem>> actionsByIndexer,
 		IndexerActionItem action
 	) {
 		boolean accepted = false;
-		for (HotIndexer indexer : concreteTarget.liveWriters()) {
+		for (HotIndexerCapability indexer : concreteTarget.liveWriters()) {
 			Optional<IndexerActionItem> routed = indexer.route(action, IndexerActionRouteMode.CANDIDATE);
 			if (routed.isPresent()) {
 				actionsByIndexer.computeIfAbsent(indexer, ignored -> new ArrayList<>())
