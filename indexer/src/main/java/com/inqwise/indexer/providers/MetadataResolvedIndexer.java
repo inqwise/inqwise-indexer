@@ -5,10 +5,10 @@ import java.util.Optional;
 import com.inqwise.indexer.catalog.indexers.IndexerModel;
 import com.inqwise.indexer.catalog.indexers.IndexerRole;
 import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
-import com.inqwise.indexer.metadata.IndexerProvisioningState;
+import com.inqwise.indexer.catalog.indexers.IndexerProvisioningState;
 import com.inqwise.indexer.metadata.IndexerRecord;
-import com.inqwise.indexer.metadata.IndexerStatus;
-import com.inqwise.indexer.metadata.MutationState;
+import com.inqwise.indexer.catalog.indexers.IndexerStatus;
+import com.inqwise.indexer.catalog.indexers.MutationState;
 import com.inqwise.indexer.metadata.MetadataIndexerModels;
 
 public record MetadataResolvedIndexer(

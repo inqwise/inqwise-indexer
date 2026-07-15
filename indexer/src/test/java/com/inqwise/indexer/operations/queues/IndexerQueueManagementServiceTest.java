@@ -26,7 +26,7 @@ import com.inqwise.indexer.adapters.local.InMemoryCommandEngine;
 import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.metadata.IndexerRecord;
-import com.inqwise.indexer.metadata.MutationState;
+import com.inqwise.indexer.catalog.indexers.MutationState;
 import com.inqwise.indexer.metadata.PublicationState;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;

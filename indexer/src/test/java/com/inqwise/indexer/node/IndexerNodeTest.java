@@ -20,7 +20,7 @@ import com.inqwise.indexer.gateway.GatewayRestOptions;
 import com.inqwise.indexer.routing.InvalidRouteSignature;
 import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.metadata.InsertTarget;
-import com.inqwise.indexer.metadata.MutationState;
+import com.inqwise.indexer.catalog.indexers.MutationState;
 import com.inqwise.indexer.metadata.PublicationState;
 import com.inqwise.indexer.rest.action.TargetActionRestOptions;
 import com.inqwise.indexer.rest.admin.AdminRestOptions;

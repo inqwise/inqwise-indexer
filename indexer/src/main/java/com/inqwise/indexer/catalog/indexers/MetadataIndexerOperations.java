@@ -8,7 +8,7 @@ import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
 import com.inqwise.indexer.lifecycle.MetadataChangeNotifier;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.IndexerRecord;
-import com.inqwise.indexer.metadata.MutationState;
+import com.inqwise.indexer.catalog.indexers.MutationState;
 import com.inqwise.indexer.metadata.UpdateIndexerMutationState;
 import com.inqwise.indexer.metadata.UpdateIndexerRuntimeState;
 

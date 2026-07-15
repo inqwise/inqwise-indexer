@@ -6,6 +6,7 @@ import java.util.Optional;
 import com.inqwise.indexer.catalog.targets.ConcreteTargetKey;
 import com.inqwise.indexer.catalog.targets.TargetCatalogQuery;
 import com.inqwise.indexer.catalog.targets.TargetPeriod;
+import com.inqwise.indexer.catalog.indexers.MutationState;
 
 import io.vertx.core.Future;
 

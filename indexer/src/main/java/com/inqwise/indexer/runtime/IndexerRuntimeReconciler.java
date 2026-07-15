@@ -21,10 +21,10 @@ import com.inqwise.indexer.lifecycle.IndexerLifecycleProviderSignal;
 import com.inqwise.indexer.lifecycle.IndexerLifecycleSubscription;
 import com.inqwise.indexer.lifecycle.IndexerMetadataChanged;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
-import com.inqwise.indexer.metadata.IndexerProvisioningState;
+import com.inqwise.indexer.catalog.indexers.IndexerProvisioningState;
 import com.inqwise.indexer.metadata.IndexerRecord;
-import com.inqwise.indexer.metadata.IndexerStatus;
-import com.inqwise.indexer.metadata.MutationState;
+import com.inqwise.indexer.catalog.indexers.IndexerStatus;
+import com.inqwise.indexer.catalog.indexers.MutationState;
 
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;

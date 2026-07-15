@@ -5,6 +5,9 @@ import java.util.List;
 import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
 import com.inqwise.indexer.catalog.indexers.IndexerRole;
 import com.inqwise.indexer.catalog.indexers.IndexerType;
+import com.inqwise.indexer.catalog.indexers.IndexerProvisioningState;
+import com.inqwise.indexer.catalog.indexers.IndexerStatus;
+import com.inqwise.indexer.catalog.indexers.MutationState;
 
 public record IndexerMetadataQuery(
 	List<Integer> ids,

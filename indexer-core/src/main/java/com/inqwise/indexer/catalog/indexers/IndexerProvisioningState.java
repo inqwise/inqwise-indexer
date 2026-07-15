@@ -1,4 +1,4 @@
-package com.inqwise.indexer.metadata;
+package com.inqwise.indexer.catalog.indexers;
 
 public enum IndexerProvisioningState {
 	PROVISIONING,

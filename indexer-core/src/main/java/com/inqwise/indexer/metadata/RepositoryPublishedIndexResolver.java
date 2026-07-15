@@ -11,6 +11,9 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import com.inqwise.indexer.catalog.indexers.IndexerType;
+import com.inqwise.indexer.catalog.indexers.IndexerProvisioningState;
+import com.inqwise.indexer.catalog.indexers.IndexerStatus;
+import com.inqwise.indexer.catalog.indexers.MutationState;
 import com.inqwise.indexer.catalog.targets.TargetCatalogQuery;
 import com.inqwise.indexer.catalog.targets.TargetProvisioningState;
 import com.inqwise.indexer.catalog.targets.TargetStatus;
