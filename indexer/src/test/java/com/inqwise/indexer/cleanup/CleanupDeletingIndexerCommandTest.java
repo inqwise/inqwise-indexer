@@ -33,7 +33,7 @@ import com.inqwise.indexer.metadata.UpdateIndexerRuntimeState;
 import com.inqwise.indexer.catalog.indexers.IndexerOperations;
 import com.inqwise.indexer.catalog.indexers.MetadataIndexerOperations;
 import com.inqwise.indexer.catalog.indexers.MarkIndexerDeletingRequest;
-import com.inqwise.indexer.commands.InMemoryCommandEngine;
+import com.inqwise.indexer.adapters.local.InMemoryCommandEngine;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 
 import io.vertx.core.Future;

@@ -46,7 +46,7 @@ import com.inqwise.indexer.provisioning.IndexerQueueResourceManager;
 import com.inqwise.indexer.cleanup.CleanupDeletingIndexerCommandHandler;
 import com.inqwise.indexer.commands.CommandService;
 import com.inqwise.indexer.cleanup.DeleteIndexerCommandHandler;
-import com.inqwise.indexer.commands.InMemoryCommandEngine;
+import com.inqwise.indexer.adapters.local.InMemoryCommandEngine;
 import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.IndexerRecord;
 import com.inqwise.indexer.metadata.InsertTarget;

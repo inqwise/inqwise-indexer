@@ -14,7 +14,7 @@ import com.inqwise.indexer.adapters.local.InMemoryIndexerQueue;
 import com.inqwise.indexer.lifecycle.MetadataChangeNotifier;
 import com.inqwise.indexer.lifecycle.VertxIndexerLifecycleEventBusProvider;
 import com.inqwise.indexer.cleanup.DocumentStoreCommandHandlers;
-import com.inqwise.indexer.commands.InMemoryCommandEngine;
+import com.inqwise.indexer.adapters.local.InMemoryCommandEngine;
 import com.inqwise.indexer.definitions.IndexDefinition;
 import com.inqwise.indexer.definitions.IndexerDefinition;
 import com.inqwise.indexer.definitions.IndexerDefinitionProvider;

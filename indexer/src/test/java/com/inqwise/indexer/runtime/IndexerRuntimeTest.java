@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import com.inqwise.indexer.cleanup.DeleteIndexerCommand;
 import com.inqwise.indexer.cleanup.DeleteIndexerCommandHandler;
 import com.inqwise.indexer.cleanup.CleanupDeletingIndexerCommandHandler;
-import com.inqwise.indexer.commands.InMemoryCommandEngine;
+import com.inqwise.indexer.adapters.local.InMemoryCommandEngine;
 import com.inqwise.indexer.metadata.FinalizeIndexerDeletion;
 import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.InsertIndexer;

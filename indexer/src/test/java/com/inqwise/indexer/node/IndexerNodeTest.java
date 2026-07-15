@@ -15,7 +15,7 @@ import com.inqwise.indexer.lifecycle.IndexerMetadataChanged;
 import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
 import com.inqwise.indexer.catalog.indexers.IndexerType;
 import com.inqwise.indexer.lifecycle.TargetMetadataChanged;
-import com.inqwise.indexer.commands.InMemoryCommandEngine;
+import com.inqwise.indexer.adapters.local.InMemoryCommandEngine;
 import com.inqwise.indexer.gateway.GatewayRestOptions;
 import com.inqwise.indexer.hot.InvalidRouteSignature;
 import com.inqwise.indexer.metadata.InsertIndexer;

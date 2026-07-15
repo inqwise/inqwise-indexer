@@ -1,7 +1,15 @@
-package com.inqwise.indexer.commands;
+package com.inqwise.indexer.adapters.local;
 
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import com.inqwise.indexer.commands.Command;
+import com.inqwise.indexer.commands.CommandEngine;
+import com.inqwise.indexer.commands.CommandExecutionOutcome;
+import com.inqwise.indexer.commands.CommandFailureClassifier;
+import com.inqwise.indexer.commands.CommandHandler;
+import com.inqwise.indexer.commands.CommandHandlerRegistry;
+import com.inqwise.indexer.commands.CommandProcessor;
 
 import io.vertx.core.Future;
 

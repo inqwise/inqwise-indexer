@@ -34,7 +34,7 @@ import com.inqwise.indexer.runtime.IndexerRuntimeReconciler;
 import com.inqwise.indexer.adapters.local.InMemoryIndexerDocumentStore;
 import com.inqwise.indexer.adapters.local.InMemoryIndexerLifecycleEventBus;
 import com.inqwise.indexer.adapters.local.InMemoryIndexerQueue;
-import com.inqwise.indexer.commands.InMemoryCommandEngine;
+import com.inqwise.indexer.adapters.local.InMemoryCommandEngine;
 import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.metadata.PublicationState;

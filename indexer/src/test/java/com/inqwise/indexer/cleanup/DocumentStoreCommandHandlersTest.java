@@ -16,7 +16,7 @@ import com.inqwise.indexer.testing.TestMetadataChangeNotifiers;
 import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.catalog.indexers.MetadataIndexerOperations;
 import com.inqwise.indexer.commands.CommandHandler;
-import com.inqwise.indexer.commands.InMemoryCommandEngine;
+import com.inqwise.indexer.adapters.local.InMemoryCommandEngine;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 
 import io.vertx.junit5.VertxExtension;

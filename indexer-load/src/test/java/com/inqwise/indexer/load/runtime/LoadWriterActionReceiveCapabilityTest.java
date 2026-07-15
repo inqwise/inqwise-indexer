@@ -50,7 +50,7 @@ import com.inqwise.indexer.lifecycle.TargetMetadataChanged;
 import com.inqwise.indexer.commands.Command;
 import com.inqwise.indexer.commands.CommandService;
 import com.inqwise.indexer.cleanup.DeleteIndexerCommand;
-import com.inqwise.indexer.commands.InMemoryCommandEngine;
+import com.inqwise.indexer.adapters.local.InMemoryCommandEngine;
 import com.inqwise.indexer.commands.SubmitIndexActionsCommand;
 import com.inqwise.indexer.routing.SubmitIndexActionsCommandHandler;
 import com.inqwise.indexer.adapters.local.StaticTargetDefinitionProvider;

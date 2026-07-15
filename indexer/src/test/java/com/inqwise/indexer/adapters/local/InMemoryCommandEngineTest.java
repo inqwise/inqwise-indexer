@@ -1,4 +1,4 @@
-package com.inqwise.indexer.commands;
+package com.inqwise.indexer.adapters.local;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -6,6 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.atomic.AtomicReference;
+
+import com.inqwise.indexer.commands.Command;
+import com.inqwise.indexer.commands.CommandHandler;
+import com.inqwise.indexer.commands.CommandHandlerRegistry;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
