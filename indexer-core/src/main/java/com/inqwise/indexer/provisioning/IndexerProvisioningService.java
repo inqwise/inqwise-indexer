@@ -1,7 +1,5 @@
 package com.inqwise.indexer.provisioning;
 
-import com.inqwise.indexer.metadata.IndexerRecord;
-
 import io.vertx.core.Future;
 
 /**
@@ -9,5 +7,5 @@ import io.vertx.core.Future;
  * initial metadata. Catalog lifecycle operations stay in IndexerManagementService.
  */
 public interface IndexerProvisioningService {
-	Future<IndexerRecord> createIndexer(CreateIndexerProvisioningRequest request);
+	Future<ProvisionedIndexer> createIndexer(CreateIndexerProvisioningRequest request);
 }

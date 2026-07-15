@@ -41,7 +41,7 @@ public class MetadataIndexerProvisioningService implements IndexerProvisioningSe
 	}
 
 	@Override
-	public Future<IndexerRecord> createIndexer(CreateIndexerProvisioningRequest request) {
+	public Future<ProvisionedIndexer> createIndexer(CreateIndexerProvisioningRequest request) {
 		Objects.requireNonNull(request, "request");
 		return definitionProvider.get(new IndexerDefinitionRequest(
 			request.targetId(),
@@ -54,7 +54,12 @@ public class MetadataIndexerProvisioningService implements IndexerProvisioningSe
 				.compose(ignored -> insertManifest(indexer, definition))
 				.compose(ignored -> insertPublication(indexer))
 				.compose(ignored -> markReady(indexer))
-				.recover(error -> markFailed(indexer).compose(ignored -> Future.failedFuture(error)))));
+				.recover(error -> markFailed(indexer).compose(ignored -> Future.failedFuture(error)))))
+			.map(indexer -> new ProvisionedIndexer(
+				indexer.id(),
+				indexer.targetId(),
+				indexer.version()
+			));
 	}
 
 	private Future<IndexerRecord> insertProvisioning(CreateIndexerProvisioningRequest request) {

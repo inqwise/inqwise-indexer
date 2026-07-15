@@ -48,6 +48,7 @@ import com.inqwise.indexer.provisioning.CreateIndexerProvisioningRequest;
 import com.inqwise.indexer.provisioning.GeneratedIndexerResources;
 import com.inqwise.indexer.provisioning.IndexerProvisioningService;
 import com.inqwise.indexer.provisioning.IndexerResourceNameGenerator;
+import com.inqwise.indexer.provisioning.ProvisionedIndexer;
 
 import io.vertx.core.Future;
 
@@ -388,7 +389,7 @@ class MetadataSubmitIndexActionRouter {
 				PublicationState.UNPUBLISHED,
 				MutationState.WRITABLE
 			)))
-			.onSuccess(indexer -> routingContext.markMetadataChanged(indexer.id()))
+			.onSuccess(indexer -> routingContext.markMetadataChanged(indexer.indexerId()))
 			.compose(indexer -> repository.getTargetById(target.id())
 				.compose(found -> found
 					.map(current -> repository.updateTargetProvisioningState(new UpdateTargetProvisioningState(
@@ -397,7 +398,17 @@ class MetadataSubmitIndexActionRouter {
 						current.version()
 					)).map(indexer))
 					.orElseGet(() -> Future.failedFuture("Target not found: " + target.id()))))
+			.compose(this::getProvisionedIndexer)
 			.recover(error -> recoverWritableIndexerProvisioning(target, error));
+	}
+
+	private Future<IndexerRecord> getProvisionedIndexer(ProvisionedIndexer provisioned) {
+		return repository.getIndexerById(provisioned.indexerId())
+			.compose(found -> found
+				.map(Future::succeededFuture)
+				.orElseGet(() -> Future.failedFuture(
+					"Provisioned indexer not found: " + provisioned.indexerId()
+				)));
 	}
 
 	private Future<IndexerRecord> recoverWritableIndexerProvisioning(

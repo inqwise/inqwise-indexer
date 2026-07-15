@@ -57,7 +57,7 @@ class IndexerProvisioningServiceTest {
 				MutationState.WRITABLE
 			)).compose(indexer -> TestMetadataChangeNotifiers.create(eventBus).indexerChanged(
 				new com.inqwise.indexer.lifecycle.IndexerMetadataChanged(
-					indexer.id(), indexer.targetId(), "indexer.create", indexer.version()
+					indexer.indexerId(), indexer.targetId(), "indexer.create", indexer.version()
 				)
 			)).compose(ignored -> repository.listIndexersByTargetId(targetId)))
 			.onComplete(testContext.succeeding(indexers -> testContext.verify(() -> {

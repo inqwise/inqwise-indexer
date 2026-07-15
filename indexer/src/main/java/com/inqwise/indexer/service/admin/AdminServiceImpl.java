@@ -277,12 +277,12 @@ public class AdminServiceImpl implements AdminService {
 			validateCreateIndexer(request);
 			return indexerProvisioning.createIndexer(request.toProvisioningRequest())
 				.compose(indexer -> metadataChangeNotifier.indexerChanged(new IndexerMetadataChanged(
-						indexer.id(),
+						indexer.indexerId(),
 						indexer.targetId(),
 						"indexer.create",
 						indexer.version()
 					)).map(ignored -> indexer))
-				.map(indexer -> new AdminIndexerResult().setIndexer(AdminIndexerView.from(indexer)))
+				.compose(indexer -> loadIndexerResult(indexer.indexerId()))
 				.recover(error -> Future.failedFuture(IndexerErrors.normalize(error)));
 		} catch (Throwable error) {
 			return Future.failedFuture(IndexerErrors.normalize(error));

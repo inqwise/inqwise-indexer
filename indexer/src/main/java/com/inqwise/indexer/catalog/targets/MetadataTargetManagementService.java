@@ -18,6 +18,7 @@ import com.inqwise.indexer.publication.MarkIndexReadyRequest;
 import com.inqwise.indexer.publication.PublishIndexRequest;
 import com.inqwise.indexer.provisioning.CreateIndexerProvisioningRequest;
 import com.inqwise.indexer.provisioning.IndexerProvisioningService;
+import com.inqwise.indexer.provisioning.ProvisionedIndexer;
 
 import io.vertx.core.Future;
 
@@ -176,7 +177,7 @@ public class MetadataTargetManagementService implements TargetManagementService 
 		)).compose(this::getTarget);
 	}
 
-	private Future<IndexerRecord> provisionIndexer(
+	private Future<ProvisionedIndexer> provisionIndexer(
 		CreateTargetIndexerRequest create,
 		TargetRecord target
 	) {
@@ -195,21 +196,25 @@ public class MetadataTargetManagementService implements TargetManagementService 
 		));
 	}
 
-	private Future<IndexerRecord> preparePublication(
-		IndexerRecord indexer,
+	private Future<ProvisionedIndexer> preparePublication(
+		ProvisionedIndexer indexer,
 		CreateTargetIndexerRequest create
 	) {
-		return repository.getPublicationByIndexerId(indexer.id())
+		return repository.getPublicationByIndexerId(indexer.indexerId())
 			.compose(found -> found
 				.map(publication -> markPublicationReady(publication)
 					.compose(ignored -> create.initialPublicationMode() == InitialPublicationMode.PUBLISH
 						? publicationService.publish(new PublishIndexRequest(
-							indexer.id(),
+							indexer.indexerId(),
 							indexer.version()
+						)).map(published -> new ProvisionedIndexer(
+							published.id(),
+							published.targetId(),
+							published.version()
 						))
 						: Future.succeededFuture(indexer)))
 				.orElseGet(() -> Future.failedFuture(
-					"Publication not found for indexer: " + indexer.id()
+					"Publication not found for indexer: " + indexer.indexerId()
 				)));
 	}
 
@@ -240,9 +245,9 @@ public class MetadataTargetManagementService implements TargetManagementService 
 				.orElseGet(() -> Future.failedFuture("Target not found: " + target.id())));
 	}
 
-	private Future<Void> publishMetadataChanged(IndexerRecord indexer) {
+	private Future<Void> publishMetadataChanged(ProvisionedIndexer indexer) {
 		return metadataChangeNotifier.indexerChanged(new IndexerMetadataChanged(
-			indexer.id(),
+			indexer.indexerId(),
 			indexer.targetId(),
 			CHANGE_TYPE,
 			indexer.version()
