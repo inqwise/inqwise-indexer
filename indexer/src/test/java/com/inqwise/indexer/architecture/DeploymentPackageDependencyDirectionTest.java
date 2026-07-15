@@ -59,18 +59,22 @@ class DeploymentPackageDependencyDirectionTest {
 	}
 
 	@Test
-	void actionRoutingDoesNotConstructProvisioningServices() throws IOException {
-		Path routingPackage = MAIN_PACKAGE.resolve("routing");
+	void targetCatalogAndActionRoutingDependOnProvisioningContract() throws IOException {
 		List<String> violations = new ArrayList<>();
-		try (Stream<Path> files = Files.walk(routingPackage)) {
-			files
-				.filter(path -> path.toString().endsWith(".java"))
-				.forEach(path -> inspectText(
-					path,
-					"new IndexerProvisioningService(",
-					"action routing must receive the provisioning service from composition",
-					violations
-				));
+		for (Path packagePath : List.of(
+			MAIN_PACKAGE.resolve("catalog/targets"),
+			MAIN_PACKAGE.resolve("routing")
+		)) {
+			try (Stream<Path> files = Files.walk(packagePath)) {
+				files
+					.filter(path -> path.toString().endsWith(".java"))
+					.forEach(path -> inspectText(
+						path,
+						"MetadataIndexerProvisioningService",
+						"domain consumer must depend on the provisioning contract",
+						violations
+					));
+			}
 		}
 
 		assertTrue(violations.isEmpty(), () -> String.join(System.lineSeparator(), violations));

@@ -19,17 +19,13 @@ import com.inqwise.indexer.metadata.UpdateIndexerProvisioningState;
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 
-/**
- * Request/reply boundary for creating physical indexer resources and their
- * initial metadata. Catalog lifecycle operations stay in IndexerManagementService.
- */
-public class IndexerProvisioningService {
+public class MetadataIndexerProvisioningService implements IndexerProvisioningService {
 	private final DocumentStoreMetadataRepository repository;
 	private final IndexerDefinitionProvider definitionProvider;
 	private final IndexerDocumentIndexResourceManager documentIndexResources;
 	private final IndexerQueueResourceManager queueResources;
 
-	public IndexerProvisioningService(
+	public MetadataIndexerProvisioningService(
 		DocumentStoreMetadataRepository repository,
 		IndexerDefinitionProvider definitionProvider,
 		IndexerDocumentIndexResourceManager documentIndexResources,
@@ -45,6 +41,7 @@ public class IndexerProvisioningService {
 			: queueResources;
 	}
 
+	@Override
 	public Future<IndexerRecord> createIndexer(CreateIndexerProvisioningRequest request) {
 		Objects.requireNonNull(request, "request");
 		return definitionProvider.get(new IndexerDefinitionRequest(

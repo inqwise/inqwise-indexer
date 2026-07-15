@@ -68,8 +68,8 @@ import com.inqwise.indexer.metadata.PublicationState;
 import com.inqwise.indexer.providers.ActionReceiveReadiness;
 import com.inqwise.indexer.providers.IndexerPlugins;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
-import com.inqwise.indexer.provisioning.IndexerProvisioningService;
 import com.inqwise.indexer.provisioning.IndexerQueueResourceManager;
+import com.inqwise.indexer.provisioning.MetadataIndexerProvisioningService;
 
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
@@ -98,7 +98,7 @@ class LoadWriterActionReceiveCapabilityTest {
 			.register(new SubmitIndexActionsCommandHandler(
 				metadata,
 				new StaticTargetDefinitionProvider(List.of()),
-				new IndexerProvisioningService(
+				new MetadataIndexerProvisioningService(
 					metadata,
 					new StaticIndexerDefinitionProvider(new IndexerDefinition(
 						new IndexDefinition("default", "1", null, null),

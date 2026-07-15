@@ -26,6 +26,7 @@ import com.inqwise.indexer.operations.queues.MetadataIndexerQueueManagementServi
 import com.inqwise.indexer.operations.queues.ResetIndexerQueueRequest;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 import com.inqwise.indexer.provisioning.IndexerProvisioningService;
+import com.inqwise.indexer.provisioning.MetadataIndexerProvisioningService;
 import com.inqwise.indexer.publication.IndexPublicationService;
 import com.inqwise.indexer.publication.MetadataIndexPublicationService;
 import com.inqwise.indexer.catalog.targets.TargetManagementService;
@@ -71,7 +72,7 @@ public class AdminServiceImpl implements AdminService {
 			queueResources,
 			commandService
 		);
-		this.indexerProvisioning = new IndexerProvisioningService(
+		this.indexerProvisioning = new MetadataIndexerProvisioningService(
 			repository,
 			indexerDefinitionProvider,
 			documentIndexResources,

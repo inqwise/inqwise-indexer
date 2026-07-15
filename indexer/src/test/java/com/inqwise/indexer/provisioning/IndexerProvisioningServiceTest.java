@@ -32,7 +32,7 @@ class IndexerProvisioningServiceTest {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
-		IndexerProvisioningService service = new IndexerProvisioningService(
+		IndexerProvisioningService service = new MetadataIndexerProvisioningService(
 			repository,
 			new StaticIndexerDefinitionProvider(new IndexerDefinition(
 				new IndexDefinition("default", "1", new JsonObject(), new JsonObject()),

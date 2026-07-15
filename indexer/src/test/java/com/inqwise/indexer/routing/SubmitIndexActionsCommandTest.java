@@ -58,6 +58,7 @@ import com.inqwise.indexer.metadata.TargetStatus;
 import com.inqwise.indexer.metadata.UpdateTargetProvisioningState;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 import com.inqwise.indexer.provisioning.IndexerProvisioningService;
+import com.inqwise.indexer.provisioning.MetadataIndexerProvisioningService;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -1111,7 +1112,7 @@ class SubmitIndexActionsCommandTest {
 		IndexerDocumentIndexResourceManager documentResources,
 		IndexerQueueResourceManager queueResources
 	) {
-		return new IndexerProvisioningService(
+		return new MetadataIndexerProvisioningService(
 			repository,
 			new StaticIndexerDefinitionProvider(new IndexerDefinition(
 				new IndexDefinition("customers", "v1", new JsonObject(), new JsonObject()),

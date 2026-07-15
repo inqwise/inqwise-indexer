@@ -34,6 +34,7 @@ import com.inqwise.indexer.metadata.TargetPeriodStrategy;
 import com.inqwise.indexer.metadata.TargetProvisioningState;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 import com.inqwise.indexer.provisioning.IndexerProvisioningService;
+import com.inqwise.indexer.provisioning.MetadataIndexerProvisioningService;
 import com.inqwise.indexer.publication.MetadataIndexPublicationService;
 
 import io.vertx.core.Future;
@@ -210,7 +211,7 @@ class TargetManagementServiceTest {
 			new StaticTargetDefinitionProvider(List.of(
 				new TargetDefinition("customers", TargetPeriodStrategy.MONTHLY)
 			)),
-			new IndexerProvisioningService(
+			new MetadataIndexerProvisioningService(
 				repository,
 				indexerDefinitions,
 				documentResources,
