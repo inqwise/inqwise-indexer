@@ -110,6 +110,8 @@ The lifecycle package pass moved `MetadataChangeNotifier`, `VertxIndexerLifecycl
 
 The lifecycle contract pass moved `IndexerLifecycleEventBus`, `IndexerLifecycleEventBusProvider`, `IndexerLifecycleEventBusConfig`, `IndexerLifecycleSubscription`, `IndexerLifecycleProviderSignal`, `IndexerMetadataChanged`, and `TargetMetadataChanged` into `com.inqwise.indexer.lifecycle`. Runtime, catalog, cleanup, routing, load, adapter, and node code import those contracts explicitly.
 
+`DeploymentPackageDependencyDirectionTest` enforces the outer-envelope rule for the deployment module. Domain implementation and adapter packages must not import `service`, `rest`, `gateway`, or `node`; those envelope packages remain free to depend inward and `node` remains the final composition layer. Dependencies among the still-stabilizing domain packages are deliberately not frozen by this guard.
+
 Packages containing Vert.x `@DataObject`, `@ProxyGen`, or `@VertxGen` types keep explicit `package-info.java` `@ModuleGen` metadata so clean code generation does not depend on stale compiled package annotations. The old core root package no longer owns generated model types.
 
 ## Build And Repository Direction
