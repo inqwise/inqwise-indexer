@@ -1,10 +1,14 @@
-package com.inqwise.indexer.load.repository;
+package com.inqwise.indexer.load.adapters.metadata;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
 import com.inqwise.indexer.load.api.IndexerLoadRecord;
+import com.inqwise.indexer.load.repository.LoadCleanupRepository;
+import com.inqwise.indexer.load.repository.LoadIndexerReference;
+import com.inqwise.indexer.load.repository.LoadPublication;
+import com.inqwise.indexer.load.repository.LoadPublicationRepository;
 import com.inqwise.indexer.load.api.IndexerLoadState;
 import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;

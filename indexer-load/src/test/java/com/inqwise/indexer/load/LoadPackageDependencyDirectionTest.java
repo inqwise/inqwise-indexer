@@ -63,8 +63,8 @@ class LoadPackageDependencyDirectionTest {
 		"com.inqwise.indexer.runtime.IndexerQueueClient",
 		"com.inqwise.indexer.runtime.IndexerQueuePublisher"
 	);
-	private static final Map<String, Set<String>> PRE_SPLIT_TOLERATED_INDEXER_IMPORTS = Map.ofEntries(
-		entry("catalog/MetadataLoadCreationCatalog.java", Set.of(
+	private static final Map<String, Set<String>> METADATA_ADAPTER_INDEXER_IMPORTS = Map.ofEntries(
+		entry("adapters/metadata/MetadataLoadCreationCatalog.java", Set.of(
 			"com.inqwise.indexer.catalog.indexers.CreateIndexerOperation",
 			"com.inqwise.indexer.metadata.DocumentStoreMetadataRepository",
 			"com.inqwise.indexer.metadata.IndexerRecord",
@@ -75,7 +75,7 @@ class LoadPackageDependencyDirectionTest {
 			"com.inqwise.indexer.metadata.TargetRecord",
 			"com.inqwise.indexer.metadata.TargetStatus"
 		)),
-		entry("catalog/MetadataLazyLiveWriterCatalog.java", Set.of(
+		entry("adapters/metadata/MetadataLazyLiveWriterCatalog.java", Set.of(
 			"com.inqwise.indexer.catalog.indexers.CreateIndexerOperation",
 			"com.inqwise.indexer.metadata.DocumentStoreMetadataRepository",
 			"com.inqwise.indexer.metadata.InsertIndexer",
@@ -83,7 +83,7 @@ class LoadPackageDependencyDirectionTest {
 			"com.inqwise.indexer.metadata.MutationState",
 			"com.inqwise.indexer.metadata.PublicationState"
 		)),
-		entry("repository/MetadataLoadPublicationRepository.java", Set.of(
+		entry("adapters/metadata/MetadataLoadPublicationRepository.java", Set.of(
 			"com.inqwise.indexer.metadata.DocumentStoreMetadataRepository",
 			"com.inqwise.indexer.metadata.IndexerProvisioningState",
 			"com.inqwise.indexer.metadata.IndexerRecord",
@@ -120,7 +120,8 @@ class LoadPackageDependencyDirectionTest {
 		"runtime", Set.of("api", "catalog", "commands", "events", "repository"),
 		"commands", Set.of("api", "repository"),
 		"events", Set.of(),
-		"adapters.local", Set.of("api", "repository")
+		"adapters.local", Set.of("api", "repository"),
+		"adapters.metadata", Set.of("api", "catalog", "repository")
 	);
 
 	@Test
@@ -256,7 +257,7 @@ class LoadPackageDependencyDirectionTest {
 				if (STABLE_MAIN_INDEXER_IMPORTS.contains(imported)) {
 					continue;
 				}
-				if (isPreSplitToleratedImport(path, imported)) {
+				if (isMetadataAdapterImport(path, imported)) {
 					continue;
 				}
 				violations.add(path + ": load production code must use only accepted indexer contract/support types: " + line);
@@ -266,8 +267,8 @@ class LoadPackageDependencyDirectionTest {
 		}
 	}
 
-	private static boolean isPreSplitToleratedImport(Path path, String imported) {
-		return PRE_SPLIT_TOLERATED_INDEXER_IMPORTS
+	private static boolean isMetadataAdapterImport(Path path, String imported) {
+		return METADATA_ADAPTER_INDEXER_IMPORTS
 			.getOrDefault(relativeMainPath(path), Set.of())
 			.contains(imported);
 	}

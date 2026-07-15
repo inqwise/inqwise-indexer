@@ -5,7 +5,7 @@ import com.inqwise.indexer.load.api.IndexerLoadRecord;
 import com.inqwise.indexer.load.api.IndexerLoadState;
 import com.inqwise.indexer.load.api.LiveWriterPolicy;
 import com.inqwise.indexer.load.api.LoadWriter;
-import com.inqwise.indexer.load.catalog.MetadataLazyLiveWriterCatalog;
+import com.inqwise.indexer.load.adapters.metadata.MetadataLazyLiveWriterCatalog;
 import com.inqwise.indexer.load.events.LazyLiveWriterPreparationConflictEvent;
 import com.inqwise.indexer.load.events.LazyLiveWriterPreparationConflictReason;
 import com.inqwise.indexer.load.repository.AttachLiveWriterRequest;

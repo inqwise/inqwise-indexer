@@ -1,8 +1,9 @@
-package com.inqwise.indexer.load.catalog;
+package com.inqwise.indexer.load.adapters.metadata;
 
 import java.util.Objects;
 
 import com.inqwise.indexer.load.api.IndexerLoadRecord;
+import com.inqwise.indexer.load.catalog.LazyLiveWriterCatalog;
 import com.inqwise.indexer.catalog.indexers.CreateIndexerOperation;
 import com.inqwise.indexer.catalog.indexers.IndexResourceOwnership;
 import com.inqwise.indexer.catalog.indexers.IndexerRole;

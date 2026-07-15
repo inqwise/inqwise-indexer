@@ -11,10 +11,10 @@ import com.inqwise.indexer.load.api.LoadRequest;
 import com.inqwise.indexer.load.api.LoadStopRequest;
 import com.inqwise.indexer.load.api.LoadWriter;
 import com.inqwise.indexer.load.api.StartLoadRequest;
-import com.inqwise.indexer.load.catalog.MetadataLoadCreationCatalog;
-import com.inqwise.indexer.load.catalog.MetadataLazyLiveWriterCatalog;
+import com.inqwise.indexer.load.adapters.metadata.MetadataLoadCreationCatalog;
+import com.inqwise.indexer.load.adapters.metadata.MetadataLazyLiveWriterCatalog;
 import com.inqwise.indexer.load.commands.LoadCommandHandlers;
-import com.inqwise.indexer.load.repository.MetadataLoadPublicationRepository;
+import com.inqwise.indexer.load.adapters.metadata.MetadataLoadPublicationRepository;
 import com.inqwise.indexer.load.runtime.LoadIndexerPlugin;
 import com.inqwise.indexer.load.workflow.DefaultLoadManagementService;
 

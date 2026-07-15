@@ -9,9 +9,9 @@ import com.inqwise.indexer.load.repository.UpdateIndexerLoadBarrier;
 import com.inqwise.indexer.load.api.IndexerLoadRecord;
 import com.inqwise.indexer.load.api.IndexerLoadState;
 import com.inqwise.indexer.load.api.LiveWriterPolicy;
-import com.inqwise.indexer.load.catalog.MetadataLoadCreationCatalog;
+import com.inqwise.indexer.load.adapters.metadata.MetadataLoadCreationCatalog;
 import com.inqwise.indexer.load.repository.InsertIndexerLoad;
-import com.inqwise.indexer.load.repository.MetadataLoadPublicationRepository;
+import com.inqwise.indexer.load.adapters.metadata.MetadataLoadPublicationRepository;
 import com.inqwise.indexer.load.testing.LoadTestMetadataChangeNotifiers;
 import com.inqwise.indexer.load.workflow.DefaultLoadManagementService;
 

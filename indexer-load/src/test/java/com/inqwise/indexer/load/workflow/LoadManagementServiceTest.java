@@ -16,13 +16,13 @@ import com.inqwise.indexer.load.api.LoadStopRequest;
 import com.inqwise.indexer.load.api.LoadWriter;
 import com.inqwise.indexer.load.api.RecoverCreatedLoadRequest;
 import com.inqwise.indexer.load.api.StartLoadRequest;
-import com.inqwise.indexer.load.catalog.MetadataLoadCreationCatalog;
+import com.inqwise.indexer.load.adapters.metadata.MetadataLoadCreationCatalog;
 import com.inqwise.indexer.load.commands.CleanupLoadCommand;
 import com.inqwise.indexer.load.commands.CleanupLoadCommandHandler;
 import com.inqwise.indexer.load.commands.PublishLoadCommand;
 import com.inqwise.indexer.load.repository.UpdateIndexerLoadState;
 import com.inqwise.indexer.load.repository.InsertIndexerLoad;
-import com.inqwise.indexer.load.repository.MetadataLoadPublicationRepository;
+import com.inqwise.indexer.load.adapters.metadata.MetadataLoadPublicationRepository;
 import com.inqwise.indexer.load.testing.LoadTestMetadataChangeNotifiers;
 
 
