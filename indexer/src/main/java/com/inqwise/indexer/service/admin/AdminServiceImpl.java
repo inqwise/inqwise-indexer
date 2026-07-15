@@ -15,6 +15,7 @@ import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.IndexerRecord;
 import com.inqwise.indexer.metadata.TargetRecord;
 import com.inqwise.indexer.catalog.indexers.IndexerOperations;
+import com.inqwise.indexer.catalog.indexers.IndexerDeletionResult;
 import com.inqwise.indexer.catalog.indexers.MarkIndexerDeletingRequest;
 import com.inqwise.indexer.catalog.targets.MetadataTargetManagementService;
 import com.inqwise.indexer.catalog.targets.RecoverTargetProvisioningRequest;
@@ -212,11 +213,7 @@ public class AdminServiceImpl implements AdminService {
 				indexerId,
 				request.getExpectedVersion()
 			)).compose(marked -> marked
-				.map(indexer -> commandService.submit(new CleanupDeletingIndexerCommand(
-					indexer.id()
-				)).map(ignored -> new AdminIndexerResult().setIndexer(
-					AdminIndexerView.from(indexer)
-				)))
+				.map(this::submitIndexerCleanup)
 				.orElseGet(() -> Future.failedFuture(IndexerErrors.notFound(
 					"Indexer not found"
 				))))
@@ -224,6 +221,19 @@ public class AdminServiceImpl implements AdminService {
 		} catch (Throwable error) {
 			return Future.failedFuture(IndexerErrors.normalize(error));
 		}
+	}
+
+	private Future<AdminIndexerResult> submitIndexerCleanup(IndexerDeletionResult deletion) {
+		return repository.getIndexerById(deletion.indexerId())
+			.compose(found -> found
+				.map(indexer -> commandService.submit(new CleanupDeletingIndexerCommand(
+					deletion.indexerId()
+				)).map(ignored -> new AdminIndexerResult().setIndexer(
+					AdminIndexerView.from(indexer)
+				)))
+				.orElseGet(() -> Future.failedFuture(IndexerErrors.notFound(
+					"Indexer not found"
+				))));
 	}
 
 	@Override

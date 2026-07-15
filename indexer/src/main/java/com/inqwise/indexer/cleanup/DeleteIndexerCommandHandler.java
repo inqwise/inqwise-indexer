@@ -42,7 +42,7 @@ public final class DeleteIndexerCommandHandler implements CommandHandler {
 			delete.getExpectedVersion()
 		)).compose(marked -> marked
 			.map(indexer -> commandService.submit(new CleanupDeletingIndexerCommand(
-				indexer.id()
+				indexer.indexerId()
 			)))
 			.orElseGet(Future::succeededFuture));
 	}

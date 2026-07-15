@@ -93,8 +93,8 @@ class IndexerOperationsTest {
 	}
 
 	private record Result(
-		com.inqwise.indexer.metadata.IndexerRecord first,
-		com.inqwise.indexer.metadata.IndexerRecord second,
+		IndexerDeletionResult first,
+		IndexerDeletionResult second,
 		long invalidationVersion
 	) {
 	}

@@ -117,7 +117,7 @@ class CleanupDeletingIndexerCommandTest {
 			)
 				.markDeleting(new MarkIndexerDeletingRequest(indexer.indexerId(), 0L)))
 			.compose(marked -> {
-				Integer indexerId = marked.orElseThrow().id();
+				Integer indexerId = marked.orElseThrow().indexerId();
 				VersionChangingQueueResources queues = new VersionChangingQueueResources(
 					repository,
 					indexerId

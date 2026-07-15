@@ -4,11 +4,9 @@ import java.util.Objects;
 import java.util.Optional;
 
 import com.inqwise.indexer.lifecycle.IndexerMetadataChanged;
-import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
 import com.inqwise.indexer.lifecycle.MetadataChangeNotifier;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.IndexerRecord;
-import com.inqwise.indexer.catalog.indexers.MutationState;
 import com.inqwise.indexer.metadata.UpdateIndexerMutationState;
 import com.inqwise.indexer.metadata.UpdateIndexerRuntimeState;
 
@@ -32,13 +30,24 @@ public final class MetadataIndexerOperations implements IndexerOperations {
 	}
 
 	@Override
-	public Future<Optional<IndexerRecord>> markDeleting(MarkIndexerDeletingRequest request) {
+	public Future<Optional<IndexerDeletionResult>> markDeleting(MarkIndexerDeletingRequest request) {
 		Objects.requireNonNull(request, "request");
 
 		return repository.getIndexerById(request.indexerId())
 			.compose(found -> found
 				.map(indexer -> markDeleting(indexer, request.expectedVersion()))
-				.orElseGet(() -> Future.succeededFuture(Optional.empty())));
+				.orElseGet(() -> Future.succeededFuture(Optional.empty())))
+			.map(marked -> marked.map(this::toDeletionResult));
+	}
+
+	private IndexerDeletionResult toDeletionResult(IndexerRecord indexer) {
+		return new IndexerDeletionResult(
+			indexer.id(),
+			indexer.targetId(),
+			indexer.mutationState(),
+			indexer.runtimeState(),
+			indexer.version()
+		);
 	}
 
 	private Future<Optional<IndexerRecord>> markDeleting(

@@ -154,6 +154,25 @@ class DeploymentPackageDependencyDirectionTest {
 	}
 
 	@Test
+	void indexerDeletionContractsDoNotExposeMetadataPersistence() throws IOException {
+		List<String> violations = new ArrayList<>();
+		for (String fileName : List.of(
+			"IndexerOperations.java",
+			"MarkIndexerDeletingRequest.java",
+			"IndexerDeletionResult.java"
+		)) {
+			inspectImports(
+				CORE_MAIN_PACKAGE.resolve("catalog/indexers").resolve(fileName),
+				Set.of("metadata"),
+				"indexer deletion contract must not expose metadata persistence",
+				violations
+			);
+		}
+
+		assertTrue(violations.isEmpty(), () -> String.join(System.lineSeparator(), violations));
+	}
+
+	@Test
 	void actionRoutingDoesNotDependOnHotFastPath() throws IOException {
 		List<String> violations = new ArrayList<>();
 		for (Path routingPackage : List.of(
