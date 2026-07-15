@@ -11,7 +11,6 @@ import com.inqwise.indexer.definitions.IndexDefinition;
 import com.inqwise.indexer.definitions.IndexerDefinition;
 import com.inqwise.indexer.definitions.IndexerDefinitionProvider;
 import com.inqwise.indexer.definitions.QueueDefinition;
-import com.inqwise.indexer.adapters.local.StaticIndexerDefinitionProvider;
 import com.inqwise.indexer.commands.Command;
 import com.inqwise.indexer.commands.CommandFailure;
 import com.inqwise.indexer.commands.CommandHandler;
@@ -249,9 +248,10 @@ public class SubmitIndexActionsCommandHandler implements CommandHandler {
 	}
 
 	private static IndexerDefinitionProvider defaultIndexerDefinitionProvider() {
-		return new StaticIndexerDefinitionProvider(new IndexerDefinition(
+		IndexerDefinition definition = new IndexerDefinition(
 			new IndexDefinition("default", "1", null, null),
 			new QueueDefinition(null)
-		));
+		);
+		return ignored -> Future.succeededFuture(definition);
 	}
 }

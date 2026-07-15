@@ -128,9 +128,13 @@ public final class DefaultIndexerNodeComponentsFactory {
 		commandEngine.register(new SubmitIndexActionsCommandHandler(
 			repository,
 			targetDefinitionProvider,
+			indexerDefinitionProvider,
+			documentStore,
+			queue,
 			metadataChangeNotifier,
 			queue,
-			invalidRouteCache
+			invalidRouteCache,
+			List.of()
 		));
 		HotIndexActionsService hotIndexActionsService = new HotIndexActionsService(
 			hotMetadataView,
