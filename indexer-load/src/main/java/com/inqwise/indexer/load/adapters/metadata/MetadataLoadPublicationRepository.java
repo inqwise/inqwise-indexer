@@ -136,7 +136,6 @@ public final class MetadataLoadPublicationRepository
 		return new LoadIndexerReference(
 			indexer.id(),
 			indexer.targetId(),
-			indexer.indexName(),
 			indexer.version()
 		);
 	}

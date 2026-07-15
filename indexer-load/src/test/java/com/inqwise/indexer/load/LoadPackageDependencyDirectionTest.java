@@ -1,6 +1,7 @@
 package com.inqwise.indexer.load;
 
 import static java.util.Map.entry;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -11,6 +12,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
+
+import com.inqwise.indexer.load.repository.LoadIndexerReference;
 
 import org.junit.jupiter.api.Test;
 
@@ -158,6 +161,16 @@ class LoadPackageDependencyDirectionTest {
 		}
 
 		assertTrue(violations.isEmpty(), () -> String.join(System.lineSeparator(), violations));
+	}
+
+	@Test
+	void publicationAndCleanupReferenceContainsOnlyRequiredIndexerIdentity() {
+		assertArrayEquals(
+			new String[] { "id", "targetId", "version" },
+			Stream.of(LoadIndexerReference.class.getRecordComponents())
+				.map(component -> component.getName())
+				.toArray(String[]::new)
+		);
 	}
 
 	@Test
