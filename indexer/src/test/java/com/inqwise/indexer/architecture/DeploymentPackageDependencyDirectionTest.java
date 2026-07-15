@@ -127,6 +127,28 @@ class DeploymentPackageDependencyDirectionTest {
 		assertTrue(violations.isEmpty(), () -> String.join(System.lineSeparator(), violations));
 	}
 
+	@Test
+	void commandInfrastructureDoesNotDependOnCleanupWorkflow() throws IOException {
+		List<String> violations = new ArrayList<>();
+		for (Path commandsPackage : List.of(
+			CORE_MAIN_PACKAGE.resolve("commands"),
+			MAIN_PACKAGE.resolve("commands")
+		)) {
+			try (Stream<Path> files = Files.walk(commandsPackage)) {
+				files
+					.filter(path -> path.toString().endsWith(".java"))
+					.forEach(path -> inspectImports(
+						path,
+						Set.of("cleanup"),
+						"command infrastructure must not depend on cleanup workflow",
+						violations
+					));
+			}
+		}
+
+		assertTrue(violations.isEmpty(), () -> String.join(System.lineSeparator(), violations));
+	}
+
 	private static boolean isDeploymentEnvelope(Path path) {
 		return ENVELOPE_PACKAGES.stream().anyMatch(packageName -> isPackage(path, packageName));
 	}

@@ -10,22 +10,11 @@ import com.inqwise.indexer.actions.PutDocumentActionItem;
 
 import org.junit.jupiter.api.Test;
 
-import com.inqwise.indexer.cleanup.CleanupDeletingIndexerCommand;
-import com.inqwise.indexer.cleanup.CleanupResetIndexerQueueCommand;
-import com.inqwise.indexer.cleanup.DeleteIndexerCommand;
-
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
 class CommandPartitionKeyRouterTest {
 	private final CommandPartitionKeyRouter router = CommandPartitionKeyRouter.withCoreResolvers();
-
-	@Test
-	void resolvesCoreResourceIdentities() {
-		assertKey(DeleteIndexerCommand.TYPE, "indexer_id", 31, "indexer:31");
-		assertKey(CleanupResetIndexerQueueCommand.TYPE, "indexer_id", 31, "indexer:31");
-		assertKey(CleanupDeletingIndexerCommand.TYPE, "indexer_id", 31, "indexer:31");
-	}
 
 	@Test
 	void resolvesLogicalActionsByTargetName() {
@@ -107,19 +96,6 @@ class CommandPartitionKeyRouterTest {
 			"extension.command",
 			command -> new CommandPartitionKey("extension:2")
 		));
-	}
-
-	private void assertKey(
-		String commandType,
-		String field,
-		Object identity,
-		String expected
-	) {
-		GenericCommand command = new GenericCommand(
-			commandType,
-			new JsonObject().put(field, identity)
-		);
-		assertEquals(expected, router.resolve(command).value());
 	}
 
 	private GenericCommand actionsCommand(PutDocumentActionItem... actions) {

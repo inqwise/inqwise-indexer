@@ -4,9 +4,6 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 
 import com.inqwise.indexer.actions.IndexerActionItem;
-import com.inqwise.indexer.cleanup.CleanupDeletingIndexerCommand;
-import com.inqwise.indexer.cleanup.CleanupResetIndexerQueueCommand;
-import com.inqwise.indexer.cleanup.DeleteIndexerCommand;
 
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -16,19 +13,10 @@ final class CoreCommandPartitionKeyResolvers {
 	}
 
 	static void registerWith(CommandPartitionKeyRouter router) {
-		router
-			.register(DeleteIndexerCommand.TYPE, command -> indexer(command, "indexer_id"))
-			.register(CleanupResetIndexerQueueCommand.TYPE, command -> indexer(command, "indexer_id"))
-			.register(CleanupDeletingIndexerCommand.TYPE, command -> indexer(command, "indexer_id"))
-			.register(SubmitIndexActionsCommand.TYPE, CoreCommandPartitionKeyResolvers::actions);
-	}
-
-	private static CommandPartitionKey target(Command command, String field) {
-		return CommandPartitionKey.target(command.toJson().getInteger(field));
-	}
-
-	private static CommandPartitionKey indexer(Command command, String field) {
-		return CommandPartitionKey.indexer(command.toJson().getInteger(field));
+		router.register(
+			SubmitIndexActionsCommand.TYPE,
+			CoreCommandPartitionKeyResolvers::actions
+		);
 	}
 
 	private static CommandPartitionKey actions(Command command) {
