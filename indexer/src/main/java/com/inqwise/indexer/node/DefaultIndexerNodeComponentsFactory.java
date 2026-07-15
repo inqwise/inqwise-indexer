@@ -42,6 +42,7 @@ import com.inqwise.indexer.catalog.indexers.IndexerOperations;
 import com.inqwise.indexer.catalog.indexers.MetadataIndexerOperations;
 import com.inqwise.indexer.providers.IndexerProviders;
 import com.inqwise.indexer.providers.MetadataIndexerProvider;
+import com.inqwise.indexer.provisioning.IndexerProvisioningService;
 import com.inqwise.indexer.routing.RoutedIndexActionPublisher;
 import com.inqwise.indexer.routing.SubmitIndexActionsCommandHandler;
 import com.inqwise.indexer.service.invalidation.TargetInvalidationRegistryServices;
@@ -125,12 +126,16 @@ public final class DefaultIndexerNodeComponentsFactory {
 				indexerOperations
 			)
 		);
+		IndexerProvisioningService provisioningService = new IndexerProvisioningService(
+			repository,
+			indexerDefinitionProvider,
+			documentStore,
+			queue
+		);
 		commandEngine.register(new SubmitIndexActionsCommandHandler(
 			repository,
 			targetDefinitionProvider,
-			indexerDefinitionProvider,
-			documentStore,
-			queue,
+			provisioningService,
 			metadataChangeNotifier,
 			queue,
 			invalidRouteCache,

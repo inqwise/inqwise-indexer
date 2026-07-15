@@ -58,6 +58,24 @@ class DeploymentPackageDependencyDirectionTest {
 		assertTrue(violations.isEmpty(), () -> String.join(System.lineSeparator(), violations));
 	}
 
+	@Test
+	void actionRoutingDoesNotConstructProvisioningServices() throws IOException {
+		Path routingPackage = MAIN_PACKAGE.resolve("routing");
+		List<String> violations = new ArrayList<>();
+		try (Stream<Path> files = Files.walk(routingPackage)) {
+			files
+				.filter(path -> path.toString().endsWith(".java"))
+				.forEach(path -> inspectText(
+					path,
+					"new IndexerProvisioningService(",
+					"action routing must receive the provisioning service from composition",
+					violations
+				));
+		}
+
+		assertTrue(violations.isEmpty(), () -> String.join(System.lineSeparator(), violations));
+	}
+
 	private static boolean isDeploymentEnvelope(Path path) {
 		return ENVELOPE_PACKAGES.stream().anyMatch(packageName -> isPackage(path, packageName));
 	}
@@ -82,6 +100,23 @@ class DeploymentPackageDependencyDirectionTest {
 						|| line.startsWith("import static " + typePrefix)) {
 						violations.add(path + ": " + message + ": " + line);
 					}
+				}
+			}
+		} catch (IOException error) {
+			throw new IllegalStateException("Failed to inspect " + path, error);
+		}
+	}
+
+	private static void inspectText(
+		Path path,
+		String forbiddenText,
+		String message,
+		List<String> violations
+	) {
+		try {
+			for (String line : Files.readAllLines(path)) {
+				if (line.contains(forbiddenText)) {
+					violations.add(path + ": " + message + ": " + line.trim());
 				}
 			}
 		} catch (IOException error) {

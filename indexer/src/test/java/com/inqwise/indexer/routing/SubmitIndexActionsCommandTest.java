@@ -57,6 +57,7 @@ import com.inqwise.indexer.metadata.TargetProvisioningState;
 import com.inqwise.indexer.metadata.TargetStatus;
 import com.inqwise.indexer.metadata.UpdateTargetProvisioningState;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
+import com.inqwise.indexer.provisioning.IndexerProvisioningService;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -555,6 +556,7 @@ class SubmitIndexActionsCommandTest {
 			.register(new SubmitIndexActionsCommandHandler(
 				repository,
 				emptyTargetDefinitionProvider(),
+				defaultProvisioningService(repository),
 				TestMetadataChangeNotifiers.create(eventBus),
 				queue,
 				invalidRouteCache
@@ -1065,12 +1067,7 @@ class SubmitIndexActionsCommandTest {
 			.register(new SubmitIndexActionsCommandHandler(
 				repository,
 				customersMonthlyTargetDefinitionProvider(autoProvisionOnWrite),
-				new StaticIndexerDefinitionProvider(new IndexerDefinition(
-					new IndexDefinition("customers", "v1", new JsonObject(), new JsonObject()),
-					new QueueDefinition(new JsonObject())
-				)),
-				documentResources,
-				queueResources,
+				provisioningService(repository, documentResources, queueResources),
 				TestMetadataChangeNotifiers.create(eventBus),
 				queue,
 				null,
@@ -1091,17 +1088,38 @@ class SubmitIndexActionsCommandTest {
 			.register(new SubmitIndexActionsCommandHandler(
 				repository,
 				customersMonthlyTargetDefinitionProvider(autoProvisionOnWrite),
-				new StaticIndexerDefinitionProvider(new IndexerDefinition(
-					new IndexDefinition("customers", "v1", new JsonObject(), new JsonObject()),
-					new QueueDefinition(new JsonObject())
-				)),
-				documentResources,
-				queueResources,
+				provisioningService(repository, documentResources, queueResources),
 				TestMetadataChangeNotifiers.create(eventBus),
 				queue,
 				invalidRouteCache,
 				List.of()
 			));
+	}
+
+	private IndexerProvisioningService defaultProvisioningService(
+		InMemoryDocumentStoreMetadataRepository repository
+	) {
+		return provisioningService(
+			repository,
+			IndexerDocumentIndexResourceManager.NOOP,
+			IndexerQueueResourceManager.NOOP
+		);
+	}
+
+	private IndexerProvisioningService provisioningService(
+		InMemoryDocumentStoreMetadataRepository repository,
+		IndexerDocumentIndexResourceManager documentResources,
+		IndexerQueueResourceManager queueResources
+	) {
+		return new IndexerProvisioningService(
+			repository,
+			new StaticIndexerDefinitionProvider(new IndexerDefinition(
+				new IndexDefinition("customers", "v1", new JsonObject(), new JsonObject()),
+				new QueueDefinition(new JsonObject())
+			)),
+			documentResources,
+			queueResources
+		);
 	}
 
 	private record ColdProvisionResult(

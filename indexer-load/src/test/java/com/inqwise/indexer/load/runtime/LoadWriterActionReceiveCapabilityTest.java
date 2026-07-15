@@ -54,6 +54,10 @@ import com.inqwise.indexer.adapters.local.InMemoryCommandEngine;
 import com.inqwise.indexer.commands.SubmitIndexActionsCommand;
 import com.inqwise.indexer.routing.SubmitIndexActionsCommandHandler;
 import com.inqwise.indexer.adapters.local.StaticTargetDefinitionProvider;
+import com.inqwise.indexer.adapters.local.StaticIndexerDefinitionProvider;
+import com.inqwise.indexer.definitions.IndexDefinition;
+import com.inqwise.indexer.definitions.IndexerDefinition;
+import com.inqwise.indexer.definitions.QueueDefinition;
 import com.inqwise.indexer.errors.RetryableStaleStateException;
 import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.IndexerRecord;
@@ -63,6 +67,9 @@ import com.inqwise.indexer.metadata.MutationState;
 import com.inqwise.indexer.metadata.PublicationState;
 import com.inqwise.indexer.providers.ActionReceiveReadiness;
 import com.inqwise.indexer.providers.IndexerPlugins;
+import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
+import com.inqwise.indexer.provisioning.IndexerProvisioningService;
+import com.inqwise.indexer.provisioning.IndexerQueueResourceManager;
 
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
@@ -91,6 +98,15 @@ class LoadWriterActionReceiveCapabilityTest {
 			.register(new SubmitIndexActionsCommandHandler(
 				metadata,
 				new StaticTargetDefinitionProvider(List.of()),
+				new IndexerProvisioningService(
+					metadata,
+					new StaticIndexerDefinitionProvider(new IndexerDefinition(
+						new IndexDefinition("default", "1", null, null),
+						new QueueDefinition(null)
+					)),
+					IndexerDocumentIndexResourceManager.NOOP,
+					IndexerQueueResourceManager.NOOP
+				),
 				LoadTestMetadataChangeNotifiers.create(eventBus),
 				queue,
 				null,

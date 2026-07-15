@@ -12,7 +12,6 @@ import com.inqwise.indexer.actions.CatchUpBarrierActionItem;
 import com.inqwise.indexer.actions.CompleteIndexActionItem;
 import com.inqwise.indexer.catalog.indexers.IndexResourceOwnership;
 import com.inqwise.indexer.actions.IndexerActionItem;
-import com.inqwise.indexer.provisioning.IndexerQueueResourceManager;
 import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
 import com.inqwise.indexer.catalog.indexers.IndexerRole;
 import com.inqwise.indexer.catalog.indexers.IndexerType;
@@ -24,7 +23,6 @@ import com.inqwise.indexer.commands.ActionDestination;
 import com.inqwise.indexer.commands.CommandFailure;
 import com.inqwise.indexer.commands.RoutedIndexActions;
 import com.inqwise.indexer.commands.SubmitIndexActionsCommand;
-import com.inqwise.indexer.definitions.IndexerDefinitionProvider;
 import com.inqwise.indexer.definitions.TargetDefinition;
 import com.inqwise.indexer.definitions.TargetDefinitionProvider;
 import com.inqwise.indexer.metadata.ConcreteTargetKey;
@@ -48,7 +46,6 @@ import com.inqwise.indexer.providers.PrepareIndexerForActionsRequest;
 import com.inqwise.indexer.providers.PreparedIndexers;
 import com.inqwise.indexer.provisioning.CreateIndexerProvisioningRequest;
 import com.inqwise.indexer.provisioning.GeneratedIndexerResources;
-import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 import com.inqwise.indexer.provisioning.IndexerProvisioningService;
 import com.inqwise.indexer.provisioning.IndexerResourceNameGenerator;
 
@@ -64,9 +61,7 @@ class MetadataSubmitIndexActionRouter {
 	MetadataSubmitIndexActionRouter(
 		DocumentStoreMetadataRepository repository,
 		TargetDefinitionProvider targetDefinitionProvider,
-		IndexerDefinitionProvider indexerDefinitionProvider,
-		IndexerDocumentIndexResourceManager documentIndexResources,
-		IndexerQueueResourceManager queueResources,
+		IndexerProvisioningService provisioningService,
 		List<IndexerActionReceiveCapability> receiveCapabilities
 	) {
 		this.repository = Objects.requireNonNull(repository, "repository");
@@ -78,11 +73,9 @@ class MetadataSubmitIndexActionRouter {
 			receiveCapabilities,
 			"receiveCapabilities"
 		));
-		this.provisioningService = new IndexerProvisioningService(
-			repository,
-			indexerDefinitionProvider,
-			documentIndexResources,
-			queueResources
+		this.provisioningService = Objects.requireNonNull(
+			provisioningService,
+			"provisioningService"
 		);
 	}
 
