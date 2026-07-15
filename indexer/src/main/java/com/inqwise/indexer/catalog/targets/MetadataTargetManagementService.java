@@ -7,8 +7,6 @@ import com.inqwise.indexer.lifecycle.MetadataChangeNotifier;
 import com.inqwise.indexer.lifecycle.TargetMetadataChanged;
 import com.inqwise.indexer.commands.InitialPublicationMode;
 import com.inqwise.indexer.commands.CommandFailure;
-import com.inqwise.indexer.definitions.TargetDefinition;
-import com.inqwise.indexer.definitions.TargetDefinitionProvider;
 import com.inqwise.indexer.metadata.ConcreteTargetKey;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.IndexerRecord;

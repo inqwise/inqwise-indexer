@@ -128,6 +128,28 @@ class DeploymentPackageDependencyDirectionTest {
 	}
 
 	@Test
+	void catalogDoesNotDependOnPhysicalDefinitions() throws IOException {
+		List<String> violations = new ArrayList<>();
+		for (Path catalogPackage : List.of(
+			CORE_MAIN_PACKAGE.resolve("catalog"),
+			MAIN_PACKAGE.resolve("catalog")
+		)) {
+			try (Stream<Path> files = Files.walk(catalogPackage)) {
+				files
+					.filter(path -> path.toString().endsWith(".java"))
+					.forEach(path -> inspectImports(
+						path,
+						Set.of("definitions"),
+						"catalog must own target definitions and not depend on physical definitions",
+						violations
+					));
+			}
+		}
+
+		assertTrue(violations.isEmpty(), () -> String.join(System.lineSeparator(), violations));
+	}
+
+	@Test
 	void commandInfrastructureDoesNotDependOnCleanupWorkflow() throws IOException {
 		List<String> violations = new ArrayList<>();
 		for (Path commandsPackage : List.of(

@@ -7,8 +7,8 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import com.inqwise.indexer.definitions.TargetDefinition;
-import com.inqwise.indexer.definitions.TargetDefinitionProvider;
+import com.inqwise.indexer.catalog.targets.TargetDefinition;
+import com.inqwise.indexer.catalog.targets.TargetDefinitionProvider;
 
 import io.vertx.core.Future;
 

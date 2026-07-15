@@ -39,7 +39,7 @@ import com.inqwise.indexer.definitions.IndexerDefinition;
 import com.inqwise.indexer.definitions.QueueDefinition;
 import com.inqwise.indexer.adapters.local.StaticIndexerDefinitionProvider;
 import com.inqwise.indexer.adapters.local.StaticTargetDefinitionProvider;
-import com.inqwise.indexer.definitions.TargetDefinition;
+import com.inqwise.indexer.catalog.targets.TargetDefinition;
 import com.inqwise.indexer.adapters.local.InMemoryInvalidRouteCache;
 import com.inqwise.indexer.metadata.ConcreteTargetKey;
 import com.inqwise.indexer.metadata.ManifestStatus;

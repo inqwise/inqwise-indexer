@@ -16,7 +16,7 @@ import com.inqwise.indexer.actions.IndexerActionItems;
 import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
 import com.inqwise.indexer.catalog.indexers.IndexerType;
 import com.inqwise.indexer.adapters.local.StaticTargetDefinitionProvider;
-import com.inqwise.indexer.definitions.TargetDefinition;
+import com.inqwise.indexer.catalog.targets.TargetDefinition;
 import com.inqwise.indexer.metadata.ConcreteTargetKey;
 import com.inqwise.indexer.metadata.DeleteTarget;
 import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepository;

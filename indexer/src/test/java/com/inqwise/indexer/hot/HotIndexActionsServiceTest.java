@@ -34,7 +34,7 @@ import com.inqwise.indexer.routing.InvalidRouteRecord;
 import com.inqwise.indexer.routing.InvalidRouteSignature;
 import com.inqwise.indexer.commands.SubmitIndexActionsCommand;
 import com.inqwise.indexer.adapters.local.StaticTargetDefinitionProvider;
-import com.inqwise.indexer.definitions.TargetDefinition;
+import com.inqwise.indexer.catalog.targets.TargetDefinition;
 import com.inqwise.indexer.metadata.ConcreteTargetKey;
 import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.InsertIndexer;

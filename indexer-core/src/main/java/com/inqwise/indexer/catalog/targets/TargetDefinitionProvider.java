@@ -1,4 +1,4 @@
-package com.inqwise.indexer.definitions;
+package com.inqwise.indexer.catalog.targets;
 
 import java.util.Optional;
 
