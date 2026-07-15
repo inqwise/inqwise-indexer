@@ -4,12 +4,12 @@ import java.util.Objects;
 
 import com.inqwise.indexer.load.api.IndexerLoadRecord;
 import com.inqwise.indexer.load.catalog.LazyLiveWriterCatalog;
-import com.inqwise.indexer.catalog.indexers.CreateIndexerOperation;
 import com.inqwise.indexer.catalog.indexers.IndexResourceOwnership;
 import com.inqwise.indexer.catalog.indexers.IndexerRole;
 import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
 import com.inqwise.indexer.catalog.indexers.IndexerType;
 import com.inqwise.indexer.catalog.indexers.IndexerModel;
+import com.inqwise.indexer.metadata.CreateIndexerOperation;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.MetadataIndexerModels;
 import com.inqwise.indexer.metadata.InsertIndexer;

@@ -1,10 +1,6 @@
-package com.inqwise.indexer.catalog.indexers;
+package com.inqwise.indexer.metadata;
 
 import java.util.Objects;
-
-import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
-import com.inqwise.indexer.metadata.IndexerRecord;
-import com.inqwise.indexer.metadata.InsertIndexer;
 
 import io.vertx.core.Future;
 

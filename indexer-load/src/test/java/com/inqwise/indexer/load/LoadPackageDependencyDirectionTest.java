@@ -68,7 +68,7 @@ class LoadPackageDependencyDirectionTest {
 	);
 	private static final Map<String, Set<String>> METADATA_ADAPTER_INDEXER_IMPORTS = Map.ofEntries(
 		entry("adapters/metadata/MetadataLoadCreationCatalog.java", Set.of(
-			"com.inqwise.indexer.catalog.indexers.CreateIndexerOperation",
+			"com.inqwise.indexer.metadata.CreateIndexerOperation",
 			"com.inqwise.indexer.metadata.DocumentStoreMetadataRepository",
 			"com.inqwise.indexer.metadata.IndexerRecord",
 			"com.inqwise.indexer.metadata.InsertIndexer",
@@ -79,7 +79,7 @@ class LoadPackageDependencyDirectionTest {
 			"com.inqwise.indexer.catalog.targets.TargetStatus"
 		)),
 		entry("adapters/metadata/MetadataLazyLiveWriterCatalog.java", Set.of(
-			"com.inqwise.indexer.catalog.indexers.CreateIndexerOperation",
+			"com.inqwise.indexer.metadata.CreateIndexerOperation",
 			"com.inqwise.indexer.metadata.DocumentStoreMetadataRepository",
 			"com.inqwise.indexer.metadata.InsertIndexer",
 			"com.inqwise.indexer.metadata.MetadataIndexerModels",
