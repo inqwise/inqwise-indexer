@@ -3,12 +3,10 @@ package com.inqwise.indexer.catalog.targets;
 import java.util.Objects;
 
 import com.inqwise.indexer.lifecycle.IndexerMetadataChanged;
-import com.inqwise.indexer.provisioning.IndexerQueueResourceManager;
 import com.inqwise.indexer.lifecycle.MetadataChangeNotifier;
 import com.inqwise.indexer.lifecycle.TargetMetadataChanged;
 import com.inqwise.indexer.commands.InitialPublicationMode;
 import com.inqwise.indexer.commands.CommandFailure;
-import com.inqwise.indexer.definitions.IndexerDefinitionProvider;
 import com.inqwise.indexer.definitions.TargetDefinition;
 import com.inqwise.indexer.definitions.TargetDefinitionProvider;
 import com.inqwise.indexer.metadata.ConcreteTargetKey;
@@ -25,10 +23,8 @@ import com.inqwise.indexer.metadata.TargetStatus;
 import com.inqwise.indexer.metadata.UpdateTargetProvisioningState;
 import com.inqwise.indexer.publication.IndexPublicationService;
 import com.inqwise.indexer.publication.MarkIndexReadyRequest;
-import com.inqwise.indexer.publication.MetadataIndexPublicationService;
 import com.inqwise.indexer.publication.PublishIndexRequest;
 import com.inqwise.indexer.provisioning.CreateIndexerProvisioningRequest;
-import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 import com.inqwise.indexer.provisioning.IndexerProvisioningService;
 
 import io.vertx.core.Future;
@@ -46,9 +42,8 @@ public class MetadataTargetManagementService implements TargetManagementService 
 	public MetadataTargetManagementService(
 		DocumentStoreMetadataRepository repository,
 		TargetDefinitionProvider targetDefinitionProvider,
-		IndexerDefinitionProvider indexerDefinitionProvider,
-		IndexerDocumentIndexResourceManager documentIndexResources,
-		IndexerQueueResourceManager queueResources,
+		IndexerProvisioningService provisioningService,
+		IndexPublicationService publicationService,
 		MetadataChangeNotifier metadataChangeNotifier
 	) {
 		this.repository = Objects.requireNonNull(repository, "repository");
@@ -56,21 +51,17 @@ public class MetadataTargetManagementService implements TargetManagementService 
 			targetDefinitionProvider,
 			"targetDefinitionProvider"
 		);
-		this.provisioningService = new IndexerProvisioningService(
-			repository,
-			indexerDefinitionProvider,
-			documentIndexResources,
-			queueResources
+		this.provisioningService = Objects.requireNonNull(
+			provisioningService,
+			"provisioningService"
 		);
 		this.metadataChangeNotifier = Objects.requireNonNull(
 			metadataChangeNotifier,
 			"metadataChangeNotifier"
 		);
-		this.publicationService = new MetadataIndexPublicationService(
-			repository,
-			indexerDefinitionProvider,
-			documentIndexResources,
-			queueResources
+		this.publicationService = Objects.requireNonNull(
+			publicationService,
+			"publicationService"
 		);
 	}
 

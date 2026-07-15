@@ -26,6 +26,8 @@ import com.inqwise.indexer.operations.queues.MetadataIndexerQueueManagementServi
 import com.inqwise.indexer.operations.queues.ResetIndexerQueueRequest;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 import com.inqwise.indexer.provisioning.IndexerProvisioningService;
+import com.inqwise.indexer.publication.IndexPublicationService;
+import com.inqwise.indexer.publication.MetadataIndexPublicationService;
 import com.inqwise.indexer.catalog.targets.TargetManagementService;
 
 import io.vertx.core.Future;
@@ -69,19 +71,24 @@ public class AdminServiceImpl implements AdminService {
 			queueResources,
 			commandService
 		);
-		this.targetManagementService = new MetadataTargetManagementService(
-			repository,
-			targetDefinitionProvider,
-			indexerDefinitionProvider,
-			documentIndexResources,
-			queueResources,
-			metadataChangeNotifier
-		);
 		this.indexerProvisioning = new IndexerProvisioningService(
 			repository,
 			indexerDefinitionProvider,
 			documentIndexResources,
 			queueResources
+		);
+		IndexPublicationService indexPublicationService = new MetadataIndexPublicationService(
+			repository,
+			indexerDefinitionProvider,
+			documentIndexResources,
+			queueResources
+		);
+		this.targetManagementService = new MetadataTargetManagementService(
+			repository,
+			targetDefinitionProvider,
+			indexerProvisioning,
+			indexPublicationService,
+			metadataChangeNotifier
 		);
 	}
 

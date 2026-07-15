@@ -33,6 +33,8 @@ import com.inqwise.indexer.metadata.ReadinessState;
 import com.inqwise.indexer.metadata.TargetPeriodStrategy;
 import com.inqwise.indexer.metadata.TargetProvisioningState;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
+import com.inqwise.indexer.provisioning.IndexerProvisioningService;
+import com.inqwise.indexer.publication.MetadataIndexPublicationService;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
@@ -198,17 +200,28 @@ class TargetManagementServiceTest {
 		RecordingQueueResourceManager queueResources,
 		InMemoryIndexerLifecycleEventBus eventBus
 	) {
+		StaticIndexerDefinitionProvider indexerDefinitions =
+			new StaticIndexerDefinitionProvider(new IndexerDefinition(
+				new IndexDefinition("customers", "v1", new JsonObject(), new JsonObject()),
+				new QueueDefinition(new JsonObject())
+			));
 		return new MetadataTargetManagementService(
 			repository,
 			new StaticTargetDefinitionProvider(List.of(
 				new TargetDefinition("customers", TargetPeriodStrategy.MONTHLY)
 			)),
-			new StaticIndexerDefinitionProvider(new IndexerDefinition(
-				new IndexDefinition("customers", "v1", new JsonObject(), new JsonObject()),
-				new QueueDefinition(new JsonObject())
-			)),
-			documentResources,
-			queueResources,
+			new IndexerProvisioningService(
+				repository,
+				indexerDefinitions,
+				documentResources,
+				queueResources
+			),
+			new MetadataIndexPublicationService(
+				repository,
+				indexerDefinitions,
+				documentResources,
+				queueResources
+			),
 			TestMetadataChangeNotifiers.create(eventBus)
 		);
 	}
