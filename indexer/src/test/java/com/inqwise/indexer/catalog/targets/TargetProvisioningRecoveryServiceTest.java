@@ -46,7 +46,13 @@ class TargetProvisioningRecoveryServiceTest {
 		)).compose(targetId -> service.recoverProvisioning(new RecoverTargetProvisioningRequest(
 			targetId,
 			0L
-		)).compose(ignored -> repository.getTargetById(targetId)))
+		)).compose(result -> {
+			assertEquals(targetId, result.targetId());
+			assertEquals(TargetStatus.ACTIVE, result.status());
+			assertEquals(TargetProvisioningState.READY, result.provisioningState());
+			assertEquals(1L, result.version());
+			return repository.getTargetById(targetId);
+		}))
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
 				assertEquals(TargetProvisioningState.READY, found.orElseThrow().provisioningState());
 				assertEquals(1L, found.orElseThrow().version());

@@ -1,7 +1,5 @@
 package com.inqwise.indexer.catalog.targets;
 
-import com.inqwise.indexer.metadata.TargetRecord;
-
 import io.vertx.core.Future;
 
 /**
@@ -10,7 +8,7 @@ import io.vertx.core.Future;
  * and remote envelope remain provisional before external exposure.
  */
 public interface TargetManagementService {
-	Future<TargetRecord> createTarget(CreateTargetRequest request);
+	Future<TargetManagementResult> createTarget(CreateTargetRequest request);
 
-	Future<TargetRecord> recoverProvisioning(RecoverTargetProvisioningRequest request);
+	Future<TargetManagementResult> recoverProvisioning(RecoverTargetProvisioningRequest request);
 }

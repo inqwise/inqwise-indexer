@@ -60,7 +60,7 @@ public class MetadataTargetManagementService implements TargetManagementService 
 	}
 
 	@Override
-	public Future<TargetRecord> createTarget(CreateTargetRequest create) {
+	public Future<TargetManagementResult> createTarget(CreateTargetRequest create) {
 		return resolveDefinition(create)
 			.compose(definition -> resolvePeriod(create, definition)
 				.compose(period -> failIfTargetExists(definition, period)
@@ -75,11 +75,12 @@ public class MetadataTargetManagementService implements TargetManagementService 
 							.compose(readyTarget -> publishTargetMetadataChanged(readyTarget)
 								.compose(ignored -> publishMetadataChanged(preparedIndexer))
 								.map(readyTarget))))
-					.recover(error -> markTargetFailed(target).compose(ignored -> Future.failedFuture(error))));
+					.recover(error -> markTargetFailed(target).compose(ignored -> Future.failedFuture(error))))
+			.map(this::toManagementResult);
 	}
 
 	@Override
-	public Future<TargetRecord> recoverProvisioning(RecoverTargetProvisioningRequest request) {
+	public Future<TargetManagementResult> recoverProvisioning(RecoverTargetProvisioningRequest request) {
 		Objects.requireNonNull(request, "request");
 		return getTarget(request.targetId()).compose(target -> {
 			if (alreadyRecovered(target, request)) {
@@ -106,7 +107,17 @@ public class MetadataTargetManagementService implements TargetManagementService 
 				RECOVERY_CHANGE_TYPE,
 				request.expectedVersion() + 1L
 			)).compose(ignored -> getTarget(target.id()));
-		});
+		}).map(this::toManagementResult);
+	}
+
+	private TargetManagementResult toManagementResult(TargetRecord target) {
+		return new TargetManagementResult(
+			target.id(),
+			target.targetName(),
+			target.status(),
+			target.provisioningState(),
+			target.version()
+		);
 	}
 
 	private boolean alreadyRecovered(

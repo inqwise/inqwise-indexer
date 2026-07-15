@@ -57,9 +57,15 @@ class TargetManagementServiceTest {
 			"customers",
 			Instant.parse("2026-05-18T10:15:00Z"),
 			null
-		)).compose(ignored -> repository.getTargetByDefinitionAndPeriod(
-			new ConcreteTargetKey("customers", "2026-05")
-		)).onComplete(testContext.succeeding(found -> testContext.verify(() -> {
+		)).compose(result -> {
+			assertEquals("customers", result.targetName());
+			assertEquals(TargetStatus.ACTIVE, result.status());
+			assertEquals(TargetProvisioningState.READY, result.provisioningState());
+			assertEquals(1L, result.version());
+			return repository.getTargetByDefinitionAndPeriod(
+				new ConcreteTargetKey("customers", "2026-05")
+			);
+		}).onComplete(testContext.succeeding(found -> testContext.verify(() -> {
 			assertTrue(found.isPresent());
 			assertEquals(TargetProvisioningState.READY, found.get().provisioningState());
 			assertEquals(1L, found.get().version());

@@ -162,7 +162,7 @@ public class AdminServiceImpl implements AdminService {
 				request.getTargetId(),
 				request.getExpectedVersion()
 			))
-				.map(target -> new AdminTargetResult().setTarget(AdminTargetView.from(target)))
+				.compose(target -> loadTargetResult(target.targetId()))
 				.recover(error -> Future.failedFuture(IndexerErrors.normalize(error)));
 		} catch (Throwable error) {
 			return Future.failedFuture(IndexerErrors.normalize(error));
@@ -264,7 +264,7 @@ public class AdminServiceImpl implements AdminService {
 			}
 
 			return targetManagementService.createTarget(request.toTargetRequest())
-				.map(target -> new AdminTargetResult().setTarget(AdminTargetView.from(target)))
+				.compose(target -> loadTargetResult(target.targetId()))
 				.recover(error -> Future.failedFuture(IndexerErrors.normalize(error)));
 		} catch (Throwable error) {
 			return Future.failedFuture(IndexerErrors.normalize(error));
@@ -311,6 +311,11 @@ public class AdminServiceImpl implements AdminService {
 	private Future<AdminIndexerResult> loadIndexerResult(Integer indexerId) {
 		return repository.getIndexerById(indexerId)
 			.map(this::indexerResult);
+	}
+
+	private Future<AdminTargetResult> loadTargetResult(Integer targetId) {
+		return repository.getTargetById(targetId)
+			.map(this::targetResult);
 	}
 
 	private AdminTargetResult targetResult(Optional<TargetRecord> found) {
