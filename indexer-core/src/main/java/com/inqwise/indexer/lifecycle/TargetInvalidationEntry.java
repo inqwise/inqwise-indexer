@@ -1,4 +1,4 @@
-package com.inqwise.indexer.hot;
+package com.inqwise.indexer.lifecycle;
 
 import java.time.Instant;
 import java.util.Objects;

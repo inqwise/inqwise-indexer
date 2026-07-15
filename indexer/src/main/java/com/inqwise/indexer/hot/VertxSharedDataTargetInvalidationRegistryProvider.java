@@ -6,6 +6,10 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+
+import com.inqwise.indexer.lifecycle.TargetInvalidationEntries;
+import com.inqwise.indexer.lifecycle.TargetInvalidationEntry;
+import com.inqwise.indexer.lifecycle.TargetInvalidationRegistry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 

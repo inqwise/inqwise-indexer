@@ -5,7 +5,6 @@ import java.util.Objects;
 import com.inqwise.indexer.lifecycle.IndexerLifecycleEventBus;
 import com.inqwise.indexer.lifecycle.IndexerMetadataChanged;
 import com.inqwise.indexer.lifecycle.TargetMetadataChanged;
-import com.inqwise.indexer.hot.TargetInvalidationRegistry;
 
 import io.vertx.core.Future;
 

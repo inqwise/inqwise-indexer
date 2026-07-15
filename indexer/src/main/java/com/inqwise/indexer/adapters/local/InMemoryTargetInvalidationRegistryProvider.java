@@ -4,7 +4,7 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import com.inqwise.indexer.hot.TargetInvalidationRegistry;
+import com.inqwise.indexer.lifecycle.TargetInvalidationRegistry;
 import com.inqwise.indexer.hot.TargetInvalidationRegistryConfig;
 import com.inqwise.indexer.hot.TargetInvalidationRegistryOptions;
 import com.inqwise.indexer.hot.TargetInvalidationRegistryProvider;

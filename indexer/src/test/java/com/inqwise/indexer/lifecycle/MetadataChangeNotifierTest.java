@@ -12,8 +12,8 @@ import com.inqwise.indexer.lifecycle.IndexerLifecycleEventBus;
 import com.inqwise.indexer.lifecycle.IndexerMetadataChanged;
 import com.inqwise.indexer.lifecycle.TargetMetadataChanged;
 import com.inqwise.indexer.adapters.local.InMemoryIndexerLifecycleEventBus;
-import com.inqwise.indexer.hot.TargetInvalidationEntries;
-import com.inqwise.indexer.hot.TargetInvalidationRegistry;
+import com.inqwise.indexer.lifecycle.TargetInvalidationEntries;
+import com.inqwise.indexer.lifecycle.TargetInvalidationRegistry;
 
 import io.vertx.core.Future;
 import io.vertx.junit5.VertxExtension;

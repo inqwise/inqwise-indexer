@@ -12,7 +12,7 @@ import com.inqwise.indexer.routing.InvalidRouteCache;
 import com.inqwise.indexer.hot.InvalidRouteMetadataChangeListener;
 import com.inqwise.indexer.hot.TargetInvalidationMetadataChangeListener;
 import com.inqwise.indexer.hot.TargetInvalidationPoller;
-import com.inqwise.indexer.hot.TargetInvalidationRegistry;
+import com.inqwise.indexer.lifecycle.TargetInvalidationRegistry;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.catalog.indexers.IndexerOperations;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;

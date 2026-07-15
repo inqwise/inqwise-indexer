@@ -4,9 +4,9 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 
-import com.inqwise.indexer.hot.TargetInvalidationEntries;
-import com.inqwise.indexer.hot.TargetInvalidationEntry;
-import com.inqwise.indexer.hot.TargetInvalidationRegistry;
+import com.inqwise.indexer.lifecycle.TargetInvalidationEntries;
+import com.inqwise.indexer.lifecycle.TargetInvalidationEntry;
+import com.inqwise.indexer.lifecycle.TargetInvalidationRegistry;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;

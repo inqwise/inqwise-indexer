@@ -2,6 +2,8 @@ package com.inqwise.indexer.hot;
 
 import com.inqwise.indexer.adapters.local.InMemoryTargetInvalidationRegistry;
 import com.inqwise.indexer.adapters.local.InMemoryTargetInvalidationRegistryProvider;
+import com.inqwise.indexer.lifecycle.TargetInvalidationEntries;
+import com.inqwise.indexer.lifecycle.TargetInvalidationRegistry;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;

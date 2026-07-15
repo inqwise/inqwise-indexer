@@ -174,6 +174,28 @@ class DeploymentPackageDependencyDirectionTest {
 		assertTrue(violations.isEmpty(), () -> String.join(System.lineSeparator(), violations));
 	}
 
+	@Test
+	void lifecycleDoesNotDependOnHotRouting() throws IOException {
+		List<String> violations = new ArrayList<>();
+		for (Path lifecyclePackage : List.of(
+			CORE_MAIN_PACKAGE.resolve("lifecycle"),
+			MAIN_PACKAGE.resolve("lifecycle")
+		)) {
+			try (Stream<Path> files = Files.walk(lifecyclePackage)) {
+				files
+					.filter(path -> path.toString().endsWith(".java"))
+					.forEach(path -> inspectImports(
+						path,
+						Set.of("hot"),
+						"lifecycle must not depend on hot routing",
+						violations
+					));
+			}
+		}
+
+		assertTrue(violations.isEmpty(), () -> String.join(System.lineSeparator(), violations));
+	}
+
 	private static boolean isDeploymentEnvelope(Path path) {
 		return ENVELOPE_PACKAGES.stream().anyMatch(packageName -> isPackage(path, packageName));
 	}

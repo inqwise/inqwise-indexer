@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import com.inqwise.indexer.adapters.local.InMemoryTargetInvalidationRegistry;
-import com.inqwise.indexer.hot.TargetInvalidationRegistry;
+import com.inqwise.indexer.lifecycle.TargetInvalidationRegistry;
 
 import io.vertx.core.Vertx;
 import io.vertx.core.eventbus.ReplyException;

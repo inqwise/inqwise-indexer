@@ -1,4 +1,4 @@
-package com.inqwise.indexer.hot;
+package com.inqwise.indexer.lifecycle;
 
 import io.vertx.core.Future;
 

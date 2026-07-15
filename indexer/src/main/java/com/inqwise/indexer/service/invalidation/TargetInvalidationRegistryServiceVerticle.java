@@ -2,7 +2,7 @@ package com.inqwise.indexer.service.invalidation;
 
 import java.util.Objects;
 
-import com.inqwise.indexer.hot.TargetInvalidationRegistry;
+import com.inqwise.indexer.lifecycle.TargetInvalidationRegistry;
 
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;

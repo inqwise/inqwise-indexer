@@ -10,9 +10,9 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import com.inqwise.indexer.hot.TargetInvalidationEntries;
-import com.inqwise.indexer.hot.TargetInvalidationEntry;
-import com.inqwise.indexer.hot.TargetInvalidationRegistry;
+import com.inqwise.indexer.lifecycle.TargetInvalidationEntries;
+import com.inqwise.indexer.lifecycle.TargetInvalidationEntry;
+import com.inqwise.indexer.lifecycle.TargetInvalidationRegistry;
 import com.inqwise.indexer.hot.TargetInvalidationRegistryOptions;
 
 import io.vertx.core.Future;

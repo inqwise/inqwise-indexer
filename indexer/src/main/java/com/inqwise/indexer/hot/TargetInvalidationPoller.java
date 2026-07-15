@@ -4,6 +4,10 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
+
+import com.inqwise.indexer.lifecycle.TargetInvalidationEntries;
+import com.inqwise.indexer.lifecycle.TargetInvalidationEntry;
+import com.inqwise.indexer.lifecycle.TargetInvalidationRegistry;
 import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
