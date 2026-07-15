@@ -2,6 +2,8 @@ package com.inqwise.indexer.metadata;
 
 import java.time.Instant;
 
+import com.inqwise.indexer.provisioning.ManifestStatus;
+
 import io.vertx.core.json.JsonObject;
 
 public record ManifestRecord(

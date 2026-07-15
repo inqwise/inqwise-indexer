@@ -42,7 +42,7 @@ import com.inqwise.indexer.adapters.local.StaticTargetDefinitionProvider;
 import com.inqwise.indexer.catalog.targets.TargetDefinition;
 import com.inqwise.indexer.adapters.local.InMemoryInvalidRouteCache;
 import com.inqwise.indexer.catalog.targets.ConcreteTargetKey;
-import com.inqwise.indexer.metadata.ManifestStatus;
+import com.inqwise.indexer.provisioning.ManifestStatus;
 import com.inqwise.indexer.publication.ReadinessState;
 import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;

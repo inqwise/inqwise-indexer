@@ -25,7 +25,7 @@ import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.metadata.InsertManifest;
 import com.inqwise.indexer.metadata.InsertPublication;
 import com.inqwise.indexer.metadata.InsertTarget;
-import com.inqwise.indexer.metadata.ManifestStatus;
+import com.inqwise.indexer.provisioning.ManifestStatus;
 import com.inqwise.indexer.catalog.indexers.MutationState;
 import com.inqwise.indexer.publication.PublicationState;
 import com.inqwise.indexer.publication.ReadinessState;

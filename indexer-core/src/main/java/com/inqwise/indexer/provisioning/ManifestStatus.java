@@ -1,4 +1,4 @@
-package com.inqwise.indexer.metadata;
+package com.inqwise.indexer.provisioning;
 
 public enum ManifestStatus {
 	DRAFT,

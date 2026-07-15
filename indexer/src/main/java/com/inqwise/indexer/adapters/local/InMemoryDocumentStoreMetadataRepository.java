@@ -31,7 +31,7 @@ import com.inqwise.indexer.metadata.InsertManifest;
 import com.inqwise.indexer.metadata.InsertPublication;
 import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.metadata.ManifestRecord;
-import com.inqwise.indexer.metadata.ManifestStatus;
+import com.inqwise.indexer.provisioning.ManifestStatus;
 import com.inqwise.indexer.metadata.MetadataUid;
 import com.inqwise.indexer.catalog.indexers.MutationState;
 import com.inqwise.indexer.metadata.PublicationRecord;
