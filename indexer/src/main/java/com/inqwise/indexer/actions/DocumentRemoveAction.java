@@ -8,7 +8,6 @@ import com.inqwise.indexer.actions.IndexerActionType;
 import com.inqwise.indexer.documents.IndexerDocumentStore;
 import com.inqwise.indexer.catalog.indexers.IndexerModel;
 import com.inqwise.indexer.actions.RemoveDocumentActionItem;
-import com.inqwise.indexer.spi.IndexerActionProvider;
 
 import io.vertx.core.Future;
 

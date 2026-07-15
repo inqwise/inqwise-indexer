@@ -3,8 +3,6 @@ package com.inqwise.indexer.actions;
 import java.util.Objects;
 import java.util.ServiceLoader;
 
-import com.inqwise.indexer.spi.IndexerActionProvider;
-
 public class Actions {
 	private static ServiceLoader<IndexerActionProvider> providers;
 
