@@ -6,7 +6,6 @@ import java.util.Optional;
 import com.inqwise.indexer.lifecycle.IndexerMetadataChanged;
 import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
 import com.inqwise.indexer.lifecycle.MetadataChangeNotifier;
-import com.inqwise.indexer.cleanup.DeleteIndexerCommand;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.IndexerRecord;
 import com.inqwise.indexer.metadata.MutationState;
@@ -16,7 +15,7 @@ import com.inqwise.indexer.metadata.UpdateIndexerRuntimeState;
 import io.vertx.core.Future;
 
 public final class MetadataIndexerOperations implements IndexerOperations {
-	public static final String DELETE_CHANGE_TYPE = DeleteIndexerCommand.TYPE;
+	public static final String DELETE_CHANGE_TYPE = "indexer.delete";
 
 	private final DocumentStoreMetadataRepository repository;
 	private final MetadataChangeNotifier metadataChangeNotifier;
