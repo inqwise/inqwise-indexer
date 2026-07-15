@@ -1,9 +1,9 @@
-package com.inqwise.indexer.metadata;
-
-import com.inqwise.indexer.catalog.targets.TargetNameValidator;
+package com.inqwise.indexer.publication;
 
 import java.time.Instant;
 import java.util.Objects;
+
+import com.inqwise.indexer.catalog.targets.TargetNameValidator;
 
 public record PublishedIndexQuery(
 	String targetName,

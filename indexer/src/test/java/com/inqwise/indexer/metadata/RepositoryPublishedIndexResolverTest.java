@@ -5,6 +5,8 @@ import com.inqwise.indexer.catalog.indexers.IndexerProvisioningState;
 import com.inqwise.indexer.catalog.indexers.IndexerStatus;
 import com.inqwise.indexer.catalog.indexers.MutationState;
 import com.inqwise.indexer.publication.PublicationState;
+import com.inqwise.indexer.publication.PublishedIndex;
+import com.inqwise.indexer.publication.PublishedIndexQuery;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
