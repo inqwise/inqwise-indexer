@@ -19,7 +19,6 @@ import com.inqwise.indexer.metadata.TargetProvisioningState;
 import com.inqwise.indexer.metadata.TargetStatus;
 import com.inqwise.indexer.metadata.UpdateTargetProvisioningState;
 import com.inqwise.indexer.metadata.UpdateTargetStatus;
-import com.inqwise.indexer.metadata.TargetPeriodStrategy;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 import com.inqwise.indexer.provisioning.IndexerProvisioningService;
 import com.inqwise.indexer.provisioning.MetadataIndexerProvisioningService;

@@ -11,9 +11,9 @@ import java.util.Optional;
 import com.inqwise.indexer.actions.IndexerActionItem;
 import com.inqwise.indexer.actions.IndexerActionRouteMode;
 import com.inqwise.indexer.commands.RoutedIndexActions;
-import com.inqwise.indexer.metadata.TargetPeriod;
-import com.inqwise.indexer.metadata.TargetPeriodResolver;
-import com.inqwise.indexer.metadata.TargetPeriodStrategy;
+import com.inqwise.indexer.catalog.targets.TargetPeriod;
+import com.inqwise.indexer.catalog.targets.TargetPeriodResolver;
+import com.inqwise.indexer.catalog.targets.TargetPeriodStrategy;
 import com.inqwise.indexer.providers.HotIndexerCapability;
 
 public class HotTarget {

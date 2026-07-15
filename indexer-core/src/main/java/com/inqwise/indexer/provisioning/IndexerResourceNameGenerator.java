@@ -2,7 +2,7 @@ package com.inqwise.indexer.provisioning;
 
 import java.util.UUID;
 
-import com.inqwise.indexer.metadata.TargetNameValidator;
+import com.inqwise.indexer.catalog.targets.TargetNameValidator;
 
 public final class IndexerResourceNameGenerator {
 	private IndexerResourceNameGenerator() {

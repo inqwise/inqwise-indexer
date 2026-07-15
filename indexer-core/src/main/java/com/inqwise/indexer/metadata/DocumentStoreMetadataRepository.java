@@ -3,6 +3,9 @@ package com.inqwise.indexer.metadata;
 import java.util.List;
 import java.util.Optional;
 
+import com.inqwise.indexer.catalog.targets.ConcreteTargetKey;
+import com.inqwise.indexer.catalog.targets.TargetPeriod;
+
 import io.vertx.core.Future;
 
 public interface DocumentStoreMetadataRepository {

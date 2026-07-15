@@ -1,4 +1,4 @@
-package com.inqwise.indexer.metadata;
+package com.inqwise.indexer.catalog.targets;
 
 import java.time.Instant;
 import java.time.LocalDate;

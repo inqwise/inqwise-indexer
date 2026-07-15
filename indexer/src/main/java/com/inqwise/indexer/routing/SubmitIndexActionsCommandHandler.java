@@ -14,7 +14,7 @@ import com.inqwise.indexer.commands.SubmitIndexActionsCommand;
 import com.inqwise.indexer.catalog.targets.TargetDefinition;
 import com.inqwise.indexer.catalog.targets.TargetDefinitionProvider;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
-import com.inqwise.indexer.metadata.TargetPeriodResolver;
+import com.inqwise.indexer.catalog.targets.TargetPeriodResolver;
 import com.inqwise.indexer.providers.IndexerActionReceiveCapability;
 import com.inqwise.indexer.providers.IndexerPlugins;
 import com.inqwise.indexer.provisioning.IndexerProvisioningService;

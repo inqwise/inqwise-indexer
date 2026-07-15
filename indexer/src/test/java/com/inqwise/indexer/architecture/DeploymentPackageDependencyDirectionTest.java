@@ -156,6 +156,9 @@ class DeploymentPackageDependencyDirectionTest {
 			CORE_MAIN_PACKAGE.resolve("commands"),
 			MAIN_PACKAGE.resolve("commands")
 		)) {
+			if (!Files.exists(commandsPackage)) {
+				continue;
+			}
 			try (Stream<Path> files = Files.walk(commandsPackage)) {
 				files
 					.filter(path -> path.toString().endsWith(".java"))

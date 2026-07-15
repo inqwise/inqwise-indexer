@@ -1,8 +1,5 @@
 package com.inqwise.indexer.catalog.targets;
 
-import com.inqwise.indexer.metadata.TargetNameValidator;
-import com.inqwise.indexer.metadata.TargetPeriodStrategy;
-
 public record TargetDefinition(
 	String targetName,
 	TargetPeriodStrategy periodStrategy,

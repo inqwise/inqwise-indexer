@@ -16,7 +16,7 @@ import com.inqwise.indexer.actions.IndexerActionItem;
 import com.inqwise.indexer.actions.IndexerActionItems;
 import com.inqwise.indexer.actions.PutDocumentActionItem;
 import com.inqwise.indexer.actions.IndexerActionRouteMode;
-import com.inqwise.indexer.metadata.TargetPeriodStrategy;
+import com.inqwise.indexer.catalog.targets.TargetPeriodStrategy;
 import com.inqwise.indexer.providers.HotIndexerCapability;
 
 import io.vertx.core.json.JsonObject;
