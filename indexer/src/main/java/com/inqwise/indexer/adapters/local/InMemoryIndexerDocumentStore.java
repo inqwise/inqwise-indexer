@@ -4,7 +4,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.inqwise.indexer.documents.IndexerDocumentStore;
-import com.inqwise.indexer.definitions.IndexDefinition;
+import com.inqwise.indexer.provisioning.definitions.IndexDefinition;
 import com.inqwise.indexer.provisioning.DocumentIndexNameValidator;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 

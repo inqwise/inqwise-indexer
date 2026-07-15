@@ -5,8 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import com.inqwise.indexer.definitions.IndexDefinition;
-import com.inqwise.indexer.definitions.QueueDefinition;
+import com.inqwise.indexer.provisioning.definitions.IndexDefinition;
+import com.inqwise.indexer.provisioning.definitions.QueueDefinition;
 
 import io.vertx.core.json.JsonObject;
 import io.vertx.junit5.VertxExtension;

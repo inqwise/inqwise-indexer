@@ -6,7 +6,7 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
-import com.inqwise.indexer.definitions.IndexDefinition;
+import com.inqwise.indexer.provisioning.definitions.IndexDefinition;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;

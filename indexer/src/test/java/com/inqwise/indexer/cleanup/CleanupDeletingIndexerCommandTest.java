@@ -18,7 +18,7 @@ import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
 import com.inqwise.indexer.catalog.indexers.IndexerType;
 import com.inqwise.indexer.adapters.local.InMemoryIndexerLifecycleEventBus;
 import com.inqwise.indexer.testing.TestMetadataChangeNotifiers;
-import com.inqwise.indexer.definitions.IndexDefinition;
+import com.inqwise.indexer.provisioning.definitions.IndexDefinition;
 import com.inqwise.indexer.errors.RetryableStaleStateException;
 import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.InsertIndexer;

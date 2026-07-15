@@ -5,7 +5,7 @@ import com.inqwise.indexer.runtime.IndexerRuntimeReconciler;
 import com.inqwise.indexer.lifecycle.IndexerLifecycleEventBus;
 import com.inqwise.indexer.provisioning.IndexerQueueResourceManager;
 import com.inqwise.indexer.commands.CommandEngine;
-import com.inqwise.indexer.definitions.IndexerDefinitionProvider;
+import com.inqwise.indexer.provisioning.definitions.IndexerDefinitionProvider;
 import com.inqwise.indexer.catalog.targets.TargetDefinitionProvider;
 import com.inqwise.indexer.hot.HotIndexActionsService;
 import com.inqwise.indexer.routing.InvalidRouteCache;

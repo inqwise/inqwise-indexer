@@ -12,9 +12,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 import com.inqwise.indexer.provisioning.IndexerQueueResourceManager;
 import com.inqwise.indexer.catalog.indexers.IndexerType;
-import com.inqwise.indexer.definitions.IndexDefinition;
-import com.inqwise.indexer.definitions.IndexerDefinition;
-import com.inqwise.indexer.definitions.QueueDefinition;
+import com.inqwise.indexer.provisioning.definitions.IndexDefinition;
+import com.inqwise.indexer.provisioning.definitions.IndexerDefinition;
+import com.inqwise.indexer.provisioning.definitions.QueueDefinition;
 import com.inqwise.indexer.adapters.local.StaticIndexerDefinitionProvider;
 import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;

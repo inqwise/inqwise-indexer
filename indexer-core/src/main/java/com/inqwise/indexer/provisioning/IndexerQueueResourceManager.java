@@ -1,6 +1,6 @@
 package com.inqwise.indexer.provisioning;
 
-import com.inqwise.indexer.definitions.QueueDefinition;
+import com.inqwise.indexer.provisioning.definitions.QueueDefinition;
 
 import io.vertx.core.Future;
 

@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
-import com.inqwise.indexer.definitions.QueueDefinition;
+import com.inqwise.indexer.provisioning.definitions.QueueDefinition;
 import com.inqwise.indexer.provisioning.IndexerQueueResourceManager;
 
 import io.vertx.core.json.JsonObject;

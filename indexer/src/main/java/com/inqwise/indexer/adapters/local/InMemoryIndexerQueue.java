@@ -11,7 +11,7 @@ import com.inqwise.indexer.runtime.IndexerQueueConsumer;
 import com.inqwise.indexer.runtime.IndexerQueueConsumerOptions;
 import com.inqwise.indexer.runtime.IndexerQueuePublisher;
 import com.inqwise.indexer.provisioning.IndexerQueueResourceManager;
-import com.inqwise.indexer.definitions.QueueDefinition;
+import com.inqwise.indexer.provisioning.definitions.QueueDefinition;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;

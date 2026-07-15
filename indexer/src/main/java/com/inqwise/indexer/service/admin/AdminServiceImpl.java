@@ -8,7 +8,7 @@ import com.inqwise.indexer.provisioning.IndexerQueueResourceManager;
 import com.inqwise.indexer.lifecycle.MetadataChangeNotifier;
 import com.inqwise.indexer.cleanup.CleanupDeletingIndexerCommand;
 import com.inqwise.indexer.commands.CommandService;
-import com.inqwise.indexer.definitions.IndexerDefinitionProvider;
+import com.inqwise.indexer.provisioning.definitions.IndexerDefinitionProvider;
 import com.inqwise.indexer.catalog.targets.TargetDefinitionProvider;
 import com.inqwise.indexer.service.IndexerErrors;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;

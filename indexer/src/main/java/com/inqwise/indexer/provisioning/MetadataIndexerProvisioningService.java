@@ -2,9 +2,9 @@ package com.inqwise.indexer.provisioning;
 
 import java.util.Objects;
 
-import com.inqwise.indexer.definitions.IndexerDefinition;
-import com.inqwise.indexer.definitions.IndexerDefinitionProvider;
-import com.inqwise.indexer.definitions.IndexerDefinitionRequest;
+import com.inqwise.indexer.provisioning.definitions.IndexerDefinition;
+import com.inqwise.indexer.provisioning.definitions.IndexerDefinitionProvider;
+import com.inqwise.indexer.provisioning.definitions.IndexerDefinitionRequest;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.catalog.indexers.IndexerProvisioningState;
 import com.inqwise.indexer.metadata.IndexerRecord;

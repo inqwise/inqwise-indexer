@@ -3,8 +3,8 @@ package com.inqwise.indexer.publication;
 import java.util.Objects;
 
 import com.inqwise.indexer.provisioning.IndexerQueueResourceManager;
-import com.inqwise.indexer.definitions.IndexerDefinitionProvider;
-import com.inqwise.indexer.definitions.IndexerDefinitionRequest;
+import com.inqwise.indexer.provisioning.definitions.IndexerDefinitionProvider;
+import com.inqwise.indexer.provisioning.definitions.IndexerDefinitionRequest;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.catalog.indexers.IndexerProvisioningState;
 import com.inqwise.indexer.metadata.IndexerRecord;

@@ -205,9 +205,9 @@ class DeploymentPackageDependencyDirectionTest {
 			try (Stream<Path> files = Files.walk(catalogPackage)) {
 				files
 					.filter(path -> path.toString().endsWith(".java"))
-					.forEach(path -> inspectImports(
+					.forEach(path -> inspectText(
 						path,
-						Set.of("definitions"),
+						"com.inqwise.indexer.provisioning.definitions",
 						"catalog must own target definitions and not depend on physical definitions",
 						violations
 					));

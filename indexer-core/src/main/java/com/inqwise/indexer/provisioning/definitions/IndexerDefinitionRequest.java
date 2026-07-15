@@ -1,4 +1,4 @@
-package com.inqwise.indexer.definitions;
+package com.inqwise.indexer.provisioning.definitions;
 
 import com.inqwise.indexer.catalog.indexers.IndexResourceOwnership;
 import com.inqwise.indexer.catalog.indexers.IndexerRole;

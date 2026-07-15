@@ -1,4 +1,4 @@
-package com.inqwise.indexer.definitions;
+package com.inqwise.indexer.provisioning.definitions;
 
 import io.vertx.core.Future;
 
