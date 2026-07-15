@@ -62,7 +62,7 @@ class LoadPackageDependencyDirectionTest {
 		"com.inqwise.indexer.runtime.IndexerEvent",
 		"com.inqwise.indexer.runtime.IndexerEventPublisher",
 		"com.inqwise.indexer.runtime.IndexerEventType",
-		"com.inqwise.indexer.runtime.IndexerMarkerHandler",
+		"com.inqwise.indexer.providers.IndexerMarkerHandler",
 		"com.inqwise.indexer.runtime.IndexerQueueClient",
 		"com.inqwise.indexer.runtime.IndexerQueuePublisher"
 	);

@@ -74,7 +74,7 @@ The runtime implementation pass moved `Indexer`, `IndexerRuntime`, `IndexerRunti
 
 The runtime port pass moved queue transport ports, processor ports, and runtime event contracts into `com.inqwise.indexer.runtime` in `indexer-core`. This keeps consumer lifecycle, queue publishing, action processing, and runtime event emission together while leaving queue resource ensure/delete under provisioning ownership.
 
-The runtime contract pass moved `IndexerOptions`, `IndexerSnapshot`, and `IndexerMarkerHandler` into `com.inqwise.indexer.runtime`. Runtime configuration, local status snapshots, and runtime marker callbacks now sit with the runtime transport/processing ports.
+The runtime contract pass moved `IndexerOptions` and `IndexerSnapshot` into `com.inqwise.indexer.runtime`. Runtime configuration and local status snapshots sit with runtime transport/processing ports. `IndexerMarkerHandler` now lives in `com.inqwise.indexer.providers` because plugins select the model-scoped marker behavior and runtime only invokes the selected capability. This keeps the dependency one-way from runtime implementation to provider extension contracts.
 
 The catalog model pass moved `IndexerModel`, `IndexerRole`, `IndexerRuntimeState`, `IndexerType`, and `IndexResourceOwnership` into `com.inqwise.indexer.catalog.indexers`. Indexer identity, role, desired runtime state, type, and physical resource ownership now sit with the indexer catalog contracts instead of the core root package.
 
@@ -301,7 +301,7 @@ Indexing uses two paths:
 
 Cold routing supports indexer preparation through `IndexerActionReceiveCapability`. Core asks capabilities whether a non-live candidate can receive an action with `YES`, `REQUIRES_PREPARE`, or `NO`. `YES` means the candidate is a receiver, `REQUIRES_PREPARE` lets the plugin prepare and return actual receiver indexers, and `NO` skips the candidate. Core remains responsible for forwarding the original action items to the prepared receivers.
 
-`IndexerPlugin` is the core SPI for peer indexer functionality. The initial plugin surface exposes action-receive capabilities through `IndexerPlugins`; application composition constructs plugins explicitly because implementations may need repositories or other runtime dependencies.
+`IndexerPlugin` is the core SPI for peer indexer functionality. The plugin surface exposes action-receive and model-scoped marker-handling capabilities through `IndexerPlugins`; application composition constructs plugins explicitly because implementations may need repositories or other runtime dependencies. Provider contracts do not depend on runtime implementations or hot-routing views.
 
 Applications that enable load behavior should pass their plugin aggregator into `SubmitIndexActionsCommandHandler`; the plugin receives a `MetadataLazyLiveWriterCatalog` constructed from the shared metadata repository. Core defaults use `IndexerPlugins.empty()`.
 

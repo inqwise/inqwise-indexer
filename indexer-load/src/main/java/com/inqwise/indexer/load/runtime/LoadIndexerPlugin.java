@@ -11,7 +11,7 @@ import com.inqwise.coordination.ExclusiveFlowCoordinator;
 import com.inqwise.coordination.LocalExclusiveFlowCoordinator;
 import com.inqwise.events.EventPublisher;
 import com.inqwise.indexer.lifecycle.IndexerLifecycleEventBus;
-import com.inqwise.indexer.runtime.IndexerMarkerHandler;
+import com.inqwise.indexer.providers.IndexerMarkerHandler;
 import com.inqwise.indexer.catalog.indexers.IndexerModel;
 import com.inqwise.indexer.catalog.indexers.IndexerRole;
 import com.inqwise.indexer.commands.CommandService;

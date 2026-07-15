@@ -8,7 +8,6 @@ import java.util.Optional;
 
 import com.inqwise.indexer.actions.CatchUpBarrierActionItem;
 import com.inqwise.indexer.actions.CompleteIndexActionItem;
-import com.inqwise.indexer.runtime.IndexerMarkerHandler;
 import com.inqwise.indexer.catalog.indexers.IndexerModel;
 
 import org.junit.jupiter.api.Test;

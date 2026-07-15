@@ -197,7 +197,7 @@ class DeploymentPackageDependencyDirectionTest {
 	}
 
 	@Test
-	void providersDoNotDependOnHotRouting() throws IOException {
+	void providersDoNotDependOnRuntimeOrHotRouting() throws IOException {
 		List<String> violations = new ArrayList<>();
 		for (Path providersPackage : List.of(
 			CORE_MAIN_PACKAGE.resolve("providers"),
@@ -208,8 +208,8 @@ class DeploymentPackageDependencyDirectionTest {
 					.filter(path -> path.toString().endsWith(".java"))
 					.forEach(path -> inspectImports(
 						path,
-						Set.of("hot"),
-						"provider boundary must not depend on hot routing",
+						Set.of("hot", "runtime"),
+						"provider boundary must not depend on runtime or hot routing",
 						violations
 					));
 			}

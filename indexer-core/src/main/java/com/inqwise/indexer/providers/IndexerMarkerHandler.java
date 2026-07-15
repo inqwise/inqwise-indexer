@@ -1,8 +1,8 @@
-package com.inqwise.indexer.runtime;
+package com.inqwise.indexer.providers;
 
-import com.inqwise.indexer.catalog.indexers.IndexerModel;
 import com.inqwise.indexer.actions.CatchUpBarrierActionItem;
 import com.inqwise.indexer.actions.CompleteIndexActionItem;
+import com.inqwise.indexer.catalog.indexers.IndexerModel;
 
 import io.vertx.core.Future;
 

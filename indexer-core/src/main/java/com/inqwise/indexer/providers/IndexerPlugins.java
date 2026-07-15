@@ -3,7 +3,6 @@ package com.inqwise.indexer.providers;
 import java.util.List;
 import java.util.Objects;
 
-import com.inqwise.indexer.runtime.IndexerMarkerHandler;
 import com.inqwise.indexer.catalog.indexers.IndexerModel;
 
 public final class IndexerPlugins {

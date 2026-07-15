@@ -17,6 +17,7 @@ import com.inqwise.indexer.actions.RemoveDocumentActionItem;
 import com.inqwise.indexer.catalog.indexers.IndexerModel;
 import com.inqwise.indexer.catalog.indexers.IndexerRole;
 import com.inqwise.indexer.documents.IndexerDocumentStore;
+import com.inqwise.indexer.providers.IndexerMarkerHandler;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;

@@ -17,7 +17,7 @@ import java.util.UUID;
 import com.inqwise.indexer.actions.CatchUpBarrierActionItem;
 import com.inqwise.indexer.actions.CompleteIndexActionItem;
 import com.inqwise.indexer.lifecycle.IndexerLifecycleEventBus;
-import com.inqwise.indexer.runtime.IndexerMarkerHandler;
+import com.inqwise.indexer.providers.IndexerMarkerHandler;
 import com.inqwise.indexer.lifecycle.IndexerMetadataChanged;
 import com.inqwise.indexer.catalog.indexers.IndexerModel;
 import com.inqwise.indexer.commands.CommandService;

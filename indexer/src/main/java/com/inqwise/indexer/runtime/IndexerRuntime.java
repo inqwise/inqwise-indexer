@@ -15,6 +15,7 @@ import com.inqwise.indexer.metadata.IndexerRecord;
 import com.inqwise.indexer.metadata.MetadataIndexerModels;
 import com.inqwise.indexer.metadata.IndexerStatus;
 import com.inqwise.indexer.metadata.MutationState;
+import com.inqwise.indexer.providers.IndexerMarkerHandler;
 import com.inqwise.indexer.providers.IndexerPlugins;
 
 import io.vertx.core.Future;
