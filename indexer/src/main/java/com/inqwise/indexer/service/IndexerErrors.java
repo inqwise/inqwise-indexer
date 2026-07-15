@@ -1,7 +1,9 @@
-package com.inqwise.indexer.errors;
+package com.inqwise.indexer.service;
 
 import com.inqwise.errors.ErrorTicket;
 import com.inqwise.indexer.commands.CommandFailure;
+import com.inqwise.indexer.errors.IndexerErrorCodes;
+import com.inqwise.indexer.errors.RetryableStaleStateException;
 
 public final class IndexerErrors {
 	private IndexerErrors() {

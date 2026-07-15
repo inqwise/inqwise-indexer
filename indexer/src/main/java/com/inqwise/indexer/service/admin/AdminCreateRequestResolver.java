@@ -4,7 +4,7 @@ import java.time.Instant;
 import java.util.Objects;
 
 import com.inqwise.indexer.commands.InitialPublicationMode;
-import com.inqwise.indexer.errors.IndexerErrors;
+import com.inqwise.indexer.service.IndexerErrors;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.TargetRecord;
 import com.inqwise.indexer.provisioning.GeneratedIndexerResources;

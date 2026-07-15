@@ -1,7 +1,7 @@
 package com.inqwise.indexer.rest;
 
 import com.inqwise.errors.ErrorTicket;
-import com.inqwise.indexer.errors.IndexerErrors;
+import com.inqwise.indexer.service.IndexerErrors;
 
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;

@@ -4,7 +4,7 @@ import java.util.Objects;
 
 import com.inqwise.indexer.runtime.IndexerRuntime;
 import com.inqwise.indexer.runtime.IndexerRuntimeReconciler;
-import com.inqwise.indexer.errors.IndexerErrors;
+import com.inqwise.indexer.service.IndexerErrors;
 
 import io.vertx.core.Future;
 

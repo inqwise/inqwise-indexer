@@ -1,6 +1,9 @@
-package com.inqwise.indexer.errors;
+package com.inqwise.indexer.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import com.inqwise.indexer.errors.IndexerErrorCodes;
+import com.inqwise.indexer.errors.RetryableStaleStateException;
 
 import org.junit.jupiter.api.Test;
 

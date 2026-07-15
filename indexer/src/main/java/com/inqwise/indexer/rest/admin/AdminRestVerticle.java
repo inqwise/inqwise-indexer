@@ -9,7 +9,7 @@ import com.inqwise.indexer.catalog.indexers.IndexerRole;
 import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
 import com.inqwise.indexer.catalog.indexers.IndexerType;
 import com.inqwise.indexer.commands.InitialPublicationMode;
-import com.inqwise.indexer.errors.IndexerErrors;
+import com.inqwise.indexer.service.IndexerErrors;
 import com.inqwise.indexer.metadata.IndexerProvisioningState;
 import com.inqwise.indexer.metadata.IndexerStatus;
 import com.inqwise.indexer.metadata.MutationState;

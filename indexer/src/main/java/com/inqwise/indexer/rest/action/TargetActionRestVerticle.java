@@ -1,6 +1,6 @@
 package com.inqwise.indexer.rest.action;
 
-import com.inqwise.indexer.errors.IndexerErrors;
+import com.inqwise.indexer.service.IndexerErrors;
 import com.inqwise.indexer.rest.RestOperations;
 import com.inqwise.indexer.service.action.TargetActionService;
 import com.inqwise.indexer.service.action.TargetActionServices;

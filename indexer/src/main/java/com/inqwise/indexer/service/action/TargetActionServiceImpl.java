@@ -9,7 +9,7 @@ import com.inqwise.indexer.actions.IndexerActionType;
 import com.inqwise.indexer.actions.PutDocumentActionItem;
 import com.inqwise.indexer.commands.ActionDestination;
 import com.inqwise.indexer.commands.SubmitIndexActionsCommand;
-import com.inqwise.indexer.errors.IndexerErrors;
+import com.inqwise.indexer.service.IndexerErrors;
 import com.inqwise.indexer.hot.HotIndexActionsRequest;
 import com.inqwise.indexer.hot.HotIndexActionsService;
 

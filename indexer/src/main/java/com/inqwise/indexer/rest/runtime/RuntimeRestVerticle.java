@@ -1,6 +1,6 @@
 package com.inqwise.indexer.rest.runtime;
 
-import com.inqwise.indexer.errors.IndexerErrors;
+import com.inqwise.indexer.service.IndexerErrors;
 import com.inqwise.indexer.rest.RestOperations;
 import com.inqwise.indexer.service.runtime.RuntimeReconcileRequest;
 import com.inqwise.indexer.service.runtime.RuntimeService;
