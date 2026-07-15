@@ -8,7 +8,7 @@ import com.inqwise.indexer.commands.CommandEngine;
 import com.inqwise.indexer.definitions.IndexerDefinitionProvider;
 import com.inqwise.indexer.definitions.TargetDefinitionProvider;
 import com.inqwise.indexer.hot.HotIndexActionsService;
-import com.inqwise.indexer.hot.InvalidRouteCache;
+import com.inqwise.indexer.routing.InvalidRouteCache;
 import com.inqwise.indexer.hot.InvalidRouteMetadataChangeListener;
 import com.inqwise.indexer.hot.TargetInvalidationMetadataChangeListener;
 import com.inqwise.indexer.hot.TargetInvalidationPoller;

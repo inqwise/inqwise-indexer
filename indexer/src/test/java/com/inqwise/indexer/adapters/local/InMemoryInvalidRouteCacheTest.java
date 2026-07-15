@@ -11,9 +11,9 @@ import java.time.ZoneOffset;
 
 import org.junit.jupiter.api.Test;
 
-import com.inqwise.indexer.hot.InvalidRouteInvalidation;
-import com.inqwise.indexer.hot.InvalidRouteRecord;
-import com.inqwise.indexer.hot.InvalidRouteSignature;
+import com.inqwise.indexer.routing.InvalidRouteInvalidation;
+import com.inqwise.indexer.routing.InvalidRouteRecord;
+import com.inqwise.indexer.routing.InvalidRouteSignature;
 
 import com.inqwise.indexer.actions.IndexerActionType;
 

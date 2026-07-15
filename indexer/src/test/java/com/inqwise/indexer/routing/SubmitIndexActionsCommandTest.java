@@ -41,7 +41,6 @@ import com.inqwise.indexer.adapters.local.StaticIndexerDefinitionProvider;
 import com.inqwise.indexer.adapters.local.StaticTargetDefinitionProvider;
 import com.inqwise.indexer.definitions.TargetDefinition;
 import com.inqwise.indexer.adapters.local.InMemoryInvalidRouteCache;
-import com.inqwise.indexer.hot.InvalidRouteSignatures;
 import com.inqwise.indexer.metadata.ConcreteTargetKey;
 import com.inqwise.indexer.metadata.ManifestStatus;
 import com.inqwise.indexer.metadata.ReadinessState;

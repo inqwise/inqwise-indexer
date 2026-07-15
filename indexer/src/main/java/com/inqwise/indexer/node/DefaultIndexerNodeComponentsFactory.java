@@ -28,7 +28,7 @@ import com.inqwise.indexer.hot.HotIndexActionsService;
 import com.inqwise.indexer.hot.HotMetadataView;
 import com.inqwise.indexer.adapters.local.InMemoryInvalidRouteCache;
 import com.inqwise.indexer.adapters.local.InMemoryTargetInvalidationRegistryProvider;
-import com.inqwise.indexer.hot.InvalidRouteCache;
+import com.inqwise.indexer.routing.InvalidRouteCache;
 import com.inqwise.indexer.hot.InvalidRouteMetadataChangeListener;
 import com.inqwise.indexer.hot.TargetInvalidationMetadataChangeListener;
 import com.inqwise.indexer.hot.TargetInvalidationPoller;

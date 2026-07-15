@@ -1,26 +1,26 @@
-package com.inqwise.indexer.hot;
+package com.inqwise.indexer.routing;
 
 import java.util.List;
 
 import com.inqwise.indexer.actions.IndexerActionItem;
 import com.inqwise.indexer.commands.ActionDestination;
-import com.inqwise.indexer.routing.InvalidRouteSignature;
+import com.inqwise.indexer.commands.SubmitIndexActionsCommand;
 
 public final class InvalidRouteSignatures {
 	private InvalidRouteSignatures() {
 	}
 
-	public static List<InvalidRouteSignature> from(HotIndexActionsRequest request) {
-		return from(request, null);
+	public static List<InvalidRouteSignature> from(SubmitIndexActionsCommand command) {
+		return from(command, null);
 	}
 
 	public static List<InvalidRouteSignature> from(
-		HotIndexActionsRequest request,
+		SubmitIndexActionsCommand command,
 		String periodKey
 	) {
-		return request.actions().stream()
+		return command.getActions().stream()
 			.map(action -> from(
-				request.targetName(),
+				command.getTargetName(),
 				periodKey,
 				action
 			))

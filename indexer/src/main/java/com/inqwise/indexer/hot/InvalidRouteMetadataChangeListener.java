@@ -12,6 +12,8 @@ import com.inqwise.indexer.lifecycle.TargetMetadataChanged;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.IndexerRecord;
 import com.inqwise.indexer.metadata.TargetRecord;
+import com.inqwise.indexer.routing.InvalidRouteCache;
+import com.inqwise.indexer.routing.InvalidRouteInvalidation;
 
 import io.vertx.core.Future;
 

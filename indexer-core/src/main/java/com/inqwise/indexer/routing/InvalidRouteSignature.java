@@ -1,4 +1,4 @@
-package com.inqwise.indexer.hot;
+package com.inqwise.indexer.routing;
 
 import java.util.Objects;
 

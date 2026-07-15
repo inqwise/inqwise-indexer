@@ -10,10 +10,10 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import com.inqwise.indexer.hot.InvalidRouteCache;
-import com.inqwise.indexer.hot.InvalidRouteInvalidation;
-import com.inqwise.indexer.hot.InvalidRouteRecord;
-import com.inqwise.indexer.hot.InvalidRouteSignature;
+import com.inqwise.indexer.routing.InvalidRouteCache;
+import com.inqwise.indexer.routing.InvalidRouteInvalidation;
+import com.inqwise.indexer.routing.InvalidRouteRecord;
+import com.inqwise.indexer.routing.InvalidRouteSignature;
 
 public class InMemoryInvalidRouteCache implements InvalidRouteCache {
 	private final Duration ttl;

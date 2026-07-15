@@ -15,6 +15,9 @@ import com.inqwise.indexer.commands.CommandService;
 import com.inqwise.indexer.commands.RoutedIndexActions;
 import com.inqwise.indexer.commands.SubmitIndexActionsCommand;
 import com.inqwise.indexer.routing.RoutedIndexActionPublisher;
+import com.inqwise.indexer.routing.InvalidRouteCache;
+import com.inqwise.indexer.routing.InvalidRouteRecord;
+import com.inqwise.indexer.routing.InvalidRouteSignature;
 
 import io.vertx.core.Future;
 

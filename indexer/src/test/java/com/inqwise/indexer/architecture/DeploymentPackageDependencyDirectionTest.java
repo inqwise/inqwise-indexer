@@ -14,6 +14,9 @@ import org.junit.jupiter.api.Test;
 
 class DeploymentPackageDependencyDirectionTest {
 	private static final Path MAIN_PACKAGE = Path.of("src/main/java/com/inqwise/indexer");
+	private static final Path CORE_MAIN_PACKAGE = Path.of(
+		"../indexer-core/src/main/java/com/inqwise/indexer"
+	);
 	private static final Set<String> ENVELOPE_PACKAGES = Set.of(
 		"gateway",
 		"node",
@@ -72,6 +75,28 @@ class DeploymentPackageDependencyDirectionTest {
 						path,
 						"MetadataIndexerProvisioningService",
 						"domain consumer must depend on the provisioning contract",
+						violations
+					));
+			}
+		}
+
+		assertTrue(violations.isEmpty(), () -> String.join(System.lineSeparator(), violations));
+	}
+
+	@Test
+	void actionRoutingDoesNotDependOnHotFastPath() throws IOException {
+		List<String> violations = new ArrayList<>();
+		for (Path routingPackage : List.of(
+			CORE_MAIN_PACKAGE.resolve("routing"),
+			MAIN_PACKAGE.resolve("routing")
+		)) {
+			try (Stream<Path> files = Files.walk(routingPackage)) {
+				files
+					.filter(path -> path.toString().endsWith(".java"))
+					.forEach(path -> inspectImports(
+						path,
+						Set.of("hot"),
+						"action routing must not depend on its hot fast path",
 						violations
 					));
 			}
