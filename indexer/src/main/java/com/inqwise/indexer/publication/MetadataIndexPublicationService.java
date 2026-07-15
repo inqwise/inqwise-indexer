@@ -11,8 +11,6 @@ import com.inqwise.indexer.metadata.IndexerRecord;
 import com.inqwise.indexer.catalog.indexers.IndexerStatus;
 import com.inqwise.indexer.catalog.indexers.MutationState;
 import com.inqwise.indexer.metadata.PublicationRecord;
-import com.inqwise.indexer.publication.PublicationState;
-import com.inqwise.indexer.publication.ReadinessState;
 import com.inqwise.indexer.metadata.UpdateIndexerPublicationState;
 import com.inqwise.indexer.metadata.UpdatePublicationReadiness;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
@@ -41,18 +39,19 @@ public final class MetadataIndexPublicationService implements IndexPublicationSe
 	}
 
 	@Override
-	public Future<PublicationRecord> markReady(MarkIndexReadyRequest request) {
+	public Future<PublicationReadinessResult> markReady(MarkIndexReadyRequest request) {
 		Objects.requireNonNull(request, "request");
 		return repository.getPublicationById(request.publicationId())
 			.compose(found -> found
 				.map(publication -> markReady(request, publication))
 				.orElseGet(() -> Future.failedFuture(
 					"Publication not found: " + request.publicationId()
-				)));
+				)))
+			.map(this::toReadinessResult);
 	}
 
 	@Override
-	public Future<IndexerRecord> publish(PublishIndexRequest request) {
+	public Future<IndexPublicationResult> publish(PublishIndexRequest request) {
 		Objects.requireNonNull(request, "request");
 		return loadIndexer(request.indexerId())
 			.compose(indexer -> repository.getPublicationByIndexerId(indexer.id())
@@ -60,11 +59,12 @@ public final class MetadataIndexPublicationService implements IndexPublicationSe
 					.map(publication -> publish(request, indexer, publication))
 					.orElseGet(() -> Future.failedFuture(
 						"Publication not found for indexer: " + indexer.id()
-					))));
+					))))
+			.map(this::toPublicationResult);
 	}
 
 	@Override
-	public Future<IndexerRecord> retire(RetireIndexRequest request) {
+	public Future<IndexPublicationResult> retire(RetireIndexRequest request) {
 		Objects.requireNonNull(request, "request");
 		return loadIndexer(request.indexerId()).compose(indexer -> {
 			if (alreadyRetired(request, indexer)) {
@@ -81,7 +81,25 @@ public final class MetadataIndexPublicationService implements IndexPublicationSe
 				PublicationState.RETIRED,
 				request.expectedVersion()
 			)).compose(ignored -> loadIndexer(indexer.id()));
-		});
+		}).map(this::toPublicationResult);
+	}
+
+	private PublicationReadinessResult toReadinessResult(PublicationRecord publication) {
+		return new PublicationReadinessResult(
+			publication.id(),
+			publication.indexerId(),
+			publication.readinessState(),
+			publication.version()
+		);
+	}
+
+	private IndexPublicationResult toPublicationResult(IndexerRecord indexer) {
+		return new IndexPublicationResult(
+			indexer.id(),
+			indexer.targetId(),
+			indexer.publicationState(),
+			indexer.version()
+		);
 	}
 
 	private Future<PublicationRecord> markReady(

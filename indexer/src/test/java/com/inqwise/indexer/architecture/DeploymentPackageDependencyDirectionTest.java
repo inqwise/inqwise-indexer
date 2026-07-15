@@ -101,6 +101,23 @@ class DeploymentPackageDependencyDirectionTest {
 	}
 
 	@Test
+	void publicationContractsDoNotExposeMetadataPersistence() throws IOException {
+		List<String> violations = new ArrayList<>();
+		try (Stream<Path> files = Files.walk(CORE_MAIN_PACKAGE.resolve("publication"))) {
+			files
+				.filter(path -> path.toString().endsWith(".java"))
+				.forEach(path -> inspectImports(
+					path,
+					Set.of("metadata"),
+					"publication contract must not expose metadata persistence",
+					violations
+				));
+		}
+
+		assertTrue(violations.isEmpty(), () -> String.join(System.lineSeparator(), violations));
+	}
+
+	@Test
 	void actionRoutingDoesNotDependOnHotFastPath() throws IOException {
 		List<String> violations = new ArrayList<>();
 		for (Path routingPackage : List.of(

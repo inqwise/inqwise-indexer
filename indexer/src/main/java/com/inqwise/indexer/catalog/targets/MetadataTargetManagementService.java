@@ -15,6 +15,7 @@ import com.inqwise.indexer.metadata.TargetRecord;
 import com.inqwise.indexer.metadata.UpdateTargetProvisioningState;
 import com.inqwise.indexer.publication.IndexPublicationService;
 import com.inqwise.indexer.publication.MarkIndexReadyRequest;
+import com.inqwise.indexer.publication.PublicationReadinessResult;
 import com.inqwise.indexer.publication.PublishIndexRequest;
 import com.inqwise.indexer.provisioning.CreateIndexerProvisioningRequest;
 import com.inqwise.indexer.provisioning.IndexerProvisioningService;
@@ -208,7 +209,7 @@ public class MetadataTargetManagementService implements TargetManagementService 
 							indexer.indexerId(),
 							indexer.version()
 						)).map(published -> new ProvisionedIndexer(
-							published.id(),
+							published.indexerId(),
 							published.targetId(),
 							published.version()
 						))
@@ -218,7 +219,7 @@ public class MetadataTargetManagementService implements TargetManagementService 
 				)));
 	}
 
-	private Future<PublicationRecord> markPublicationReady(PublicationRecord publication) {
+	private Future<PublicationReadinessResult> markPublicationReady(PublicationRecord publication) {
 		return publicationService.markReady(new MarkIndexReadyRequest(
 			publication.id(),
 			"target creation",

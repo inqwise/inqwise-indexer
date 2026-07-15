@@ -45,7 +45,12 @@ class IndexPublicationServiceTest {
 				publicationId,
 				"baseline loaded",
 				0L
-			)).compose(ignored -> repository.getPublicationById(publicationId)))
+			)).compose(result -> {
+				assertEquals(publicationId, result.publicationId());
+				assertEquals(ReadinessState.READY, result.readinessState());
+				assertEquals(1L, result.version());
+				return repository.getPublicationById(publicationId);
+			}))
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
 				assertTrue(found.isPresent());
 				assertEquals(ReadinessState.READY, found.get().readinessState());
@@ -164,7 +169,12 @@ class IndexPublicationServiceTest {
 
 		insertPublishableIndexer(repository, MutationState.WRITABLE, ReadinessState.READY)
 			.compose(indexerId -> publicationService.publish(new PublishIndexRequest(indexerId, 0L))
-				.compose(ignored -> repository.getIndexerById(indexerId)))
+				.compose(result -> {
+					assertEquals(indexerId, result.indexerId());
+					assertEquals(PublicationState.PUBLISHED, result.publicationState());
+					assertEquals(1L, result.version());
+					return repository.getIndexerById(indexerId);
+				}))
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
 				assertTrue(found.isPresent());
 				assertEquals(PublicationState.PUBLISHED, found.get().publicationState());
@@ -275,7 +285,12 @@ class IndexPublicationServiceTest {
 
 		insertPublishedIndexer(repository)
 			.compose(indexerId -> publicationService.retire(new RetireIndexRequest(indexerId, 0L))
-				.compose(ignored -> repository.getIndexerById(indexerId)))
+				.compose(result -> {
+					assertEquals(indexerId, result.indexerId());
+					assertEquals(PublicationState.RETIRED, result.publicationState());
+					assertEquals(1L, result.version());
+					return repository.getIndexerById(indexerId);
+				}))
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
 				assertTrue(found.isPresent());
 				assertEquals(PublicationState.RETIRED, found.get().publicationState());

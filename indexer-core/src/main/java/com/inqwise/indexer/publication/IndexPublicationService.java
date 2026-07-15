@@ -1,8 +1,5 @@
 package com.inqwise.indexer.publication;
 
-import com.inqwise.indexer.metadata.IndexerRecord;
-import com.inqwise.indexer.metadata.PublicationRecord;
-
 import io.vertx.core.Future;
 
 /**
@@ -11,9 +8,9 @@ import io.vertx.core.Future;
  * refactoring candidates until domain ownership and transport are finalized.
  */
 public interface IndexPublicationService {
-	Future<PublicationRecord> markReady(MarkIndexReadyRequest request);
+	Future<PublicationReadinessResult> markReady(MarkIndexReadyRequest request);
 
-	Future<IndexerRecord> publish(PublishIndexRequest request);
+	Future<IndexPublicationResult> publish(PublishIndexRequest request);
 
-	Future<IndexerRecord> retire(RetireIndexRequest request);
+	Future<IndexPublicationResult> retire(RetireIndexRequest request);
 }
