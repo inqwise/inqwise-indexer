@@ -38,7 +38,12 @@ class IndexerManagementServiceTest {
 		eventBus.subscribe(events::add)
 			.compose(ignored -> insertIndexer(repository, IndexerRuntimeState.NON_ACTIVE))
 			.compose(indexerId -> service.activate(new IndexerRuntimeStateRequest(indexerId, 0L))
-				.compose(ignored -> repository.getIndexerById(indexerId)))
+				.compose(result -> {
+					assertEquals(indexerId, result.indexerId());
+					assertEquals(IndexerRuntimeState.ACTIVE, result.runtimeState());
+					assertEquals(1L, result.version());
+					return repository.getIndexerById(indexerId);
+				}))
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
 				assertTrue(found.isPresent());
 				assertEquals(IndexerRuntimeState.ACTIVE, found.get().runtimeState());
@@ -69,7 +74,11 @@ class IndexerManagementServiceTest {
 					.compose(ignored -> service.activate(activate))
 					.compose(ignored -> service.deactivate(deactivate))
 					.compose(ignored -> service.deactivate(deactivate))
-					.compose(ignored -> repository.getIndexerById(indexerId));
+					.compose(result -> {
+						assertEquals(IndexerRuntimeState.NON_ACTIVE, result.runtimeState());
+						assertEquals(2L, result.version());
+						return repository.getIndexerById(indexerId);
+					});
 			})
 			.onComplete(testContext.succeeding(found -> testContext.verify(() -> {
 				assertTrue(found.isPresent());

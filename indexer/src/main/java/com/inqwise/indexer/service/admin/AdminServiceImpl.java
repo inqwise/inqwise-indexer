@@ -176,7 +176,7 @@ public class AdminServiceImpl implements AdminService {
 			return indexerManagementService.activate(new IndexerRuntimeStateRequest(
 				indexerId,
 				request.getExpectedVersion()
-			)).map(indexer -> new AdminIndexerResult().setIndexer(AdminIndexerView.from(indexer)))
+			)).compose(indexer -> loadIndexerResult(indexer.indexerId()))
 				.recover(error -> Future.failedFuture(IndexerErrors.normalize(error)));
 		} catch (Throwable error) {
 			return Future.failedFuture(IndexerErrors.normalize(error));
@@ -190,7 +190,7 @@ public class AdminServiceImpl implements AdminService {
 			return indexerManagementService.deactivate(new IndexerRuntimeStateRequest(
 				indexerId,
 				request.getExpectedVersion()
-			)).map(indexer -> new AdminIndexerResult().setIndexer(AdminIndexerView.from(indexer)))
+			)).compose(indexer -> loadIndexerResult(indexer.indexerId()))
 				.recover(error -> Future.failedFuture(IndexerErrors.normalize(error)));
 		} catch (Throwable error) {
 			return Future.failedFuture(IndexerErrors.normalize(error));

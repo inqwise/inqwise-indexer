@@ -6,8 +6,6 @@ import com.inqwise.indexer.lifecycle.IndexerMetadataChanged;
 import com.inqwise.indexer.lifecycle.MetadataChangeNotifier;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.IndexerRecord;
-import com.inqwise.indexer.catalog.indexers.IndexerStatus;
-import com.inqwise.indexer.catalog.indexers.MutationState;
 import com.inqwise.indexer.metadata.UpdateIndexerRuntimeState;
 
 import io.vertx.core.Future;
@@ -25,13 +23,24 @@ public final class MetadataIndexerManagementService implements IndexerManagement
 	}
 
 	@Override
-	public Future<IndexerRecord> activate(IndexerRuntimeStateRequest request) {
-		return change(request, IndexerRuntimeState.ACTIVE, "indexer.activate");
+	public Future<IndexerRuntimeStateResult> activate(IndexerRuntimeStateRequest request) {
+		return change(request, IndexerRuntimeState.ACTIVE, "indexer.activate")
+			.map(this::toRuntimeStateResult);
 	}
 
 	@Override
-	public Future<IndexerRecord> deactivate(IndexerRuntimeStateRequest request) {
-		return change(request, IndexerRuntimeState.NON_ACTIVE, "indexer.deactivate");
+	public Future<IndexerRuntimeStateResult> deactivate(IndexerRuntimeStateRequest request) {
+		return change(request, IndexerRuntimeState.NON_ACTIVE, "indexer.deactivate")
+			.map(this::toRuntimeStateResult);
+	}
+
+	private IndexerRuntimeStateResult toRuntimeStateResult(IndexerRecord indexer) {
+		return new IndexerRuntimeStateResult(
+			indexer.id(),
+			indexer.targetId(),
+			indexer.runtimeState(),
+			indexer.version()
+		);
 	}
 
 	private Future<IndexerRecord> change(

@@ -1,7 +1,5 @@
 package com.inqwise.indexer.catalog.indexers;
 
-import com.inqwise.indexer.metadata.IndexerRecord;
-
 import io.vertx.core.Future;
 
 /**
@@ -11,7 +9,7 @@ import io.vertx.core.Future;
  * remain provisional before external exposure.
  */
 public interface IndexerManagementService {
-	Future<IndexerRecord> activate(IndexerRuntimeStateRequest request);
+	Future<IndexerRuntimeStateResult> activate(IndexerRuntimeStateRequest request);
 
-	Future<IndexerRecord> deactivate(IndexerRuntimeStateRequest request);
+	Future<IndexerRuntimeStateResult> deactivate(IndexerRuntimeStateRequest request);
 }
