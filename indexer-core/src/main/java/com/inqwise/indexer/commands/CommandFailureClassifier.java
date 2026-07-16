@@ -7,19 +7,17 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
-import com.inqwise.indexer.errors.RetryableStaleStateException;
-
 public final class CommandFailureClassifier {
-	private final List<Rule> providerRules;
+	private final List<Rule> rules;
 
 	public CommandFailureClassifier() {
 		this(List.of());
 	}
 
-	public CommandFailureClassifier(List<Rule> providerRules) {
-		this.providerRules = List.copyOf(Objects.requireNonNull(
-			providerRules,
-			"providerRules"
+	public CommandFailureClassifier(List<Rule> rules) {
+		this.rules = List.copyOf(Objects.requireNonNull(
+			rules,
+			"rules"
 		));
 	}
 
@@ -36,19 +34,16 @@ public final class CommandFailureClassifier {
 			return explicit.get();
 		}
 
-		for (Rule rule : providerRules) {
+		for (Rule rule : rules) {
 			Optional<CommandFailureKind> classified = Objects.requireNonNull(
 				rule.classify(error),
-				"Provider command failure classification"
+				"Command failure rule classification"
 			);
 			if (classified.isPresent()) {
 				return classified.get();
 			}
 		}
 
-		if (causes.stream().anyMatch(RetryableStaleStateException.class::isInstance)) {
-			return CommandFailureKind.RETRYABLE;
-		}
 		if (causes.stream().anyMatch(errorCause ->
 			errorCause instanceof IllegalArgumentException
 				|| errorCause instanceof IllegalStateException)) {
@@ -58,7 +53,18 @@ public final class CommandFailureClassifier {
 		return CommandFailureKind.RETRYABLE;
 	}
 
-	private List<Throwable> causes(Throwable error) {
+	public static Rule causeType(
+		Class<? extends Throwable> errorType,
+		CommandFailureKind kind
+	) {
+		Objects.requireNonNull(errorType, "errorType");
+		Objects.requireNonNull(kind, "kind");
+		return error -> causes(error).stream().anyMatch(errorType::isInstance)
+			? Optional.of(kind)
+			: Optional.empty();
+	}
+
+	private static List<Throwable> causes(Throwable error) {
 		java.util.ArrayList<Throwable> causes = new java.util.ArrayList<>();
 		Set<Throwable> seen = Collections.newSetFromMap(new IdentityHashMap<>());
 		Throwable current = error;

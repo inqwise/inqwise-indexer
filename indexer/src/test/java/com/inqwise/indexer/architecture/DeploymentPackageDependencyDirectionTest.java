@@ -232,7 +232,7 @@ class DeploymentPackageDependencyDirectionTest {
 					.filter(path -> path.toString().endsWith(".java"))
 					.forEach(path -> inspectImports(
 						path,
-						Set.of("cleanup", "publication", "routing"),
+						Set.of("cleanup", "errors", "publication", "routing"),
 						"command infrastructure must not own moved domain contracts",
 						violations
 					));

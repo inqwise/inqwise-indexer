@@ -7,8 +7,6 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 
-import com.inqwise.indexer.errors.RetryableStaleStateException;
-
 class CommandFailureClassifierTest {
 	private final CommandFailureClassifier classifier = new CommandFailureClassifier();
 
@@ -40,10 +38,20 @@ class CommandFailureClassifierTest {
 	}
 
 	@Test
-	void classifiesStaleStateAsRetryable() {
+	void causeTypeRuleClassifiesWrappedProviderFailureBeforeCoreDefaults() {
+		CommandFailureClassifier configured = new CommandFailureClassifier(List.of(
+			CommandFailureClassifier.causeType(
+				RetryableProviderException.class,
+				CommandFailureKind.RETRYABLE
+			)
+		));
+
 		assertEquals(
 			CommandFailureKind.RETRYABLE,
-			classifier.classify(new RetryableStaleStateException("stale"))
+			configured.classify(new IllegalStateException(
+				"wrapper",
+				new RetryableProviderException("retry")
+			))
 		);
 	}
 
@@ -60,8 +68,8 @@ class CommandFailureClassifierTest {
 	}
 
 	@Test
-	void providerRuleRunsBeforeCoreDefaults() {
-		CommandFailureClassifier providerClassifier = new CommandFailureClassifier(List.of(
+	void configuredRuleRunsBeforeCoreDefaults() {
+		CommandFailureClassifier configured = new CommandFailureClassifier(List.of(
 			error -> error instanceof SecurityException
 				? Optional.of(CommandFailureKind.FINAL)
 				: Optional.empty()
@@ -69,7 +77,7 @@ class CommandFailureClassifierTest {
 
 		assertEquals(
 			CommandFailureKind.FINAL,
-			providerClassifier.classify(new SecurityException("denied"))
+			configured.classify(new SecurityException("denied"))
 		);
 	}
 
@@ -79,5 +87,11 @@ class CommandFailureClassifierTest {
 			CommandFailureKind.RETRYABLE,
 			classifier.classify(new RuntimeException("unknown"))
 		);
+	}
+
+	private static final class RetryableProviderException extends RuntimeException {
+		private RetryableProviderException(String message) {
+			super(message);
+		}
 	}
 }

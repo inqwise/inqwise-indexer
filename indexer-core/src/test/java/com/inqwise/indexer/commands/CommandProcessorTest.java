@@ -7,8 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import com.inqwise.indexer.errors.RetryableStaleStateException;
-
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 import io.vertx.junit5.VertxExtension;
@@ -29,7 +27,7 @@ class CommandProcessorTest {
 
 	@Test
 	void classifiesAsynchronousFailureAndPreservesError(VertxTestContext testContext) {
-		RetryableStaleStateException error = new RetryableStaleStateException("stale");
+		RuntimeException error = new RuntimeException("transient");
 		CommandProcessor processor = processor(command -> Future.failedFuture(error));
 
 		processor.execute(command())
