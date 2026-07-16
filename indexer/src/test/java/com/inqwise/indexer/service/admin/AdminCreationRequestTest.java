@@ -7,11 +7,17 @@ import org.junit.jupiter.api.Test;
 class AdminCreationRequestTest {
 	@Test
 	void indexerCreationDoesNotExposePublicationState() {
-		assertFalse(new AdminCreateIndexerRequest().toJson().containsKey("publication_state"));
+		var json = new AdminCreateIndexerRequest().toJson();
+
+		assertFalse(json.containsKey("publication_state"));
+		assertFalse(json.containsKey("mutation_state"));
 	}
 
 	@Test
 	void nestedTargetIndexerCreationDoesNotExposePublicationState() {
-		assertFalse(new AdminCreateTargetIndexerRequest().toJson().containsKey("publication_state"));
+		var json = new AdminCreateTargetIndexerRequest().toJson();
+
+		assertFalse(json.containsKey("publication_state"));
+		assertFalse(json.containsKey("mutation_state"));
 	}
 }

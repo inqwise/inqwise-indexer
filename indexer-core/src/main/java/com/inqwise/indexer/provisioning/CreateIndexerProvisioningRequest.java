@@ -6,7 +6,6 @@ import com.inqwise.indexer.catalog.indexers.IndexResourceOwnership;
 import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
 import com.inqwise.indexer.catalog.indexers.IndexerRole;
 import com.inqwise.indexer.catalog.indexers.IndexerType;
-import com.inqwise.indexer.catalog.indexers.MutationState;
 
 public record CreateIndexerProvisioningRequest(
 	String prefix,
@@ -17,8 +16,7 @@ public record CreateIndexerProvisioningRequest(
 	IndexerType indexerType,
 	IndexerRole role,
 	IndexResourceOwnership indexOwnership,
-	IndexerRuntimeState runtimeState,
-	MutationState mutationState
+	IndexerRuntimeState runtimeState
 ) {
 	public CreateIndexerProvisioningRequest {
 		targetId = Objects.requireNonNull(targetId, "targetId");
@@ -28,6 +26,5 @@ public record CreateIndexerProvisioningRequest(
 		role = role == null ? IndexerRole.LIVE_WRITER : role;
 		indexOwnership = indexOwnership == null ? IndexResourceOwnership.OWNER : indexOwnership;
 		runtimeState = runtimeState == null ? IndexerRuntimeState.NON_ACTIVE : runtimeState;
-		mutationState = mutationState == null ? MutationState.WRITABLE : mutationState;
 	}
 }

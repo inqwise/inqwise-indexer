@@ -384,8 +384,7 @@ class MetadataSubmitIndexActionRouter {
 				IndexerType.INDEX,
 				IndexerRole.LIVE_WRITER,
 				IndexResourceOwnership.OWNER,
-				IndexerRuntimeState.ACTIVE,
-				MutationState.WRITABLE
+				IndexerRuntimeState.ACTIVE
 			)))
 			.onSuccess(indexer -> routingContext.markMetadataChanged(indexer.indexerId()))
 			.compose(indexer -> repository.getTargetById(target.id())

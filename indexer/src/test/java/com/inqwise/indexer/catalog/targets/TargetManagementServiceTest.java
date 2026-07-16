@@ -25,7 +25,6 @@ import com.inqwise.indexer.adapters.local.StaticIndexerDefinitionProvider;
 import com.inqwise.indexer.adapters.local.StaticTargetDefinitionProvider;
 import com.inqwise.indexer.catalog.indexers.IndexerProvisioningState;
 import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepository;
-import com.inqwise.indexer.catalog.indexers.MutationState;
 import com.inqwise.indexer.publication.PublicationState;
 import com.inqwise.indexer.publication.ReadinessState;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
@@ -291,7 +290,6 @@ class TargetManagementServiceTest {
 			IndexerRole.LIVE_WRITER,
 			IndexResourceOwnership.OWNER,
 			IndexerRuntimeState.NON_ACTIVE,
-			MutationState.WRITABLE,
 			mode
 		);
 	}

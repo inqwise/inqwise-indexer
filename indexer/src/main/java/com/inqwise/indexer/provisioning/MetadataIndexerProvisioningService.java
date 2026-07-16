@@ -2,19 +2,20 @@ package com.inqwise.indexer.provisioning;
 
 import java.util.Objects;
 
-import com.inqwise.indexer.provisioning.definitions.IndexerDefinition;
-import com.inqwise.indexer.provisioning.definitions.IndexerDefinitionProvider;
-import com.inqwise.indexer.provisioning.definitions.IndexerDefinitionRequest;
-import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.catalog.indexers.IndexerProvisioningState;
-import com.inqwise.indexer.metadata.IndexerRecord;
 import com.inqwise.indexer.catalog.indexers.IndexerStatus;
+import com.inqwise.indexer.catalog.indexers.MutationState;
+import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
+import com.inqwise.indexer.metadata.IndexerRecord;
 import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.metadata.InsertManifest;
 import com.inqwise.indexer.metadata.InsertPublication;
+import com.inqwise.indexer.metadata.UpdateIndexerProvisioningState;
+import com.inqwise.indexer.provisioning.definitions.IndexerDefinition;
+import com.inqwise.indexer.provisioning.definitions.IndexerDefinitionProvider;
+import com.inqwise.indexer.provisioning.definitions.IndexerDefinitionRequest;
 import com.inqwise.indexer.publication.PublicationState;
 import com.inqwise.indexer.publication.ReadinessState;
-import com.inqwise.indexer.metadata.UpdateIndexerProvisioningState;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
@@ -77,7 +78,7 @@ public class MetadataIndexerProvisioningService implements IndexerProvisioningSe
 			IndexerProvisioningState.PROVISIONING,
 			request.runtimeState(),
 			PublicationState.UNPUBLISHED,
-			request.mutationState()
+			MutationState.WRITABLE
 		)).compose(this::getIndexer);
 	}
 

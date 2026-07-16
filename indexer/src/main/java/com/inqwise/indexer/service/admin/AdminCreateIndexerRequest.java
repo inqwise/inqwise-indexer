@@ -4,7 +4,6 @@ import com.inqwise.indexer.catalog.indexers.IndexResourceOwnership;
 import com.inqwise.indexer.catalog.indexers.IndexerRole;
 import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
 import com.inqwise.indexer.catalog.indexers.IndexerType;
-import com.inqwise.indexer.catalog.indexers.MutationState;
 import com.inqwise.indexer.provisioning.CreateIndexerProvisioningRequest;
 
 import io.vertx.codegen.annotations.DataObject;
@@ -22,7 +21,6 @@ public class AdminCreateIndexerRequest {
 		public static final String ROLE = "role";
 		public static final String INDEX_OWNERSHIP = "index_ownership";
 		public static final String RUNTIME_STATE = "runtime_state";
-		public static final String MUTATION_STATE = "mutation_state";
 
 		private Keys() {
 		}
@@ -37,7 +35,6 @@ public class AdminCreateIndexerRequest {
 	private IndexerRole role = IndexerRole.LIVE_WRITER;
 	private IndexResourceOwnership indexOwnership = IndexResourceOwnership.OWNER;
 	private IndexerRuntimeState runtimeState = IndexerRuntimeState.NON_ACTIVE;
-	private MutationState mutationState = MutationState.WRITABLE;
 
 	public AdminCreateIndexerRequest() {
 	}
@@ -58,10 +55,6 @@ public class AdminCreateIndexerRequest {
 			Keys.RUNTIME_STATE,
 			IndexerRuntimeState.NON_ACTIVE.name()
 		));
-		this.mutationState = MutationState.valueOf(json.getString(
-			Keys.MUTATION_STATE,
-			MutationState.WRITABLE.name()
-		));
 	}
 
 	public JsonObject toJson() {
@@ -74,8 +67,7 @@ public class AdminCreateIndexerRequest {
 			.put(Keys.INDEXER_TYPE, indexerType.name())
 			.put(Keys.ROLE, role.name())
 			.put(Keys.INDEX_OWNERSHIP, indexOwnership.name())
-			.put(Keys.RUNTIME_STATE, runtimeState.name())
-			.put(Keys.MUTATION_STATE, mutationState.name());
+			.put(Keys.RUNTIME_STATE, runtimeState.name());
 	}
 
 	CreateIndexerProvisioningRequest toProvisioningRequest() {
@@ -88,8 +80,7 @@ public class AdminCreateIndexerRequest {
 			indexerType,
 			role,
 			indexOwnership,
-			runtimeState,
-			mutationState
+			runtimeState
 		);
 	}
 
@@ -174,12 +165,4 @@ public class AdminCreateIndexerRequest {
 		return this;
 	}
 
-	public MutationState getMutationState() {
-		return mutationState;
-	}
-
-	public AdminCreateIndexerRequest setMutationState(MutationState mutationState) {
-		this.mutationState = mutationState == null ? MutationState.WRITABLE : mutationState;
-		return this;
-	}
 }
