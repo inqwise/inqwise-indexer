@@ -1,21 +1,25 @@
-package com.inqwise.indexer.commands;
+package com.inqwise.indexer.routing;
 
 import java.util.LinkedHashSet;
 import java.util.Set;
 
 import com.inqwise.indexer.actions.IndexerActionItem;
+import com.inqwise.indexer.commands.Command;
+import com.inqwise.indexer.commands.CommandFailure;
+import com.inqwise.indexer.commands.CommandPartitionKey;
+import com.inqwise.indexer.commands.CommandPartitionKeyRouter;
 
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
-final class CoreCommandPartitionKeyResolvers {
-	private CoreCommandPartitionKeyResolvers() {
+public final class RoutingCommandPartitionKeyResolvers {
+	private RoutingCommandPartitionKeyResolvers() {
 	}
 
-	static void registerWith(CommandPartitionKeyRouter router) {
+	public static void registerWith(CommandPartitionKeyRouter router) {
 		router.register(
 			SubmitIndexActionsCommand.TYPE,
-			CoreCommandPartitionKeyResolvers::actions
+			RoutingCommandPartitionKeyResolvers::actions
 		);
 	}
 

@@ -1,4 +1,4 @@
-package com.inqwise.indexer.commands;
+package com.inqwise.indexer.routing;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -9,6 +9,7 @@ import java.util.UUID;
 import com.inqwise.indexer.actions.IndexerActionItem;
 import com.inqwise.indexer.actions.IndexerActionType;
 import com.inqwise.indexer.actions.PutDocumentActionItem;
+import com.inqwise.indexer.commands.Command;
 
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;

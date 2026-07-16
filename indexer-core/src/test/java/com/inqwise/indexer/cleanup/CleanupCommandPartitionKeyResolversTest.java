@@ -20,7 +20,7 @@ class CleanupCommandPartitionKeyResolversTest {
 	}
 
 	private static CommandPartitionKeyRouter createRouter() {
-		CommandPartitionKeyRouter router = CommandPartitionKeyRouter.withCoreResolvers();
+		CommandPartitionKeyRouter router = new CommandPartitionKeyRouter();
 		CleanupCommandPartitionKeyResolvers.registerWith(router);
 		return router;
 	}

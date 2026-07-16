@@ -48,7 +48,7 @@ class LoadPackageDependencyDirectionTest {
 		"com.inqwise.indexer.commands.CommandPartitionKey",
 		"com.inqwise.indexer.commands.CommandPartitionKeyRouter",
 		"com.inqwise.indexer.commands.CommandService",
-		"com.inqwise.indexer.commands.SubmitIndexActionsCommand",
+		"com.inqwise.indexer.routing.SubmitIndexActionsCommand",
 		"com.inqwise.indexer.errors.RetryableStaleStateException",
 		"com.inqwise.indexer.lifecycle.IndexerLifecycleEventBus",
 		"com.inqwise.indexer.lifecycle.IndexerMetadataChanged",

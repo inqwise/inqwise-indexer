@@ -7,12 +7,6 @@ import java.util.Objects;
 public final class CommandPartitionKeyRouter {
 	private final Map<String, CommandPartitionKeyResolver> resolversByType = new HashMap<>();
 
-	public static CommandPartitionKeyRouter withCoreResolvers() {
-		CommandPartitionKeyRouter router = new CommandPartitionKeyRouter();
-		CoreCommandPartitionKeyResolvers.registerWith(router);
-		return router;
-	}
-
 	public CommandPartitionKeyRouter register(
 		String commandType,
 		CommandPartitionKeyResolver resolver

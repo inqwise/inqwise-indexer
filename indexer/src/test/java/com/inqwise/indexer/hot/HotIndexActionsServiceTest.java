@@ -32,7 +32,7 @@ import com.inqwise.indexer.routing.RoutedIndexActionPublisher;
 import com.inqwise.indexer.routing.InvalidRouteCache;
 import com.inqwise.indexer.routing.InvalidRouteRecord;
 import com.inqwise.indexer.routing.InvalidRouteSignature;
-import com.inqwise.indexer.commands.SubmitIndexActionsCommand;
+import com.inqwise.indexer.routing.SubmitIndexActionsCommand;
 import com.inqwise.indexer.adapters.local.StaticTargetDefinitionProvider;
 import com.inqwise.indexer.catalog.targets.TargetDefinition;
 import com.inqwise.indexer.catalog.targets.ConcreteTargetKey;

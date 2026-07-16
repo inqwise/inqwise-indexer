@@ -19,7 +19,7 @@ class LoadCommandPartitionKeyResolversTest {
 	}
 
 	private static CommandPartitionKeyRouter createRouter() {
-		CommandPartitionKeyRouter router = CommandPartitionKeyRouter.withCoreResolvers();
+		CommandPartitionKeyRouter router = new CommandPartitionKeyRouter();
 		LoadCommandPartitionKeyResolvers.registerWith(router);
 		return router;
 	}

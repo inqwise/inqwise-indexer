@@ -3,7 +3,7 @@ package com.inqwise.indexer.hot;
 import java.util.List;
 
 import com.inqwise.indexer.actions.IndexerActionItem;
-import com.inqwise.indexer.commands.ActionDestination;
+import com.inqwise.indexer.routing.ActionDestination;
 import com.inqwise.indexer.routing.InvalidRouteSignature;
 
 public final class InvalidRouteSignatures {

@@ -1,4 +1,4 @@
-package com.inqwise.indexer.commands;
+package com.inqwise.indexer.routing;
 
 import java.util.List;
 import java.util.Objects;

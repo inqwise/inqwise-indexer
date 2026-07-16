@@ -1,4 +1,4 @@
-package com.inqwise.indexer.commands;
+package com.inqwise.indexer.routing;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;

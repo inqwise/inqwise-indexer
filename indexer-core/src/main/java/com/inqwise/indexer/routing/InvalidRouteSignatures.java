@@ -3,8 +3,8 @@ package com.inqwise.indexer.routing;
 import java.util.List;
 
 import com.inqwise.indexer.actions.IndexerActionItem;
-import com.inqwise.indexer.commands.ActionDestination;
-import com.inqwise.indexer.commands.SubmitIndexActionsCommand;
+import com.inqwise.indexer.routing.ActionDestination;
+import com.inqwise.indexer.routing.SubmitIndexActionsCommand;
 
 public final class InvalidRouteSignatures {
 	private InvalidRouteSignatures() {

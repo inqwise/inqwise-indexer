@@ -21,7 +21,7 @@ import com.inqwise.indexer.providers.IndexerMarkerHandler;
 import com.inqwise.indexer.lifecycle.IndexerMetadataChanged;
 import com.inqwise.indexer.catalog.indexers.IndexerModel;
 import com.inqwise.indexer.commands.CommandService;
-import com.inqwise.indexer.commands.SubmitIndexActionsCommand;
+import com.inqwise.indexer.routing.SubmitIndexActionsCommand;
 
 import io.vertx.core.Future;
 

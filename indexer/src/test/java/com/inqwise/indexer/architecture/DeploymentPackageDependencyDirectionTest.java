@@ -218,7 +218,7 @@ class DeploymentPackageDependencyDirectionTest {
 	}
 
 	@Test
-	void commandInfrastructureDoesNotDependOnCleanupWorkflow() throws IOException {
+	void commandInfrastructureDoesNotDependOnDomainWorkflows() throws IOException {
 		List<String> violations = new ArrayList<>();
 		for (Path commandsPackage : List.of(
 			CORE_MAIN_PACKAGE.resolve("commands"),
@@ -232,8 +232,8 @@ class DeploymentPackageDependencyDirectionTest {
 					.filter(path -> path.toString().endsWith(".java"))
 					.forEach(path -> inspectImports(
 						path,
-						Set.of("cleanup"),
-						"command infrastructure must not depend on cleanup workflow",
+						Set.of("cleanup", "routing"),
+						"command infrastructure must not depend on domain workflows",
 						violations
 					));
 			}

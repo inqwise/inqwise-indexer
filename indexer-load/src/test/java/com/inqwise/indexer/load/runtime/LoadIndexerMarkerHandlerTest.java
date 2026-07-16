@@ -30,7 +30,7 @@ import com.inqwise.indexer.adapters.local.InMemoryIndexerDocumentStore;
 import com.inqwise.indexer.adapters.local.InMemoryIndexerQueue;
 import com.inqwise.indexer.commands.Command;
 import com.inqwise.indexer.commands.CommandService;
-import com.inqwise.indexer.commands.SubmitIndexActionsCommand;
+import com.inqwise.indexer.routing.SubmitIndexActionsCommand;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;

@@ -6,7 +6,7 @@ import java.util.Objects;
 import com.inqwise.indexer.actions.IndexerActionItem;
 import com.inqwise.indexer.runtime.IndexerQueueClient;
 import com.inqwise.indexer.runtime.IndexerQueuePublisher;
-import com.inqwise.indexer.commands.RoutedIndexActions;
+import com.inqwise.indexer.routing.RoutedIndexActions;
 
 import io.vertx.core.Future;
 
