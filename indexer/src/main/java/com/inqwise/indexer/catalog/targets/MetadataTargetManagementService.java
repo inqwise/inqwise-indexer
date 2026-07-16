@@ -203,7 +203,6 @@ public class MetadataTargetManagementService implements TargetManagementService 
 			create.role(),
 			create.indexOwnership(),
 			create.runtimeState(),
-			create.publicationState(),
 			create.mutationState()
 		));
 	}

@@ -238,7 +238,6 @@ class TargetManagementServiceTest {
 			IndexerRole.LIVE_WRITER,
 			IndexResourceOwnership.OWNER,
 			IndexerRuntimeState.NON_ACTIVE,
-			PublicationState.UNPUBLISHED,
 			MutationState.WRITABLE,
 			mode
 		);

@@ -4,10 +4,9 @@ import com.inqwise.indexer.catalog.indexers.IndexResourceOwnership;
 import com.inqwise.indexer.catalog.indexers.IndexerRole;
 import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
 import com.inqwise.indexer.catalog.indexers.IndexerType;
-import com.inqwise.indexer.publication.InitialPublicationMode;
 import com.inqwise.indexer.catalog.indexers.MutationState;
-import com.inqwise.indexer.publication.PublicationState;
 import com.inqwise.indexer.catalog.targets.CreateTargetIndexerRequest;
+import com.inqwise.indexer.publication.InitialPublicationMode;
 
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
@@ -22,7 +21,6 @@ public class AdminCreateTargetIndexerRequest {
 		public static final String ROLE = "role";
 		public static final String INDEX_OWNERSHIP = "index_ownership";
 		public static final String RUNTIME_STATE = "runtime_state";
-		public static final String PUBLICATION_STATE = "publication_state";
 		public static final String MUTATION_STATE = "mutation_state";
 		public static final String INITIAL_PUBLICATION_MODE = "initial_publication_mode";
 
@@ -37,7 +35,6 @@ public class AdminCreateTargetIndexerRequest {
 	private IndexerRole role = IndexerRole.LIVE_WRITER;
 	private IndexResourceOwnership indexOwnership = IndexResourceOwnership.OWNER;
 	private IndexerRuntimeState runtimeState = IndexerRuntimeState.NON_ACTIVE;
-	private PublicationState publicationState = PublicationState.UNPUBLISHED;
 	private MutationState mutationState = MutationState.WRITABLE;
 	private InitialPublicationMode initialPublicationMode;
 
@@ -58,10 +55,6 @@ public class AdminCreateTargetIndexerRequest {
 			Keys.RUNTIME_STATE,
 			IndexerRuntimeState.NON_ACTIVE.name()
 		));
-		this.publicationState = PublicationState.valueOf(json.getString(
-			Keys.PUBLICATION_STATE,
-			PublicationState.UNPUBLISHED.name()
-		));
 		this.mutationState = MutationState.valueOf(json.getString(
 			Keys.MUTATION_STATE,
 			MutationState.WRITABLE.name()
@@ -79,7 +72,6 @@ public class AdminCreateTargetIndexerRequest {
 			.put(Keys.ROLE, role.name())
 			.put(Keys.INDEX_OWNERSHIP, indexOwnership.name())
 			.put(Keys.RUNTIME_STATE, runtimeState.name())
-			.put(Keys.PUBLICATION_STATE, publicationState.name())
 			.put(Keys.MUTATION_STATE, mutationState.name())
 			.put(Keys.INITIAL_PUBLICATION_MODE, initialPublicationMode == null
 				? null
@@ -95,7 +87,6 @@ public class AdminCreateTargetIndexerRequest {
 			role,
 			indexOwnership,
 			runtimeState,
-			publicationState,
 			mutationState,
 			initialPublicationMode
 		);
@@ -161,15 +152,6 @@ public class AdminCreateTargetIndexerRequest {
 
 	public AdminCreateTargetIndexerRequest setRuntimeState(IndexerRuntimeState runtimeState) {
 		this.runtimeState = runtimeState == null ? IndexerRuntimeState.NON_ACTIVE : runtimeState;
-		return this;
-	}
-
-	public PublicationState getPublicationState() {
-		return publicationState;
-	}
-
-	public AdminCreateTargetIndexerRequest setPublicationState(PublicationState publicationState) {
-		this.publicationState = publicationState == null ? PublicationState.UNPUBLISHED : publicationState;
 		return this;
 	}
 

@@ -32,7 +32,6 @@ import com.inqwise.indexer.metadata.IndexerRecord;
 import com.inqwise.indexer.catalog.indexers.IndexerStatus;
 import com.inqwise.indexer.catalog.indexers.MutationState;
 import com.inqwise.indexer.metadata.MetadataIndexerModels;
-import com.inqwise.indexer.publication.PublicationState;
 import com.inqwise.indexer.catalog.targets.TargetPeriod;
 import com.inqwise.indexer.catalog.targets.TargetPeriodResolver;
 import com.inqwise.indexer.catalog.targets.TargetPeriodStrategy;
@@ -386,7 +385,6 @@ class MetadataSubmitIndexActionRouter {
 				IndexerRole.LIVE_WRITER,
 				IndexResourceOwnership.OWNER,
 				IndexerRuntimeState.ACTIVE,
-				PublicationState.UNPUBLISHED,
 				MutationState.WRITABLE
 			)))
 			.onSuccess(indexer -> routingContext.markMetadataChanged(indexer.indexerId()))

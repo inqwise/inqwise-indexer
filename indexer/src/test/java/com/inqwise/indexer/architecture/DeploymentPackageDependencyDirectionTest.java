@@ -101,6 +101,23 @@ class DeploymentPackageDependencyDirectionTest {
 	}
 
 	@Test
+	void provisioningContractsDoNotOwnPublicationLifecycle() throws IOException {
+		List<String> violations = new ArrayList<>();
+		try (Stream<Path> files = Files.walk(CORE_MAIN_PACKAGE.resolve("provisioning"))) {
+			files
+				.filter(path -> path.toString().endsWith(".java"))
+				.forEach(path -> inspectImports(
+					path,
+					Set.of("publication"),
+					"provisioning contract must not expose publication lifecycle",
+					violations
+				));
+		}
+
+		assertTrue(violations.isEmpty(), () -> String.join(System.lineSeparator(), violations));
+	}
+
+	@Test
 	void publicationContractsDoNotExposeMetadataPersistence() throws IOException {
 		List<String> violations = new ArrayList<>();
 		try (Stream<Path> files = Files.walk(CORE_MAIN_PACKAGE.resolve("publication"))) {

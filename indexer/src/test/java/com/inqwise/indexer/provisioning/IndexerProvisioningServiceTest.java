@@ -53,7 +53,6 @@ class IndexerProvisioningServiceTest {
 				IndexerRole.LOAD_WRITER,
 				IndexResourceOwnership.OWNER,
 				IndexerRuntimeState.ACTIVE,
-				PublicationState.UNPUBLISHED,
 				MutationState.WRITABLE
 			)).compose(indexer -> TestMetadataChangeNotifiers.create(eventBus).indexerChanged(
 				new com.inqwise.indexer.lifecycle.IndexerMetadataChanged(
@@ -65,6 +64,7 @@ class IndexerProvisioningServiceTest {
 				assertEquals(IndexerRole.LOAD_WRITER, indexers.get(0).role());
 				assertEquals(IndexResourceOwnership.OWNER, indexers.get(0).indexOwnership());
 				assertEquals(IndexerRuntimeState.ACTIVE, indexers.get(0).runtimeState());
+				assertEquals(PublicationState.UNPUBLISHED, indexers.get(0).publicationState());
 				assertTrue(eventBus.events().stream()
 					.anyMatch(event -> event.getIndexerId().equals(indexers.get(0).id())
 						&& "indexer.create".equals(event.getCommandType())));
