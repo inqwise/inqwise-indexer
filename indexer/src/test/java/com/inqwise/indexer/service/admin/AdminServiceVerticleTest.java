@@ -14,7 +14,7 @@ import com.inqwise.indexer.testing.TestMetadataChangeNotifiers;
 import com.inqwise.indexer.adapters.local.InMemoryIndexerQueue;
 import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
 import com.inqwise.indexer.catalog.indexers.IndexerType;
-import com.inqwise.indexer.publication.InitialPublicationMode;
+import com.inqwise.indexer.catalog.targets.InitialPublicationMode;
 import com.inqwise.indexer.cleanup.CleanupDeletingIndexerCommandHandler;
 import com.inqwise.indexer.cleanup.CleanupResetIndexerQueueCommandHandler;
 import com.inqwise.indexer.adapters.local.InMemoryCommandEngine;

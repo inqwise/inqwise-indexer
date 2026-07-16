@@ -152,6 +152,23 @@ class DeploymentPackageDependencyDirectionTest {
 	}
 
 	@Test
+	void targetCatalogContractsDoNotOwnPublicationLifecycle() throws IOException {
+		List<String> violations = new ArrayList<>();
+		try (Stream<Path> files = Files.walk(CORE_MAIN_PACKAGE.resolve("catalog/targets"))) {
+			files
+				.filter(path -> path.toString().endsWith(".java"))
+				.forEach(path -> inspectImports(
+					path,
+					Set.of("publication"),
+					"target catalog contract must not expose publication lifecycle",
+					violations
+				));
+		}
+
+		assertTrue(violations.isEmpty(), () -> String.join(System.lineSeparator(), violations));
+	}
+
+	@Test
 	void indexerCatalogContractsDoNotExposeMetadataPersistence() throws IOException {
 		List<String> violations = new ArrayList<>();
 		try (Stream<Path> files = Files.walk(CORE_MAIN_PACKAGE.resolve("catalog/indexers"))) {

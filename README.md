@@ -82,7 +82,7 @@ The document data-plane port pass moved `IndexerDocumentStore` into `com.inqwise
 
 The action-routing implementation pass moved the cold submit handler, metadata-backed action router, routed queue publisher, `SubmitIndexActionsCommand`, `RoutedIndexActions`, and `ActionDestination` into `com.inqwise.indexer.routing`. These contracts remain in `indexer-core` for reuse by hot fallback and load integration, but their package ownership follows the Action Routing domain. Generic command infrastructure knows only the `Command` contract and registered partition resolver SPI.
 
-`InitialPublicationMode` lives under `com.inqwise.indexer.publication`. Target Catalog consumes it when a target-creation request includes a nested indexer, but the `READY` versus `PUBLISH` choice is publication-lifecycle vocabulary and has no relationship to command transport.
+`InitialPublicationMode` lives under `com.inqwise.indexer.catalog.targets` because it is used only by Target Catalog's nested indexer-creation workflow. `READY` and `PUBLISH` describe which publication operation that workflow invokes after provisioning; Publication Lifecycle does not consume this orchestration option. This function-based placement keeps core dependencies one-way from Publication Lifecycle to Target Catalog invariants.
 
 The action-provider registry pass moved `Actions` into `com.inqwise.indexer.actions`. It is service-loader infrastructure for action providers used by runtime processing, hot routing, cold routing, and load writers; it is not a root-package facade. The repository-split readiness pass moved this helper into `indexer-core` so load/reload production code can normalize actions without depending on the deployment-facing `indexer` module.
 

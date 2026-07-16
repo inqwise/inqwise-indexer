@@ -6,7 +6,7 @@ import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
 import com.inqwise.indexer.catalog.indexers.IndexerType;
 import com.inqwise.indexer.catalog.indexers.MutationState;
 import com.inqwise.indexer.catalog.targets.CreateTargetIndexerRequest;
-import com.inqwise.indexer.publication.InitialPublicationMode;
+import com.inqwise.indexer.catalog.targets.InitialPublicationMode;
 
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
