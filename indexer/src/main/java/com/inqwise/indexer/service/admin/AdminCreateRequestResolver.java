@@ -3,7 +3,7 @@ package com.inqwise.indexer.service.admin;
 import java.time.Instant;
 import java.util.Objects;
 
-import com.inqwise.indexer.commands.InitialPublicationMode;
+import com.inqwise.indexer.publication.InitialPublicationMode;
 import com.inqwise.indexer.service.IndexerErrors;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.TargetRecord;

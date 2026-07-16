@@ -22,7 +22,7 @@ import com.inqwise.indexer.provisioning.definitions.IndexerDefinition;
 import com.inqwise.indexer.provisioning.definitions.QueueDefinition;
 import com.inqwise.indexer.adapters.local.StaticIndexerDefinitionProvider;
 import com.inqwise.indexer.adapters.local.StaticTargetDefinitionProvider;
-import com.inqwise.indexer.commands.InitialPublicationMode;
+import com.inqwise.indexer.publication.InitialPublicationMode;
 import com.inqwise.indexer.catalog.indexers.IndexerProvisioningState;
 import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.catalog.indexers.MutationState;

@@ -5,7 +5,7 @@ import java.util.Objects;
 import com.inqwise.indexer.lifecycle.IndexerMetadataChanged;
 import com.inqwise.indexer.lifecycle.MetadataChangeNotifier;
 import com.inqwise.indexer.lifecycle.TargetMetadataChanged;
-import com.inqwise.indexer.commands.InitialPublicationMode;
+import com.inqwise.indexer.publication.InitialPublicationMode;
 import com.inqwise.indexer.commands.CommandFailure;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.IndexerRecord;

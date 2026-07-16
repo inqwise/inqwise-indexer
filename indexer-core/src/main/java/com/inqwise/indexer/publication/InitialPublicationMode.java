@@ -1,4 +1,4 @@
-package com.inqwise.indexer.commands;
+package com.inqwise.indexer.publication;
 
 public enum InitialPublicationMode {
 	READY,

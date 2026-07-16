@@ -8,7 +8,7 @@ import java.util.Objects;
 import com.inqwise.indexer.catalog.indexers.IndexerRole;
 import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
 import com.inqwise.indexer.catalog.indexers.IndexerType;
-import com.inqwise.indexer.commands.InitialPublicationMode;
+import com.inqwise.indexer.publication.InitialPublicationMode;
 import com.inqwise.indexer.service.IndexerErrors;
 import com.inqwise.indexer.catalog.indexers.IndexerProvisioningState;
 import com.inqwise.indexer.catalog.indexers.IndexerStatus;

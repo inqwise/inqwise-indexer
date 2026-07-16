@@ -218,7 +218,7 @@ class DeploymentPackageDependencyDirectionTest {
 	}
 
 	@Test
-	void commandInfrastructureDoesNotDependOnDomainWorkflows() throws IOException {
+	void commandInfrastructureDoesNotOwnMovedDomainContracts() throws IOException {
 		List<String> violations = new ArrayList<>();
 		for (Path commandsPackage : List.of(
 			CORE_MAIN_PACKAGE.resolve("commands"),
@@ -232,8 +232,8 @@ class DeploymentPackageDependencyDirectionTest {
 					.filter(path -> path.toString().endsWith(".java"))
 					.forEach(path -> inspectImports(
 						path,
-						Set.of("cleanup", "routing"),
-						"command infrastructure must not depend on domain workflows",
+						Set.of("cleanup", "publication", "routing"),
+						"command infrastructure must not own moved domain contracts",
 						violations
 					));
 			}
