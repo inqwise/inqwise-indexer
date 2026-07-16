@@ -11,6 +11,7 @@ class AdminCreationRequestTest {
 
 		assertFalse(json.containsKey("publication_state"));
 		assertFalse(json.containsKey("mutation_state"));
+		assertFalse(json.containsKey("indexer_type"));
 	}
 
 	@Test
@@ -19,5 +20,6 @@ class AdminCreationRequestTest {
 
 		assertFalse(json.containsKey("publication_state"));
 		assertFalse(json.containsKey("mutation_state"));
+		assertFalse(json.containsKey("indexer_type"));
 	}
 }

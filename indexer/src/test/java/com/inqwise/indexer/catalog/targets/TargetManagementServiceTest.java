@@ -15,7 +15,6 @@ import com.inqwise.indexer.catalog.indexers.IndexResourceOwnership;
 import com.inqwise.indexer.provisioning.IndexerQueueResourceManager;
 import com.inqwise.indexer.catalog.indexers.IndexerRole;
 import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
-import com.inqwise.indexer.catalog.indexers.IndexerType;
 import com.inqwise.indexer.adapters.local.InMemoryIndexerLifecycleEventBus;
 import com.inqwise.indexer.testing.TestMetadataChangeNotifiers;
 import com.inqwise.indexer.provisioning.definitions.IndexDefinition;
@@ -286,7 +285,6 @@ class TargetManagementServiceTest {
 			"indexer-customers",
 			"customers-index",
 			"customers-queue",
-			IndexerType.INDEX,
 			IndexerRole.LIVE_WRITER,
 			IndexResourceOwnership.OWNER,
 			IndexerRuntimeState.NON_ACTIVE,

@@ -195,7 +195,6 @@ public class MetadataTargetManagementService implements TargetManagementService 
 			target.targetName(),
 			create.indexName(),
 			create.queueName(),
-			create.indexerType(),
 			create.role(),
 			create.indexOwnership(),
 			create.runtimeState()

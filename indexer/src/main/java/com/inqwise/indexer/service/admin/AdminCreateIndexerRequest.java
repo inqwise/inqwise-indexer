@@ -3,7 +3,6 @@ package com.inqwise.indexer.service.admin;
 import com.inqwise.indexer.catalog.indexers.IndexResourceOwnership;
 import com.inqwise.indexer.catalog.indexers.IndexerRole;
 import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
-import com.inqwise.indexer.catalog.indexers.IndexerType;
 import com.inqwise.indexer.provisioning.CreateIndexerProvisioningRequest;
 
 import io.vertx.codegen.annotations.DataObject;
@@ -17,7 +16,6 @@ public class AdminCreateIndexerRequest {
 		public static final String TARGET_NAME = "target_name";
 		public static final String INDEX_NAME = "index_name";
 		public static final String QUEUE_NAME = "queue_name";
-		public static final String INDEXER_TYPE = "indexer_type";
 		public static final String ROLE = "role";
 		public static final String INDEX_OWNERSHIP = "index_ownership";
 		public static final String RUNTIME_STATE = "runtime_state";
@@ -31,7 +29,6 @@ public class AdminCreateIndexerRequest {
 	private String targetName;
 	private String indexName;
 	private String queueName;
-	private IndexerType indexerType = IndexerType.INDEX;
 	private IndexerRole role = IndexerRole.LIVE_WRITER;
 	private IndexResourceOwnership indexOwnership = IndexResourceOwnership.OWNER;
 	private IndexerRuntimeState runtimeState = IndexerRuntimeState.NON_ACTIVE;
@@ -45,7 +42,6 @@ public class AdminCreateIndexerRequest {
 		this.targetName = json.getString(Keys.TARGET_NAME);
 		this.indexName = json.getString(Keys.INDEX_NAME);
 		this.queueName = json.getString(Keys.QUEUE_NAME);
-		this.indexerType = IndexerType.valueOf(json.getString(Keys.INDEXER_TYPE, IndexerType.INDEX.name()));
 		this.role = IndexerRole.valueOf(json.getString(Keys.ROLE, IndexerRole.LIVE_WRITER.name()));
 		this.indexOwnership = IndexResourceOwnership.valueOf(json.getString(
 			Keys.INDEX_OWNERSHIP,
@@ -64,7 +60,6 @@ public class AdminCreateIndexerRequest {
 			.put(Keys.TARGET_NAME, targetName)
 			.put(Keys.INDEX_NAME, indexName)
 			.put(Keys.QUEUE_NAME, queueName)
-			.put(Keys.INDEXER_TYPE, indexerType.name())
 			.put(Keys.ROLE, role.name())
 			.put(Keys.INDEX_OWNERSHIP, indexOwnership.name())
 			.put(Keys.RUNTIME_STATE, runtimeState.name());
@@ -77,7 +72,6 @@ public class AdminCreateIndexerRequest {
 			targetName,
 			indexName,
 			queueName,
-			indexerType,
 			role,
 			indexOwnership,
 			runtimeState
@@ -126,15 +120,6 @@ public class AdminCreateIndexerRequest {
 
 	public AdminCreateIndexerRequest setQueueName(String queueName) {
 		this.queueName = queueName;
-		return this;
-	}
-
-	public IndexerType getIndexerType() {
-		return indexerType;
-	}
-
-	public AdminCreateIndexerRequest setIndexerType(IndexerType indexerType) {
-		this.indexerType = indexerType == null ? IndexerType.INDEX : indexerType;
 		return this;
 	}
 

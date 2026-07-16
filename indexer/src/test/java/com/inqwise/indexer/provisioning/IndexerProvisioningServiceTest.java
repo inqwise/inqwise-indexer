@@ -49,7 +49,6 @@ class IndexerProvisioningServiceTest {
 				"customers",
 				"customers--idx-load",
 				"customers--queue-load",
-				IndexerType.INDEX,
 				IndexerRole.LOAD_WRITER,
 				IndexResourceOwnership.OWNER,
 				IndexerRuntimeState.ACTIVE
@@ -60,6 +59,7 @@ class IndexerProvisioningServiceTest {
 			)).compose(ignored -> repository.listIndexersByTargetId(targetId)))
 			.onComplete(testContext.succeeding(indexers -> testContext.verify(() -> {
 				assertEquals(1, indexers.size());
+				assertEquals(IndexerType.INDEX, indexers.get(0).type());
 				assertEquals(IndexerRole.LOAD_WRITER, indexers.get(0).role());
 				assertEquals(IndexResourceOwnership.OWNER, indexers.get(0).indexOwnership());
 				assertEquals(IndexerRuntimeState.ACTIVE, indexers.get(0).runtimeState());

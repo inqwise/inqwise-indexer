@@ -4,6 +4,7 @@ import java.util.Objects;
 
 import com.inqwise.indexer.catalog.indexers.IndexerProvisioningState;
 import com.inqwise.indexer.catalog.indexers.IndexerStatus;
+import com.inqwise.indexer.catalog.indexers.IndexerType;
 import com.inqwise.indexer.catalog.indexers.MutationState;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.IndexerRecord;
@@ -48,7 +49,7 @@ public class MetadataIndexerProvisioningService implements IndexerProvisioningSe
 		return definitionProvider.get(new IndexerDefinitionRequest(
 			request.targetId(),
 			request.targetName(),
-			request.indexerType(),
+			IndexerType.INDEX,
 			request.role(),
 			request.indexOwnership()
 		)).compose(definition -> insertProvisioning(request)
@@ -71,7 +72,7 @@ public class MetadataIndexerProvisioningService implements IndexerProvisioningSe
 			request.targetName(),
 			request.indexName(),
 			queueName(request),
-			request.indexerType(),
+			IndexerType.INDEX,
 			request.role(),
 			request.indexOwnership(),
 			IndexerStatus.AVAILABLE,

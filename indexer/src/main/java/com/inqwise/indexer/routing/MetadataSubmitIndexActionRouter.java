@@ -14,7 +14,6 @@ import com.inqwise.indexer.catalog.indexers.IndexResourceOwnership;
 import com.inqwise.indexer.actions.IndexerActionItem;
 import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
 import com.inqwise.indexer.catalog.indexers.IndexerRole;
-import com.inqwise.indexer.catalog.indexers.IndexerType;
 import com.inqwise.indexer.catalog.indexers.IndexerModel;
 import com.inqwise.indexer.actions.Actions;
 import com.inqwise.indexer.actions.IndexerActionRouteContext;
@@ -381,7 +380,6 @@ class MetadataSubmitIndexActionRouter {
 				target.targetName(),
 				resources.indexName(),
 				resources.queueName(),
-				IndexerType.INDEX,
 				IndexerRole.LIVE_WRITER,
 				IndexResourceOwnership.OWNER,
 				IndexerRuntimeState.ACTIVE
