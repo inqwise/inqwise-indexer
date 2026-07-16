@@ -169,6 +169,28 @@ class DeploymentPackageDependencyDirectionTest {
 	}
 
 	@Test
+	void targetCatalogDoesNotDependOnCommandInfrastructure() throws IOException {
+		List<String> violations = new ArrayList<>();
+		for (Path targetCatalog : List.of(
+			CORE_MAIN_PACKAGE.resolve("catalog/targets"),
+			MAIN_PACKAGE.resolve("catalog/targets")
+		)) {
+			try (Stream<Path> files = Files.walk(targetCatalog)) {
+				files
+					.filter(path -> path.toString().endsWith(".java"))
+					.forEach(path -> inspectImports(
+						path,
+						Set.of("commands"),
+						"target catalog must not depend on command infrastructure",
+						violations
+					));
+			}
+		}
+
+		assertTrue(violations.isEmpty(), () -> String.join(System.lineSeparator(), violations));
+	}
+
+	@Test
 	void indexerCatalogContractsDoNotExposeMetadataPersistence() throws IOException {
 		List<String> violations = new ArrayList<>();
 		try (Stream<Path> files = Files.walk(CORE_MAIN_PACKAGE.resolve("catalog/indexers"))) {

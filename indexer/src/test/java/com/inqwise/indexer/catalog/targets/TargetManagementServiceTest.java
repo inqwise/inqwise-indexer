@@ -1,6 +1,7 @@
 package com.inqwise.indexer.catalog.targets;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Instant;
@@ -39,6 +40,30 @@ import io.vertx.junit5.VertxTestContext;
 
 @ExtendWith(VertxExtension.class)
 class TargetManagementServiceTest {
+	@Test
+	void failsWithCatalogErrorWhenDefinitionIsMissing(VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		TargetManagementService targetManagementService = targetManagementService(
+			repository,
+			new StaticTargetDefinitionProvider(List.of())
+		);
+
+		targetManagementService.createTarget(new CreateTargetRequest(
+			"target-customers",
+			"customers",
+			Instant.parse("2026-05-18T10:15:00Z"),
+			null
+		)).onComplete(testContext.failing(error -> testContext.verify(() -> {
+			TargetDefinitionNotFoundException missing = assertInstanceOf(
+				TargetDefinitionNotFoundException.class,
+				error
+			);
+			assertEquals("customers", missing.targetName());
+			testContext.completeNow();
+		})));
+	}
+
 	@Test
 	void createsConcreteTargetWithoutIndexer(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
@@ -190,9 +215,22 @@ class TargetManagementServiceTest {
 	) {
 		return targetManagementService(
 			repository,
+			new StaticTargetDefinitionProvider(List.of(
+				new TargetDefinition("customers", TargetPeriodStrategy.MONTHLY)
+			))
+		);
+	}
+
+	private TargetManagementService targetManagementService(
+		InMemoryDocumentStoreMetadataRepository repository,
+		TargetDefinitionProvider targetDefinitionProvider
+	) {
+		return targetManagementService(
+			repository,
 			new RecordingDocumentIndexResourceManager(),
 			new RecordingQueueResourceManager(),
-			new InMemoryIndexerLifecycleEventBus()
+			new InMemoryIndexerLifecycleEventBus(),
+			targetDefinitionProvider
 		);
 	}
 
@@ -202,6 +240,24 @@ class TargetManagementServiceTest {
 		RecordingQueueResourceManager queueResources,
 		InMemoryIndexerLifecycleEventBus eventBus
 	) {
+		return targetManagementService(
+			repository,
+			documentResources,
+			queueResources,
+			eventBus,
+			new StaticTargetDefinitionProvider(List.of(
+				new TargetDefinition("customers", TargetPeriodStrategy.MONTHLY)
+			))
+		);
+	}
+
+	private TargetManagementService targetManagementService(
+		InMemoryDocumentStoreMetadataRepository repository,
+		RecordingDocumentIndexResourceManager documentResources,
+		RecordingQueueResourceManager queueResources,
+		InMemoryIndexerLifecycleEventBus eventBus,
+		TargetDefinitionProvider targetDefinitionProvider
+	) {
 		StaticIndexerDefinitionProvider indexerDefinitions =
 			new StaticIndexerDefinitionProvider(new IndexerDefinition(
 				new IndexDefinition("customers", "v1", new JsonObject(), new JsonObject()),
@@ -209,9 +265,7 @@ class TargetManagementServiceTest {
 			));
 		return new MetadataTargetManagementService(
 			repository,
-			new StaticTargetDefinitionProvider(List.of(
-				new TargetDefinition("customers", TargetPeriodStrategy.MONTHLY)
-			)),
+			targetDefinitionProvider,
 			new MetadataIndexerProvisioningService(
 				repository,
 				indexerDefinitions,

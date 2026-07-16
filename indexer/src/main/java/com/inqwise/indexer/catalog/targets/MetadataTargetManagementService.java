@@ -5,7 +5,6 @@ import java.util.Objects;
 import com.inqwise.indexer.lifecycle.IndexerMetadataChanged;
 import com.inqwise.indexer.lifecycle.MetadataChangeNotifier;
 import com.inqwise.indexer.lifecycle.TargetMetadataChanged;
-import com.inqwise.indexer.commands.CommandFailure;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.IndexerRecord;
 import com.inqwise.indexer.metadata.InsertTarget;
@@ -135,9 +134,7 @@ public class MetadataTargetManagementService implements TargetManagementService 
 			.compose(found -> found
 				.map(Future::succeededFuture)
 				.orElseGet(() -> Future.failedFuture(
-					CommandFailure.stableInvalid(
-						"Target definition not found by name: " + create.targetName()
-					)
+					new TargetDefinitionNotFoundException(create.targetName())
 				)));
 	}
 

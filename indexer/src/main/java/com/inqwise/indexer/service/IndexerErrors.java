@@ -1,6 +1,7 @@
 package com.inqwise.indexer.service;
 
 import com.inqwise.errors.ErrorTicket;
+import com.inqwise.indexer.catalog.targets.TargetDefinitionNotFoundException;
 import com.inqwise.indexer.commands.CommandFailure;
 import com.inqwise.indexer.errors.IndexerErrorCodes;
 import com.inqwise.indexer.errors.RetryableStaleStateException;
@@ -34,6 +35,10 @@ public final class IndexerErrors {
 
 		if (error instanceof RetryableStaleStateException staleState) {
 			return staleState.toErrorTicket();
+		}
+
+		if (error instanceof TargetDefinitionNotFoundException missingDefinition) {
+			return notFound(missingDefinition.getMessage());
 		}
 
 		return ErrorTicket.propagate(error, builder -> builder.withError(IndexerErrorCodes.InternalError));
