@@ -16,9 +16,6 @@ public class AdminCreateIndexerRequest {
 		public static final String TARGET_NAME = "target_name";
 		public static final String INDEX_NAME = "index_name";
 		public static final String QUEUE_NAME = "queue_name";
-		public static final String ROLE = "role";
-		public static final String INDEX_OWNERSHIP = "index_ownership";
-		public static final String RUNTIME_STATE = "runtime_state";
 
 		private Keys() {
 		}
@@ -29,9 +26,6 @@ public class AdminCreateIndexerRequest {
 	private String targetName;
 	private String indexName;
 	private String queueName;
-	private IndexerRole role = IndexerRole.LIVE_WRITER;
-	private IndexResourceOwnership indexOwnership = IndexResourceOwnership.OWNER;
-	private IndexerRuntimeState runtimeState = IndexerRuntimeState.NON_ACTIVE;
 
 	public AdminCreateIndexerRequest() {
 	}
@@ -42,15 +36,6 @@ public class AdminCreateIndexerRequest {
 		this.targetName = json.getString(Keys.TARGET_NAME);
 		this.indexName = json.getString(Keys.INDEX_NAME);
 		this.queueName = json.getString(Keys.QUEUE_NAME);
-		this.role = IndexerRole.valueOf(json.getString(Keys.ROLE, IndexerRole.LIVE_WRITER.name()));
-		this.indexOwnership = IndexResourceOwnership.valueOf(json.getString(
-			Keys.INDEX_OWNERSHIP,
-			IndexResourceOwnership.OWNER.name()
-		));
-		this.runtimeState = IndexerRuntimeState.valueOf(json.getString(
-			Keys.RUNTIME_STATE,
-			IndexerRuntimeState.NON_ACTIVE.name()
-		));
 	}
 
 	public JsonObject toJson() {
@@ -59,10 +44,7 @@ public class AdminCreateIndexerRequest {
 			.put(Keys.TARGET_ID, targetId)
 			.put(Keys.TARGET_NAME, targetName)
 			.put(Keys.INDEX_NAME, indexName)
-			.put(Keys.QUEUE_NAME, queueName)
-			.put(Keys.ROLE, role.name())
-			.put(Keys.INDEX_OWNERSHIP, indexOwnership.name())
-			.put(Keys.RUNTIME_STATE, runtimeState.name());
+			.put(Keys.QUEUE_NAME, queueName);
 	}
 
 	CreateIndexerProvisioningRequest toProvisioningRequest() {
@@ -72,9 +54,9 @@ public class AdminCreateIndexerRequest {
 			targetName,
 			indexName,
 			queueName,
-			role,
-			indexOwnership,
-			runtimeState
+			IndexerRole.LIVE_WRITER,
+			IndexResourceOwnership.OWNER,
+			IndexerRuntimeState.NON_ACTIVE
 		);
 	}
 
@@ -120,33 +102,6 @@ public class AdminCreateIndexerRequest {
 
 	public AdminCreateIndexerRequest setQueueName(String queueName) {
 		this.queueName = queueName;
-		return this;
-	}
-
-	public IndexerRole getRole() {
-		return role;
-	}
-
-	public AdminCreateIndexerRequest setRole(IndexerRole role) {
-		this.role = role == null ? IndexerRole.LIVE_WRITER : role;
-		return this;
-	}
-
-	public IndexResourceOwnership getIndexOwnership() {
-		return indexOwnership;
-	}
-
-	public AdminCreateIndexerRequest setIndexOwnership(IndexResourceOwnership indexOwnership) {
-		this.indexOwnership = indexOwnership == null ? IndexResourceOwnership.OWNER : indexOwnership;
-		return this;
-	}
-
-	public IndexerRuntimeState getRuntimeState() {
-		return runtimeState;
-	}
-
-	public AdminCreateIndexerRequest setRuntimeState(IndexerRuntimeState runtimeState) {
-		this.runtimeState = runtimeState == null ? IndexerRuntimeState.NON_ACTIVE : runtimeState;
 		return this;
 	}
 

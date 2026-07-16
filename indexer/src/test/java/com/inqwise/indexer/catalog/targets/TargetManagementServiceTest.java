@@ -148,6 +148,9 @@ class TargetManagementServiceTest {
 			.map(publication -> new ReadyResult(indexers.get(0), publication.orElseThrow())))
 			.onComplete(testContext.succeeding(result -> testContext.verify(() -> {
 				assertEquals(IndexerProvisioningState.READY, result.indexer().provisioningState());
+				assertEquals(IndexerRole.LIVE_WRITER, result.indexer().role());
+				assertEquals(IndexResourceOwnership.OWNER, result.indexer().indexOwnership());
+				assertEquals(IndexerRuntimeState.NON_ACTIVE, result.indexer().runtimeState());
 				assertEquals(PublicationState.UNPUBLISHED, result.indexer().publicationState());
 				assertEquals(ReadinessState.READY, result.publication().readinessState());
 				assertEquals(List.of("customers-index"), documentResources.ensured);
@@ -285,9 +288,6 @@ class TargetManagementServiceTest {
 			"indexer-customers",
 			"customers-index",
 			"customers-queue",
-			IndexerRole.LIVE_WRITER,
-			IndexResourceOwnership.OWNER,
-			IndexerRuntimeState.NON_ACTIVE,
 			mode
 		);
 	}

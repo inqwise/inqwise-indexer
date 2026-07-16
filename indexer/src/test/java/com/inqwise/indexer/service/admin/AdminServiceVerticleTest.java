@@ -12,6 +12,8 @@ import com.inqwise.indexer.adapters.local.InMemoryIndexerDocumentStore;
 import com.inqwise.indexer.adapters.local.InMemoryIndexerLifecycleEventBus;
 import com.inqwise.indexer.testing.TestMetadataChangeNotifiers;
 import com.inqwise.indexer.adapters.local.InMemoryIndexerQueue;
+import com.inqwise.indexer.catalog.indexers.IndexResourceOwnership;
+import com.inqwise.indexer.catalog.indexers.IndexerRole;
 import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
 import com.inqwise.indexer.catalog.indexers.IndexerType;
 import com.inqwise.indexer.catalog.targets.InitialPublicationMode;
@@ -305,6 +307,9 @@ class AdminServiceVerticleTest {
 				assertEquals("customers", result.getIndexer().getTargetName());
 				assertEquals("customers-index", result.getIndexer().getIndexName());
 				assertEquals("customers-queue", result.getIndexer().getQueueName());
+				assertEquals(IndexerRole.LIVE_WRITER, result.getIndexer().getRole());
+				assertEquals(IndexResourceOwnership.OWNER, result.getIndexer().getIndexOwnership());
+				assertEquals(IndexerRuntimeState.NON_ACTIVE, result.getIndexer().getRuntimeState());
 				assertEquals(1L, result.getIndexer().getVersion());
 				assertEquals(1, eventBus.events().size());
 				testContext.completeNow();
