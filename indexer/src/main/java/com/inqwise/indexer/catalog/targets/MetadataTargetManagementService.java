@@ -1,6 +1,7 @@
 package com.inqwise.indexer.catalog.targets;
 
 import java.util.Objects;
+import java.util.UUID;
 
 import com.inqwise.indexer.catalog.indexers.IndexResourceOwnership;
 import com.inqwise.indexer.catalog.indexers.IndexerRole;
@@ -20,7 +21,6 @@ import com.inqwise.indexer.publication.PublicationReadinessResult;
 import com.inqwise.indexer.publication.PublishIndexRequest;
 import com.inqwise.indexer.provisioning.CreateIndexerProvisioningRequest;
 import com.inqwise.indexer.provisioning.IndexerProvisioningService;
-import com.inqwise.indexer.provisioning.IndexerResourceNameGenerator;
 import com.inqwise.indexer.provisioning.ProvisionedIndexer;
 
 import io.vertx.core.Future;
@@ -179,7 +179,7 @@ public class MetadataTargetManagementService implements TargetManagementService 
 		TargetPeriod period
 	) {
 		return repository.insertTarget(new InsertTarget(
-			IndexerResourceNameGenerator.targetPrefix(),
+			newTargetPrefix(),
 			definition.targetName(),
 			period.key(),
 			period.startInclusive(),
@@ -187,6 +187,10 @@ public class MetadataTargetManagementService implements TargetManagementService 
 			TargetStatus.ACTIVE,
 			TargetProvisioningState.PROVISIONING
 		)).compose(this::getTarget);
+	}
+
+	private static String newTargetPrefix() {
+		return "t" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
 	}
 
 	private Future<ProvisionedIndexer> provisionIndexer(
