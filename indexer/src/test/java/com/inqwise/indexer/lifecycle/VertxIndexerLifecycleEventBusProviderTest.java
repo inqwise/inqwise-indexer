@@ -124,9 +124,8 @@ class VertxIndexerLifecycleEventBusProviderTest {
 			}
 		}).map(eventSubscription -> List.of(signalSubscription, eventSubscription)))
 			.compose(subscriptions -> {
-				currentTime.set(1_000L);
-				bus.publish(indexerEvent(1));
 				currentTime.set(1_200L);
+				publishIndexerEnvelope(vertx, "production", indexerEvent(1), 1_000L);
 				return firstEvent.future().map(subscriptions);
 			})
 			.compose(subscriptions -> {
@@ -134,16 +133,14 @@ class VertxIndexerLifecycleEventBusProviderTest {
 					List.of(IndexerLifecycleProviderSignal.EXCESSIVE_LAG),
 					signals
 				));
-				currentTime.set(1_300L);
-				bus.publish(indexerEvent(2));
 				currentTime.set(1_500L);
+				publishIndexerEnvelope(vertx, "production", indexerEvent(2), 1_300L);
 				return secondEvent.future().map(subscriptions);
 			})
 			.compose(subscriptions -> {
 				testContext.verify(() -> assertEquals(1, signals.size()));
-				currentTime.set(2_300L);
-				bus.publish(indexerEvent(3));
 				currentTime.set(2_500L);
+				publishIndexerEnvelope(vertx, "production", indexerEvent(3), 2_300L);
 				return secondSignal.future().map(subscriptions);
 			})
 			.compose(this::closeAll)
@@ -240,6 +237,20 @@ class VertxIndexerLifecycleEventBusProviderTest {
 		Promise<Void> delayed = Promise.promise();
 		vertx.setTimer(delayMs, ignored -> delayed.tryComplete());
 		return delayed.future();
+	}
+
+	private void publishIndexerEnvelope(
+		Vertx vertx,
+		String namespace,
+		IndexerMetadataChanged event,
+		long publishedAt
+	) {
+		vertx.eventBus().publish(
+			VertxIndexerLifecycleEventBus.indexerAddress(namespace),
+			new JsonObject()
+				.put("published_at_epoch_ms", publishedAt)
+				.put("payload", event.toJson())
+		);
 	}
 
 	private IndexerLifecycleEventBusConfig config(String namespace) {
