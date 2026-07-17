@@ -2,6 +2,7 @@ package com.inqwise.indexer.catalog.targets;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Instant;
@@ -38,6 +39,23 @@ import io.vertx.junit5.VertxTestContext;
 
 @ExtendWith(VertxExtension.class)
 class TargetManagementServiceTest {
+	@Test
+	void rejectsNonConcreteNestedIndexerIdentityBeforeTargetCreation() {
+		IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () ->
+			new CreateTargetIndexerRequest(
+				"indexer-customers",
+				"customers-*",
+				"customers-queue",
+				InitialPublicationMode.READY
+			)
+		);
+
+		assertEquals(
+			"Document index name is not a concrete identity: customers-*",
+			error.getMessage()
+		);
+	}
+
 	@Test
 	void failsWithCatalogErrorWhenDefinitionIsMissing(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =

@@ -46,6 +46,23 @@ class IndexerProvisioningServiceTest {
 	}
 
 	@Test
+	void rejectsBlankMetadataPrefix() {
+		IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () ->
+			new CreateIndexerProvisioningRequest(
+				" ",
+				1,
+				"customers-index",
+				"customers-queue",
+				IndexerRole.LIVE_WRITER,
+				IndexResourceOwnership.OWNER,
+				IndexerRuntimeState.NON_ACTIVE
+			)
+		);
+
+		assertEquals("prefix must not be blank", error.getMessage());
+	}
+
+	@Test
 	void requiresExplicitQueueIdentity() {
 		NullPointerException error = assertThrows(NullPointerException.class, () ->
 			new CreateIndexerProvisioningRequest(
@@ -60,6 +77,23 @@ class IndexerProvisioningServiceTest {
 		);
 
 		assertEquals("queueName", error.getMessage());
+	}
+
+	@Test
+	void rejectsBlankQueueIdentity() {
+		IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () ->
+			new CreateIndexerProvisioningRequest(
+				"missing-queue",
+				1,
+				"customers-index",
+				" ",
+				IndexerRole.LIVE_WRITER,
+				IndexResourceOwnership.OWNER,
+				IndexerRuntimeState.NON_ACTIVE
+			)
+		);
+
+		assertEquals("queueName must not be blank", error.getMessage());
 	}
 
 	@Test

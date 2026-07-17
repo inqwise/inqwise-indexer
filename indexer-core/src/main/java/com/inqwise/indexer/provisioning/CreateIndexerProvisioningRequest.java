@@ -16,12 +16,20 @@ public record CreateIndexerProvisioningRequest(
 	IndexerRuntimeState runtimeState
 ) {
 	public CreateIndexerProvisioningRequest {
-		prefix = Objects.requireNonNull(prefix, "prefix");
+		prefix = requireNonBlank(prefix, "prefix");
 		targetId = Objects.requireNonNull(targetId, "targetId");
-		indexName = Objects.requireNonNull(indexName, "indexName");
-		queueName = Objects.requireNonNull(queueName, "queueName");
+		indexName = DocumentIndexNameValidator.requireConcrete(indexName);
+		queueName = requireNonBlank(queueName, "queueName");
 		role = role == null ? IndexerRole.LIVE_WRITER : role;
 		indexOwnership = indexOwnership == null ? IndexResourceOwnership.OWNER : indexOwnership;
 		runtimeState = runtimeState == null ? IndexerRuntimeState.NON_ACTIVE : runtimeState;
+	}
+
+	private static String requireNonBlank(String value, String name) {
+		Objects.requireNonNull(value, name);
+		if (value.isBlank()) {
+			throw new IllegalArgumentException(name + " must not be blank");
+		}
+		return value;
 	}
 }

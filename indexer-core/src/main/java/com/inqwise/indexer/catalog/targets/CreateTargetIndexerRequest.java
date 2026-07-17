@@ -2,6 +2,8 @@ package com.inqwise.indexer.catalog.targets;
 
 import java.util.Objects;
 
+import com.inqwise.indexer.provisioning.DocumentIndexNameValidator;
+
 public record CreateTargetIndexerRequest(
 	String prefix,
 	String indexName,
@@ -9,9 +11,17 @@ public record CreateTargetIndexerRequest(
 	InitialPublicationMode initialPublicationMode
 ) {
 	public CreateTargetIndexerRequest {
-		Objects.requireNonNull(prefix, "prefix");
-		Objects.requireNonNull(indexName, "indexName");
-		Objects.requireNonNull(queueName, "queueName");
+		prefix = requireNonBlank(prefix, "prefix");
+		indexName = DocumentIndexNameValidator.requireConcrete(indexName);
+		queueName = requireNonBlank(queueName, "queueName");
 		Objects.requireNonNull(initialPublicationMode, "initialPublicationMode");
+	}
+
+	private static String requireNonBlank(String value, String name) {
+		Objects.requireNonNull(value, name);
+		if (value.isBlank()) {
+			throw new IllegalArgumentException(name + " must not be blank");
+		}
+		return value;
 	}
 }
