@@ -40,6 +40,19 @@ import io.vertx.junit5.VertxTestContext;
 @ExtendWith(VertxExtension.class)
 class TargetManagementServiceTest {
 	@Test
+	void rejectsNonCanonicalTargetNameAtContractBoundary() {
+		IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () ->
+			new CreateTargetRequest(
+				"Customer Docs",
+				Instant.parse("2026-05-18T10:15:00Z"),
+				null
+			)
+		);
+
+		assertEquals("Target name is not canonical: Customer Docs", error.getMessage());
+	}
+
+	@Test
 	void rejectsNonConcreteNestedIndexerIdentityBeforeTargetCreation() {
 		IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () ->
 			new CreateTargetIndexerRequest(

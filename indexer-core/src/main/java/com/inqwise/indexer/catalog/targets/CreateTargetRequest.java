@@ -1,7 +1,6 @@
 package com.inqwise.indexer.catalog.targets;
 
 import java.time.Instant;
-import java.util.Objects;
 
 public record CreateTargetRequest(
 	String targetName,
@@ -9,6 +8,6 @@ public record CreateTargetRequest(
 	CreateTargetIndexerRequest createIndexer
 ) {
 	public CreateTargetRequest {
-		Objects.requireNonNull(targetName, "targetName");
+		TargetNameValidator.requireTargetName(targetName);
 	}
 }
