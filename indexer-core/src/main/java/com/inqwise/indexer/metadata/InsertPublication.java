@@ -1,5 +1,7 @@
 package com.inqwise.indexer.metadata;
 
+import java.util.Objects;
+
 import com.inqwise.indexer.publication.ReadinessState;
 
 public record InsertPublication(
@@ -12,6 +14,6 @@ public record InsertPublication(
 	String reason
 ) {
 	public InsertPublication {
-		prefix = prefix == null ? "test" : prefix;
+		Objects.requireNonNull(prefix, "prefix");
 	}
 }

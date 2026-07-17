@@ -80,7 +80,7 @@ class SubmitIndexActionsCommandTest {
 
 		repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
-				null,
+				"test",
 				targetId,
 				"customers",
 				"customers_1",
@@ -90,7 +90,7 @@ class SubmitIndexActionsCommandTest {
 				PublicationState.UNPUBLISHED,
 				MutationState.WRITABLE
 			)).compose(firstIndexerId -> repository.insertIndexer(new InsertIndexer(
-				null,
+				"test",
 				targetId,
 				"customers",
 				"customers_2",
@@ -140,7 +140,7 @@ class SubmitIndexActionsCommandTest {
 
 		repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
-				null,
+				"test",
 				targetId,
 				"customers",
 				"customers_1",
@@ -150,7 +150,7 @@ class SubmitIndexActionsCommandTest {
 				PublicationState.PUBLISHED,
 				MutationState.WRITABLE
 			)).compose(ignored -> repository.insertIndexer(new InsertIndexer(
-				null,
+				"test",
 				targetId,
 				"customers",
 				"customers_2",
@@ -185,7 +185,7 @@ class SubmitIndexActionsCommandTest {
 
 		repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
-				null,
+				"test",
 				targetId,
 				"customers",
 				"customers_load",
@@ -222,7 +222,7 @@ class SubmitIndexActionsCommandTest {
 
 		repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
-				null,
+				"test",
 				targetId,
 				"customers",
 				"customers_1",
@@ -268,7 +268,7 @@ class SubmitIndexActionsCommandTest {
 
 		repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
-				null,
+				"test",
 				targetId,
 				"customers",
 				"customers_1",
@@ -889,7 +889,7 @@ class SubmitIndexActionsCommandTest {
 
 		repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
-				null,
+				"test",
 				targetId,
 				"customers",
 				"customers_1",
@@ -928,7 +928,7 @@ class SubmitIndexActionsCommandTest {
 
 		repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
-				null,
+				"test",
 				targetId,
 				"customers",
 				"customers_1",
@@ -965,7 +965,7 @@ class SubmitIndexActionsCommandTest {
 
 		repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
-				null,
+				"test",
 				targetId,
 				"customers",
 				"customers_1",

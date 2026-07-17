@@ -53,7 +53,7 @@ class CleanupDeletingIndexerCommandTest {
 
 		insertIndexer(repository, IndexResourceOwnership.OWNER)
 			.compose(indexer -> repository.insertPublication(new InsertPublication(
-				null,
+				"test",
 				indexer.indexerId(),
 				indexer.targetId(),
 				"customers",
@@ -61,7 +61,7 @@ class CleanupDeletingIndexerCommandTest {
 				ReadinessState.READY,
 				null
 			)).compose(publicationId -> repository.insertManifest(new InsertManifest(
-				null,
+				"test",
 				indexer.targetId(),
 				indexer.indexerId(),
 				"customers",
@@ -168,7 +168,7 @@ class CleanupDeletingIndexerCommandTest {
 	) {
 		return repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
-				null,
+				"test",
 				targetId,
 				"customers",
 				"customers-index",

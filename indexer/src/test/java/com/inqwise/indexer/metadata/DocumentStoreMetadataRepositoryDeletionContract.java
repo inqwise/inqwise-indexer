@@ -101,7 +101,7 @@ abstract class DocumentStoreMetadataRepositoryDeletionContract {
 	) {
 		return repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
-				null,
+				"test",
 				targetId,
 				"customers",
 				"customers-index",
@@ -111,7 +111,7 @@ abstract class DocumentStoreMetadataRepositoryDeletionContract {
 				PublicationState.UNPUBLISHED,
 				mutationState
 			)).compose(indexerId -> repository.insertPublication(new InsertPublication(
-				null,
+				"test",
 				indexerId,
 				targetId,
 				"customers",
@@ -119,7 +119,7 @@ abstract class DocumentStoreMetadataRepositoryDeletionContract {
 				ReadinessState.PENDING,
 				null
 			)).compose(publicationId -> repository.insertManifest(new InsertManifest(
-				null,
+				"test",
 				targetId,
 				indexerId,
 				"customers",
@@ -129,7 +129,7 @@ abstract class DocumentStoreMetadataRepositoryDeletionContract {
 				new JsonObject(),
 				ManifestStatus.ACTIVE
 			)).compose(activeManifestId -> repository.insertManifest(new InsertManifest(
-				null,
+				"test",
 				targetId,
 				indexerId,
 				"customers",

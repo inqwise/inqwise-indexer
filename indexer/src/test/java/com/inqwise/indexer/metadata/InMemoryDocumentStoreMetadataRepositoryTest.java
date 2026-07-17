@@ -50,6 +50,41 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 	}
 
 	@Test
+	void requiresExplicitIndexerFamilyPrefixes() {
+		assertEquals("prefix", assertThrows(NullPointerException.class, () -> new InsertIndexer(
+			null,
+			1,
+			"customers",
+			"customers-index",
+			"customers-queue",
+			IndexerType.INDEX,
+			IndexerRuntimeState.NON_ACTIVE,
+			PublicationState.UNPUBLISHED,
+			MutationState.WRITABLE
+		)).getMessage());
+		assertEquals("prefix", assertThrows(NullPointerException.class, () -> new InsertManifest(
+			null,
+			1,
+			1,
+			"customers",
+			"customers-index",
+			"customers-schema",
+			"1",
+			new JsonObject(),
+			ManifestStatus.DRAFT
+		)).getMessage());
+		assertEquals("prefix", assertThrows(NullPointerException.class, () -> new InsertPublication(
+			null,
+			1,
+			1,
+			"customers",
+			"customers-index",
+			ReadinessState.PENDING,
+			null
+		)).getMessage());
+	}
+
+	@Test
 	void insertsAndUpdatesTargetById(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
@@ -284,7 +319,7 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 
 		repository.insertTarget(new InsertTarget("test", "customers-2024", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
-				null,
+				"test",
 				targetId,
 				"customers-2024",
 				"customers-2024-a",
@@ -317,7 +352,7 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 
 		repository.insertTarget(new InsertTarget("test", "customers-2024", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
-				null,
+				"test",
 				targetId,
 				"customers-2024",
 				"customers-2024-a",
@@ -344,7 +379,7 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 			new InMemoryDocumentStoreMetadataRepository();
 
 		repository.insertPublication(new InsertPublication(
-			null,
+			"test",
 			10,
 			20,
 			"customers-2024",

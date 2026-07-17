@@ -172,7 +172,7 @@ class InMemoryDocumentStoreMetadataOwnershipTest {
 		boolean deleting
 	) {
 		return new InsertIndexer(
-			null,
+			"test",
 			targetId,
 			"customers",
 			indexName,

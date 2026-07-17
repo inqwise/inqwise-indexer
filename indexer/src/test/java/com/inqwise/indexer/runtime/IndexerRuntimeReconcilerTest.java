@@ -567,7 +567,7 @@ class IndexerRuntimeReconcilerTest {
 	) {
 		return repository.insertTarget(new InsertTarget("test", targetName, null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
-				null,
+				"test",
 				targetId,
 				targetName,
 				targetName + "-index",

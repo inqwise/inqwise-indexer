@@ -179,7 +179,7 @@ class IndexerNodeTest {
 				.insertTarget(new InsertTarget("test", "customers", null)))
 			.compose(targetId -> node.components().repository()
 				.insertIndexer(new InsertIndexer(
-					null,
+					"test",
 					targetId,
 					"customers",
 					"customers_1",

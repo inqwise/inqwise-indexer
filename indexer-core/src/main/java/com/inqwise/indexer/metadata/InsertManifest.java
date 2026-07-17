@@ -1,5 +1,7 @@
 package com.inqwise.indexer.metadata;
 
+import java.util.Objects;
+
 import com.inqwise.indexer.provisioning.ManifestStatus;
 
 import io.vertx.core.json.JsonObject;
@@ -16,7 +18,7 @@ public record InsertManifest(
 	ManifestStatus status
 ) {
 	public InsertManifest {
-		prefix = prefix == null ? "test" : prefix;
+		Objects.requireNonNull(prefix, "prefix");
 		manifest = manifest == null ? new JsonObject() : manifest.copy();
 	}
 

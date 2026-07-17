@@ -1,5 +1,7 @@
 package com.inqwise.indexer.metadata;
 
+import java.util.Objects;
+
 import com.inqwise.indexer.catalog.indexers.IndexResourceOwnership;
 import com.inqwise.indexer.catalog.indexers.IndexerProvisioningState;
 import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
@@ -24,6 +26,10 @@ public record InsertIndexer(
 	PublicationState publicationState,
 	MutationState mutationState
 ) {
+	public InsertIndexer {
+		Objects.requireNonNull(prefix, "prefix");
+	}
+
 	public InsertIndexer(
 		String prefix,
 		Integer targetId,
@@ -36,7 +42,7 @@ public record InsertIndexer(
 		MutationState mutationState
 	) {
 		this(
-			prefix == null ? "test" : prefix,
+			prefix,
 			targetId,
 			targetName,
 			indexName,
@@ -66,7 +72,7 @@ public record InsertIndexer(
 		MutationState mutationState
 	) {
 		this(
-			prefix == null ? "test" : prefix,
+			prefix,
 			targetId,
 			targetName,
 			indexName,

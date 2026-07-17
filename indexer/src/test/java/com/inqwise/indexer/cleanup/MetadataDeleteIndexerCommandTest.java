@@ -105,7 +105,7 @@ class MetadataDeleteIndexerCommandTest {
 	private Future<Integer> insertIndexer(InMemoryDocumentStoreMetadataRepository repository) {
 		return repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
-				null,
+				"test",
 				targetId,
 				"customers",
 				"customers_1",

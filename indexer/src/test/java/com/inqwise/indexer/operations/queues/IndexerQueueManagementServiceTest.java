@@ -432,7 +432,7 @@ class IndexerQueueManagementServiceTest {
 	) {
 		return repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
-				null,
+				"test",
 				targetId,
 				"customers",
 				"customers_1",

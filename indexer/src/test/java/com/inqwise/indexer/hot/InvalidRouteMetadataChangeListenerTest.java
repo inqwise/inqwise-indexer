@@ -77,7 +77,7 @@ class InvalidRouteMetadataChangeListenerTest {
 			TargetProvisioningState.READY
 		))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
-				null,
+				"test",
 				targetId,
 				"customers",
 				"customers_1",
@@ -116,7 +116,7 @@ class InvalidRouteMetadataChangeListenerTest {
 
 		repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
-				null,
+				"test",
 				targetId,
 				"customers",
 				"customers_1",
