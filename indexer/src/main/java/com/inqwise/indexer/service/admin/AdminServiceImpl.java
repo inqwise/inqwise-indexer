@@ -351,6 +351,10 @@ public class AdminServiceImpl implements AdminService {
 			throw IndexerErrors.invalidRequest("Target id is required");
 		}
 
+		if (request.getPrefix() == null || request.getPrefix().isBlank()) {
+			throw IndexerErrors.invalidRequest("Indexer prefix is required");
+		}
+
 		if (request.getIndexName() == null || request.getIndexName().isBlank()) {
 			throw IndexerErrors.invalidRequest("Index name is required");
 		}

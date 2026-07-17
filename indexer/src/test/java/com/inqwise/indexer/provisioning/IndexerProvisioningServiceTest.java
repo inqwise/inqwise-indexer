@@ -29,6 +29,23 @@ import io.vertx.junit5.VertxTestContext;
 @ExtendWith(VertxExtension.class)
 class IndexerProvisioningServiceTest {
 	@Test
+	void requiresExplicitMetadataPrefix() {
+		NullPointerException error = assertThrows(NullPointerException.class, () ->
+			new CreateIndexerProvisioningRequest(
+				null,
+				1,
+				"customers-index",
+				"customers-queue",
+				IndexerRole.LIVE_WRITER,
+				IndexResourceOwnership.OWNER,
+				IndexerRuntimeState.NON_ACTIVE
+			)
+		);
+
+		assertEquals("prefix", error.getMessage());
+	}
+
+	@Test
 	void requiresExplicitQueueIdentity() {
 		NullPointerException error = assertThrows(NullPointerException.class, () ->
 			new CreateIndexerProvisioningRequest(
