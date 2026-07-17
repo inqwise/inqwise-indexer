@@ -1,17 +1,17 @@
 # inqwise-indexer
 
-Vert.x 5.x starter library inspired by `vertx-elastic`, with a modular layout:
+Vert.x 5.x indexing library with this Maven reactor layout:
 
 - `indexer-dependencies`: dependency-management BOM for shared dependency versions.
 - `indexer-parent`: reusable build parent for compiler, test, plugin, dependency-management import, and common build conventions.
-- `inqwise-common`: reserved only for future non-indexer shared contracts if a concrete need appears. Empty/common-bucket usage is intentionally avoided; current shared indexer contracts belong in `inqwise-indexer-core`.
-- `inqwise-indexer-core`: stable indexing action payloads, runtime ports, document data-plane ports, action/provider/hot-routing contracts, command contracts/execution primitives, provisioning contracts/resource definitions/utilities, catalog ports, metadata contracts/models, and shared error primitives. It has no dependency on deployment services, node wiring, REST, gateway, or local adapter implementations.
-- `inqwise-indexer-events`: typed cross-module event publication contracts and local publisher implementations.
-- `inqwise-indexer-coordination`: keyed exclusive-flow coordination contracts and the local shared-promise implementation.
-- `inqwise-indexer`: command handlers/orchestration, action-routing implementations, hot routing implementations, catalog implementations, provisioning orchestration, runtime implementations, service communication, node wiring, REST/gateway APIs, and default local adapters. It depends on `inqwise-indexer-core`.
-- `inqwise-indexer-load`: load/reload orchestration helpers and load-specific metadata around the core indexer primitives.
-- `inqwise-client`: client-side wrappers for the indexer service.
-- `inqwise`: top-level facade for index actions and load orchestration.
+- `indexer-core`: stable indexing action payloads, runtime ports, document data-plane ports, action/provider/hot-routing contracts, command contracts/execution primitives, provisioning contracts/resource definitions/utilities, catalog ports, metadata contracts/models, and shared error primitives. It has no dependency on deployment services, node wiring, REST, gateway, or local adapter implementations.
+- `indexer-events`: typed cross-module event publication contracts and local publisher implementations.
+- `indexer-coordination`: keyed exclusive-flow coordination contracts and the local shared-promise implementation.
+- `indexer`: command handlers/orchestration, action-routing implementations, hot-routing implementations, catalog implementations, provisioning orchestration, runtime implementations, service communication, node wiring, REST/gateway APIs, and default local adapters. It depends on `indexer-core`.
+- `indexer-load`: load/reload orchestration, provider/runtime integration, durable workflow commands, and load-specific metadata around the core indexer primitives.
+- Root `inqwise-indexer`: local aggregator POM only.
+
+The approved provider-neutral scope is complete. Remaining implementation starts only after selecting a concrete external contract or requirement: production persistence/resource adapters, deployment identity and audit sinks, distributed coordination, a document-query API, historical/live blend tracking, partitioned catch-up lanes, strict distributed queue-reset fencing, or classified and observable automatic runtime recovery. Repository splitting remains deferred until module contracts and release cadence are stable. The public gateway remains intentionally read-only; administration mutations, action submission, and runtime recovery stay internal.
 
 ## Domain Boundary Direction
 
