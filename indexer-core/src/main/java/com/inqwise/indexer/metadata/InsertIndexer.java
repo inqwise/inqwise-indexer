@@ -28,6 +28,9 @@ public record InsertIndexer(
 ) {
 	public InsertIndexer {
 		Objects.requireNonNull(prefix, "prefix");
+		Objects.requireNonNull(type, "type");
+		Objects.requireNonNull(role, "role");
+		Objects.requireNonNull(indexOwnership, "indexOwnership");
 	}
 
 	public InsertIndexer(

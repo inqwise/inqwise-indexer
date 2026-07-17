@@ -282,6 +282,8 @@ Provisioning currently creates only the concrete `INDEX` indexer type. Creation 
 
 Target Catalog and standalone admin creation derive an owning, inactive `LIVE_WRITER`; their request DTOs do not expose role, resource ownership, or runtime state as caller-selected values. The lower `CreateIndexerProvisioningRequest` requires all three inputs explicitly because Action Routing creates active owning live writers and load workflows create load writers or attached live writers. It does not default missing workflow policy to standalone-admin behavior. New creation combinations belong in a domain workflow that establishes their invariants, not in generic admin input.
 
+The persistence mutation `InsertIndexer` likewise requires explicit type, role, and resource ownership. Repository adapters must not infer indexer classification from missing fields; the workflow or provisioning layer establishes it before insertion.
+
 Indexer provisioning accepts the concrete `targetId` as its only target identity. The metadata adapter reloads the canonical target before definition lookup or indexer insertion and propagates the stored target name into indexer, manifest, and publication metadata. Standalone admin creation likewise does not transport a duplicate target name. A missing target fails before indexer metadata or physical resources are created.
 
 New provisioning requires explicit physical `indexName` and `queueName` values. It does not infer queue identity from the index name because document indexes and transport queues are separate resources with separate ownership and cleanup behavior. Nullable queue-name fallbacks remain only where historical persisted runtime models still require compatibility.

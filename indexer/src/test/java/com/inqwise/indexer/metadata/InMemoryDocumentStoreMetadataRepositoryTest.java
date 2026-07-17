@@ -85,6 +85,22 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 	}
 
 	@Test
+	void requiresExplicitIndexerClassification() {
+		assertEquals("type", assertThrows(
+			NullPointerException.class,
+			() -> insertIndexer(null, IndexerRole.LIVE_WRITER, IndexResourceOwnership.OWNER)
+		).getMessage());
+		assertEquals("role", assertThrows(
+			NullPointerException.class,
+			() -> insertIndexer(IndexerType.INDEX, null, IndexResourceOwnership.OWNER)
+		).getMessage());
+		assertEquals("indexOwnership", assertThrows(
+			NullPointerException.class,
+			() -> insertIndexer(IndexerType.INDEX, IndexerRole.LIVE_WRITER, null)
+		).getMessage());
+	}
+
+	@Test
 	void insertsAndUpdatesTargetById(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
@@ -487,5 +503,27 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 				assertEquals(firstId, active.get(0).id());
 				return Future.succeededFuture();
 			});
+	}
+
+	private InsertIndexer insertIndexer(
+		IndexerType type,
+		IndexerRole role,
+		IndexResourceOwnership indexOwnership
+	) {
+		return new InsertIndexer(
+			"test",
+			1,
+			"customers",
+			"customers-index",
+			"customers-queue",
+			type,
+			role,
+			indexOwnership,
+			IndexerStatus.AVAILABLE,
+			IndexerProvisioningState.READY,
+			IndexerRuntimeState.NON_ACTIVE,
+			PublicationState.UNPUBLISHED,
+			MutationState.WRITABLE
+		);
 	}
 }
