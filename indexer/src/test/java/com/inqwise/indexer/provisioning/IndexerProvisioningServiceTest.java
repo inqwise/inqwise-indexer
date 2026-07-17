@@ -29,6 +29,22 @@ import io.vertx.junit5.VertxTestContext;
 @ExtendWith(VertxExtension.class)
 class IndexerProvisioningServiceTest {
 	@Test
+	void requiresExplicitProvisioningPolicy() {
+		assertEquals("role", assertThrows(
+			NullPointerException.class,
+			() -> provisioningRequest(null, IndexResourceOwnership.OWNER, IndexerRuntimeState.NON_ACTIVE)
+		).getMessage());
+		assertEquals("indexOwnership", assertThrows(
+			NullPointerException.class,
+			() -> provisioningRequest(IndexerRole.LIVE_WRITER, null, IndexerRuntimeState.NON_ACTIVE)
+		).getMessage());
+		assertEquals("runtimeState", assertThrows(
+			NullPointerException.class,
+			() -> provisioningRequest(IndexerRole.LIVE_WRITER, IndexResourceOwnership.OWNER, null)
+		).getMessage());
+	}
+
+	@Test
 	void requiresExplicitMetadataPrefix() {
 		NullPointerException error = assertThrows(NullPointerException.class, () ->
 			new CreateIndexerProvisioningRequest(
@@ -171,5 +187,21 @@ class IndexerProvisioningServiceTest {
 						&& "indexer.create".equals(event.getCommandType())));
 				testContext.completeNow();
 			})));
+	}
+
+	private CreateIndexerProvisioningRequest provisioningRequest(
+		IndexerRole role,
+		IndexResourceOwnership indexOwnership,
+		IndexerRuntimeState runtimeState
+	) {
+		return new CreateIndexerProvisioningRequest(
+			"indexer-customers",
+			1,
+			"customers-index",
+			"customers-queue",
+			role,
+			indexOwnership,
+			runtimeState
+		);
 	}
 }

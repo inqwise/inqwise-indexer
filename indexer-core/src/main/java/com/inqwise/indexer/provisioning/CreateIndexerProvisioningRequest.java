@@ -20,9 +20,9 @@ public record CreateIndexerProvisioningRequest(
 		targetId = Objects.requireNonNull(targetId, "targetId");
 		indexName = DocumentIndexNameValidator.requireConcrete(indexName);
 		queueName = requireNonBlank(queueName, "queueName");
-		role = role == null ? IndexerRole.LIVE_WRITER : role;
-		indexOwnership = indexOwnership == null ? IndexResourceOwnership.OWNER : indexOwnership;
-		runtimeState = runtimeState == null ? IndexerRuntimeState.NON_ACTIVE : runtimeState;
+		role = Objects.requireNonNull(role, "role");
+		indexOwnership = Objects.requireNonNull(indexOwnership, "indexOwnership");
+		runtimeState = Objects.requireNonNull(runtimeState, "runtimeState");
 	}
 
 	private static String requireNonBlank(String value, String name) {
