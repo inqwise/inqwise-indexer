@@ -155,6 +155,76 @@ class GatewayRestVerticleTest {
 	}
 
 	@Test
+	void doesNotExposeUpstreamAdminConflictDetails(Vertx vertx, VertxTestContext testContext) {
+		HttpServer upstream = vertx.createHttpServer()
+			.requestHandler(request -> request.response()
+				.setStatusCode(409)
+				.putHeader("content-type", "application/json")
+				.end(new JsonObject()
+					.put("code", "VersionConflict")
+					.put("detail", "index private-customers-v3 queue customers-write has storage version 91")
+					.encode()));
+
+		upstream.listen(0, "127.0.0.1")
+			.compose(server -> {
+				GatewayRestOptions options = new GatewayRestOptions()
+					.setPort(0)
+					.setAdminRestBaseUri("http://127.0.0.1:" + server.actualPort());
+				GatewayRestVerticle gateway = new GatewayRestVerticle(options);
+				return vertx.deployVerticle(gateway).map(gateway);
+			})
+			.compose(gateway -> vertx.createHttpClient()
+				.request(HttpMethod.GET, gateway.actualPort(), "127.0.0.1", "/gateway/admin/indexers")
+				.compose(request -> request.send())
+				.compose(response -> {
+					assertEquals(409, response.statusCode());
+					return response.body();
+				}))
+			.onComplete(testContext.succeeding(body -> testContext.verify(() -> {
+				JsonObject error = body.toJsonObject();
+				assertEquals(GatewayErrorCodes.Conflict.name(), error.getString("code"));
+				assertEquals(GatewayErrorCodes.GROUP, error.getString("group"));
+				assertEquals(409, error.getInteger("status"));
+				assertEquals("Request conflicts with current state", error.getString("detail"));
+				assertFalse(body.toString().contains("private-customers-v3"));
+				assertFalse(body.toString().contains("customers-write"));
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void mapsUpstreamServerErrorToSafeUnavailableResponse(Vertx vertx, VertxTestContext testContext) {
+		HttpServer upstream = vertx.createHttpServer()
+			.requestHandler(request -> request.response()
+				.setStatusCode(500)
+				.end("storage node document-index-17 failed"));
+
+		upstream.listen(0, "127.0.0.1")
+			.compose(server -> {
+				GatewayRestOptions options = new GatewayRestOptions()
+					.setPort(0)
+					.setAdminRestBaseUri("http://127.0.0.1:" + server.actualPort());
+				GatewayRestVerticle gateway = new GatewayRestVerticle(options);
+				return vertx.deployVerticle(gateway).map(gateway);
+			})
+			.compose(gateway -> vertx.createHttpClient()
+				.request(HttpMethod.GET, gateway.actualPort(), "127.0.0.1", "/gateway/admin/targets")
+				.compose(request -> request.send())
+				.compose(response -> {
+					assertEquals(502, response.statusCode());
+					return response.body();
+				}))
+			.onComplete(testContext.succeeding(body -> testContext.verify(() -> {
+				JsonObject error = body.toJsonObject();
+				assertEquals(GatewayErrorCodes.UpstreamUnavailable.name(), error.getString("code"));
+				assertEquals(502, error.getInteger("status"));
+				assertEquals("Upstream service unavailable", error.getString("detail"));
+				assertFalse(body.toString().contains("document-index-17"));
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
 	void rejectsGatewayRequestWhenConfiguredApiKeyIsMissing(Vertx vertx, VertxTestContext testContext) {
 		GatewayRestVerticle gateway = new GatewayRestVerticle(new GatewayRestOptions()
 			.setPort(0)

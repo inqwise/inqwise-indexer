@@ -89,6 +89,10 @@ final class GatewayProxyOperations {
 	}
 
 	private static Future<Void> writeProxyResponse(RoutingContext context, UpstreamResponse upstream) {
+		if (upstream.statusCode() < 200 || upstream.statusCode() >= 300) {
+			return GatewayErrorResponses.upstreamFailure(context, upstream.statusCode());
+		}
+
 		if (upstream.contentType() != null) {
 			context.response().putHeader("content-type", upstream.contentType());
 		}

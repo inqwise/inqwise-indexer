@@ -13,6 +13,8 @@ paths:
             application/json:
               schema:
                 type: object
+        default:
+          $ref: '#/components/responses/GatewayError'
   /gateway/admin/targets:
     get:
       operationId: gatewayListTargets
@@ -49,6 +51,8 @@ paths:
             application/json:
               schema:
                 type: object
+        default:
+          $ref: '#/components/responses/GatewayError'
   /gateway/admin/indexers:
     get:
       operationId: gatewayListIndexers
@@ -125,7 +129,16 @@ paths:
             application/json:
               schema:
                 type: object
+        default:
+          $ref: '#/components/responses/GatewayError'
 components:
+  responses:
+    GatewayError:
+      description: Safe public gateway error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/GatewayError'
   parameters:
     IdQuery:
       name: id
@@ -136,3 +149,22 @@ components:
           type: integer
       style: form
       explode: true
+  schemas:
+    GatewayError:
+      type: object
+      required:
+        - code
+        - group
+        - status
+        - detail
+      properties:
+        code:
+          type: string
+        group:
+          type: string
+          enum:
+            - gateway
+        status:
+          type: integer
+        detail:
+          type: string

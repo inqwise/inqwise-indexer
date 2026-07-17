@@ -6,6 +6,9 @@ public enum GatewayErrorCodes implements ErrorCode {
 	Unauthenticated(401),
 	Forbidden(403),
 	RateLimited(429),
+	InvalidRequest(400),
+	ResourceNotFound(404),
+	Conflict(409),
 	GatewayRequestRejected(403),
 	AdminRestNotConfigured(503),
 	UpstreamUnavailable(502);

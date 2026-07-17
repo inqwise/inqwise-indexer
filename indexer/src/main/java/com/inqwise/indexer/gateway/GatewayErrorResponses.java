@@ -2,6 +2,7 @@ package com.inqwise.indexer.gateway;
 
 import com.inqwise.errors.ErrorTicket;
 
+import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 
@@ -25,6 +26,19 @@ final class GatewayErrorResponses {
 		write(context, ticket(GatewayErrorCodes.UpstreamUnavailable, "Upstream service unavailable"));
 	}
 
+	static Future<Void> upstreamFailure(RoutingContext context, int statusCode) {
+		return write(context, upstreamFailure(statusCode));
+	}
+
+	static ErrorTicket upstreamFailure(int statusCode) {
+		return switch (statusCode) {
+			case 400, 422 -> ticket(GatewayErrorCodes.InvalidRequest, "Request is invalid");
+			case 404 -> ticket(GatewayErrorCodes.ResourceNotFound, "Requested resource was not found");
+			case 409 -> ticket(GatewayErrorCodes.Conflict, "Request conflicts with current state");
+			default -> ticket(GatewayErrorCodes.UpstreamUnavailable, "Upstream service unavailable");
+		};
+	}
+
 	static ErrorTicket unauthenticated() {
 		return ticket(GatewayErrorCodes.Unauthenticated, "Authentication is required");
 	}
@@ -46,9 +60,9 @@ final class GatewayErrorResponses {
 			.build();
 	}
 
-	private static void write(RoutingContext context, ErrorTicket ticket) {
+	private static Future<Void> write(RoutingContext context, ErrorTicket ticket) {
 		JsonObject body = ticket.toJson();
-		context.response()
+		return context.response()
 			.setStatusCode(ticket.optStatusCode().orElseGet(ticket::getStatus))
 			.putHeader("content-type", "application/json")
 			.end(body.encode());
