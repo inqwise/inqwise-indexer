@@ -57,7 +57,6 @@ public class AdminCreateRequestResolver {
 		return new AdminCreateIndexerRequest()
 			.setPrefix(resources.prefix())
 			.setTargetId(target.id())
-			.setTargetName(target.targetName())
 			.setIndexName(resources.indexName())
 			.setQueueName(resources.queueName());
 	}

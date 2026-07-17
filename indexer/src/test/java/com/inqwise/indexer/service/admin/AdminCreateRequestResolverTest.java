@@ -50,7 +50,6 @@ class AdminCreateRequestResolverTest {
 			.onComplete(testContext.succeeding(request -> testContext.verify(() -> {
 				assertTrue(request.getPrefix().matches("i[a-f0-9]{12}"));
 				assertNotNull(request.getTargetId());
-				assertEquals("customers", request.getTargetName());
 				assertTrue(request.getIndexName().matches("customers--idx-[a-f0-9-]{36}"));
 				assertTrue(request.getQueueName().matches("customers--queue-[a-f0-9-]{36}"));
 				testContext.completeNow();

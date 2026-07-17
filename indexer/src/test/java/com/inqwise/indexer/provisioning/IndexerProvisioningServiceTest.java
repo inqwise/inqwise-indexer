@@ -28,6 +28,38 @@ import io.vertx.junit5.VertxTestContext;
 @ExtendWith(VertxExtension.class)
 class IndexerProvisioningServiceTest {
 	@Test
+	void rejectsMissingTargetBeforeCreatingIndexer(VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		IndexerProvisioningService service = new MetadataIndexerProvisioningService(
+			repository,
+			new StaticIndexerDefinitionProvider(new IndexerDefinition(
+				new IndexDefinition("default", "1", new JsonObject(), new JsonObject()),
+				new QueueDefinition(new JsonObject())
+			)),
+			IndexerDocumentIndexResourceManager.NOOP,
+			IndexerQueueResourceManager.NOOP
+		);
+
+		service.createIndexer(new CreateIndexerProvisioningRequest(
+			"missing-target",
+			999,
+			"customers--idx-missing",
+			"customers--queue-missing",
+			IndexerRole.LIVE_WRITER,
+			IndexResourceOwnership.OWNER,
+			IndexerRuntimeState.NON_ACTIVE
+		)).onComplete(testContext.failing(error -> {
+			repository.listIndexersByTargetId(999)
+				.onComplete(testContext.succeeding(indexers -> testContext.verify(() -> {
+					assertEquals("Target not found: 999", error.getMessage());
+					assertTrue(indexers.isEmpty());
+					testContext.completeNow();
+				})));
+		}));
+	}
+
+	@Test
 	void createsIndexerWithRoleAndOwnership(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
@@ -46,7 +78,6 @@ class IndexerProvisioningServiceTest {
 			.compose(targetId -> service.createIndexer(new CreateIndexerProvisioningRequest(
 				"load-writer",
 				targetId,
-				"customers",
 				"customers--idx-load",
 				"customers--queue-load",
 				IndexerRole.LOAD_WRITER,
@@ -59,6 +90,7 @@ class IndexerProvisioningServiceTest {
 			)).compose(ignored -> repository.listIndexersByTargetId(targetId)))
 			.onComplete(testContext.succeeding(indexers -> testContext.verify(() -> {
 				assertEquals(1, indexers.size());
+				assertEquals("customers", indexers.get(0).targetName());
 				assertEquals(IndexerType.INDEX, indexers.get(0).type());
 				assertEquals(IndexerRole.LOAD_WRITER, indexers.get(0).role());
 				assertEquals(IndexResourceOwnership.OWNER, indexers.get(0).indexOwnership());

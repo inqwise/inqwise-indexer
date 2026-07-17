@@ -11,6 +11,7 @@ import com.inqwise.indexer.metadata.IndexerRecord;
 import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.metadata.InsertManifest;
 import com.inqwise.indexer.metadata.InsertPublication;
+import com.inqwise.indexer.metadata.TargetRecord;
 import com.inqwise.indexer.metadata.UpdateIndexerProvisioningState;
 import com.inqwise.indexer.provisioning.definitions.IndexerDefinition;
 import com.inqwise.indexer.provisioning.definitions.IndexerDefinitionProvider;
@@ -46,13 +47,20 @@ public class MetadataIndexerProvisioningService implements IndexerProvisioningSe
 	@Override
 	public Future<ProvisionedIndexer> createIndexer(CreateIndexerProvisioningRequest request) {
 		Objects.requireNonNull(request, "request");
+		return getTarget(request.targetId()).compose(target -> provision(request, target));
+	}
+
+	private Future<ProvisionedIndexer> provision(
+		CreateIndexerProvisioningRequest request,
+		TargetRecord target
+	) {
 		return definitionProvider.get(new IndexerDefinitionRequest(
-			request.targetId(),
-			request.targetName(),
+			target.id(),
+			target.targetName(),
 			IndexerType.INDEX,
 			request.role(),
 			request.indexOwnership()
-		)).compose(definition -> insertProvisioning(request)
+		)).compose(definition -> insertProvisioning(request, target)
 			.compose(indexer -> ensureResources(indexer, definition)
 				.compose(ignored -> insertManifest(indexer, definition))
 				.compose(ignored -> insertPublication(indexer))
@@ -65,11 +73,14 @@ public class MetadataIndexerProvisioningService implements IndexerProvisioningSe
 			));
 	}
 
-	private Future<IndexerRecord> insertProvisioning(CreateIndexerProvisioningRequest request) {
+	private Future<IndexerRecord> insertProvisioning(
+		CreateIndexerProvisioningRequest request,
+		TargetRecord target
+	) {
 		return repository.insertIndexer(new InsertIndexer(
 			request.prefix(),
-			request.targetId(),
-			request.targetName(),
+			target.id(),
+			target.targetName(),
 			request.indexName(),
 			queueName(request),
 			IndexerType.INDEX,
@@ -140,6 +151,13 @@ public class MetadataIndexerProvisioningService implements IndexerProvisioningSe
 			.compose(found -> found
 				.map(Future::succeededFuture)
 				.orElseGet(() -> Future.failedFuture("Indexer not found: " + indexerId)));
+	}
+
+	private Future<TargetRecord> getTarget(Integer targetId) {
+		return repository.getTargetById(targetId)
+			.compose(found -> found
+				.map(Future::succeededFuture)
+				.orElseGet(() -> Future.failedFuture("Target not found: " + targetId)));
 	}
 
 	private String queueName(CreateIndexerProvisioningRequest request) {

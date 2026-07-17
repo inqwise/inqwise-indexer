@@ -377,7 +377,6 @@ class MetadataSubmitIndexActionRouter {
 		))).compose(ignored -> provisioningService.createIndexer(new CreateIndexerProvisioningRequest(
 				resources.prefix(),
 				target.id(),
-				target.targetName(),
 				resources.indexName(),
 				resources.queueName(),
 				IndexerRole.LIVE_WRITER,

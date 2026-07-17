@@ -9,7 +9,6 @@ import com.inqwise.indexer.catalog.indexers.IndexerRole;
 public record CreateIndexerProvisioningRequest(
 	String prefix,
 	Integer targetId,
-	String targetName,
 	String indexName,
 	String queueName,
 	IndexerRole role,
@@ -18,7 +17,6 @@ public record CreateIndexerProvisioningRequest(
 ) {
 	public CreateIndexerProvisioningRequest {
 		targetId = Objects.requireNonNull(targetId, "targetId");
-		targetName = Objects.requireNonNull(targetName, "targetName");
 		indexName = Objects.requireNonNull(indexName, "indexName");
 		role = role == null ? IndexerRole.LIVE_WRITER : role;
 		indexOwnership = indexOwnership == null ? IndexResourceOwnership.OWNER : indexOwnership;

@@ -13,7 +13,6 @@ public class AdminCreateIndexerRequest {
 	public static final class Keys {
 		public static final String PREFIX = "prefix";
 		public static final String TARGET_ID = "target_id";
-		public static final String TARGET_NAME = "target_name";
 		public static final String INDEX_NAME = "index_name";
 		public static final String QUEUE_NAME = "queue_name";
 
@@ -23,7 +22,6 @@ public class AdminCreateIndexerRequest {
 
 	private String prefix;
 	private Integer targetId;
-	private String targetName;
 	private String indexName;
 	private String queueName;
 
@@ -33,7 +31,6 @@ public class AdminCreateIndexerRequest {
 	public AdminCreateIndexerRequest(JsonObject json) {
 		this.prefix = json.getString(Keys.PREFIX);
 		this.targetId = json.getInteger(Keys.TARGET_ID);
-		this.targetName = json.getString(Keys.TARGET_NAME);
 		this.indexName = json.getString(Keys.INDEX_NAME);
 		this.queueName = json.getString(Keys.QUEUE_NAME);
 	}
@@ -42,7 +39,6 @@ public class AdminCreateIndexerRequest {
 		return new JsonObject()
 			.put(Keys.PREFIX, prefix)
 			.put(Keys.TARGET_ID, targetId)
-			.put(Keys.TARGET_NAME, targetName)
 			.put(Keys.INDEX_NAME, indexName)
 			.put(Keys.QUEUE_NAME, queueName);
 	}
@@ -51,7 +47,6 @@ public class AdminCreateIndexerRequest {
 		return new CreateIndexerProvisioningRequest(
 			prefix,
 			targetId,
-			targetName,
 			indexName,
 			queueName,
 			IndexerRole.LIVE_WRITER,
@@ -75,15 +70,6 @@ public class AdminCreateIndexerRequest {
 
 	public AdminCreateIndexerRequest setTargetId(Integer targetId) {
 		this.targetId = targetId;
-		return this;
-	}
-
-	public String getTargetName() {
-		return targetName;
-	}
-
-	public AdminCreateIndexerRequest setTargetName(String targetName) {
-		this.targetName = targetName;
 		return this;
 	}
 

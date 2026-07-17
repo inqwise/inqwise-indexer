@@ -300,7 +300,6 @@ class AdminServiceVerticleTest {
 				.compose(ignored -> AdminServices.proxy(vertx).createIndexer(new AdminCreateIndexerRequest()
 					.setPrefix("indexer-customers")
 					.setTargetId(targetId)
-					.setTargetName("customers")
 					.setIndexName("customers-index")
 					.setQueueName("customers-queue"))))
 			.onComplete(testContext.succeeding(result -> testContext.verify(() -> {

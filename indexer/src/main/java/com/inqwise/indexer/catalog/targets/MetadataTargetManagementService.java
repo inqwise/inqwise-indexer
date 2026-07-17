@@ -195,7 +195,6 @@ public class MetadataTargetManagementService implements TargetManagementService 
 		return provisioningService.createIndexer(new CreateIndexerProvisioningRequest(
 			create.prefix(),
 			target.id(),
-			target.targetName(),
 			create.indexName(),
 			create.queueName(),
 			IndexerRole.LIVE_WRITER,
