@@ -24,7 +24,7 @@ paths:
             type: integer
       responses:
         '200':
-          description: Reconcile request accepted.
+          description: Local runtime was reloaded from durable metadata and reconciled.
           content:
             application/json:
               schema:

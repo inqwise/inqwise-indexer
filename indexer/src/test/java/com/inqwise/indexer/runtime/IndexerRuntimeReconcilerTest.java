@@ -66,6 +66,34 @@ class IndexerRuntimeReconcilerTest {
 	}
 
 	@Test
+	void manualReconcileReplacesUnchangedRuntimeFromDurableMetadata(
+		Vertx vertx,
+		VertxTestContext testContext
+	) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		AtomicInteger activated = new AtomicInteger();
+		AtomicInteger closed = new AtomicInteger();
+		IndexerRuntime runtime = runtime(vertx, activated, closed);
+		IndexerRuntimeReconciler reconciler = new IndexerRuntimeReconciler(
+			vertx,
+			repository,
+			new InMemoryIndexerLifecycleEventBus(),
+			runtime
+		);
+
+		insertIndexer(repository, IndexerRuntimeState.ACTIVE)
+			.compose(indexerId -> reconciler.start()
+				.compose(ignored -> reconciler.reconcile(indexerId)))
+			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
+				assertEquals(2, activated.get());
+				assertEquals(1, closed.get());
+				assertEquals(1, runtime.indexerIds().size());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
 	void startupFullSynchronizationClosesLocalIndexerAbsentFromDesiredSet(
 		Vertx vertx,
 		VertxTestContext testContext

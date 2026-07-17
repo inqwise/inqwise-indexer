@@ -106,7 +106,7 @@ public final class IndexerRuntimeReconciler {
 
 	public Future<Void> reconcile(Integer indexerId) {
 		Objects.requireNonNull(indexerId, "indexerId");
-		Future<Void> reconciliation = enqueue(() -> reconcile(indexerId, null));
+		Future<Void> reconciliation = enqueue(() -> recover(indexerId));
 		reconciliation.onFailure(this::handleReconciliationFailure);
 		return reconciliation;
 	}
@@ -270,6 +270,14 @@ public final class IndexerRuntimeReconciler {
 	private Future<Void> reconcile(Integer indexerId, Long observedVersion) {
 		return load(indexerId, observedVersion, false)
 			.compose(found -> found == null ? runtime.close(indexerId) : runtime.reconcile(found));
+	}
+
+	private Future<Void> recover(Integer indexerId) {
+		return load(indexerId, null, false)
+			.compose(found -> runtime.close(indexerId)
+				.compose(ignored -> found == null
+					? Future.succeededFuture()
+					: runtime.reconcile(found)));
 	}
 
 	private Future<IndexerRecord> load(
