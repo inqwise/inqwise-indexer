@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -94,7 +95,10 @@ class IndexerQueueFlowTest {
 	}
 
 	@Test
-	void completeActionItemFailsForLiveWriter(Vertx vertx, VertxTestContext testContext) {
+	void failedActionRemainsPendingUntilRuntimeRecovery(
+		Vertx vertx,
+		VertxTestContext testContext
+	) {
 		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
 		IndexerModel model = IndexerModel.builder()
 			.withId(20)
@@ -107,33 +111,90 @@ class IndexerQueueFlowTest {
 			.withTargetId(10)
 			.withIndexerId(20)
 			.build();
+		PutDocumentActionItem nextItem = IndexerActionItems.concretePutDocument(
+			10,
+			20,
+			"customers_1",
+			"42",
+			new JsonObject().put("name", "Ada")
+		);
+		AtomicInteger receivedItems = new AtomicInteger();
+		AtomicReference<Indexer> indexerReference = new AtomicReference<>();
 
 		Indexer indexer = new Indexer(
 			vertx,
 			model,
 			queue,
 			new InMemoryIndexerDocumentStore(),
-				new IndexerOptions(),
-				event -> {
-					if (event.getType() == IndexerEventType.ACTION_ITEM_FAILED) {
-						testContext.verify(() -> {
-							assertEquals(item.toJson(), event.getItem().toJson());
-							assertEquals(
-								"Complete index action requires LOAD_WRITER role",
-								event.getError().getMessage()
-							);
-							testContext.completeNow();
-						});
-					}
+			new IndexerOptions(),
+			event -> {
+				if (event.getType() == IndexerEventType.ACTION_ITEM_RECEIVED) {
+					receivedItems.incrementAndGet();
+				}
+
+				if (event.getType() == IndexerEventType.ACTION_ITEM_FAILED) {
+					testContext.verify(() -> {
+						assertEquals(item.toJson(), event.getItem().toJson());
+						assertEquals(
+							"Complete index action requires LOAD_WRITER role",
+							event.getError().getMessage()
+						);
+					});
+
+					queue.publisher("customers_1")
+						.compose(publisher -> publisher.publish(nextItem))
+						.compose(ignored -> indexerReference.get().close())
+						.compose(ignored -> recoverRuntime(
+							vertx,
+							model,
+							queue,
+							item,
+							receivedItems,
+							testContext
+						))
+						.onFailure(testContext::failNow);
+				}
 
 				return Future.succeededFuture();
 			}
 		);
+		indexerReference.set(indexer);
 
 		indexer.activate()
 			.compose(ignored -> queue.publisher("customers_1"))
 			.compose(publisher -> publisher.publish(item))
 			.onFailure(testContext::failNow);
+	}
+
+	private Future<Void> recoverRuntime(
+		Vertx vertx,
+		IndexerModel model,
+		InMemoryIndexerQueue queue,
+		CompleteIndexActionItem failedItem,
+		AtomicInteger receivedItems,
+		VertxTestContext testContext
+	) {
+		testContext.verify(() -> assertEquals(1, receivedItems.get()));
+		Indexer recovered = new Indexer(
+			vertx,
+			model,
+			queue,
+			new InMemoryIndexerDocumentStore(),
+			new IndexerOptions(),
+			event -> {
+				if (event.getType() == IndexerEventType.ACTION_ITEM_RECEIVED) {
+					testContext.verify(() -> {
+						assertEquals(failedItem.toJson(), event.getItem().toJson());
+						assertEquals(1, receivedItems.get());
+						testContext.completeNow();
+					});
+				}
+
+				return Future.succeededFuture();
+			}
+		);
+
+		return recovered.activate();
 	}
 
 	@Test
