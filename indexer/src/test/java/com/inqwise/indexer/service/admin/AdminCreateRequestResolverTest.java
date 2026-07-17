@@ -1,5 +1,7 @@
 package com.inqwise.indexer.service.admin;
 
+import static com.inqwise.indexer.testing.TestMetadataRecords.readyTarget;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -11,7 +13,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 import com.inqwise.indexer.catalog.targets.InitialPublicationMode;
 import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepository;
-import com.inqwise.indexer.metadata.InsertTarget;
 
 import io.vertx.junit5.VertxExtension;
 import io.vertx.junit5.VertxTestContext;
@@ -44,7 +45,7 @@ class AdminCreateRequestResolverTest {
 			new InMemoryDocumentStoreMetadataRepository();
 		AdminCreateRequestResolver resolver = new AdminCreateRequestResolver(repository);
 
-		repository.insertTarget(new InsertTarget("test", "customers", null))
+		repository.insertTarget(readyTarget("test", "customers"))
 			.compose(resolver::indexer)
 			.onComplete(testContext.succeeding(request -> testContext.verify(() -> {
 				assertTrue(request.getPrefix().matches("i[a-f0-9]{12}"));

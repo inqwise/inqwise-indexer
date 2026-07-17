@@ -1,5 +1,7 @@
 package com.inqwise.indexer.provisioning;
 
+import static com.inqwise.indexer.testing.TestMetadataRecords.readyTarget;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -18,7 +20,6 @@ import com.inqwise.indexer.provisioning.definitions.IndexerDefinition;
 import com.inqwise.indexer.provisioning.definitions.QueueDefinition;
 import com.inqwise.indexer.adapters.local.StaticIndexerDefinitionProvider;
 import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepository;
-import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.catalog.indexers.MutationState;
 import com.inqwise.indexer.publication.PublicationState;
 
@@ -159,7 +160,7 @@ class IndexerProvisioningServiceTest {
 			IndexerQueueResourceManager.NOOP
 		);
 
-		repository.insertTarget(new InsertTarget("test", "customers", null))
+		repository.insertTarget(readyTarget("test", "customers"))
 			.compose(targetId -> service.createIndexer(new CreateIndexerProvisioningRequest(
 				"load-writer",
 				targetId,

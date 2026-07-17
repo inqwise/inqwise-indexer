@@ -1,5 +1,8 @@
 package com.inqwise.indexer.service.admin;
 
+import static com.inqwise.indexer.testing.TestMetadataRecords.indexerRecord;
+import static com.inqwise.indexer.testing.TestMetadataRecords.readyTarget;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.time.Instant;
@@ -27,7 +30,6 @@ import com.inqwise.indexer.adapters.local.StaticIndexerDefinitionProvider;
 import com.inqwise.indexer.adapters.local.StaticTargetDefinitionProvider;
 import com.inqwise.indexer.catalog.targets.TargetDefinition;
 import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepository;
-import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.catalog.indexers.MutationState;
 import com.inqwise.indexer.publication.PublicationState;
@@ -51,7 +53,7 @@ class AdminServiceVerticleTest {
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
 
-		repository.insertTarget(new InsertTarget("test", "customers", null))
+		repository.insertTarget(readyTarget("test", "customers"))
 			.compose(ignored -> vertx.deployVerticle(adminVerticle(repository, eventBus, queue)))
 			.compose(ignored -> AdminServices.proxy(vertx).listTargets(new AdminTargetQuery()
 				.setTargetNames(List.of("customers"))))
@@ -71,8 +73,8 @@ class AdminServiceVerticleTest {
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
 
-		repository.insertTarget(new InsertTarget("test", "customers", null))
-			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
+		repository.insertTarget(readyTarget("test", "customers"))
+			.compose(targetId -> repository.insertIndexer(indexerRecord(
 				"runtime",
 				targetId,
 				"customers",
@@ -137,8 +139,8 @@ class AdminServiceVerticleTest {
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
 
-		repository.insertTarget(new InsertTarget("test", "customers", null))
-			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
+		repository.insertTarget(readyTarget("test", "customers"))
+			.compose(targetId -> repository.insertIndexer(indexerRecord(
 				"runtime",
 				targetId,
 				"customers",
@@ -179,8 +181,8 @@ class AdminServiceVerticleTest {
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
 
-		repository.insertTarget(new InsertTarget("test", "customers", null))
-			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
+		repository.insertTarget(readyTarget("test", "customers"))
+			.compose(targetId -> repository.insertIndexer(indexerRecord(
 				"runtime",
 				targetId,
 				"customers",
@@ -213,8 +215,8 @@ class AdminServiceVerticleTest {
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
 
-		repository.insertTarget(new InsertTarget("test", "customers", null))
-			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
+		repository.insertTarget(readyTarget("test", "customers"))
+			.compose(targetId -> repository.insertIndexer(indexerRecord(
 				"runtime",
 				targetId,
 				"customers",
@@ -293,7 +295,7 @@ class AdminServiceVerticleTest {
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
 
-		repository.insertTarget(new InsertTarget("test", "customers", null))
+		repository.insertTarget(readyTarget("test", "customers"))
 			.compose(targetId -> vertx.deployVerticle(adminVerticle(repository, eventBus, queue))
 				.compose(ignored -> AdminServices.proxy(vertx).createIndexer(new AdminCreateIndexerRequest()
 					.setPrefix("indexer-customers")

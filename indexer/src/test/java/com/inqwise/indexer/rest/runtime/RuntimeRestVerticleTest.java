@@ -1,5 +1,8 @@
 package com.inqwise.indexer.rest.runtime;
 
+import static com.inqwise.indexer.testing.TestMetadataRecords.indexerRecord;
+import static com.inqwise.indexer.testing.TestMetadataRecords.readyTarget;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.junit.jupiter.api.Test;
@@ -13,8 +16,6 @@ import com.inqwise.indexer.catalog.indexers.IndexerType;
 import com.inqwise.indexer.adapters.local.InMemoryIndexerDocumentStore;
 import com.inqwise.indexer.adapters.local.InMemoryIndexerLifecycleEventBus;
 import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepository;
-import com.inqwise.indexer.metadata.InsertIndexer;
-import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.catalog.indexers.MutationState;
 import com.inqwise.indexer.publication.PublicationState;
 import com.inqwise.indexer.service.runtime.RuntimeServiceVerticle;
@@ -51,8 +52,8 @@ class RuntimeRestVerticleTest {
 			new RuntimeRestOptions().setPort(0)
 		);
 
-		repository.insertTarget(new InsertTarget("test", "customers", null))
-			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
+		repository.insertTarget(readyTarget("test", "customers"))
+			.compose(targetId -> repository.insertIndexer(indexerRecord(
 				"runtime",
 				targetId,
 				"customers",

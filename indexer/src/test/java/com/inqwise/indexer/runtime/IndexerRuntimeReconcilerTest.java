@@ -1,5 +1,8 @@
 package com.inqwise.indexer.runtime;
 
+import static com.inqwise.indexer.testing.TestMetadataRecords.indexerRecord;
+import static com.inqwise.indexer.testing.TestMetadataRecords.readyTarget;
+
 import com.inqwise.indexer.adapters.local.InMemoryIndexerDocumentStore;
 import com.inqwise.indexer.adapters.local.InMemoryIndexerLifecycleEventBus;
 import com.inqwise.indexer.adapters.local.InMemoryIndexerLifecycleEventBusProvider;
@@ -23,8 +26,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.IndexerRecord;
-import com.inqwise.indexer.metadata.InsertIndexer;
-import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.catalog.indexers.MutationState;
 import com.inqwise.indexer.publication.PublicationState;
 import com.inqwise.indexer.metadata.UpdateIndexerRuntimeState;
@@ -565,8 +566,8 @@ class IndexerRuntimeReconcilerTest {
 		IndexerRuntimeState runtimeState,
 		String targetName
 	) {
-		return repository.insertTarget(new InsertTarget("test", targetName, null))
-			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
+		return repository.insertTarget(readyTarget("test", targetName))
+			.compose(targetId -> repository.insertIndexer(indexerRecord(
 				"test",
 				targetId,
 				targetName,

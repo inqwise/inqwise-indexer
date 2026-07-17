@@ -17,16 +17,4 @@ public record InsertTarget(
 	public InsertTarget {
 		Objects.requireNonNull(prefix, "prefix");
 	}
-
-	public InsertTarget(String prefix, String targetName, TargetStatus status) {
-		this(
-			prefix,
-			targetName,
-			null,
-			null,
-			null,
-			status == null ? TargetStatus.ACTIVE : status,
-			TargetProvisioningState.READY
-		);
-	}
 }

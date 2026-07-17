@@ -1,5 +1,8 @@
 package com.inqwise.indexer.rest.admin;
 
+import static com.inqwise.indexer.testing.TestMetadataRecords.indexerRecord;
+import static com.inqwise.indexer.testing.TestMetadataRecords.readyTarget;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
@@ -23,7 +26,6 @@ import com.inqwise.indexer.adapters.local.StaticIndexerDefinitionProvider;
 import com.inqwise.indexer.adapters.local.StaticTargetDefinitionProvider;
 import com.inqwise.indexer.catalog.targets.TargetDefinition;
 import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepository;
-import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.catalog.indexers.MutationState;
 import com.inqwise.indexer.publication.PublicationState;
@@ -52,8 +54,8 @@ class AdminRestVerticleTest {
 		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
 		AdminRestVerticle restVerticle = restVerticle(repository);
 
-		repository.insertTarget(new InsertTarget("test", "customers", null))
-			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
+		repository.insertTarget(readyTarget("test", "customers"))
+			.compose(targetId -> repository.insertIndexer(indexerRecord(
 				"runtime",
 				targetId,
 				"customers",
@@ -122,8 +124,8 @@ class AdminRestVerticleTest {
 		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
 		AdminRestVerticle restVerticle = restVerticle(repository);
 
-		repository.insertTarget(new InsertTarget("test", "customers", null))
-			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
+		repository.insertTarget(readyTarget("test", "customers"))
+			.compose(targetId -> repository.insertIndexer(indexerRecord(
 				"runtime",
 				targetId,
 				"customers",
@@ -158,8 +160,8 @@ class AdminRestVerticleTest {
 		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
 		AdminRestVerticle restVerticle = restVerticle(repository);
 
-		repository.insertTarget(new InsertTarget("test", "customers", null))
-			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
+		repository.insertTarget(readyTarget("test", "customers"))
+			.compose(targetId -> repository.insertIndexer(indexerRecord(
 				"runtime",
 				targetId,
 				"customers",
@@ -196,8 +198,8 @@ class AdminRestVerticleTest {
 		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
 		AdminRestVerticle restVerticle = restVerticle(repository);
 
-		repository.insertTarget(new InsertTarget("test", "customers", null))
-			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
+		repository.insertTarget(readyTarget("test", "customers"))
+			.compose(targetId -> repository.insertIndexer(indexerRecord(
 				"runtime",
 				targetId,
 				"customers",
@@ -276,7 +278,7 @@ class AdminRestVerticleTest {
 		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
 		AdminRestVerticle restVerticle = restVerticle(repository);
 
-		repository.insertTarget(new InsertTarget("test", "customers", null))
+		repository.insertTarget(readyTarget("test", "customers"))
 			.compose(targetId -> vertx.deployVerticle(adminVerticle(repository, eventBus, queue))
 				.compose(ignored -> vertx.deployVerticle(restVerticle))
 				.compose(ignored -> request(

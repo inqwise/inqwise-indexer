@@ -1,5 +1,8 @@
 package com.inqwise.indexer.metadata;
 
+import static com.inqwise.indexer.testing.TestMetadataRecords.indexerRecord;
+import static com.inqwise.indexer.testing.TestMetadataRecords.readyTarget;
+
 import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
 import com.inqwise.indexer.catalog.indexers.IndexerProvisioningState;
 import com.inqwise.indexer.catalog.indexers.IndexerStatus;
@@ -65,7 +68,7 @@ class RepositoryPublishedIndexResolverTest {
 			new InMemoryDocumentStoreMetadataRepository();
 		RepositoryPublishedIndexResolver resolver = new RepositoryPublishedIndexResolver(repository);
 
-		repository.insertTarget(new InsertTarget("test", "customers", null))
+		repository.insertTarget(readyTarget("test", "customers"))
 			.compose(targetId -> insertIndexer(repository, targetId, "customers_all")
 				.compose(indexerId -> resolver.resolvePublishedIndexes(
 					new PublishedIndexQuery("customers", JANUARY, FEBRUARY)
@@ -180,7 +183,7 @@ class RepositoryPublishedIndexResolverTest {
 		IndexerStatus status,
 		IndexerProvisioningState provisioningState
 	) {
-		return repository.insertIndexer(new InsertIndexer(
+		return repository.insertIndexer(indexerRecord(
 			"test",
 			targetId,
 			"customers",

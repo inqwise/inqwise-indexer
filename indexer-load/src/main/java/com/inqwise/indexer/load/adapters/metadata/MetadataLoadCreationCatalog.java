@@ -9,8 +9,10 @@ import com.inqwise.indexer.load.catalog.LoadCreationCatalog;
 import com.inqwise.indexer.load.catalog.LoadCreationTarget;
 import com.inqwise.indexer.load.catalog.LoadStartContext;
 import com.inqwise.indexer.catalog.indexers.IndexResourceOwnership;
+import com.inqwise.indexer.catalog.indexers.IndexerProvisioningState;
 import com.inqwise.indexer.catalog.indexers.IndexerRole;
 import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
+import com.inqwise.indexer.catalog.indexers.IndexerStatus;
 import com.inqwise.indexer.catalog.indexers.IndexerType;
 import com.inqwise.indexer.metadata.CreateIndexerOperation;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
@@ -60,6 +62,8 @@ public final class MetadataLoadCreationCatalog implements LoadCreationCatalog {
 			IndexerType.INDEX,
 			IndexerRole.LOAD_WRITER,
 			IndexResourceOwnership.OWNER,
+			IndexerStatus.AVAILABLE,
+			IndexerProvisioningState.READY,
 			IndexerRuntimeState.ACTIVE,
 			PublicationState.UNPUBLISHED,
 			MutationState.WRITABLE
@@ -80,6 +84,8 @@ public final class MetadataLoadCreationCatalog implements LoadCreationCatalog {
 			IndexerType.INDEX,
 			IndexerRole.LIVE_WRITER,
 			IndexResourceOwnership.ATTACHED,
+			IndexerStatus.AVAILABLE,
+			IndexerProvisioningState.READY,
 			IndexerRuntimeState.ACTIVE,
 			PublicationState.UNPUBLISHED,
 			MutationState.WRITABLE

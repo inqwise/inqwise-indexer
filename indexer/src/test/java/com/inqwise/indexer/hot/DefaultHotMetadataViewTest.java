@@ -1,5 +1,7 @@
 package com.inqwise.indexer.hot;
 
+import static com.inqwise.indexer.testing.TestMetadataRecords.indexerRecord;
+
 import com.inqwise.indexer.adapters.local.InMemoryTargetInvalidationRegistry;
 import com.inqwise.indexer.adapters.local.InMemoryTargetInvalidationRegistryProvider;
 
@@ -20,7 +22,6 @@ import com.inqwise.indexer.catalog.targets.TargetDefinition;
 import com.inqwise.indexer.catalog.targets.ConcreteTargetKey;
 import com.inqwise.indexer.metadata.DeleteTarget;
 import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepository;
-import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.catalog.indexers.MutationState;
 import com.inqwise.indexer.publication.PublicationState;
 import com.inqwise.indexer.catalog.targets.TargetPeriod;
@@ -154,7 +155,7 @@ class DefaultHotMetadataViewTest {
 			Instant.parse("2026-05-18T10:15:00Z")
 		);
 		return repository.ensureTarget("customers", period)
-			.compose(target -> repository.insertIndexer(new InsertIndexer(
+			.compose(target -> repository.insertIndexer(indexerRecord(
 				"indexer-customers",
 				target.id(),
 				target.targetName(),

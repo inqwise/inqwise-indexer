@@ -1,5 +1,8 @@
 package com.inqwise.indexer.metadata;
 
+import static com.inqwise.indexer.testing.TestMetadataRecords.indexerRecord;
+import static com.inqwise.indexer.testing.TestMetadataRecords.readyTarget;
+
 import com.inqwise.indexer.catalog.indexers.IndexResourceOwnership;
 import com.inqwise.indexer.catalog.indexers.IndexerProvisioningState;
 import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
@@ -43,7 +46,7 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 	void requiresExplicitTargetPrefix() {
 		NullPointerException error = assertThrows(
 			NullPointerException.class,
-			() -> new InsertTarget(null, "customers", null)
+			() -> readyTarget(null, "customers")
 		);
 
 		assertEquals("prefix", error.getMessage());
@@ -51,7 +54,7 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 
 	@Test
 	void requiresExplicitIndexerFamilyPrefixes() {
-		assertEquals("prefix", assertThrows(NullPointerException.class, () -> new InsertIndexer(
+		assertEquals("prefix", assertThrows(NullPointerException.class, () -> indexerRecord(
 			null,
 			1,
 			"customers",
@@ -105,7 +108,7 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 
-		repository.insertTarget(new InsertTarget("target-uid", "customers-2024", null))
+		repository.insertTarget(readyTarget("target-uid", "customers-2024"))
 			.compose(repository::getTargetById)
 			.compose(found -> {
 				assertTrue(found.isPresent());
@@ -132,7 +135,7 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 
-		repository.insertTarget(new InsertTarget("test", "customers-2024", null))
+		repository.insertTarget(readyTarget("test", "customers-2024"))
 			.compose(id -> repository.updateTargetStatus(new UpdateTargetStatus(
 				id,
 				TargetStatus.NON_ACTIVE,
@@ -149,18 +152,16 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 
-		Future<Integer> uppercase = repository.insertTarget(new InsertTarget(
+		Future<Integer> uppercase = repository.insertTarget(readyTarget(
 			"test",
-			"Customers",
-			null
+			"Customers"
 		));
 		assertTrue(uppercase.failed());
 		assertEquals("Target name is not canonical: Customers", uppercase.cause().getMessage());
 
-		Future<Integer> spaces = repository.insertTarget(new InsertTarget(
+		Future<Integer> spaces = repository.insertTarget(readyTarget(
 			"test",
-			"customer docs",
-			null
+			"customer docs"
 		));
 		assertTrue(spaces.failed());
 		assertEquals("Target name is not canonical: customer docs", spaces.cause().getMessage());
@@ -172,10 +173,9 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 			new InMemoryDocumentStoreMetadataRepository();
 		String targetName = "a".repeat(TargetNameValidator.MAX_TARGET_NAME_LENGTH + 1);
 
-		Future<Integer> inserted = repository.insertTarget(new InsertTarget(
+		Future<Integer> inserted = repository.insertTarget(readyTarget(
 			"test",
-			targetName,
-			null
+			targetName
 		));
 		assertTrue(inserted.failed());
 		assertEquals("Target name is too long: 129", inserted.cause().getMessage());
@@ -212,8 +212,8 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 
-		repository.insertTarget(new InsertTarget("test", "customers-2024", null))
-			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
+		repository.insertTarget(readyTarget("test", "customers-2024"))
+			.compose(targetId -> repository.insertIndexer(indexerRecord(
 				"indexer-a",
 				targetId,
 				"customers-2024",
@@ -223,7 +223,7 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 				IndexerRuntimeState.ACTIVE,
 				PublicationState.PUBLISHED,
 				MutationState.WRITABLE
-			)).compose(firstId -> repository.insertIndexer(new InsertIndexer(
+			)).compose(firstId -> repository.insertIndexer(indexerRecord(
 				"indexer-b",
 				targetId,
 				"customers-2024",
@@ -242,8 +242,8 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 
-		repository.insertTarget(new InsertTarget("test", "customers-2024", null))
-			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
+		repository.insertTarget(readyTarget("test", "customers-2024"))
+			.compose(targetId -> repository.insertIndexer(indexerRecord(
 				"load-writer",
 				targetId,
 				"customers-2024",
@@ -255,7 +255,7 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 				IndexerRuntimeState.ACTIVE,
 				PublicationState.UNPUBLISHED,
 				MutationState.WRITABLE
-			)).compose(loadId -> repository.insertIndexer(new InsertIndexer(
+			)).compose(loadId -> repository.insertIndexer(indexerRecord(
 				"live-writer",
 				targetId,
 				"customers-2024",
@@ -285,8 +285,8 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 
-		repository.insertTarget(new InsertTarget("test", "customers-2024", null))
-			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
+		repository.insertTarget(readyTarget("test", "customers-2024"))
+			.compose(targetId -> repository.insertIndexer(indexerRecord(
 				"load-writer",
 				targetId,
 				"customers-2024",
@@ -298,7 +298,7 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 				IndexerRuntimeState.ACTIVE,
 				PublicationState.UNPUBLISHED,
 				MutationState.WRITABLE
-			)).compose(loadId -> repository.insertIndexer(new InsertIndexer(
+			)).compose(loadId -> repository.insertIndexer(indexerRecord(
 				"live-writer",
 				targetId,
 				"customers-2024",
@@ -333,8 +333,8 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 
-		repository.insertTarget(new InsertTarget("test", "customers-2024", null))
-			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
+		repository.insertTarget(readyTarget("test", "customers-2024"))
+			.compose(targetId -> repository.insertIndexer(indexerRecord(
 				"test",
 				targetId,
 				"customers-2024",
@@ -366,8 +366,8 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 
-		repository.insertTarget(new InsertTarget("test", "customers-2024", null))
-			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
+		repository.insertTarget(readyTarget("test", "customers-2024"))
+			.compose(targetId -> repository.insertIndexer(indexerRecord(
 				"test",
 				targetId,
 				"customers-2024",
@@ -462,12 +462,12 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 
-		repository.insertTarget(new InsertTarget("test", "customers-2024", null))
+		repository.insertTarget(readyTarget("test", "customers-2024"))
 			.compose(id -> repository.deleteTarget(new DeleteTarget(id, 0L))
 				.compose(ignored -> repository.getTargetById(id))
 				.compose(found -> {
 					assertFalse(found.isPresent());
-					return repository.insertTarget(new InsertTarget("test", "customers-2024", null));
+					return repository.insertTarget(readyTarget("test", "customers-2024"));
 				}))
 			.onComplete(testContext.succeeding(id -> testContext.verify(() -> {
 				assertEquals(2, id);
@@ -510,7 +510,7 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 		IndexerRole role,
 		IndexResourceOwnership indexOwnership
 	) {
-		return new InsertIndexer(
+		return indexerRecord(
 			"test",
 			1,
 			"customers",

@@ -1,5 +1,8 @@
 package com.inqwise.indexer.providers;
 
+import static com.inqwise.indexer.testing.TestMetadataRecords.indexerRecord;
+import static com.inqwise.indexer.testing.TestMetadataRecords.readyTarget;
+
 import com.inqwise.indexer.adapters.local.InMemoryTargetInvalidationRegistry;
 import com.inqwise.indexer.adapters.local.InMemoryTargetInvalidationRegistryProvider;
 
@@ -20,8 +23,6 @@ import com.inqwise.indexer.catalog.indexers.IndexerType;
 import com.inqwise.indexer.actions.PutDocumentActionItem;
 import com.inqwise.indexer.actions.IndexerActionRouteMode;
 import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepository;
-import com.inqwise.indexer.metadata.InsertIndexer;
-import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.catalog.indexers.MutationState;
 import com.inqwise.indexer.publication.PublicationState;
 import com.inqwise.indexer.providers.IndexerProviderQuery;
@@ -144,7 +145,7 @@ class MetadataHotIndexerTest {
 			IndexerRole.LIVE_WRITER,
 			IndexerRuntimeState.ACTIVE,
 			MutationState.WRITABLE
-		).compose(firstId -> repository.insertIndexer(new InsertIndexer(
+		).compose(firstId -> repository.insertIndexer(indexerRecord(
 			"non-active-live",
 			1,
 			"customers",
@@ -183,8 +184,8 @@ class MetadataHotIndexerTest {
 		IndexerRuntimeState runtimeState,
 		MutationState mutationState
 	) {
-		return repository.insertTarget(new InsertTarget("test", "customers", null))
-			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
+		return repository.insertTarget(readyTarget("test", "customers"))
+			.compose(targetId -> repository.insertIndexer(indexerRecord(
 				"test",
 				targetId,
 				"customers",

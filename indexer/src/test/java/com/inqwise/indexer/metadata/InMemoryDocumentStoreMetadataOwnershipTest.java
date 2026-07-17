@@ -1,5 +1,8 @@
 package com.inqwise.indexer.metadata;
 
+import static com.inqwise.indexer.testing.TestMetadataRecords.indexerRecord;
+import static com.inqwise.indexer.testing.TestMetadataRecords.readyTarget;
+
 import com.inqwise.indexer.catalog.indexers.IndexerProvisioningState;
 import com.inqwise.indexer.catalog.indexers.IndexerStatus;
 import com.inqwise.indexer.catalog.indexers.MutationState;
@@ -30,7 +33,7 @@ class InMemoryDocumentStoreMetadataOwnershipTest {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 
-		repository.insertTarget(new InsertTarget("test", "customers", null))
+		repository.insertTarget(readyTarget("test", "customers"))
 			.compose(targetId -> repository.insertIndexer(indexer(
 				targetId,
 				"customers-index",
@@ -59,7 +62,7 @@ class InMemoryDocumentStoreMetadataOwnershipTest {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 
-		repository.insertTarget(new InsertTarget("test", "customers", null))
+		repository.insertTarget(readyTarget("test", "customers"))
 			.compose(targetId -> repository.insertIndexer(indexer(
 				targetId,
 				"customers-index",
@@ -129,7 +132,7 @@ class InMemoryDocumentStoreMetadataOwnershipTest {
 		InMemoryDocumentStoreMetadataRepository repository,
 		Participant deletingParticipant
 	) {
-		return repository.insertTarget(new InsertTarget("test", "customers", null))
+		return repository.insertTarget(readyTarget("test", "customers"))
 			.compose(targetId -> repository.insertIndexer(indexer(
 				targetId,
 				"old-index",
@@ -171,7 +174,7 @@ class InMemoryDocumentStoreMetadataOwnershipTest {
 		PublicationState publicationState,
 		boolean deleting
 	) {
-		return new InsertIndexer(
+		return indexerRecord(
 			"test",
 			targetId,
 			"customers",

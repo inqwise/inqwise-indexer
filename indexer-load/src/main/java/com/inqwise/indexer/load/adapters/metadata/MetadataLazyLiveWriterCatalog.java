@@ -5,8 +5,10 @@ import java.util.Objects;
 import com.inqwise.indexer.load.api.IndexerLoadRecord;
 import com.inqwise.indexer.load.catalog.LazyLiveWriterCatalog;
 import com.inqwise.indexer.catalog.indexers.IndexResourceOwnership;
+import com.inqwise.indexer.catalog.indexers.IndexerProvisioningState;
 import com.inqwise.indexer.catalog.indexers.IndexerRole;
 import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
+import com.inqwise.indexer.catalog.indexers.IndexerStatus;
 import com.inqwise.indexer.catalog.indexers.IndexerType;
 import com.inqwise.indexer.catalog.indexers.IndexerModel;
 import com.inqwise.indexer.metadata.CreateIndexerOperation;
@@ -51,6 +53,8 @@ public final class MetadataLazyLiveWriterCatalog implements LazyLiveWriterCatalo
 			IndexerType.INDEX,
 			IndexerRole.LIVE_WRITER,
 			IndexResourceOwnership.ATTACHED,
+			IndexerStatus.AVAILABLE,
+			IndexerProvisioningState.READY,
 			IndexerRuntimeState.ACTIVE,
 			PublicationState.UNPUBLISHED,
 			MutationState.WRITABLE

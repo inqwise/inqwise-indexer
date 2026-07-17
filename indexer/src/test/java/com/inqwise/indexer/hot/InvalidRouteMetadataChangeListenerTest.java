@@ -1,5 +1,8 @@
 package com.inqwise.indexer.hot;
 
+import static com.inqwise.indexer.testing.TestMetadataRecords.indexerRecord;
+import static com.inqwise.indexer.testing.TestMetadataRecords.readyTarget;
+
 import com.inqwise.indexer.adapters.local.InMemoryInvalidRouteCache;
 import com.inqwise.indexer.adapters.local.InMemoryTargetInvalidationRegistry;
 import com.inqwise.indexer.adapters.local.InMemoryTargetInvalidationRegistryProvider;
@@ -14,7 +17,6 @@ import com.inqwise.indexer.catalog.indexers.IndexerType;
 import com.inqwise.indexer.adapters.local.InMemoryIndexerLifecycleEventBus;
 import com.inqwise.indexer.lifecycle.TargetMetadataChanged;
 import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepository;
-import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.catalog.indexers.MutationState;
 import com.inqwise.indexer.publication.PublicationState;
@@ -76,7 +78,7 @@ class InvalidRouteMetadataChangeListenerTest {
 			TargetStatus.ACTIVE,
 			TargetProvisioningState.READY
 		))
-			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
+			.compose(targetId -> repository.insertIndexer(indexerRecord(
 				"test",
 				targetId,
 				"customers",
@@ -114,8 +116,8 @@ class InvalidRouteMetadataChangeListenerTest {
 		InMemoryInvalidRouteCache cache =
 			new InMemoryInvalidRouteCache(Duration.ofMinutes(5));
 
-		repository.insertTarget(new InsertTarget("test", "customers", null))
-			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
+		repository.insertTarget(readyTarget("test", "customers"))
+			.compose(targetId -> repository.insertIndexer(indexerRecord(
 				"test",
 				targetId,
 				"customers",

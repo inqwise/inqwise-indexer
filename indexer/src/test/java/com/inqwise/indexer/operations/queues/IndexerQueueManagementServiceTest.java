@@ -1,5 +1,8 @@
 package com.inqwise.indexer.operations.queues;
 
+import static com.inqwise.indexer.testing.TestMetadataRecords.indexerRecord;
+import static com.inqwise.indexer.testing.TestMetadataRecords.readyTarget;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -23,8 +26,6 @@ import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepositor
 import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
 import com.inqwise.indexer.cleanup.CleanupResetIndexerQueueCommandHandler;
 import com.inqwise.indexer.adapters.local.InMemoryCommandEngine;
-import com.inqwise.indexer.metadata.InsertIndexer;
-import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.metadata.IndexerRecord;
 import com.inqwise.indexer.catalog.indexers.MutationState;
 import com.inqwise.indexer.publication.PublicationState;
@@ -430,8 +431,8 @@ class IndexerQueueManagementServiceTest {
 		IndexerRuntimeState runtimeState,
 		MutationState mutationState
 	) {
-		return repository.insertTarget(new InsertTarget("test", "customers", null))
-			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
+		return repository.insertTarget(readyTarget("test", "customers"))
+			.compose(targetId -> repository.insertIndexer(indexerRecord(
 				"test",
 				targetId,
 				"customers",

@@ -1,5 +1,8 @@
 package com.inqwise.indexer.load.runtime;
 
+import static com.inqwise.indexer.load.testing.TestMetadataRecords.indexerRecord;
+import static com.inqwise.indexer.load.testing.TestMetadataRecords.readyTarget;
+
 import com.inqwise.indexer.load.adapters.local.InMemoryIndexerLoadRepository;
 import com.inqwise.indexer.load.api.IndexerLoadRecord;
 import com.inqwise.indexer.load.api.IndexerLoadState;
@@ -61,8 +64,6 @@ import com.inqwise.indexer.provisioning.definitions.QueueDefinition;
 import com.inqwise.indexer.errors.RetryableStaleStateException;
 import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.IndexerRecord;
-import com.inqwise.indexer.metadata.InsertIndexer;
-import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.catalog.indexers.MutationState;
 import com.inqwise.indexer.publication.PublicationState;
 import com.inqwise.indexer.providers.ActionReceiveReadiness;
@@ -274,7 +275,7 @@ class LoadWriterActionReceiveCapabilityTest {
 
 		insertLazyLoad(metadata, loads)
 			.compose(load -> metadata.getIndexerById(load.indexerId())
-				.compose(loadWriter -> metadata.insertIndexer(new InsertIndexer(
+				.compose(loadWriter -> metadata.insertIndexer(indexerRecord(
 					"winner",
 					load.targetId(),
 					loadWriter.orElseThrow().targetName(),
@@ -375,8 +376,8 @@ class LoadWriterActionReceiveCapabilityTest {
 		InMemoryDocumentStoreMetadataRepository metadata,
 		InMemoryIndexerLoadRepository loads
 	) {
-		return metadata.insertTarget(new InsertTarget("test", "customers", null))
-			.compose(targetId -> metadata.insertIndexer(new InsertIndexer(
+		return metadata.insertTarget(readyTarget("test", "customers"))
+			.compose(targetId -> metadata.insertIndexer(indexerRecord(
 				"load",
 				targetId,
 				"customers",

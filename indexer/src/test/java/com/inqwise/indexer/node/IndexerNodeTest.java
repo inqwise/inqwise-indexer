@@ -1,5 +1,8 @@
 package com.inqwise.indexer.node;
 
+import static com.inqwise.indexer.testing.TestMetadataRecords.indexerRecord;
+import static com.inqwise.indexer.testing.TestMetadataRecords.readyTarget;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -18,8 +21,6 @@ import com.inqwise.indexer.lifecycle.TargetMetadataChanged;
 import com.inqwise.indexer.adapters.local.InMemoryCommandEngine;
 import com.inqwise.indexer.gateway.GatewayRestOptions;
 import com.inqwise.indexer.routing.InvalidRouteSignature;
-import com.inqwise.indexer.metadata.InsertIndexer;
-import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.catalog.indexers.MutationState;
 import com.inqwise.indexer.publication.PublicationState;
 import com.inqwise.indexer.rest.action.TargetActionRestOptions;
@@ -176,9 +177,9 @@ class IndexerNodeTest {
 		node.components().invalidRouteCache().record(route, "missing target");
 		node.start()
 			.compose(ignored -> node.components().repository()
-				.insertTarget(new InsertTarget("test", "customers", null)))
+				.insertTarget(readyTarget("test", "customers")))
 			.compose(targetId -> node.components().repository()
-				.insertIndexer(new InsertIndexer(
+				.insertIndexer(indexerRecord(
 					"test",
 					targetId,
 					"customers",

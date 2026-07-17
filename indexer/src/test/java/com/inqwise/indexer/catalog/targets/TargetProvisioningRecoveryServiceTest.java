@@ -1,5 +1,7 @@
 package com.inqwise.indexer.catalog.targets;
 
+import static com.inqwise.indexer.testing.TestMetadataRecords.readyTarget;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.junit.jupiter.api.Test;
@@ -68,7 +70,7 @@ class TargetProvisioningRecoveryServiceTest {
 			new InMemoryDocumentStoreMetadataRepository();
 		TargetManagementService service = targetManagementService(repository);
 
-		repository.insertTarget(new InsertTarget("target-customers", "customers", null))
+		repository.insertTarget(readyTarget("target-customers", "customers"))
 			.compose(targetId -> service.recoverProvisioning(new RecoverTargetProvisioningRequest(
 				targetId,
 				0L

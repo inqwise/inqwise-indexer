@@ -72,6 +72,8 @@ class LoadPackageDependencyDirectionTest {
 			"com.inqwise.indexer.metadata.DocumentStoreMetadataRepository",
 			"com.inqwise.indexer.metadata.IndexerRecord",
 			"com.inqwise.indexer.metadata.InsertIndexer",
+			"com.inqwise.indexer.catalog.indexers.IndexerProvisioningState",
+			"com.inqwise.indexer.catalog.indexers.IndexerStatus",
 			"com.inqwise.indexer.catalog.indexers.MutationState",
 			"com.inqwise.indexer.publication.PublicationState",
 			"com.inqwise.indexer.catalog.targets.TargetProvisioningState",
@@ -83,6 +85,8 @@ class LoadPackageDependencyDirectionTest {
 			"com.inqwise.indexer.metadata.DocumentStoreMetadataRepository",
 			"com.inqwise.indexer.metadata.InsertIndexer",
 			"com.inqwise.indexer.metadata.MetadataIndexerModels",
+			"com.inqwise.indexer.catalog.indexers.IndexerProvisioningState",
+			"com.inqwise.indexer.catalog.indexers.IndexerStatus",
 			"com.inqwise.indexer.catalog.indexers.MutationState",
 			"com.inqwise.indexer.publication.PublicationState"
 		)),

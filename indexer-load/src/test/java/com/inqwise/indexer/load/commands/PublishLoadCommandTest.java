@@ -1,5 +1,8 @@
 package com.inqwise.indexer.load.commands;
 
+import static com.inqwise.indexer.load.testing.TestMetadataRecords.indexerRecord;
+import static com.inqwise.indexer.load.testing.TestMetadataRecords.readyTarget;
+
 import com.inqwise.indexer.load.adapters.local.InMemoryIndexerLoadRepository;
 import com.inqwise.indexer.load.adapters.local.InMemoryLoadProviderRegistry;
 import com.inqwise.indexer.load.api.ApproveLoadPublicationRequest;
@@ -34,8 +37,6 @@ import com.inqwise.indexer.cleanup.CleanupDeletingIndexerCommandHandler;
 import com.inqwise.indexer.cleanup.DeleteIndexerCommandHandler;
 import com.inqwise.indexer.adapters.local.InMemoryCommandEngine;
 import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepository;
-import com.inqwise.indexer.metadata.InsertIndexer;
-import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.catalog.indexers.MutationState;
 import com.inqwise.indexer.publication.PublicationState;
 import com.inqwise.indexer.catalog.indexers.IndexerOperations;
@@ -54,8 +55,8 @@ class PublishLoadCommandTest {
 		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
 		InMemoryCommandEngine commands = commandService(metadata, loads);
 
-		metadata.insertTarget(new InsertTarget("test", "customers", null))
-			.compose(targetId -> metadata.insertIndexer(new InsertIndexer(
+		metadata.insertTarget(readyTarget("test", "customers"))
+			.compose(targetId -> metadata.insertIndexer(indexerRecord(
 				"load",
 				targetId,
 				"customers",
@@ -100,8 +101,8 @@ class PublishLoadCommandTest {
 		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
 		InMemoryCommandEngine commands = commandService(metadata, loads);
 
-		metadata.insertTarget(new InsertTarget("test", "customers", null))
-			.compose(targetId -> metadata.insertIndexer(new InsertIndexer(
+		metadata.insertTarget(readyTarget("test", "customers"))
+			.compose(targetId -> metadata.insertIndexer(indexerRecord(
 				"old",
 				targetId,
 				"customers",
@@ -113,7 +114,7 @@ class PublishLoadCommandTest {
 				IndexerRuntimeState.ACTIVE,
 				PublicationState.PUBLISHED,
 				MutationState.WRITABLE
-			)).compose(oldId -> metadata.insertIndexer(new InsertIndexer(
+			)).compose(oldId -> metadata.insertIndexer(indexerRecord(
 				"load",
 				targetId,
 				"customers",
@@ -125,7 +126,7 @@ class PublishLoadCommandTest {
 				IndexerRuntimeState.ACTIVE,
 				PublicationState.UNPUBLISHED,
 				MutationState.WRITABLE
-			)).compose(loadId -> metadata.insertIndexer(new InsertIndexer(
+			)).compose(loadId -> metadata.insertIndexer(indexerRecord(
 				"live",
 				targetId,
 				"customers",
@@ -156,8 +157,8 @@ class PublishLoadCommandTest {
 		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
 		InMemoryCommandEngine commands = cleanupCommandService(metadata, loads);
 
-		metadata.insertTarget(new InsertTarget("test", "customers", null))
-			.compose(targetId -> metadata.insertIndexer(new InsertIndexer(
+		metadata.insertTarget(readyTarget("test", "customers"))
+			.compose(targetId -> metadata.insertIndexer(indexerRecord(
 				"old",
 				targetId,
 				"customers",
@@ -169,7 +170,7 @@ class PublishLoadCommandTest {
 				IndexerRuntimeState.ACTIVE,
 				PublicationState.PUBLISHED,
 				MutationState.WRITABLE
-			)).compose(oldId -> metadata.insertIndexer(new InsertIndexer(
+			)).compose(oldId -> metadata.insertIndexer(indexerRecord(
 				"load",
 				targetId,
 				"customers",
@@ -181,7 +182,7 @@ class PublishLoadCommandTest {
 				IndexerRuntimeState.ACTIVE,
 				PublicationState.UNPUBLISHED,
 				MutationState.WRITABLE
-			)).compose(loadId -> metadata.insertIndexer(new InsertIndexer(
+			)).compose(loadId -> metadata.insertIndexer(indexerRecord(
 				"live",
 				targetId,
 				"customers",
@@ -221,8 +222,8 @@ class PublishLoadCommandTest {
 			commands
 		);
 
-		metadata.insertTarget(new InsertTarget("test", "customers", null))
-			.compose(targetId -> metadata.insertIndexer(new InsertIndexer(
+		metadata.insertTarget(readyTarget("test", "customers"))
+			.compose(targetId -> metadata.insertIndexer(indexerRecord(
 				"load",
 				targetId,
 				"customers",

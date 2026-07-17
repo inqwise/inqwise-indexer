@@ -1,5 +1,8 @@
 package com.inqwise.indexer.cleanup;
 
+import static com.inqwise.indexer.testing.TestMetadataRecords.indexerRecord;
+import static com.inqwise.indexer.testing.TestMetadataRecords.readyTarget;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -21,10 +24,8 @@ import com.inqwise.indexer.testing.TestMetadataChangeNotifiers;
 import com.inqwise.indexer.provisioning.definitions.IndexDefinition;
 import com.inqwise.indexer.errors.RetryableStaleStateException;
 import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepository;
-import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.metadata.InsertManifest;
 import com.inqwise.indexer.metadata.InsertPublication;
-import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.provisioning.ManifestStatus;
 import com.inqwise.indexer.catalog.indexers.MutationState;
 import com.inqwise.indexer.publication.PublicationState;
@@ -166,8 +167,8 @@ class CleanupDeletingIndexerCommandTest {
 		InMemoryDocumentStoreMetadataRepository repository,
 		IndexResourceOwnership ownership
 	) {
-		return repository.insertTarget(new InsertTarget("test", "customers", null))
-			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
+		return repository.insertTarget(readyTarget("test", "customers"))
+			.compose(targetId -> repository.insertIndexer(indexerRecord(
 				"test",
 				targetId,
 				"customers",
