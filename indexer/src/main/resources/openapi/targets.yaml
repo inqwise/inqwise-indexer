@@ -1,0 +1,173 @@
+openapi: 3.0.3
+info:
+  title: inqwise-indexer Target Catalog API
+  version: 0.1.0
+paths:
+  /targets:
+    get:
+      operationId: listTargets
+      parameters:
+        - $ref: '#/components/parameters/IdQuery'
+        - name: target_name
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+        - name: status
+          in: query
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/TargetStatus'
+          style: form
+          explode: true
+        - name: provisioning_state
+          in: query
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/TargetProvisioningState'
+          style: form
+          explode: true
+      responses:
+        '200':
+          description: Target list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TargetListResult'
+    post:
+      operationId: createTarget
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTargetRequest'
+      responses:
+        '201':
+          description: Target created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TargetResult'
+  /targets/{id}:
+    get:
+      operationId: getTarget
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Target.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TargetResult'
+  /targets/{id}/recover-provisioning:
+    post:
+      operationId: recoverTargetProvisioning
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/ExpectedVersion'
+      responses:
+        '200':
+          description: Failed target provisioning recovered.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TargetResult'
+components:
+  parameters:
+    IdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+    IdQuery:
+      name: id
+      in: query
+      schema:
+        type: array
+        items:
+          type: integer
+      style: form
+      explode: true
+    ExpectedVersion:
+      name: expected_version
+      in: query
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 0
+  schemas:
+    TargetStatus:
+      type: string
+      enum: [ACTIVE, NON_ACTIVE, DELETED]
+    TargetProvisioningState:
+      type: string
+      enum: [PROVISIONING, READY, FAILED]
+    InitialPublicationMode:
+      type: string
+      enum: [READY, PUBLISH]
+    CreateTargetRequest:
+      type: object
+      required: [target_name]
+      properties:
+        target_name:
+          type: string
+          minLength: 1
+        timestamp:
+          type: string
+          format: date-time
+        initial_publication_mode:
+          $ref: '#/components/schemas/InitialPublicationMode'
+    TargetResult:
+      type: object
+      required: [target]
+      properties:
+        target:
+          $ref: '#/components/schemas/Target'
+    TargetListResult:
+      type: object
+      required: [targets]
+      properties:
+        targets:
+          type: array
+          items:
+            $ref: '#/components/schemas/Target'
+    Target:
+      type: object
+      required: [id, uid, target_name, status, provisioning_state, version]
+      properties:
+        id:
+          type: integer
+        uid:
+          type: string
+        target_name:
+          type: string
+        period_key:
+          type: string
+        period_start_inclusive:
+          type: string
+          format: date-time
+        period_end_exclusive:
+          type: string
+          format: date-time
+        status:
+          $ref: '#/components/schemas/TargetStatus'
+        provisioning_state:
+          $ref: '#/components/schemas/TargetProvisioningState'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          format: int64

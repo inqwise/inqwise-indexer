@@ -152,6 +152,36 @@ class DeploymentPackageDependencyDirectionTest {
 	}
 
 	@Test
+	void targetCatalogEnvelopeDoesNotDependOnMetadataOrAdminFacade() throws IOException {
+		List<String> violations = new ArrayList<>();
+		for (Path envelopePackage : List.of(
+			MAIN_PACKAGE.resolve("service/target"),
+			MAIN_PACKAGE.resolve("rest/target")
+		)) {
+			try (Stream<Path> files = Files.walk(envelopePackage)) {
+				files
+					.filter(path -> path.toString().endsWith(".java"))
+					.forEach(path -> {
+						inspectImports(
+							path,
+							Set.of("metadata"),
+							"Target Catalog envelope must use catalog-owned contracts",
+							violations
+						);
+						inspectText(
+							path,
+							"com.inqwise.indexer.service.admin",
+							"Target Catalog envelope must not reuse the mixed admin facade",
+							violations
+						);
+					});
+			}
+		}
+
+		assertTrue(violations.isEmpty(), () -> String.join(System.lineSeparator(), violations));
+	}
+
+	@Test
 	void targetCatalogContractsDoNotOwnPublicationLifecycle() throws IOException {
 		List<String> violations = new ArrayList<>();
 		try (Stream<Path> files = Files.walk(CORE_MAIN_PACKAGE.resolve("catalog/targets"))) {
