@@ -178,7 +178,8 @@ class AdminRestVerticleTest {
 					vertx,
 					HttpMethod.DELETE,
 					restVerticle.actualPort(),
-					"/admin/indexers/" + indexerId + "?expected_version=0"
+					"/admin/indexers/" + indexerId + "?expected_version=0",
+					202
 				)))
 			.onComplete(testContext.succeeding(indexerBody -> testContext.verify(() -> {
 				JsonObject indexer = indexerBody.toJsonObject().getJsonObject("indexer");
@@ -253,7 +254,8 @@ class AdminRestVerticleTest {
 					.put("target_name", "customers")
 					.put("date", "2026-05-18")
 					.put("create_indexer", new JsonObject()
-						.put("initial_publication_mode", "READY"))
+						.put("initial_publication_mode", "READY")),
+				201
 			))
 			.compose(targetBody -> {
 				JsonObject target = targetBody.toJsonObject().getJsonObject("target");
@@ -286,7 +288,8 @@ class AdminRestVerticleTest {
 					HttpMethod.POST,
 					restVerticle.actualPort(),
 					"/admin/indexers",
-					new JsonObject().put("target_id", targetId)
+					new JsonObject().put("target_id", targetId),
+					201
 				)))
 			.onComplete(testContext.succeeding(indexerBody -> testContext.verify(() -> {
 				JsonObject indexer = indexerBody.toJsonObject().getJsonObject("indexer");
@@ -308,11 +311,21 @@ class AdminRestVerticleTest {
 	}
 
 	private io.vertx.core.Future<Buffer> request(Vertx vertx, HttpMethod method, int port, String uri) {
+		return request(vertx, method, port, uri, 200);
+	}
+
+	private io.vertx.core.Future<Buffer> request(
+		Vertx vertx,
+		HttpMethod method,
+		int port,
+		String uri,
+		int expectedStatus
+	) {
 		return vertx.createHttpClient()
 			.request(method, port, "127.0.0.1", uri)
 			.compose(request -> request.send()
 				.compose(response -> {
-					assertEquals(200, response.statusCode());
+					assertEquals(expectedStatus, response.statusCode());
 					return response.body();
 				}));
 	}
@@ -324,13 +337,24 @@ class AdminRestVerticleTest {
 		String uri,
 		JsonObject body
 	) {
+		return request(vertx, method, port, uri, body, 200);
+	}
+
+	private io.vertx.core.Future<Buffer> request(
+		Vertx vertx,
+		HttpMethod method,
+		int port,
+		String uri,
+		JsonObject body,
+		int expectedStatus
+	) {
 		return vertx.createHttpClient()
 			.request(method, port, "127.0.0.1", uri)
 			.compose(request -> request
 				.putHeader("content-type", "application/json")
 				.send(body.encode())
 				.compose(response -> {
-					assertEquals(200, response.statusCode());
+					assertEquals(expectedStatus, response.statusCode());
 					return response.body();
 				}));
 	}

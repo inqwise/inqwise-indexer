@@ -17,19 +17,30 @@ public final class RestOperations {
 		Function<RoutingContext, Future<T>> handler,
 		Function<Object, JsonObject> resultMapper
 	) {
+		bind(builder, operationId, handler, resultMapper, 200);
+	}
+
+	public static <T> void bind(
+		RouterBuilder builder,
+		String operationId,
+		Function<RoutingContext, Future<T>> handler,
+		Function<Object, JsonObject> resultMapper,
+		int successStatus
+	) {
 		builder.getRoute(operationId)
-			.addHandler(context -> handle(context, handler, resultMapper))
+			.addHandler(context -> handle(context, handler, resultMapper, successStatus))
 			.addFailureHandler(context -> HttpErrorMapper.write(context, context.failure()));
 	}
 
 	private static <T> void handle(
 		RoutingContext context,
 		Function<RoutingContext, Future<T>> handler,
-		Function<Object, JsonObject> resultMapper
+		Function<Object, JsonObject> resultMapper,
+		int successStatus
 	) {
 		try {
 			handler.apply(context)
-				.onSuccess(result -> writeJson(context, result, resultMapper))
+				.onSuccess(result -> writeJson(context, result, resultMapper, successStatus))
 				.onFailure(error -> HttpErrorMapper.write(context, error));
 		} catch (Throwable error) {
 			HttpErrorMapper.write(context, error);
@@ -39,9 +50,11 @@ public final class RestOperations {
 	private static void writeJson(
 		RoutingContext context,
 		Object result,
-		Function<Object, JsonObject> resultMapper
+		Function<Object, JsonObject> resultMapper,
+		int successStatus
 	) {
 		context.response()
+			.setStatusCode(successStatus)
 			.putHeader("content-type", "application/json")
 			.end(resultMapper.apply(result).encode());
 	}

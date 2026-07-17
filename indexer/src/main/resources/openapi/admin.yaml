@@ -64,7 +64,7 @@ paths:
                     initial_publication_mode:
                       type: string
       responses:
-        '200':
+        '201':
           description: Created target.
           content:
             application/json:
@@ -185,7 +185,7 @@ paths:
                 target_id:
                   type: integer
       responses:
-        '200':
+        '201':
           description: Created indexer.
           content:
             application/json:
@@ -209,8 +209,8 @@ paths:
         - $ref: '#/components/parameters/IdPath'
         - $ref: '#/components/parameters/ExpectedVersionQuery'
       responses:
-        '200':
-          description: Indexer marked for deletion.
+        '202':
+          description: Indexer deletion accepted.
           content:
             application/json:
               schema:

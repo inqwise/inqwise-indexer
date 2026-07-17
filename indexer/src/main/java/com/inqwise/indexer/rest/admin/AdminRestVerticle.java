@@ -95,7 +95,8 @@ public class AdminRestVerticle extends AbstractVerticle {
 					builder,
 					"createTarget",
 					context -> adminService.createTarget(createTargetRequest(context, createResolver)),
-					AdminRestVerticle::toJson
+					AdminRestVerticle::toJson,
+					201
 				);
 				RestOperations.bind(
 					builder,
@@ -121,7 +122,8 @@ public class AdminRestVerticle extends AbstractVerticle {
 					"createIndexer",
 					context -> createIndexerRequest(context, createResolver)
 						.compose(adminService::createIndexer),
-					AdminRestVerticle::toJson
+					AdminRestVerticle::toJson,
+					201
 				);
 				RestOperations.bind(
 					builder,
@@ -152,7 +154,8 @@ public class AdminRestVerticle extends AbstractVerticle {
 					builder,
 					"deleteIndexer",
 					context -> adminService.deleteIndexer(deleteIndexerRequest(context)),
-					AdminRestVerticle::toJson
+					AdminRestVerticle::toJson,
+					202
 				);
 
 				return builder.createRouter();
