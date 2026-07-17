@@ -248,7 +248,6 @@ class AdminServiceVerticleTest {
 
 		vertx.deployVerticle(adminVerticle(repository, eventBus, queue))
 			.compose(ignored -> AdminServices.proxy(vertx).createTarget(new AdminCreateTargetRequest()
-				.setPrefix("target-customers")
 				.setTargetName("customers")
 				.setTimestamp(Instant.parse("2026-05-18T10:15:00Z"))))
 			.onComplete(testContext.succeeding(result -> testContext.verify(() -> {
@@ -269,7 +268,6 @@ class AdminServiceVerticleTest {
 
 		vertx.deployVerticle(adminVerticle(repository, eventBus, queue))
 			.compose(ignored -> AdminServices.proxy(vertx).createTarget(new AdminCreateTargetRequest()
-				.setPrefix("target-customers")
 				.setTargetName("customers")
 				.setTimestamp(Instant.parse("2026-05-18T10:15:00Z"))
 				.setCreateIndexer(new AdminCreateTargetIndexerRequest()

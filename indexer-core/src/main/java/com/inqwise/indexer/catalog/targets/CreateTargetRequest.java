@@ -4,7 +4,6 @@ import java.time.Instant;
 import java.util.Objects;
 
 public record CreateTargetRequest(
-	String prefix,
 	String targetName,
 	Instant timestamp,
 	CreateTargetIndexerRequest createIndexer

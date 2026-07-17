@@ -66,7 +66,6 @@ class TargetManagementServiceTest {
 		);
 
 		targetManagementService.createTarget(new CreateTargetRequest(
-			"target-customers",
 			"customers",
 			Instant.parse("2026-05-18T10:15:00Z"),
 			null
@@ -93,7 +92,6 @@ class TargetManagementServiceTest {
 		);
 
 		targetManagementService.createTarget(new CreateTargetRequest(
-			"target-customers",
 			"customers",
 			Instant.parse("2026-05-18T10:15:00Z"),
 			null
@@ -107,6 +105,7 @@ class TargetManagementServiceTest {
 			);
 		}).onComplete(testContext.succeeding(found -> testContext.verify(() -> {
 			assertTrue(found.isPresent());
+			assertTrue(found.get().prefix().matches("t[a-f0-9]{12}"));
 			assertEquals(TargetProvisioningState.READY, found.get().provisioningState());
 			assertEquals(1L, found.get().version());
 			assertEquals(1, eventBus.targetEvents().size());
@@ -122,12 +121,10 @@ class TargetManagementServiceTest {
 		TargetManagementService targetManagementService = targetManagementService(repository);
 
 		targetManagementService.createTarget(new CreateTargetRequest(
-			"target-customers",
 			"customers",
 			Instant.parse("2026-05-18T10:15:00Z"),
 			null
 		)).compose(ignored -> targetManagementService.createTarget(new CreateTargetRequest(
-			"target-customers-2",
 			"customers",
 			Instant.parse("2026-05-18T10:15:00Z"),
 			null
@@ -153,7 +150,6 @@ class TargetManagementServiceTest {
 		);
 
 		targetManagementService.createTarget(new CreateTargetRequest(
-			"target-customers",
 			"customers",
 			Instant.parse("2026-05-18T10:15:00Z"),
 			createIndexer(InitialPublicationMode.READY)
@@ -186,7 +182,6 @@ class TargetManagementServiceTest {
 		TargetManagementService targetManagementService = targetManagementService(repository);
 
 		targetManagementService.createTarget(new CreateTargetRequest(
-			"target-customers",
 			"customers",
 			Instant.parse("2026-05-18T10:15:00Z"),
 			createIndexer(InitialPublicationMode.PUBLISH)
@@ -215,7 +210,6 @@ class TargetManagementServiceTest {
 		);
 
 		targetManagementService.createTarget(new CreateTargetRequest(
-			"target-customers",
 			"customers",
 			Instant.parse("2026-05-18T10:15:00Z"),
 			createIndexer(InitialPublicationMode.READY)

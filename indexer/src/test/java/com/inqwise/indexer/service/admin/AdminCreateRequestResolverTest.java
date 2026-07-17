@@ -19,7 +19,7 @@ import io.vertx.junit5.VertxTestContext;
 @ExtendWith(VertxExtension.class)
 class AdminCreateRequestResolverTest {
 	@Test
-	void createsTargetRequestWithGeneratedPrefixAndIndexerNames() {
+	void createsTargetRequestWithGeneratedIndexerNames() {
 		AdminCreateRequestResolver resolver =
 			new AdminCreateRequestResolver(new InMemoryDocumentStoreMetadataRepository());
 
@@ -29,7 +29,6 @@ class AdminCreateRequestResolverTest {
 			InitialPublicationMode.READY
 		);
 
-		assertTrue(request.getPrefix().matches("t[a-f0-9]{12}"));
 		assertEquals("customers", request.getTargetName());
 		assertEquals(Instant.parse("2026-06-07T00:00:00Z"), request.getTimestamp());
 		assertNotNull(request.getCreateIndexer());

@@ -10,7 +10,6 @@ import io.vertx.core.json.JsonObject;
 @DataObject
 public class AdminCreateTargetRequest {
 	public static final class Keys {
-		public static final String PREFIX = "prefix";
 		public static final String TARGET_NAME = "target_name";
 		public static final String TIMESTAMP = "timestamp";
 		public static final String CREATE_INDEXER = "create_indexer";
@@ -19,7 +18,6 @@ public class AdminCreateTargetRequest {
 		}
 	}
 
-	private String prefix;
 	private String targetName;
 	private Instant timestamp;
 	private AdminCreateTargetIndexerRequest createIndexer;
@@ -28,7 +26,6 @@ public class AdminCreateTargetRequest {
 	}
 
 	public AdminCreateTargetRequest(JsonObject json) {
-		this.prefix = json.getString(Keys.PREFIX);
 		this.targetName = json.getString(Keys.TARGET_NAME);
 		this.timestamp = json.getString(Keys.TIMESTAMP) == null
 			? null
@@ -41,7 +38,6 @@ public class AdminCreateTargetRequest {
 
 	public JsonObject toJson() {
 		return new JsonObject()
-			.put(Keys.PREFIX, prefix)
 			.put(Keys.TARGET_NAME, targetName)
 			.put(Keys.TIMESTAMP, timestamp == null ? null : timestamp.toString())
 			.put(Keys.CREATE_INDEXER, createIndexer == null ? null : createIndexer.toJson());
@@ -49,20 +45,10 @@ public class AdminCreateTargetRequest {
 
 	CreateTargetRequest toTargetRequest() {
 		return new CreateTargetRequest(
-			prefix,
 			targetName,
 			timestamp,
 			createIndexer == null ? null : createIndexer.toTargetRequest()
 		);
-	}
-
-	public String getPrefix() {
-		return prefix;
-	}
-
-	public AdminCreateTargetRequest setPrefix(String prefix) {
-		this.prefix = prefix;
-		return this;
 	}
 
 	public String getTargetName() {

@@ -6,6 +6,13 @@ import org.junit.jupiter.api.Test;
 
 class AdminCreationRequestTest {
 	@Test
+	void targetCreationDoesNotExposeMetadataPrefix() {
+		var json = new AdminCreateTargetRequest().toJson();
+
+		assertFalse(json.containsKey("prefix"));
+	}
+
+	@Test
 	void indexerCreationDoesNotExposePublicationState() {
 		var json = new AdminCreateIndexerRequest().toJson();
 

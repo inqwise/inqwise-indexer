@@ -25,7 +25,6 @@ public class AdminCreateRequestResolver {
 		InitialPublicationMode initialPublicationMode
 	) {
 		AdminCreateTargetRequest request = new AdminCreateTargetRequest()
-			.setPrefix(IndexerResourceNameGenerator.targetPrefix())
 			.setTargetName(targetName)
 			.setTimestamp(timestamp);
 

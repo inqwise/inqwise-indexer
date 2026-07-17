@@ -20,6 +20,7 @@ import com.inqwise.indexer.publication.PublicationReadinessResult;
 import com.inqwise.indexer.publication.PublishIndexRequest;
 import com.inqwise.indexer.provisioning.CreateIndexerProvisioningRequest;
 import com.inqwise.indexer.provisioning.IndexerProvisioningService;
+import com.inqwise.indexer.provisioning.IndexerResourceNameGenerator;
 import com.inqwise.indexer.provisioning.ProvisionedIndexer;
 
 import io.vertx.core.Future;
@@ -178,7 +179,7 @@ public class MetadataTargetManagementService implements TargetManagementService 
 		TargetPeriod period
 	) {
 		return repository.insertTarget(new InsertTarget(
-			create.prefix(),
+			IndexerResourceNameGenerator.targetPrefix(),
 			definition.targetName(),
 			period.key(),
 			period.startInclusive(),
