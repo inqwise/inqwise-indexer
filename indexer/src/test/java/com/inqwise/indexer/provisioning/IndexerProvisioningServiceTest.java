@@ -1,6 +1,7 @@
 package com.inqwise.indexer.provisioning;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
@@ -27,6 +28,23 @@ import io.vertx.junit5.VertxTestContext;
 
 @ExtendWith(VertxExtension.class)
 class IndexerProvisioningServiceTest {
+	@Test
+	void requiresExplicitQueueIdentity() {
+		NullPointerException error = assertThrows(NullPointerException.class, () ->
+			new CreateIndexerProvisioningRequest(
+				"missing-queue",
+				1,
+				"customers-index",
+				null,
+				IndexerRole.LIVE_WRITER,
+				IndexResourceOwnership.OWNER,
+				IndexerRuntimeState.NON_ACTIVE
+			)
+		);
+
+		assertEquals("queueName", error.getMessage());
+	}
+
 	@Test
 	void rejectsMissingTargetBeforeCreatingIndexer(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =

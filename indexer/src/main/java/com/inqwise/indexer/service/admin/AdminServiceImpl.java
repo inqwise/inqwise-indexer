@@ -354,5 +354,9 @@ public class AdminServiceImpl implements AdminService {
 		if (request.getIndexName() == null || request.getIndexName().isBlank()) {
 			throw IndexerErrors.invalidRequest("Index name is required");
 		}
+
+		if (request.getQueueName() == null || request.getQueueName().isBlank()) {
+			throw IndexerErrors.invalidRequest("Queue name is required");
+		}
 	}
 }

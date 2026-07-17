@@ -82,7 +82,7 @@ public class MetadataIndexerProvisioningService implements IndexerProvisioningSe
 			target.id(),
 			target.targetName(),
 			request.indexName(),
-			queueName(request),
+			request.queueName(),
 			IndexerType.INDEX,
 			request.role(),
 			request.indexOwnership(),
@@ -96,7 +96,7 @@ public class MetadataIndexerProvisioningService implements IndexerProvisioningSe
 
 	private Future<Void> ensureResources(IndexerRecord indexer, IndexerDefinition definition) {
 		return documentIndexResources.ensure(indexer.indexName(), definition.index())
-			.compose(ignored -> queueResources.ensure(queueName(indexer), definition.queue()));
+			.compose(ignored -> queueResources.ensure(indexer.queueName(), definition.queue()));
 	}
 
 	private Future<Integer> insertManifest(IndexerRecord indexer, IndexerDefinition definition) {
@@ -160,11 +160,4 @@ public class MetadataIndexerProvisioningService implements IndexerProvisioningSe
 				.orElseGet(() -> Future.failedFuture("Target not found: " + targetId)));
 	}
 
-	private String queueName(CreateIndexerProvisioningRequest request) {
-		return request.queueName() == null ? request.indexName() : request.queueName();
-	}
-
-	private String queueName(IndexerRecord indexer) {
-		return indexer.queueName() == null ? indexer.indexName() : indexer.queueName();
-	}
 }

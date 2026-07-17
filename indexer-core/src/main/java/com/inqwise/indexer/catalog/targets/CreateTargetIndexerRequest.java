@@ -10,6 +10,7 @@ public record CreateTargetIndexerRequest(
 ) {
 	public CreateTargetIndexerRequest {
 		Objects.requireNonNull(indexName, "indexName");
+		Objects.requireNonNull(queueName, "queueName");
 		Objects.requireNonNull(initialPublicationMode, "initialPublicationMode");
 	}
 }
