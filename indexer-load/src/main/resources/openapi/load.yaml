@@ -1,0 +1,148 @@
+openapi: 3.0.3
+info:
+  title: inqwise-indexer load API
+  version: 0.1.0
+paths:
+  /loads:
+    post:
+      operationId: createLoad
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLoadRequest'
+      responses:
+        '201':
+          description: Load composition created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoadResult'
+  /loads/{id}/start:
+    post:
+      operationId: startLoad
+      parameters:
+        - $ref: '#/components/parameters/LoadId'
+        - $ref: '#/components/parameters/ExpectedVersion'
+      responses:
+        '200':
+          description: Load provider started.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoadResult'
+  /loads/{id}/recover-created:
+    post:
+      operationId: recoverCreatedLoad
+      parameters:
+        - $ref: '#/components/parameters/LoadId'
+        - $ref: '#/components/parameters/ExpectedVersion'
+      responses:
+        '200':
+          description: Created load start recovered.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoadResult'
+  /loads/{id}/approve-publication:
+    post:
+      operationId: approveLoadPublication
+      parameters:
+        - $ref: '#/components/parameters/LoadId'
+        - $ref: '#/components/parameters/ExpectedVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApproveLoadRequest'
+      responses:
+        '200':
+          description: Load publication approved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoadResult'
+  /loads/{id}:
+    delete:
+      operationId: cancelLoad
+      parameters:
+        - $ref: '#/components/parameters/LoadId'
+        - $ref: '#/components/parameters/ExpectedVersion'
+        - name: reason
+          in: query
+          schema:
+            type: string
+      responses:
+        '202':
+          description: Load cancellation and durable cleanup accepted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+components:
+  parameters:
+    LoadId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+    ExpectedVersion:
+      name: expected_version
+      in: query
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 0
+  schemas:
+    CreateLoadRequest:
+      type: object
+      required: [provider_id, target_id]
+      properties:
+        provider_id:
+          type: string
+        target_id:
+          type: integer
+        live_writer_policy:
+          type: string
+        reload_start_at:
+          type: string
+          format: date-time
+        live_replay_from:
+          type: string
+          format: date-time
+        source_from:
+          type: string
+          format: date-time
+        source_to:
+          type: string
+          format: date-time
+        source_query:
+          type: object
+        source_playbook_id:
+          type: string
+        review_required:
+          type: boolean
+    ApproveLoadRequest:
+      type: object
+      properties:
+        approved_at:
+          type: string
+          format: date-time
+        approved_by:
+          type: string
+        approval_reason:
+          type: string
+    LoadResult:
+      type: object
+      required: [load]
+      properties:
+        load:
+          type: object

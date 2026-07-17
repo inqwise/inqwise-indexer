@@ -35,6 +35,24 @@
 			<artifactId>vertx-core</artifactId>
 		</dependency>
 		<dependency>
+			<groupId>io.vertx</groupId>
+			<artifactId>vertx-codegen</artifactId>
+			<classifier>processor</classifier>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>io.vertx</groupId>
+			<artifactId>vertx-service-proxy</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>io.vertx</groupId>
+			<artifactId>vertx-web-openapi-router</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>io.vertx</groupId>
+			<artifactId>vertx-openapi</artifactId>
+		</dependency>
+		<dependency>
 			<groupId>com.inqwise</groupId>
 			<artifactId>inqwise-errors</artifactId>
 			<scope>provided</scope>
@@ -50,4 +68,28 @@
 			<scope>test</scope>
 		</dependency>
 	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<configuration>
+					<annotationProcessorPaths>
+						<path>
+							<groupId>io.vertx</groupId>
+							<artifactId>vertx-codegen</artifactId>
+							<version>${vertx.version}</version>
+							<classifier>processor</classifier>
+						</path>
+						<path>
+							<groupId>io.vertx</groupId>
+							<artifactId>vertx-service-proxy</artifactId>
+							<version>${vertx.version}</version>
+						</path>
+					</annotationProcessorPaths>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
 </project>

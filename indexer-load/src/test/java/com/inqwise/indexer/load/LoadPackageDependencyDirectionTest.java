@@ -108,7 +108,9 @@ class LoadPackageDependencyDirectionTest {
 		"commands",
 		"catalog",
 		"repository",
+		"rest",
 		"runtime",
+		"service",
 		"testing",
 		"workflow"
 	);
@@ -119,16 +121,18 @@ class LoadPackageDependencyDirectionTest {
 	private static final Set<String> RUNTIME_ALLOWED_COMMAND_IMPORTS = Set.of(
 		"com.inqwise.indexer.load.commands.LoadPublicationOrchestrator"
 	);
-	private static final Map<String, Set<String>> ALLOWED_LOAD_IMPORTS = Map.of(
-		"api", Set.of(),
-		"catalog", Set.of("api"),
-		"repository", Set.of("api"),
-		"workflow", Set.of("api", "catalog", "commands", "repository"),
-		"runtime", Set.of("api", "catalog", "commands", "events", "repository"),
-		"commands", Set.of("api", "repository"),
-		"events", Set.of(),
-		"adapters.local", Set.of("api", "repository"),
-		"adapters.metadata", Set.of("api", "catalog", "repository")
+	private static final Map<String, Set<String>> ALLOWED_LOAD_IMPORTS = Map.ofEntries(
+		entry("api", Set.of()),
+		entry("catalog", Set.of("api")),
+		entry("repository", Set.of("api")),
+		entry("workflow", Set.of("api", "catalog", "commands", "repository")),
+		entry("runtime", Set.of("api", "catalog", "commands", "events", "repository")),
+		entry("commands", Set.of("api", "repository")),
+		entry("events", Set.of()),
+		entry("service", Set.of("api")),
+		entry("rest", Set.of("service")),
+		entry("adapters.local", Set.of("api", "repository")),
+		entry("adapters.metadata", Set.of("api", "catalog", "repository"))
 	);
 
 	@Test
