@@ -65,7 +65,7 @@ class RepositoryPublishedIndexResolverTest {
 			new InMemoryDocumentStoreMetadataRepository();
 		RepositoryPublishedIndexResolver resolver = new RepositoryPublishedIndexResolver(repository);
 
-		repository.insertTarget(new InsertTarget(null, "customers", null))
+		repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> insertIndexer(repository, targetId, "customers_all")
 				.compose(indexerId -> resolver.resolvePublishedIndexes(
 					new PublishedIndexQuery("customers", JANUARY, FEBRUARY)

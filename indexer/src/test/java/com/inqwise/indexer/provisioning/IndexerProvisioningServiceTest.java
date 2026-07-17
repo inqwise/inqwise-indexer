@@ -143,7 +143,7 @@ class IndexerProvisioningServiceTest {
 			IndexerQueueResourceManager.NOOP
 		);
 
-		repository.insertTarget(new InsertTarget(null, "customers", null))
+		repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> service.createIndexer(new CreateIndexerProvisioningRequest(
 				"load-writer",
 				targetId,

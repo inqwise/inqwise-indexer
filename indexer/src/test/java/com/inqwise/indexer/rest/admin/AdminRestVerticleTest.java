@@ -52,7 +52,7 @@ class AdminRestVerticleTest {
 		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
 		AdminRestVerticle restVerticle = restVerticle(repository);
 
-		repository.insertTarget(new InsertTarget(null, "customers", null))
+		repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
 				"runtime",
 				targetId,
@@ -122,7 +122,7 @@ class AdminRestVerticleTest {
 		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
 		AdminRestVerticle restVerticle = restVerticle(repository);
 
-		repository.insertTarget(new InsertTarget(null, "customers", null))
+		repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
 				"runtime",
 				targetId,
@@ -158,7 +158,7 @@ class AdminRestVerticleTest {
 		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
 		AdminRestVerticle restVerticle = restVerticle(repository);
 
-		repository.insertTarget(new InsertTarget(null, "customers", null))
+		repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
 				"runtime",
 				targetId,
@@ -196,7 +196,7 @@ class AdminRestVerticleTest {
 		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
 		AdminRestVerticle restVerticle = restVerticle(repository);
 
-		repository.insertTarget(new InsertTarget(null, "customers", null))
+		repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
 				"runtime",
 				targetId,
@@ -276,7 +276,7 @@ class AdminRestVerticleTest {
 		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
 		AdminRestVerticle restVerticle = restVerticle(repository);
 
-		repository.insertTarget(new InsertTarget(null, "customers", null))
+		repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> vertx.deployVerticle(adminVerticle(repository, eventBus, queue))
 				.compose(ignored -> vertx.deployVerticle(restVerticle))
 				.compose(ignored -> request(

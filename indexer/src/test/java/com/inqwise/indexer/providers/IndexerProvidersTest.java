@@ -31,7 +31,7 @@ class IndexerProvidersTest {
 			new MetadataIndexerProvider(repository)
 		));
 
-		repository.insertTarget(new InsertTarget(null, "customers", null))
+		repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
 				"load-writer",
 				targetId,
@@ -82,7 +82,7 @@ class IndexerProvidersTest {
 			new MetadataIndexerProvider(repository)
 		));
 
-		repository.insertTarget(new InsertTarget(null, "customers", null))
+		repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
 				null,
 				targetId,

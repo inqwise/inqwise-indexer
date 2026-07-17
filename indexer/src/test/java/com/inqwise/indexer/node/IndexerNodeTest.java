@@ -176,7 +176,7 @@ class IndexerNodeTest {
 		node.components().invalidRouteCache().record(route, "missing target");
 		node.start()
 			.compose(ignored -> node.components().repository()
-				.insertTarget(new InsertTarget(null, "customers", null)))
+				.insertTarget(new InsertTarget("test", "customers", null)))
 			.compose(targetId -> node.components().repository()
 				.insertIndexer(new InsertIndexer(
 					null,

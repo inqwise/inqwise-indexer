@@ -375,7 +375,7 @@ class LoadWriterActionReceiveCapabilityTest {
 		InMemoryDocumentStoreMetadataRepository metadata,
 		InMemoryIndexerLoadRepository loads
 	) {
-		return metadata.insertTarget(new InsertTarget(null, "customers", null))
+		return metadata.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> metadata.insertIndexer(new InsertIndexer(
 				"load",
 				targetId,

@@ -44,7 +44,7 @@ class AdminCreateRequestResolverTest {
 			new InMemoryDocumentStoreMetadataRepository();
 		AdminCreateRequestResolver resolver = new AdminCreateRequestResolver(repository);
 
-		repository.insertTarget(new InsertTarget(null, "customers", null))
+		repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(resolver::indexer)
 			.onComplete(testContext.succeeding(request -> testContext.verify(() -> {
 				assertTrue(request.getPrefix().matches("i[a-f0-9]{12}"));

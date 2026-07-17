@@ -19,6 +19,7 @@ import com.inqwise.indexer.provisioning.ManifestStatus;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Instant;
@@ -38,6 +39,16 @@ import io.vertx.junit5.VertxTestContext;
 
 @ExtendWith(VertxExtension.class)
 class InMemoryDocumentStoreMetadataRepositoryTest {
+	@Test
+	void requiresExplicitTargetPrefix() {
+		NullPointerException error = assertThrows(
+			NullPointerException.class,
+			() -> new InsertTarget(null, "customers", null)
+		);
+
+		assertEquals("prefix", error.getMessage());
+	}
+
 	@Test
 	void insertsAndUpdatesTargetById(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
@@ -70,7 +81,7 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 
-		repository.insertTarget(new InsertTarget(null, "customers-2024", null))
+		repository.insertTarget(new InsertTarget("test", "customers-2024", null))
 			.compose(id -> repository.updateTargetStatus(new UpdateTargetStatus(
 				id,
 				TargetStatus.NON_ACTIVE,
@@ -88,7 +99,7 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 			new InMemoryDocumentStoreMetadataRepository();
 
 		Future<Integer> uppercase = repository.insertTarget(new InsertTarget(
-			null,
+			"test",
 			"Customers",
 			null
 		));
@@ -96,7 +107,7 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 		assertEquals("Target name is not canonical: Customers", uppercase.cause().getMessage());
 
 		Future<Integer> spaces = repository.insertTarget(new InsertTarget(
-			null,
+			"test",
 			"customer docs",
 			null
 		));
@@ -111,7 +122,7 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 		String targetName = "a".repeat(TargetNameValidator.MAX_TARGET_NAME_LENGTH + 1);
 
 		Future<Integer> inserted = repository.insertTarget(new InsertTarget(
-			null,
+			"test",
 			targetName,
 			null
 		));
@@ -150,7 +161,7 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 
-		repository.insertTarget(new InsertTarget(null, "customers-2024", null))
+		repository.insertTarget(new InsertTarget("test", "customers-2024", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
 				"indexer-a",
 				targetId,
@@ -180,7 +191,7 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 
-		repository.insertTarget(new InsertTarget(null, "customers-2024", null))
+		repository.insertTarget(new InsertTarget("test", "customers-2024", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
 				"load-writer",
 				targetId,
@@ -223,7 +234,7 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 
-		repository.insertTarget(new InsertTarget(null, "customers-2024", null))
+		repository.insertTarget(new InsertTarget("test", "customers-2024", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
 				"load-writer",
 				targetId,
@@ -271,7 +282,7 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 
-		repository.insertTarget(new InsertTarget(null, "customers-2024", null))
+		repository.insertTarget(new InsertTarget("test", "customers-2024", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
 				null,
 				targetId,
@@ -304,7 +315,7 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 
-		repository.insertTarget(new InsertTarget(null, "customers-2024", null))
+		repository.insertTarget(new InsertTarget("test", "customers-2024", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
 				null,
 				targetId,
@@ -400,12 +411,12 @@ class InMemoryDocumentStoreMetadataRepositoryTest {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 
-		repository.insertTarget(new InsertTarget(null, "customers-2024", null))
+		repository.insertTarget(new InsertTarget("test", "customers-2024", null))
 			.compose(id -> repository.deleteTarget(new DeleteTarget(id, 0L))
 				.compose(ignored -> repository.getTargetById(id))
 				.compose(found -> {
 					assertFalse(found.isPresent());
-					return repository.insertTarget(new InsertTarget(null, "customers-2024", null));
+					return repository.insertTarget(new InsertTarget("test", "customers-2024", null));
 				}))
 			.onComplete(testContext.succeeding(id -> testContext.verify(() -> {
 				assertEquals(2, id);

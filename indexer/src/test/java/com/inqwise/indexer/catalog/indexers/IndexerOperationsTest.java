@@ -45,7 +45,7 @@ class IndexerOperationsTest {
 		List<IndexerMetadataChanged> events = new ArrayList<>();
 
 		eventBus.subscribe(events::add)
-			.compose(ignored -> repository.insertTarget(new InsertTarget(null, "customers", null)))
+			.compose(ignored -> repository.insertTarget(new InsertTarget("test", "customers", null)))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
 				null,
 				targetId,

@@ -78,7 +78,7 @@ class SubmitIndexActionsCommandTest {
 		InMemoryCommandEngine commandService = metadataCommandService(repository, eventBus, queue);
 		List<IndexerMetadataChanged> events = new ArrayList<>();
 
-		repository.insertTarget(new InsertTarget(null, "customers", null))
+		repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
 				null,
 				targetId,
@@ -138,7 +138,7 @@ class SubmitIndexActionsCommandTest {
 		RecordingQueue queue = new RecordingQueue();
 		InMemoryCommandEngine commandService = metadataCommandService(repository, eventBus, queue);
 
-		repository.insertTarget(new InsertTarget(null, "customers", null))
+		repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
 				null,
 				targetId,
@@ -183,7 +183,7 @@ class SubmitIndexActionsCommandTest {
 		RecordingQueue queue = new RecordingQueue();
 		InMemoryCommandEngine commandService = metadataCommandService(repository, eventBus, queue);
 
-		repository.insertTarget(new InsertTarget(null, "customers", null))
+		repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
 				null,
 				targetId,
@@ -220,7 +220,7 @@ class SubmitIndexActionsCommandTest {
 		RecordingQueue queue = new RecordingQueue();
 		InMemoryCommandEngine commandService = metadataCommandService(repository, eventBus, queue);
 
-		repository.insertTarget(new InsertTarget(null, "customers", null))
+		repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
 				null,
 				targetId,
@@ -266,7 +266,7 @@ class SubmitIndexActionsCommandTest {
 			queue
 		);
 
-		repository.insertTarget(new InsertTarget(null, "customers", null))
+		repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
 				null,
 				targetId,
@@ -887,7 +887,7 @@ class SubmitIndexActionsCommandTest {
 		RecordingQueue queue = new RecordingQueue();
 		InMemoryCommandEngine commandService = metadataCommandService(repository, eventBus, queue);
 
-		repository.insertTarget(new InsertTarget(null, "customers", null))
+		repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
 				null,
 				targetId,
@@ -926,7 +926,7 @@ class SubmitIndexActionsCommandTest {
 		RecordingQueue queue = new RecordingQueue();
 		InMemoryCommandEngine commandService = metadataCommandService(repository, eventBus, queue);
 
-		repository.insertTarget(new InsertTarget(null, "customers", null))
+		repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
 				null,
 				targetId,
@@ -963,7 +963,7 @@ class SubmitIndexActionsCommandTest {
 		RecordingQueue queue = new RecordingQueue();
 		InMemoryCommandEngine commandService = metadataCommandService(repository, eventBus, queue);
 
-		repository.insertTarget(new InsertTarget(null, "customers", null))
+		repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
 				null,
 				targetId,

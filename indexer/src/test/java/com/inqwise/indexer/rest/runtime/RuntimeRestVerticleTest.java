@@ -51,7 +51,7 @@ class RuntimeRestVerticleTest {
 			new RuntimeRestOptions().setPort(0)
 		);
 
-		repository.insertTarget(new InsertTarget(null, "customers", null))
+		repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
 				"runtime",
 				targetId,

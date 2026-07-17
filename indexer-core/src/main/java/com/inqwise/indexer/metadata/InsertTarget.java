@@ -1,5 +1,7 @@
 package com.inqwise.indexer.metadata;
 
+import java.util.Objects;
+
 import com.inqwise.indexer.catalog.targets.TargetProvisioningState;
 import com.inqwise.indexer.catalog.targets.TargetStatus;
 
@@ -12,9 +14,13 @@ public record InsertTarget(
 	TargetStatus status,
 	TargetProvisioningState provisioningState
 ) {
+	public InsertTarget {
+		Objects.requireNonNull(prefix, "prefix");
+	}
+
 	public InsertTarget(String prefix, String targetName, TargetStatus status) {
 		this(
-			prefix == null ? "test" : prefix,
+			prefix,
 			targetName,
 			null,
 			null,

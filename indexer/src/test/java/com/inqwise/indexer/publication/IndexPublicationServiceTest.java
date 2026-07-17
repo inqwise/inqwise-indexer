@@ -374,7 +374,7 @@ class IndexPublicationServiceTest {
 		InMemoryDocumentStoreMetadataRepository repository,
 		ReadinessState readinessState
 	) {
-		return repository.insertTarget(new InsertTarget(null, "customers", null))
+		return repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
 				null,
 				targetId,
@@ -401,7 +401,7 @@ class IndexPublicationServiceTest {
 		MutationState mutationState,
 		ReadinessState readinessState
 	) {
-		return repository.insertTarget(new InsertTarget(null, "customers", null))
+		return repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
 				null,
 				targetId,
@@ -426,7 +426,7 @@ class IndexPublicationServiceTest {
 	private Future<Integer> insertPublishedIndexer(
 		InMemoryDocumentStoreMetadataRepository repository
 	) {
-		return repository.insertTarget(new InsertTarget(null, "customers", null))
+		return repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
 				null,
 				targetId,

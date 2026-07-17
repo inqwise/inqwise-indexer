@@ -51,7 +51,7 @@ class AdminServiceVerticleTest {
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
 
-		repository.insertTarget(new InsertTarget(null, "customers", null))
+		repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(ignored -> vertx.deployVerticle(adminVerticle(repository, eventBus, queue)))
 			.compose(ignored -> AdminServices.proxy(vertx).listTargets(new AdminTargetQuery()
 				.setTargetNames(List.of("customers"))))
@@ -71,7 +71,7 @@ class AdminServiceVerticleTest {
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
 
-		repository.insertTarget(new InsertTarget(null, "customers", null))
+		repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
 				"runtime",
 				targetId,
@@ -137,7 +137,7 @@ class AdminServiceVerticleTest {
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
 
-		repository.insertTarget(new InsertTarget(null, "customers", null))
+		repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
 				"runtime",
 				targetId,
@@ -179,7 +179,7 @@ class AdminServiceVerticleTest {
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
 
-		repository.insertTarget(new InsertTarget(null, "customers", null))
+		repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
 				"runtime",
 				targetId,
@@ -213,7 +213,7 @@ class AdminServiceVerticleTest {
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
 
-		repository.insertTarget(new InsertTarget(null, "customers", null))
+		repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
 				"runtime",
 				targetId,
@@ -293,7 +293,7 @@ class AdminServiceVerticleTest {
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
 
-		repository.insertTarget(new InsertTarget(null, "customers", null))
+		repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> vertx.deployVerticle(adminVerticle(repository, eventBus, queue))
 				.compose(ignored -> AdminServices.proxy(vertx).createIndexer(new AdminCreateIndexerRequest()
 					.setPrefix("indexer-customers")

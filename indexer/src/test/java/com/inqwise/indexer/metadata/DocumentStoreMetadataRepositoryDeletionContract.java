@@ -99,7 +99,7 @@ abstract class DocumentStoreMetadataRepositoryDeletionContract {
 		DocumentStoreMetadataRepository repository,
 		MutationState mutationState
 	) {
-		return repository.insertTarget(new InsertTarget(null, "customers", null))
+		return repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> repository.insertIndexer(new InsertIndexer(
 				null,
 				targetId,

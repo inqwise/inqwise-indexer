@@ -54,7 +54,7 @@ class PublishLoadCommandTest {
 		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
 		InMemoryCommandEngine commands = commandService(metadata, loads);
 
-		metadata.insertTarget(new InsertTarget(null, "customers", null))
+		metadata.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> metadata.insertIndexer(new InsertIndexer(
 				"load",
 				targetId,
@@ -100,7 +100,7 @@ class PublishLoadCommandTest {
 		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
 		InMemoryCommandEngine commands = commandService(metadata, loads);
 
-		metadata.insertTarget(new InsertTarget(null, "customers", null))
+		metadata.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> metadata.insertIndexer(new InsertIndexer(
 				"old",
 				targetId,
@@ -156,7 +156,7 @@ class PublishLoadCommandTest {
 		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
 		InMemoryCommandEngine commands = cleanupCommandService(metadata, loads);
 
-		metadata.insertTarget(new InsertTarget(null, "customers", null))
+		metadata.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> metadata.insertIndexer(new InsertIndexer(
 				"old",
 				targetId,
@@ -221,7 +221,7 @@ class PublishLoadCommandTest {
 			commands
 		);
 
-		metadata.insertTarget(new InsertTarget(null, "customers", null))
+		metadata.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> metadata.insertIndexer(new InsertIndexer(
 				"load",
 				targetId,

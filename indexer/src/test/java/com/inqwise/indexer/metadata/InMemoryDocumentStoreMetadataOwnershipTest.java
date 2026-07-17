@@ -30,7 +30,7 @@ class InMemoryDocumentStoreMetadataOwnershipTest {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 
-		repository.insertTarget(new InsertTarget(null, "customers", null))
+		repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> repository.insertIndexer(indexer(
 				targetId,
 				"customers-index",
@@ -59,7 +59,7 @@ class InMemoryDocumentStoreMetadataOwnershipTest {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 
-		repository.insertTarget(new InsertTarget(null, "customers", null))
+		repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> repository.insertIndexer(indexer(
 				targetId,
 				"customers-index",
@@ -129,7 +129,7 @@ class InMemoryDocumentStoreMetadataOwnershipTest {
 		InMemoryDocumentStoreMetadataRepository repository,
 		Participant deletingParticipant
 	) {
-		return repository.insertTarget(new InsertTarget(null, "customers", null))
+		return repository.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> repository.insertIndexer(indexer(
 				targetId,
 				"old-index",

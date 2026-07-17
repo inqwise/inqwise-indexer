@@ -102,7 +102,7 @@ class LoadApplicationCompositionTest {
 			loads, queue, providers, lifecycleEvents, commands
 		);
 
-		metadata.insertTarget(new InsertTarget(null, "customers", null))
+		metadata.insertTarget(new InsertTarget("test", "customers", null))
 			.compose(targetId -> loadService.create(new CreateLoadRequest(
 				"history",
 				targetId,
