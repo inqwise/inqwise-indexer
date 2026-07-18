@@ -150,11 +150,11 @@ public class InMemoryIndexerLoadRepository implements IndexerLoadRepository {
 				throw new IllegalStateException("Indexer load is not active: " + existing.state());
 			}
 			if (existing.liveIndexerId() != null) {
-				return Future.succeededFuture(new AttachLiveWriterResult(
-					existing.liveIndexerId().equals(request.liveIndexerId()),
-					existing.liveIndexerId(),
-					existing.version()
-				));
+				return Future.succeededFuture(AttachLiveWriterResult.builder()
+					.withAttached(existing.liveIndexerId().equals(request.liveIndexerId()))
+					.withLiveIndexerId(existing.liveIndexerId())
+					.withVersion(existing.version())
+					.build());
 			}
 			requireVersion(existing, request.expectedVersion());
 
@@ -172,11 +172,11 @@ public class InMemoryIndexerLoadRepository implements IndexerLoadRepository {
 				existing.failedAt()
 			);
 			loadsByIndexerId.put(request.indexerId(), updated);
-			return Future.succeededFuture(new AttachLiveWriterResult(
-				true,
-				request.liveIndexerId(),
-				updated.version()
-			));
+			return Future.succeededFuture(AttachLiveWriterResult.builder()
+				.withAttached(true)
+				.withLiveIndexerId(request.liveIndexerId())
+				.withVersion(updated.version())
+				.build());
 		} catch (RuntimeException error) {
 			return Future.failedFuture(error);
 		}
@@ -281,12 +281,12 @@ public class InMemoryIndexerLoadRepository implements IndexerLoadRepository {
 				&& existing.state() != IndexerLoadState.PUBLISHED) {
 				throw new IllegalStateException("Indexer load is not cleanup-ready: " + existing.state());
 			}
-			completionsByIndexerId.put(indexerId, new IndexerLoadCompletion(
-				indexerId,
-				existing.state(),
-				existing.version(),
-				Instant.now()
-			));
+			completionsByIndexerId.put(indexerId, IndexerLoadCompletion.builder()
+				.withIndexerId(indexerId)
+				.withTerminalState(existing.state())
+				.withTerminalVersion(existing.version())
+				.withCompletedAt(Instant.now())
+				.build());
 			loadsByIndexerId.remove(indexerId);
 			return Future.succeededFuture();
 		} catch (RuntimeException error) {

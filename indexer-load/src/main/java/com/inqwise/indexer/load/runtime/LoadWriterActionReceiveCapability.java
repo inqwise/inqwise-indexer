@@ -136,11 +136,11 @@ public class LoadWriterActionReceiveCapability implements IndexerActionReceiveCa
 		boolean retryStaleState,
 		String correlationId
 	) {
-		return loadRepository.attachLiveWriterIfAbsent(new AttachLiveWriterRequest(
-			load.indexerId(),
-			liveWriter.getId(),
-			load.version()
-		)).compose(attached -> preparedLiveWriter(
+		return loadRepository.attachLiveWriterIfAbsent(AttachLiveWriterRequest.builder()
+			.withIndexerId(load.indexerId())
+			.withLiveIndexerId(liveWriter.getId())
+			.withExpectedVersion(load.version())
+			.build()).compose(attached -> preparedLiveWriter(
 			load,
 			liveWriter,
 			attached,

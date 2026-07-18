@@ -79,14 +79,13 @@ public class QueueLoadWriter implements LoadWriter {
 			return Future.succeededFuture();
 		}
 
-		return loadRepository.markFailed(new UpdateIndexerLoadFailure(
-			indexerId,
-			error == null || error.getMessage() == null
+		return loadRepository.markFailed(UpdateIndexerLoadFailure.builder()
+			.withIndexerId(indexerId)
+			.withFailureReason(error == null || error.getMessage() == null
 				? "Load provider failed"
-				: error.getMessage(),
-			null,
-			load.version()
-		));
+				: error.getMessage())
+			.withExpectedVersion(load.version())
+			.build());
 	}
 
 	private Future<Void> completeIfActive(IndexerLoadRecord load) {

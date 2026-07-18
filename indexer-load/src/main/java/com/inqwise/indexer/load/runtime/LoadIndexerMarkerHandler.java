@@ -78,11 +78,11 @@ public class LoadIndexerMarkerHandler implements IndexerMarkerHandler {
 			return advanceAfterHistoricalComplete(load);
 		}
 
-		return loadRepository.updateState(new UpdateIndexerLoadState(
-			load.indexerId(),
-			IndexerLoadState.HISTORICAL_COMPLETE,
-			load.version()
-		)).onSuccess(ignored -> publishWakeUp(
+		return loadRepository.updateState(UpdateIndexerLoadState.builder()
+			.withIndexerId(load.indexerId())
+			.withState(IndexerLoadState.HISTORICAL_COMPLETE)
+			.withExpectedVersion(load.version())
+			.build()).onSuccess(ignored -> publishWakeUp(
 			load,
 			COMPLETE_COMMAND_TYPE,
 			load.version() + 1
@@ -97,11 +97,11 @@ public class LoadIndexerMarkerHandler implements IndexerMarkerHandler {
 			return requestCatchUpBarrier(load);
 		}
 		if (load.reviewRequired() && load.state() == IndexerLoadState.HISTORICAL_COMPLETE) {
-			return loadRepository.updateState(new UpdateIndexerLoadState(
-				load.indexerId(),
-				IndexerLoadState.WAITING_FOR_REVIEW,
-				load.version()
-			)).onSuccess(ignored -> publishWakeUp(
+			return loadRepository.updateState(UpdateIndexerLoadState.builder()
+				.withIndexerId(load.indexerId())
+				.withState(IndexerLoadState.WAITING_FOR_REVIEW)
+				.withExpectedVersion(load.version())
+				.build()).onSuccess(ignored -> publishWakeUp(
 				load,
 				COMPLETE_COMMAND_TYPE,
 				load.version() + 1
@@ -116,12 +116,12 @@ public class LoadIndexerMarkerHandler implements IndexerMarkerHandler {
 		}
 
 		Instant barrierTimestamp = Instant.now();
-		return loadRepository.requestBarrier(new RequestIndexerLoadBarrier(
-			load.indexerId(),
-			UUID.randomUUID().toString(),
-			barrierTimestamp,
-			load.version()
-		)).compose(ignored -> loadRepository.getByIndexerId(load.indexerId()))
+		return loadRepository.requestBarrier(RequestIndexerLoadBarrier.builder()
+			.withIndexerId(load.indexerId())
+			.withBarrierId(UUID.randomUUID().toString())
+			.withBarrierTimestamp(barrierTimestamp)
+			.withExpectedVersion(load.version())
+			.build()).compose(ignored -> loadRepository.getByIndexerId(load.indexerId()))
 			.compose(updated -> updated
 				.map(Future::succeededFuture)
 				.orElseGet(() -> Future.failedFuture("Indexer load not found: " + load.indexerId())))
@@ -161,13 +161,13 @@ public class LoadIndexerMarkerHandler implements IndexerMarkerHandler {
 			return Future.failedFuture("Indexer load is not waiting for catch-up barrier: " + load.state());
 		}
 
-		return loadRepository.markBarrierReached(new UpdateIndexerLoadBarrier(
-			load.indexerId(),
-			item.getBarrierId(),
-			item.getBarrierTimestamp(),
-			Instant.now(),
-			load.version()
-		)).onSuccess(ignored -> publishWakeUp(
+		return loadRepository.markBarrierReached(UpdateIndexerLoadBarrier.builder()
+			.withIndexerId(load.indexerId())
+			.withBarrierId(item.getBarrierId())
+			.withBarrierTimestamp(item.getBarrierTimestamp())
+			.withReachedAt(Instant.now())
+			.withExpectedVersion(load.version())
+			.build()).onSuccess(ignored -> publishWakeUp(
 			load,
 			BARRIER_COMMAND_TYPE,
 			load.version() + 1

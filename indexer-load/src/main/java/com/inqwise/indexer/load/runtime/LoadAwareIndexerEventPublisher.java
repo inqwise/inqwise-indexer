@@ -55,12 +55,11 @@ public class LoadAwareIndexerEventPublisher implements IndexerEventPublisher {
 	}
 
 	private Future<Void> markFailed(IndexerLoadRecord load, String reason) {
-		return loadRepository.markFailed(new UpdateIndexerLoadFailure(
-			load.indexerId(),
-			reason,
-			null,
-			load.version()
-		));
+		return loadRepository.markFailed(UpdateIndexerLoadFailure.builder()
+			.withIndexerId(load.indexerId())
+			.withFailureReason(reason)
+			.withExpectedVersion(load.version())
+			.build());
 	}
 
 	private Future<Void> stopProvider(IndexerLoadRecord load, String reason) {

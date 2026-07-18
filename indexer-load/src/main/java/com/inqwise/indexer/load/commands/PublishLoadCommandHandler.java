@@ -84,11 +84,11 @@ public class PublishLoadCommandHandler implements CommandHandler {
 	}
 
 	private Future<Void> markPublished(IndexerLoadRecord load) {
-		return loadRepository.updateState(new UpdateIndexerLoadState(
-			load.indexerId(),
-			IndexerLoadState.PUBLISHED,
-			load.version()
-		));
+		return loadRepository.updateState(UpdateIndexerLoadState.builder()
+			.withIndexerId(load.indexerId())
+			.withState(IndexerLoadState.PUBLISHED)
+			.withExpectedVersion(load.version())
+			.build());
 	}
 
 	private Future<Void> publishEvents(

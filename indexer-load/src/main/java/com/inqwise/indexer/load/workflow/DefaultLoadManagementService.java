@@ -123,13 +123,13 @@ public final class DefaultLoadManagementService implements LoadManagementService
 				return Future.failedFuture("Indexer load is not waiting for review: " + load.state());
 			}
 
-			return loadRepository.approve(new UpdateIndexerLoadApproval(
-				load.indexerId(),
-				request.approvedAt(),
-				request.approvedBy(),
-				request.approvalReason(),
-				load.version()
-			)).compose(ignored -> load(load.indexerId()))
+			return loadRepository.approve(UpdateIndexerLoadApproval.builder()
+				.withIndexerId(load.indexerId())
+				.withApprovedAt(request.approvedAt())
+				.withApprovedBy(request.approvedBy())
+				.withApprovalReason(request.approvalReason())
+				.withExpectedVersion(load.version())
+				.build()).compose(ignored -> load(load.indexerId()))
 				.compose(this::publishApproval);
 		});
 	}
@@ -158,11 +158,11 @@ public final class DefaultLoadManagementService implements LoadManagementService
 		}
 
 		return stopProviderIfStarted(load, request)
-			.compose(ignored -> loadRepository.updateState(new UpdateIndexerLoadState(
-				load.indexerId(),
-				IndexerLoadState.CANCELLED,
-				load.version()
-			)))
+			.compose(ignored -> loadRepository.updateState(UpdateIndexerLoadState.builder()
+				.withIndexerId(load.indexerId())
+				.withState(IndexerLoadState.CANCELLED)
+				.withExpectedVersion(load.version())
+				.build()))
 			.compose(ignored -> load(load.indexerId()))
 			.compose(this::submitCleanup);
 	}
@@ -252,11 +252,11 @@ public final class DefaultLoadManagementService implements LoadManagementService
 				);
 			}
 
-			return loadRepository.updateState(new UpdateIndexerLoadState(
-				load.indexerId(),
-				IndexerLoadState.STARTING,
-				load.version()
-			)).compose(ignored -> load(load.indexerId()))
+			return loadRepository.updateState(UpdateIndexerLoadState.builder()
+				.withIndexerId(load.indexerId())
+				.withState(IndexerLoadState.STARTING)
+				.withExpectedVersion(load.version())
+				.build()).compose(ignored -> load(load.indexerId()))
 				.compose(updated -> publishStateChanged(updated)
 					.compose(ignored -> startProvider(updated)));
 		}
@@ -300,25 +300,24 @@ public final class DefaultLoadManagementService implements LoadManagementService
 				return Future.succeededFuture();
 			}
 
-			return loadRepository.updateState(new UpdateIndexerLoadState(
-				load.indexerId(),
-				IndexerLoadState.HISTORICAL_LOADING,
-				load.version()
-			)).compose(ignored -> load(load.indexerId()))
+			return loadRepository.updateState(UpdateIndexerLoadState.builder()
+				.withIndexerId(load.indexerId())
+				.withState(IndexerLoadState.HISTORICAL_LOADING)
+				.withExpectedVersion(load.version())
+				.build()).compose(ignored -> load(load.indexerId()))
 				.compose(this::publishStateChanged);
 		});
 	}
 
 	private Future<Void> markProviderStartFailed(Integer indexerId, Throwable error) {
 		return load(indexerId)
-			.compose(load -> loadRepository.markFailed(new UpdateIndexerLoadFailure(
-				indexerId,
-				error == null || error.getMessage() == null
+			.compose(load -> loadRepository.markFailed(UpdateIndexerLoadFailure.builder()
+				.withIndexerId(indexerId)
+				.withFailureReason(error == null || error.getMessage() == null
 					? "Load provider failed to start"
-					: error.getMessage(),
-				null,
-				load.version()
-			)).compose(ignored -> load(indexerId))
+					: error.getMessage())
+				.withExpectedVersion(load.version())
+				.build()).compose(ignored -> load(indexerId))
 				.compose(this::publishStateChanged));
 	}
 
@@ -339,13 +338,21 @@ public final class DefaultLoadManagementService implements LoadManagementService
 		LoadCreatedIndexer loadIndexer,
 		LoadCreatedIndexer liveIndexer
 	) {
-		return loadRepository.insert(new InsertIndexerLoad(
-			loadIndexer.id(), target.id(), liveIndexer == null ? null : liveIndexer.id(),
-			request.liveWriterPolicy(), request.providerId(), IndexerLoadState.CREATED,
-			request.reloadStartAt(), request.liveReplayFrom(), request.sourceFrom(),
-			request.sourceTo(), request.sourceQuery(), request.sourcePlaybookId(),
-			request.reviewRequired()
-		));
+		return loadRepository.insert(InsertIndexerLoad.builder()
+			.withIndexerId(loadIndexer.id())
+			.withTargetId(target.id())
+			.withLiveIndexerId(liveIndexer == null ? null : liveIndexer.id())
+			.withLiveWriterPolicy(request.liveWriterPolicy())
+			.withProviderId(request.providerId())
+			.withState(IndexerLoadState.CREATED)
+			.withReloadStartAt(request.reloadStartAt())
+			.withLiveReplayFrom(request.liveReplayFrom())
+			.withSourceFrom(request.sourceFrom())
+			.withSourceTo(request.sourceTo())
+			.withSourceQuery(request.sourceQuery())
+			.withSourcePlaybookId(request.sourcePlaybookId())
+			.withReviewRequired(request.reviewRequired())
+			.build());
 	}
 
 	private Future<Void> publishCreatedEvents(

@@ -36,11 +36,19 @@ public final class MetadataLoadPublicationRepository
 				.compose(candidate -> validate(load, loadWriter, candidate)
 					.compose(valid -> metadataRepository.listPublishedIndexersByTargetId(load.targetId())
 						.compose(previous -> replace(load, loadWriter, candidate, previous)
-							.map(ignored -> new LoadPublication(
-								reference(loadWriter),
-								reference(candidate),
-								previous.isEmpty() ? null : reference(previous.get(0))
-							))))));
+							.map(ignored -> publication(loadWriter, candidate, previous))))));
+	}
+
+	private LoadPublication publication(
+		IndexerRecord loadWriter,
+		IndexerRecord candidate,
+		List<IndexerRecord> previous
+	) {
+		return LoadPublication.builder()
+			.withLoadWriter(reference(loadWriter))
+			.withCandidate(reference(candidate))
+			.withOldPublished(previous.isEmpty() ? null : reference(previous.get(0)))
+			.build();
 	}
 
 	@Override
@@ -133,10 +141,10 @@ public final class MetadataLoadPublicationRepository
 	}
 
 	private LoadIndexerReference reference(IndexerRecord indexer) {
-		return new LoadIndexerReference(
-			indexer.id(),
-			indexer.targetId(),
-			indexer.version()
-		);
+		return LoadIndexerReference.builder()
+			.withId(indexer.id())
+			.withTargetId(indexer.targetId())
+			.withVersion(indexer.version())
+			.build();
 	}
 }
