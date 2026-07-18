@@ -1,6 +1,6 @@
 package com.inqwise.indexer.service.indexer;
 
-import java.time.Instant;
+import java.util.Objects;
 
 import com.inqwise.indexer.catalog.indexers.IndexerCatalogEntry;
 import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
@@ -24,8 +24,8 @@ public class IndexerView {
 		return value.copy();
 	}
 
-	public static IndexerView from(IndexerCatalogEntry entry) {
-		return new IndexerView(new JsonObject()
+	private IndexerView(IndexerCatalogEntry entry) {
+		value = new JsonObject()
 			.put("id", entry.id())
 			.put("uid", entry.uid())
 			.put("target_id", entry.targetId())
@@ -39,9 +39,9 @@ public class IndexerView {
 			.put("provisioning_state", entry.provisioningState().name())
 			.put("runtime_state", entry.runtimeState().name())
 			.put("mutation_state", entry.mutationState().name())
-			.put("created_at", string(entry.createdAt()))
-			.put("updated_at", string(entry.updatedAt()))
-			.put("version", entry.version()));
+			.put("created_at", entry.createdAt() == null ? null : entry.createdAt().toString())
+			.put("updated_at", entry.updatedAt() == null ? null : entry.updatedAt().toString())
+			.put("version", entry.version());
 	}
 
 	public Integer getId() {
@@ -72,7 +72,23 @@ public class IndexerView {
 		return value.getLong("version", 0L);
 	}
 
-	private static String string(Instant value) {
-		return value == null ? null : value.toString();
+	public static Builder builder() {
+		return new Builder();
+	}
+
+	public static final class Builder {
+		private IndexerCatalogEntry entry;
+
+		private Builder() {
+		}
+
+		public Builder withCatalogEntry(IndexerCatalogEntry value) {
+			entry = value;
+			return this;
+		}
+
+		public IndexerView build() {
+			return new IndexerView(Objects.requireNonNull(entry, "entry"));
+		}
 	}
 }

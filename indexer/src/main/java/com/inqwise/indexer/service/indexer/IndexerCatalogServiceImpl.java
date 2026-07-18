@@ -27,10 +27,12 @@ public final class IndexerCatalogServiceImpl implements IndexerCatalogService {
 	@Override
 	public Future<IndexerListResult> list(IndexerQuery request) {
 		return invoke(() -> reader.list(request == null
-			? new IndexerQuery().toCatalogQuery()
-			: request.toCatalogQuery()).map(entries -> new IndexerListResult().setIndexers(
-				entries.stream().map(IndexerView::from).toList()
-			)));
+			? IndexerQuery.builder().build().toCatalogQuery()
+			: request.toCatalogQuery()).map(entries -> IndexerListResult.builder()
+				.withIndexers(entries.stream()
+					.map(entry -> IndexerView.builder().withCatalogEntry(entry).build())
+					.toList())
+				.build()));
 	}
 
 	@Override
@@ -75,10 +77,10 @@ public final class IndexerCatalogServiceImpl implements IndexerCatalogService {
 			if (required.getExpectedVersion() < 0L) {
 				throw IndexerErrors.invalidRequest("Expected version must not be negative");
 			}
-			IndexerRuntimeStateRequest domainRequest = new IndexerRuntimeStateRequest(
-				required.getIndexerId(),
-				required.getExpectedVersion()
-			);
+			IndexerRuntimeStateRequest domainRequest = IndexerRuntimeStateRequest.builder()
+				.withIndexerId(required.getIndexerId())
+				.withExpectedVersion(required.getExpectedVersion())
+				.build();
 			return (activate
 				? management.activate(domainRequest)
 				: management.deactivate(domainRequest))
@@ -92,8 +94,8 @@ public final class IndexerCatalogServiceImpl implements IndexerCatalogService {
 
 	private IndexerResult requiredIndexer(Optional<IndexerCatalogEntry> found) {
 		return found
-			.map(IndexerView::from)
-			.map(indexer -> new IndexerResult().setIndexer(indexer))
+			.map(entry -> IndexerView.builder().withCatalogEntry(entry).build())
+			.map(indexer -> IndexerResult.builder().withIndexer(indexer).build())
 			.orElseThrow(() -> IndexerErrors.notFound("Indexer not found"));
 	}
 

@@ -40,16 +40,16 @@ public class MetadataIndexerProvider implements IndexerProvider {
 			return null;
 		}
 
-		return new IndexerMetadataQuery(
-			query.ids(),
-			query.targetIds(),
-			query.types(),
-			query.roles(),
-			query.statuses(),
-			query.provisioningStates(),
-			query.runtimeStates(),
-			query.publicationStates(),
-			query.mutationStates()
-		);
+		return IndexerMetadataQuery.builder()
+			.withIds(query.ids())
+			.withTargetIds(query.targetIds())
+			.withTypes(query.types())
+			.withRoles(query.roles())
+			.withStatuses(query.statuses())
+			.withProvisioningStates(query.provisioningStates())
+			.withRuntimeStates(query.runtimeStates())
+			.withPublicationStates(query.publicationStates())
+			.withMutationStates(query.mutationStates())
+			.build();
 	}
 }

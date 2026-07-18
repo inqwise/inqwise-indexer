@@ -60,17 +60,14 @@ public class RepositoryPublishedIndexResolver implements PublishedIndexResolver 
 		for (int index = 0; index < targetIds.size(); index++) {
 			targetOrder.put(targetIds.get(index), index);
 		}
-		IndexerMetadataQuery indexerQuery = new IndexerMetadataQuery(
-			null,
-			targetIds,
-			List.of(IndexerType.INDEX),
-			null,
-			List.of(IndexerStatus.AVAILABLE),
-			List.of(IndexerProvisioningState.READY),
-			null,
-			List.of(PublicationState.PUBLISHED),
-			List.of(MutationState.WRITABLE, MutationState.READ_ONLY)
-		);
+		IndexerMetadataQuery indexerQuery = IndexerMetadataQuery.builder()
+			.withTargetIds(targetIds)
+			.withTypes(List.of(IndexerType.INDEX))
+			.withStatuses(List.of(IndexerStatus.AVAILABLE))
+			.withProvisioningStates(List.of(IndexerProvisioningState.READY))
+			.withPublicationStates(List.of(PublicationState.PUBLISHED))
+			.withMutationStates(List.of(MutationState.WRITABLE, MutationState.READ_ONLY))
+			.build();
 
 		return repository.listIndexers(indexerQuery)
 			.map(indexers -> indexers.stream()

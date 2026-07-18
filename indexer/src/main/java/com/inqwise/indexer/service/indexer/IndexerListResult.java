@@ -34,4 +34,24 @@ public class IndexerListResult {
 		indexers = values == null ? List.of() : List.copyOf(values);
 		return this;
 	}
+
+	public static Builder builder() {
+		return new Builder();
+	}
+
+	public static final class Builder {
+		private List<IndexerView> indexers = List.of();
+
+		private Builder() {
+		}
+
+		public Builder withIndexers(List<IndexerView> values) {
+			indexers = values == null ? List.of() : List.copyOf(values);
+			return this;
+		}
+
+		public IndexerListResult build() {
+			return new IndexerListResult().setIndexers(indexers);
+		}
+	}
 }

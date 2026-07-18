@@ -68,8 +68,9 @@ public final class IndexerCatalogRestVerticle extends AbstractVerticle {
 				RestOperations.bind(
 					builder,
 					"getIndexer",
-					context -> service.get(new IndexerGetRequest()
-						.setId(pathInteger(context, "id"))),
+					context -> service.get(IndexerGetRequest.builder()
+						.withId(pathInteger(context, "id"))
+						.build()),
 					IndexerCatalogRestVerticle::toJson
 				);
 				RestOperations.bind(
@@ -124,25 +125,27 @@ public final class IndexerCatalogRestVerticle extends AbstractVerticle {
 	}
 
 	private static IndexerQuery query(RoutingContext context) {
-		return new IndexerQuery()
-			.setIds(queryIntegers(context, "id"))
-			.setTargetIds(queryIntegers(context, "target_id"))
-			.setTypes(queryEnums(context, "type", IndexerType.class))
-			.setRoles(queryEnums(context, "role", IndexerRole.class))
-			.setStatuses(queryEnums(context, "status", IndexerStatus.class))
-			.setProvisioningStates(queryEnums(
+		return IndexerQuery.builder()
+			.withIds(queryIntegers(context, "id"))
+			.withTargetIds(queryIntegers(context, "target_id"))
+			.withTypes(queryEnums(context, "type", IndexerType.class))
+			.withRoles(queryEnums(context, "role", IndexerRole.class))
+			.withStatuses(queryEnums(context, "status", IndexerStatus.class))
+			.withProvisioningStates(queryEnums(
 				context,
 				"provisioning_state",
 				IndexerProvisioningState.class
 			))
-			.setRuntimeStates(queryEnums(context, "runtime_state", IndexerRuntimeState.class))
-			.setMutationStates(queryEnums(context, "mutation_state", MutationState.class));
+			.withRuntimeStates(queryEnums(context, "runtime_state", IndexerRuntimeState.class))
+			.withMutationStates(queryEnums(context, "mutation_state", MutationState.class))
+			.build();
 	}
 
 	private static IndexerVersionRequest versionRequest(RoutingContext context) {
-		return new IndexerVersionRequest()
-			.setIndexerId(pathInteger(context, "id"))
-			.setExpectedVersion(requiredQueryLong(context, "expected_version"));
+		return IndexerVersionRequest.builder()
+			.withIndexerId(pathInteger(context, "id"))
+			.withExpectedVersion(requiredQueryLong(context, "expected_version"))
+			.build();
 	}
 
 	private static Integer pathInteger(RoutingContext context, String name) {

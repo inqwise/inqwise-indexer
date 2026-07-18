@@ -174,10 +174,10 @@ public class AdminServiceImpl implements AdminService {
 	public Future<AdminIndexerResult> activateIndexer(AdminIndexerLifecycleRequest request) {
 		try {
 			Integer indexerId = validateIndexerLifecycle(request);
-			return indexerManagementService.activate(new IndexerRuntimeStateRequest(
-				indexerId,
-				request.getExpectedVersion()
-			)).compose(indexer -> loadIndexerResult(indexer.indexerId()))
+			return indexerManagementService.activate(IndexerRuntimeStateRequest.builder()
+				.withIndexerId(indexerId)
+				.withExpectedVersion(request.getExpectedVersion())
+				.build()).compose(indexer -> loadIndexerResult(indexer.indexerId()))
 				.recover(error -> Future.failedFuture(IndexerErrors.normalize(error)));
 		} catch (Throwable error) {
 			return Future.failedFuture(IndexerErrors.normalize(error));
@@ -188,10 +188,10 @@ public class AdminServiceImpl implements AdminService {
 	public Future<AdminIndexerResult> deactivateIndexer(AdminIndexerLifecycleRequest request) {
 		try {
 			Integer indexerId = validateIndexerLifecycle(request);
-			return indexerManagementService.deactivate(new IndexerRuntimeStateRequest(
-				indexerId,
-				request.getExpectedVersion()
-			)).compose(indexer -> loadIndexerResult(indexer.indexerId()))
+			return indexerManagementService.deactivate(IndexerRuntimeStateRequest.builder()
+				.withIndexerId(indexerId)
+				.withExpectedVersion(request.getExpectedVersion())
+				.build()).compose(indexer -> loadIndexerResult(indexer.indexerId()))
 				.recover(error -> Future.failedFuture(IndexerErrors.normalize(error)));
 		} catch (Throwable error) {
 			return Future.failedFuture(IndexerErrors.normalize(error));

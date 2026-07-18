@@ -71,17 +71,17 @@ public class AdminIndexerQuery {
 	}
 
 	public IndexerMetadataQuery toMetadataQuery() {
-		return new IndexerMetadataQuery(
-			ids,
-			targetIds,
-			types,
-			roles,
-			statuses,
-			provisioningStates,
-			runtimeStates,
-			publicationStates,
-			mutationStates
-		);
+		return IndexerMetadataQuery.builder()
+			.withIds(ids)
+			.withTargetIds(targetIds)
+			.withTypes(types)
+			.withRoles(roles)
+			.withStatuses(statuses)
+			.withProvisioningStates(provisioningStates)
+			.withRuntimeStates(runtimeStates)
+			.withPublicationStates(publicationStates)
+			.withMutationStates(mutationStates)
+			.build();
 	}
 
 	public List<Integer> getIds() {

@@ -20,19 +20,18 @@ public final class MetadataIndexerCatalogReader implements IndexerCatalogReader 
 	@Override
 	public Future<List<IndexerCatalogEntry>> list(IndexerCatalogQuery query) {
 		IndexerCatalogQuery resolved = query == null
-			? new IndexerCatalogQuery(null, null, null, null, null, null, null, null)
+			? IndexerCatalogQuery.builder().build()
 			: query;
-		return repository.listIndexers(new IndexerMetadataQuery(
-			resolved.ids(),
-			resolved.targetIds(),
-			resolved.types(),
-			resolved.roles(),
-			resolved.statuses(),
-			resolved.provisioningStates(),
-			resolved.runtimeStates(),
-			List.of(),
-			resolved.mutationStates()
-		)).map(records -> records.stream()
+		return repository.listIndexers(IndexerMetadataQuery.builder()
+			.withIds(resolved.ids())
+			.withTargetIds(resolved.targetIds())
+			.withTypes(resolved.types())
+			.withRoles(resolved.roles())
+			.withStatuses(resolved.statuses())
+			.withProvisioningStates(resolved.provisioningStates())
+			.withRuntimeStates(resolved.runtimeStates())
+			.withMutationStates(resolved.mutationStates())
+			.build()).map(records -> records.stream()
 			.map(MetadataIndexerCatalogReader::toEntry)
 			.toList());
 	}
@@ -50,23 +49,23 @@ public final class MetadataIndexerCatalogReader implements IndexerCatalogReader 
 	}
 
 	private static IndexerCatalogEntry toEntry(IndexerRecord record) {
-		return new IndexerCatalogEntry(
-			record.id(),
-			record.uid(),
-			record.targetId(),
-			record.targetName(),
-			record.indexName(),
-			record.queueName(),
-			record.type(),
-			record.role(),
-			record.indexOwnership(),
-			record.status(),
-			record.provisioningState(),
-			record.runtimeState(),
-			record.mutationState(),
-			record.createdAt(),
-			record.updatedAt(),
-			record.version()
-		);
+		return IndexerCatalogEntry.builder()
+			.withId(record.id())
+			.withUid(record.uid())
+			.withTargetId(record.targetId())
+			.withTargetName(record.targetName())
+			.withIndexName(record.indexName())
+			.withQueueName(record.queueName())
+			.withType(record.type())
+			.withRole(record.role())
+			.withIndexOwnership(record.indexOwnership())
+			.withStatus(record.status())
+			.withProvisioningState(record.provisioningState())
+			.withRuntimeState(record.runtimeState())
+			.withMutationState(record.mutationState())
+			.withCreatedAt(record.createdAt())
+			.withUpdatedAt(record.updatedAt())
+			.withVersion(record.version())
+			.build();
 	}
 }

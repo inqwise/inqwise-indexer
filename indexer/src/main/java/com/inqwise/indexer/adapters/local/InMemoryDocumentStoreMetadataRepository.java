@@ -266,7 +266,7 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 	@Override
 	public Future<List<IndexerRecord>> listIndexers(IndexerMetadataQuery query) {
 		IndexerMetadataQuery resolvedQuery = query == null
-			? new IndexerMetadataQuery(null, null, null, null, null, null, null, null, null)
+			? IndexerMetadataQuery.builder().build()
 			: query;
 		return Future.succeededFuture(indexersById.values().stream()
 			.filter(indexer -> matches(resolvedQuery.ids(), indexer.id()))
