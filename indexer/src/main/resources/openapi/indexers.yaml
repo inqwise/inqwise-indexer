@@ -1,0 +1,237 @@
+openapi: 3.0.3
+info:
+  title: inqwise-indexer Indexer Catalog API
+  version: 0.1.0
+paths:
+  /indexers:
+    get:
+      operationId: listIndexers
+      parameters:
+        - $ref: '#/components/parameters/IdQuery'
+        - name: target_id
+          in: query
+          schema:
+            type: array
+            items:
+              type: integer
+          style: form
+          explode: true
+        - $ref: '#/components/parameters/TypeQuery'
+        - $ref: '#/components/parameters/RoleQuery'
+        - $ref: '#/components/parameters/StatusQuery'
+        - $ref: '#/components/parameters/ProvisioningStateQuery'
+        - $ref: '#/components/parameters/RuntimeStateQuery'
+        - $ref: '#/components/parameters/MutationStateQuery'
+      responses:
+        '200':
+          description: Indexer list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IndexerListResult'
+  /indexers/{id}:
+    get:
+      operationId: getIndexer
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Indexer.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IndexerResult'
+  /indexers/{id}/activate:
+    post:
+      operationId: activateIndexer
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/ExpectedVersion'
+      responses:
+        '200':
+          description: Indexer activated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IndexerResult'
+  /indexers/{id}/deactivate:
+    post:
+      operationId: deactivateIndexer
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/ExpectedVersion'
+      responses:
+        '200':
+          description: Indexer deactivated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IndexerResult'
+components:
+  parameters:
+    IdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+    IdQuery:
+      name: id
+      in: query
+      schema:
+        type: array
+        items:
+          type: integer
+      style: form
+      explode: true
+    ExpectedVersion:
+      name: expected_version
+      in: query
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 0
+    TypeQuery:
+      name: type
+      in: query
+      schema:
+        type: array
+        items:
+          $ref: '#/components/schemas/IndexerType'
+      style: form
+      explode: true
+    RoleQuery:
+      name: role
+      in: query
+      schema:
+        type: array
+        items:
+          $ref: '#/components/schemas/IndexerRole'
+      style: form
+      explode: true
+    StatusQuery:
+      name: status
+      in: query
+      schema:
+        type: array
+        items:
+          $ref: '#/components/schemas/IndexerStatus'
+      style: form
+      explode: true
+    ProvisioningStateQuery:
+      name: provisioning_state
+      in: query
+      schema:
+        type: array
+        items:
+          $ref: '#/components/schemas/IndexerProvisioningState'
+      style: form
+      explode: true
+    RuntimeStateQuery:
+      name: runtime_state
+      in: query
+      schema:
+        type: array
+        items:
+          $ref: '#/components/schemas/IndexerRuntimeState'
+      style: form
+      explode: true
+    MutationStateQuery:
+      name: mutation_state
+      in: query
+      schema:
+        type: array
+        items:
+          $ref: '#/components/schemas/MutationState'
+      style: form
+      explode: true
+  schemas:
+    IndexerType:
+      type: string
+      enum: [INDEX]
+    IndexerRole:
+      type: string
+      enum: [LIVE_WRITER, LOAD_WRITER]
+    IndexResourceOwnership:
+      type: string
+      enum: [OWNER, ATTACHED]
+    IndexerStatus:
+      type: string
+      enum: [AVAILABLE]
+    IndexerProvisioningState:
+      type: string
+      enum: [PROVISIONING, READY, FAILED]
+    IndexerRuntimeState:
+      type: string
+      enum: [ACTIVE, NON_ACTIVE]
+    MutationState:
+      type: string
+      enum: [WRITABLE, READ_ONLY, DELETING]
+    IndexerResult:
+      type: object
+      required: [indexer]
+      properties:
+        indexer:
+          $ref: '#/components/schemas/Indexer'
+    IndexerListResult:
+      type: object
+      required: [indexers]
+      properties:
+        indexers:
+          type: array
+          items:
+            $ref: '#/components/schemas/Indexer'
+    Indexer:
+      type: object
+      required:
+        - id
+        - uid
+        - target_id
+        - target_name
+        - index_name
+        - queue_name
+        - type
+        - role
+        - index_ownership
+        - status
+        - provisioning_state
+        - runtime_state
+        - mutation_state
+        - version
+      properties:
+        id:
+          type: integer
+        uid:
+          type: string
+        target_id:
+          type: integer
+        target_name:
+          type: string
+        index_name:
+          type: string
+        queue_name:
+          type: string
+        type:
+          $ref: '#/components/schemas/IndexerType'
+        role:
+          $ref: '#/components/schemas/IndexerRole'
+        index_ownership:
+          $ref: '#/components/schemas/IndexResourceOwnership'
+        status:
+          $ref: '#/components/schemas/IndexerStatus'
+        provisioning_state:
+          $ref: '#/components/schemas/IndexerProvisioningState'
+        runtime_state:
+          $ref: '#/components/schemas/IndexerRuntimeState'
+        mutation_state:
+          $ref: '#/components/schemas/MutationState'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          format: int64
