@@ -24,4 +24,47 @@ public record CreateTargetIndexerRequest(
 		}
 		return value;
 	}
+
+	public static Builder builder() {
+		return new Builder();
+	}
+
+	public static final class Builder {
+		private String prefix;
+		private String indexName;
+		private String queueName;
+		private InitialPublicationMode initialPublicationMode;
+
+		private Builder() {
+		}
+
+		public Builder withPrefix(String value) {
+			prefix = value;
+			return this;
+		}
+
+		public Builder withIndexName(String value) {
+			indexName = value;
+			return this;
+		}
+
+		public Builder withQueueName(String value) {
+			queueName = value;
+			return this;
+		}
+
+		public Builder withInitialPublicationMode(InitialPublicationMode value) {
+			initialPublicationMode = value;
+			return this;
+		}
+
+		public CreateTargetIndexerRequest build() {
+			return new CreateTargetIndexerRequest(
+				prefix,
+				indexName,
+				queueName,
+				initialPublicationMode
+			);
+		}
+	}
 }

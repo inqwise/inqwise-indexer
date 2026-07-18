@@ -45,12 +45,12 @@ public class AdminCreateTargetIndexerRequest {
 	}
 
 	CreateTargetIndexerRequest toTargetRequest() {
-		return new CreateTargetIndexerRequest(
-			prefix,
-			indexName,
-			queueName,
-			initialPublicationMode
-		);
+		return CreateTargetIndexerRequest.builder()
+			.withPrefix(prefix)
+			.withIndexName(indexName)
+			.withQueueName(queueName)
+			.withInitialPublicationMode(initialPublicationMode)
+			.build();
 	}
 
 	public String getPrefix() {

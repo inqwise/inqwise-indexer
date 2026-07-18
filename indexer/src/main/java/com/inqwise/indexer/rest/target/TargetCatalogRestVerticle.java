@@ -74,16 +74,18 @@ public final class TargetCatalogRestVerticle extends AbstractVerticle {
 				RestOperations.bind(
 					builder,
 					"getTarget",
-					context -> service.get(new TargetGetRequest()
-						.setId(pathInteger(context, "id"))),
+					context -> service.get(TargetGetRequest.builder()
+						.withId(pathInteger(context, "id"))
+						.build()),
 					TargetCatalogRestVerticle::toJson
 				);
 				RestOperations.bind(
 					builder,
 					"recoverTargetProvisioning",
-					context -> service.recoverProvisioning(new TargetVersionRequest()
-						.setTargetId(pathInteger(context, "id"))
-						.setExpectedVersion(requiredQueryLong(context, "expected_version"))),
+					context -> service.recoverProvisioning(TargetVersionRequest.builder()
+						.withTargetId(pathInteger(context, "id"))
+						.withExpectedVersion(requiredQueryLong(context, "expected_version"))
+						.build()),
 					TargetCatalogRestVerticle::toJson
 				);
 				return builder.createRouter();
@@ -126,15 +128,16 @@ public final class TargetCatalogRestVerticle extends AbstractVerticle {
 	}
 
 	private static TargetQuery query(RoutingContext context) {
-		return new TargetQuery()
-			.setIds(queryIntegers(context, "id"))
-			.setTargetNames(context.queryParam("target_name"))
-			.setStatuses(queryEnums(context, "status", TargetStatus.class))
-			.setProvisioningStates(queryEnums(
+		return TargetQuery.builder()
+			.withIds(queryIntegers(context, "id"))
+			.withTargetNames(context.queryParam("target_name"))
+			.withStatuses(queryEnums(context, "status", TargetStatus.class))
+			.withProvisioningStates(queryEnums(
 				context,
 				"provisioning_state",
 				TargetProvisioningState.class
-			));
+			))
+			.build();
 	}
 
 	private static TargetCreateRequest createRequest(RoutingContext context) {
@@ -144,12 +147,13 @@ public final class TargetCatalogRestVerticle extends AbstractVerticle {
 		}
 		String timestampValue = body.getString("timestamp");
 		String modeValue = body.getString("initial_publication_mode");
-		return new TargetCreateRequest()
-			.setTargetName(body.getString("target_name"))
-			.setTimestamp(timestampValue == null ? null : Instant.parse(timestampValue))
-			.setInitialPublicationMode(modeValue == null
+		return TargetCreateRequest.builder()
+			.withTargetName(body.getString("target_name"))
+			.withTimestamp(timestampValue == null ? null : Instant.parse(timestampValue))
+			.withInitialPublicationMode(modeValue == null
 				? null
-				: enumValue(modeValue, "initial_publication_mode", InitialPublicationMode.class));
+				: enumValue(modeValue, "initial_publication_mode", InitialPublicationMode.class))
+			.build();
 	}
 
 	private static Integer pathInteger(RoutingContext context, String name) {

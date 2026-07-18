@@ -34,4 +34,24 @@ public class TargetListResult {
 		targets = values == null ? List.of() : List.copyOf(values);
 		return this;
 	}
+
+	public static Builder builder() {
+		return new Builder();
+	}
+
+	public static final class Builder {
+		private List<TargetView> targets = List.of();
+
+		private Builder() {
+		}
+
+		public Builder withTargets(List<TargetView> values) {
+			targets = values == null ? List.of() : List.copyOf(values);
+			return this;
+		}
+
+		public TargetListResult build() {
+			return new TargetListResult().setTargets(targets);
+		}
+	}
 }

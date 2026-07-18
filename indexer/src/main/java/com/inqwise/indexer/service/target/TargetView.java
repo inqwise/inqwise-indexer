@@ -1,6 +1,7 @@
 package com.inqwise.indexer.service.target;
 
 import java.time.Instant;
+import java.util.Objects;
 
 import com.inqwise.indexer.catalog.targets.TargetCatalogEntry;
 import com.inqwise.indexer.catalog.targets.TargetProvisioningState;
@@ -25,8 +26,8 @@ public class TargetView {
 		return value.copy();
 	}
 
-	public static TargetView from(TargetCatalogEntry entry) {
-		return new TargetView(new JsonObject()
+	private TargetView(TargetCatalogEntry entry) {
+		value = new JsonObject()
 			.put("id", entry.id())
 			.put("uid", entry.uid())
 			.put("target_name", entry.targetName())
@@ -37,7 +38,7 @@ public class TargetView {
 			.put("provisioning_state", entry.provisioningState().name())
 			.put("created_at", string(entry.createdAt()))
 			.put("updated_at", string(entry.updatedAt()))
-			.put("version", entry.version()));
+			.put("version", entry.version());
 	}
 
 	public Integer getId() {
@@ -71,5 +72,25 @@ public class TargetView {
 
 	private static String string(Instant value) {
 		return value == null ? null : value.toString();
+	}
+
+	public static Builder builder() {
+		return new Builder();
+	}
+
+	public static final class Builder {
+		private TargetCatalogEntry entry;
+
+		private Builder() {
+		}
+
+		public Builder withCatalogEntry(TargetCatalogEntry value) {
+			entry = value;
+			return this;
+		}
+
+		public TargetView build() {
+			return new TargetView(Objects.requireNonNull(entry, "entry"));
+		}
 	}
 }

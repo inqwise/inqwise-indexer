@@ -113,7 +113,7 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 	@Override
 	public Future<List<TargetRecord>> listTargets(TargetCatalogQuery query) {
 		TargetCatalogQuery resolvedQuery = query == null
-			? new TargetCatalogQuery(null, null, null, null)
+			? TargetCatalogQuery.builder().build()
 			: query;
 		return Future.succeededFuture(targetsById.values().stream()
 			.filter(target -> matches(resolvedQuery.ids(), target.id()))

@@ -1,5 +1,7 @@
 package com.inqwise.indexer.service.target;
 
+import java.util.Objects;
+
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
 
@@ -26,5 +28,25 @@ public class TargetResult {
 	public TargetResult setTarget(TargetView value) {
 		target = value;
 		return this;
+	}
+
+	public static Builder builder() {
+		return new Builder();
+	}
+
+	public static final class Builder {
+		private TargetView target;
+
+		private Builder() {
+		}
+
+		public Builder withTarget(TargetView value) {
+			target = value;
+			return this;
+		}
+
+		public TargetResult build() {
+			return new TargetResult().setTarget(Objects.requireNonNull(target, "target"));
+		}
 	}
 }

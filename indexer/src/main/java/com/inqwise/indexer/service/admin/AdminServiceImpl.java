@@ -159,10 +159,10 @@ public class AdminServiceImpl implements AdminService {
 				throw IndexerErrors.invalidRequest("Target id is required");
 			}
 
-			return targetManagementService.recoverProvisioning(new RecoverTargetProvisioningRequest(
-				request.getTargetId(),
-				request.getExpectedVersion()
-			))
+			return targetManagementService.recoverProvisioning(RecoverTargetProvisioningRequest.builder()
+				.withTargetId(request.getTargetId())
+				.withExpectedVersion(request.getExpectedVersion())
+				.build())
 				.compose(target -> loadTargetResult(target.targetId()))
 				.recover(error -> Future.failedFuture(IndexerErrors.normalize(error)));
 		} catch (Throwable error) {

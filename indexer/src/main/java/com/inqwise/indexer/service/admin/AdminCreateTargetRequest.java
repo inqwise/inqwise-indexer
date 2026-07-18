@@ -44,11 +44,11 @@ public class AdminCreateTargetRequest {
 	}
 
 	CreateTargetRequest toTargetRequest() {
-		return new CreateTargetRequest(
-			targetName,
-			timestamp,
-			createIndexer == null ? null : createIndexer.toTargetRequest()
-		);
+		return CreateTargetRequest.builder()
+			.withTargetName(targetName)
+			.withTimestamp(timestamp)
+			.withCreateIndexer(createIndexer == null ? null : createIndexer.toTargetRequest())
+			.build();
 	}
 
 	public String getTargetName() {

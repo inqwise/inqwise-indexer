@@ -113,13 +113,13 @@ public class MetadataTargetManagementService implements TargetManagementService 
 	}
 
 	private TargetManagementResult toManagementResult(TargetRecord target) {
-		return new TargetManagementResult(
-			target.id(),
-			target.targetName(),
-			target.status(),
-			target.provisioningState(),
-			target.version()
-		);
+		return TargetManagementResult.builder()
+			.withTargetId(target.id())
+			.withTargetName(target.targetName())
+			.withStatus(target.status())
+			.withProvisioningState(target.provisioningState())
+			.withVersion(target.version())
+			.build();
 	}
 
 	private boolean alreadyRecovered(

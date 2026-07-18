@@ -34,18 +34,18 @@ public final class MetadataTargetCatalogReader implements TargetCatalogReader {
 	}
 
 	private static TargetCatalogEntry toEntry(TargetRecord record) {
-		return new TargetCatalogEntry(
-			record.id(),
-			record.uid(),
-			record.targetName(),
-			record.periodKey(),
-			record.periodStartInclusive(),
-			record.periodEndExclusive(),
-			record.status(),
-			record.provisioningState(),
-			record.createdAt(),
-			record.updatedAt(),
-			record.version()
-		);
+		return TargetCatalogEntry.builder()
+			.withId(record.id())
+			.withUid(record.uid())
+			.withTargetName(record.targetName())
+			.withPeriodKey(record.periodKey())
+			.withPeriodStartInclusive(record.periodStartInclusive())
+			.withPeriodEndExclusive(record.periodEndExclusive())
+			.withStatus(record.status())
+			.withProvisioningState(record.provisioningState())
+			.withCreatedAt(record.createdAt())
+			.withUpdatedAt(record.updatedAt())
+			.withVersion(record.version())
+			.build();
 	}
 }

@@ -57,7 +57,12 @@ public class AdminTargetQuery {
 	}
 
 	public TargetCatalogQuery toCatalogQuery() {
-		return new TargetCatalogQuery(ids, targetNames, statuses, provisioningStates);
+		return TargetCatalogQuery.builder()
+			.withIds(ids)
+			.withTargetNames(targetNames)
+			.withStatuses(statuses)
+			.withProvisioningStates(provisioningStates)
+			.build();
 	}
 
 	public List<Integer> getIds() {

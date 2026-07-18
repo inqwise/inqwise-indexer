@@ -65,7 +65,7 @@ public class IndexerGetRequest {
 			boolean hasId = id != null;
 			boolean hasUid = uid != null && !uid.isBlank();
 			if (hasId == hasUid) {
-				throw new IllegalStateException("Exactly one indexer lookup key is required");
+				throw new IllegalArgumentException("Exactly one indexer lookup key is required");
 			}
 			return new IndexerGetRequest()
 				.setId(id)

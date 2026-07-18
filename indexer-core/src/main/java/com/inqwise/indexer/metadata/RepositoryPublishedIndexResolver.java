@@ -35,12 +35,11 @@ public class RepositoryPublishedIndexResolver implements PublishedIndexResolver 
 	public Future<List<PublishedIndex>> resolvePublishedIndexes(PublishedIndexQuery query) {
 		Objects.requireNonNull(query, "query");
 
-		TargetCatalogQuery targetQuery = new TargetCatalogQuery(
-			null,
-			List.of(query.targetName()),
-			List.of(TargetStatus.ACTIVE),
-			List.of(TargetProvisioningState.READY)
-		);
+		TargetCatalogQuery targetQuery = TargetCatalogQuery.builder()
+			.withTargetNames(List.of(query.targetName()))
+			.withStatuses(List.of(TargetStatus.ACTIVE))
+			.withProvisioningStates(List.of(TargetProvisioningState.READY))
+			.build();
 
 		return repository.listTargets(targetQuery)
 			.map(targets -> targets.stream()

@@ -31,10 +31,12 @@ public final class TargetCatalogServiceImpl implements TargetCatalogService {
 	@Override
 	public Future<TargetListResult> list(TargetQuery request) {
 		return invoke(() -> reader.list(request == null
-			? new TargetQuery().toCatalogQuery()
-			: request.toCatalogQuery()).map(entries -> new TargetListResult().setTargets(entries.stream()
-				.map(TargetView::from)
-				.toList())));
+			? TargetQuery.builder().build().toCatalogQuery()
+			: request.toCatalogQuery()).map(entries -> TargetListResult.builder()
+				.withTargets(entries.stream()
+					.map(entry -> TargetView.builder().withCatalogEntry(entry).build())
+					.toList())
+				.build()));
 	}
 
 	@Override
@@ -66,18 +68,18 @@ public final class TargetCatalogServiceImpl implements TargetCatalogService {
 				GeneratedIndexerResources resources = IndexerResourceNameGenerator.forTarget(
 					required.getTargetName()
 				);
-				createIndexer = new CreateTargetIndexerRequest(
-					resources.prefix(),
-					resources.indexName(),
-					resources.queueName(),
-					required.getInitialPublicationMode()
-				);
+				createIndexer = CreateTargetIndexerRequest.builder()
+					.withPrefix(resources.prefix())
+					.withIndexName(resources.indexName())
+					.withQueueName(resources.queueName())
+					.withInitialPublicationMode(required.getInitialPublicationMode())
+					.build();
 			}
-			return management.createTarget(new CreateTargetRequest(
-				required.getTargetName(),
-				required.getTimestamp(),
-				createIndexer
-			)).compose(created -> load(created.targetId()));
+			return management.createTarget(CreateTargetRequest.builder()
+				.withTargetName(required.getTargetName())
+				.withTimestamp(required.getTimestamp())
+				.withCreateIndexer(createIndexer)
+				.build()).compose(created -> load(created.targetId()));
 		});
 	}
 
@@ -94,10 +96,10 @@ public final class TargetCatalogServiceImpl implements TargetCatalogService {
 			if (required.getExpectedVersion() < 0L) {
 				throw IndexerErrors.invalidRequest("Expected version must not be negative");
 			}
-			return management.recoverProvisioning(new RecoverTargetProvisioningRequest(
-				required.getTargetId(),
-				required.getExpectedVersion()
-			)).compose(recovered -> load(recovered.targetId()));
+			return management.recoverProvisioning(RecoverTargetProvisioningRequest.builder()
+				.withTargetId(required.getTargetId())
+				.withExpectedVersion(required.getExpectedVersion())
+				.build()).compose(recovered -> load(recovered.targetId()));
 		});
 	}
 
@@ -107,8 +109,8 @@ public final class TargetCatalogServiceImpl implements TargetCatalogService {
 
 	private TargetResult requiredTarget(Optional<TargetCatalogEntry> found) {
 		return found
-			.map(TargetView::from)
-			.map(target -> new TargetResult().setTarget(target))
+			.map(entry -> TargetView.builder().withCatalogEntry(entry).build())
+			.map(target -> TargetResult.builder().withTarget(target).build())
 			.orElseThrow(() -> IndexerErrors.notFound("Target not found"));
 	}
 

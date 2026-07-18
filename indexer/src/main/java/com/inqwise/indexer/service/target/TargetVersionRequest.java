@@ -1,5 +1,7 @@
 package com.inqwise.indexer.service.target;
 
+import java.util.Objects;
+
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
 
@@ -38,5 +40,33 @@ public class TargetVersionRequest {
 	public TargetVersionRequest setExpectedVersion(Long value) {
 		expectedVersion = value;
 		return this;
+	}
+
+	public static Builder builder() {
+		return new Builder();
+	}
+
+	public static final class Builder {
+		private Integer targetId;
+		private Long expectedVersion;
+
+		private Builder() {
+		}
+
+		public Builder withTargetId(Integer value) {
+			targetId = value;
+			return this;
+		}
+
+		public Builder withExpectedVersion(long value) {
+			expectedVersion = value;
+			return this;
+		}
+
+		public TargetVersionRequest build() {
+			return new TargetVersionRequest()
+				.setTargetId(Objects.requireNonNull(targetId, "targetId"))
+				.setExpectedVersion(Objects.requireNonNull(expectedVersion, "expectedVersion"));
+		}
 	}
 }

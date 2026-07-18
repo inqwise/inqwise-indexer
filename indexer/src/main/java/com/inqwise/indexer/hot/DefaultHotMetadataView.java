@@ -111,12 +111,11 @@ public class DefaultHotMetadataView implements HotMetadataView {
 	}
 
 	private Future<List<TargetRecord>> loadConcreteTargets(TargetDefinition definition) {
-		return repository.listTargets(new TargetCatalogQuery(
-			null,
-			List.of(definition.targetName()),
-			List.of(TargetStatus.ACTIVE),
-			List.of(TargetProvisioningState.READY)
-		));
+		return repository.listTargets(TargetCatalogQuery.builder()
+			.withTargetNames(List.of(definition.targetName()))
+			.withStatuses(List.of(TargetStatus.ACTIVE))
+			.withProvisioningStates(List.of(TargetProvisioningState.READY))
+			.build());
 	}
 
 	private Future<Void> buildHotTarget(
