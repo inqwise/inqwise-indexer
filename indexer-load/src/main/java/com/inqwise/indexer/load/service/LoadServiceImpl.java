@@ -24,31 +24,31 @@ public final class LoadServiceImpl implements LoadService {
 
 	@Override
 	public Future<LoadResult> start(LoadVersionRequest request) {
-		return invoke(() -> delegate.start(new StartLoadRequest(
-			indexerId(request),
-			expectedVersion(request)
-		)));
+		return invoke(() -> delegate.start(StartLoadRequest.builder()
+			.withIndexerId(indexerId(request))
+			.withExpectedVersion(expectedVersion(request))
+			.build()));
 	}
 
 	@Override
 	public Future<LoadResult> recoverCreated(LoadVersionRequest request) {
-		return invoke(() -> delegate.recoverCreated(new RecoverCreatedLoadRequest(
-			indexerId(request),
-			expectedVersion(request)
-		)));
+		return invoke(() -> delegate.recoverCreated(RecoverCreatedLoadRequest.builder()
+			.withIndexerId(indexerId(request))
+			.withExpectedVersion(expectedVersion(request))
+			.build()));
 	}
 
 	@Override
 	public Future<LoadResult> approvePublication(LoadApprovalRequest request) {
 		return invoke(() -> {
 			LoadApprovalRequest required = required(request, "Request is required");
-			return delegate.approvePublication(new ApproveLoadPublicationRequest(
-				required.getIndexerId(),
-				required.getApprovedAt(),
-				required.getApprovedBy(),
-				required.getApprovalReason(),
-				requiredVersion(required.getExpectedVersion())
-			));
+			return delegate.approvePublication(ApproveLoadPublicationRequest.builder()
+				.withIndexerId(required.getIndexerId())
+				.withApprovedAt(required.getApprovedAt())
+				.withApprovedBy(required.getApprovedBy())
+				.withApprovalReason(required.getApprovalReason())
+				.withExpectedVersion(requiredVersion(required.getExpectedVersion()))
+				.build());
 		});
 	}
 
@@ -59,11 +59,11 @@ public final class LoadServiceImpl implements LoadService {
 			if (required.getIndexerId() == null) {
 				throw LoadServiceErrors.invalidRequest("Indexer id is required");
 			}
-			return delegate.cancel(new CancelLoadRequest(
-				required.getIndexerId(),
-				required.getReason(),
-				requiredVersion(required.getExpectedVersion())
-			)).recover(error -> Future.failedFuture(LoadServiceErrors.normalize(error)));
+			return delegate.cancel(CancelLoadRequest.builder()
+				.withIndexerId(required.getIndexerId())
+				.withReason(required.getReason())
+				.withExpectedVersion(requiredVersion(required.getExpectedVersion()))
+				.build()).recover(error -> Future.failedFuture(LoadServiceErrors.normalize(error)));
 		} catch (Throwable error) {
 			return Future.failedFuture(LoadServiceErrors.normalize(error));
 		}
@@ -72,7 +72,7 @@ public final class LoadServiceImpl implements LoadService {
 	private Future<LoadResult> invoke(Operation operation) {
 		try {
 			return operation.execute()
-				.map(LoadResult::from)
+				.map(record -> LoadResult.builder().withRecord(record).build())
 				.recover(error -> Future.failedFuture(LoadServiceErrors.normalize(error)));
 		} catch (Throwable error) {
 			return Future.failedFuture(LoadServiceErrors.normalize(error));

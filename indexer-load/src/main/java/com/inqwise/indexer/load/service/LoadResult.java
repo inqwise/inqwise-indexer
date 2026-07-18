@@ -1,5 +1,7 @@
 package com.inqwise.indexer.load.service;
 
+import java.util.Objects;
+
 import com.inqwise.indexer.load.api.IndexerLoadRecord;
 
 import io.vertx.codegen.annotations.DataObject;
@@ -20,8 +22,8 @@ public class LoadResult {
 		return new JsonObject().put("load", copy(load));
 	}
 
-	public static LoadResult from(IndexerLoadRecord record) {
-		return new LoadResult().setLoad(new JsonObject()
+	private LoadResult(IndexerLoadRecord record) {
+		load = new JsonObject()
 			.put("indexer_id", record.indexerId())
 			.put("target_id", record.targetId())
 			.put("live_indexer_id", record.liveIndexerId())
@@ -45,7 +47,7 @@ public class LoadResult {
 			.put("failed_at", string(record.failedAt()))
 			.put("created_at", string(record.createdAt()))
 			.put("updated_at", string(record.updatedAt()))
-			.put("version", record.version()));
+			.put("version", record.version());
 	}
 
 	public JsonObject getLoad() {
@@ -67,5 +69,25 @@ public class LoadResult {
 
 	private static JsonObject copy(JsonObject value) {
 		return value == null ? null : value.copy();
+	}
+
+	public static Builder builder() {
+		return new Builder();
+	}
+
+	public static final class Builder {
+		private IndexerLoadRecord record;
+
+		private Builder() {
+		}
+
+		public Builder withRecord(IndexerLoadRecord value) {
+			record = value;
+			return this;
+		}
+
+		public LoadResult build() {
+			return new LoadResult(Objects.requireNonNull(record, "record"));
+		}
 	}
 }

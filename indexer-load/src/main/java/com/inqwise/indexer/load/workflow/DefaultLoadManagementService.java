@@ -95,7 +95,10 @@ public final class DefaultLoadManagementService implements LoadManagementService
 		Objects.requireNonNull(request, "request");
 		return load(request.indexerId())
 			.compose(load -> validateRecoverable(load, request))
-			.compose(load -> start(new StartLoadRequest(load.indexerId(), load.version())));
+			.compose(load -> start(StartLoadRequest.builder()
+				.withIndexerId(load.indexerId())
+				.withExpectedVersion(load.version())
+				.build()));
 	}
 
 	@Override

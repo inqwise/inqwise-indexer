@@ -15,6 +15,7 @@ import java.time.Instant;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+import io.vertx.core.json.JsonObject;
 import io.vertx.junit5.VertxExtension;
 
 @ExtendWith(VertxExtension.class)
@@ -22,6 +23,25 @@ class InMemoryIndexerLoadRepositoryTest extends IndexerLoadRepositoryCompletionC
 	@Override
 	IndexerLoadRepository createRepository() {
 		return new InMemoryIndexerLoadRepository();
+	}
+
+	@Test
+	void loadRecordIsolatesMutableSourceQuery() {
+		JsonObject sourceQuery = new JsonObject().put("region", "eu");
+		IndexerLoadRecord record = IndexerLoadRecord.builder()
+			.withIndexerId(20)
+			.withTargetId(10)
+			.withLiveWriterPolicy(LiveWriterPolicy.NONE)
+			.withProviderId("default")
+			.withState(IndexerLoadState.CREATED)
+			.withSourceQuery(sourceQuery)
+			.build();
+
+		sourceQuery.put("region", "us");
+		JsonObject returned = record.sourceQuery();
+		returned.put("region", "apac");
+
+		assertEquals("eu", record.sourceQuery().getString("region"));
 	}
 
 	@Test

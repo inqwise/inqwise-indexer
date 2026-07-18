@@ -43,32 +43,26 @@ public class InMemoryIndexerLoadRepository implements IndexerLoadRepository {
 			}
 
 			Instant now = Instant.now();
-			loadsByIndexerId.put(load.indexerId(), new IndexerLoadRecord(
-				load.indexerId(),
-				load.targetId(),
-				load.liveIndexerId(),
-				load.liveWriterPolicy() == null ? LiveWriterPolicy.NONE : load.liveWriterPolicy(),
-				require(load.providerId(), "providerId"),
-				load.state() == null ? IndexerLoadState.CREATED : load.state(),
-				load.reloadStartAt(),
-				load.liveReplayFrom(),
-				load.sourceFrom(),
-				load.sourceTo(),
-				copy(load.sourceQuery()),
-				load.sourcePlaybookId(),
-				load.reviewRequired(),
-				null,
-				null,
-				null,
-				null,
-				null,
-				null,
-				null,
-				null,
-				now,
-				now,
-				0L
-			));
+			loadsByIndexerId.put(load.indexerId(), IndexerLoadRecord.builder()
+				.withIndexerId(load.indexerId())
+				.withTargetId(load.targetId())
+				.withLiveIndexerId(load.liveIndexerId())
+				.withLiveWriterPolicy(load.liveWriterPolicy() == null
+					? LiveWriterPolicy.NONE
+					: load.liveWriterPolicy())
+				.withProviderId(require(load.providerId(), "providerId"))
+				.withState(load.state() == null ? IndexerLoadState.CREATED : load.state())
+				.withReloadStartAt(load.reloadStartAt())
+				.withLiveReplayFrom(load.liveReplayFrom())
+				.withSourceFrom(load.sourceFrom())
+				.withSourceTo(load.sourceTo())
+				.withSourceQuery(load.sourceQuery())
+				.withSourcePlaybookId(load.sourcePlaybookId())
+				.withReviewRequired(load.reviewRequired())
+				.withCreatedAt(now)
+				.withUpdatedAt(now)
+				.withVersion(0L)
+				.build());
 
 			return Future.succeededFuture();
 		} catch (RuntimeException error) {
@@ -313,32 +307,21 @@ public class InMemoryIndexerLoadRepository implements IndexerLoadRepository {
 		String failureReason,
 		Instant failedAt
 	) {
-		return new IndexerLoadRecord(
-			existing.indexerId(),
-			existing.targetId(),
-			liveIndexerId,
-			existing.liveWriterPolicy(),
-			existing.providerId(),
-			state,
-			existing.reloadStartAt(),
-			existing.liveReplayFrom(),
-			existing.sourceFrom(),
-			existing.sourceTo(),
-			copy(existing.sourceQuery()),
-			existing.sourcePlaybookId(),
-			existing.reviewRequired(),
-			approvedAt,
-			approvedBy,
-			approvalReason,
-			lastBarrierId,
-			lastBarrierTimestamp,
-			lastBarrierReachedAt,
-			failureReason,
-			failedAt,
-			existing.createdAt(),
-			Instant.now(),
-			existing.version() + 1
-		);
+		return IndexerLoadRecord.builder()
+			.from(existing)
+			.withLiveIndexerId(liveIndexerId)
+			.withState(state)
+			.withApprovedAt(approvedAt)
+			.withApprovedBy(approvedBy)
+			.withApprovalReason(approvalReason)
+			.withLastBarrierId(lastBarrierId)
+			.withLastBarrierTimestamp(lastBarrierTimestamp)
+			.withLastBarrierReachedAt(lastBarrierReachedAt)
+			.withFailureReason(failureReason)
+			.withFailedAt(failedAt)
+			.withUpdatedAt(Instant.now())
+			.withVersion(existing.version() + 1)
+			.build();
 	}
 
 	private IndexerLoadRecord requireLoad(Integer indexerId, long expectedVersion) {
@@ -375,10 +358,6 @@ public class InMemoryIndexerLoadRepository implements IndexerLoadRepository {
 			.filter(load -> targetId.equals(load.targetId()))
 			.filter(load -> isActive(load.state()))
 			.findFirst();
-	}
-
-	private io.vertx.core.json.JsonObject copy(io.vertx.core.json.JsonObject json) {
-		return json == null ? null : json.copy();
 	}
 
 	private static <T> T require(T value, String name) {

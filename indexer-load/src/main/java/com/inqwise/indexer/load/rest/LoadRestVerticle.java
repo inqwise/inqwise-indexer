@@ -132,28 +132,32 @@ public final class LoadRestVerticle extends AbstractVerticle {
 
 	private static LoadCreateRequest createRequest(RoutingContext context) {
 		JsonObject body = body(context);
-		return new LoadCreateRequest(body);
+		return LoadCreateRequest.builder().fromJson(body).build();
 	}
 
 	private static LoadVersionRequest versionRequest(RoutingContext context) {
-		return new LoadVersionRequest()
-			.setIndexerId(pathInteger(context, "id"))
-			.setExpectedVersion(requiredQueryLong(context, "expected_version"));
+		return LoadVersionRequest.builder()
+			.withIndexerId(pathInteger(context, "id"))
+			.withExpectedVersion(requiredQueryLong(context, "expected_version"))
+			.build();
 	}
 
 	private static LoadApprovalRequest approvalRequest(RoutingContext context) {
 		JsonObject body = body(context);
-		return new LoadApprovalRequest(body)
-			.setIndexerId(pathInteger(context, "id"))
-			.setExpectedVersion(requiredQueryLong(context, "expected_version"));
+		return LoadApprovalRequest.builder()
+			.fromJson(body)
+			.withIndexerId(pathInteger(context, "id"))
+			.withExpectedVersion(requiredQueryLong(context, "expected_version"))
+			.build();
 	}
 
 	private static LoadCancelRequest cancelRequest(RoutingContext context) {
 		List<String> reasons = context.queryParam("reason");
-		return new LoadCancelRequest()
-			.setIndexerId(pathInteger(context, "id"))
-			.setExpectedVersion(requiredQueryLong(context, "expected_version"))
-			.setReason(reasons.isEmpty() ? null : reasons.get(0));
+		return LoadCancelRequest.builder()
+			.withIndexerId(pathInteger(context, "id"))
+			.withExpectedVersion(requiredQueryLong(context, "expected_version"))
+			.withReason(reasons.isEmpty() ? null : reasons.get(0))
+			.build();
 	}
 
 	private static JsonObject body(RoutingContext context) {

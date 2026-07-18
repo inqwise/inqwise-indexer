@@ -1,5 +1,7 @@
 package com.inqwise.indexer.load.service;
 
+import java.util.Objects;
+
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
 
@@ -50,5 +52,40 @@ public class LoadCancelRequest {
 	public LoadCancelRequest setExpectedVersion(Long value) {
 		expectedVersion = value;
 		return this;
+	}
+
+	public static Builder builder() {
+		return new Builder();
+	}
+
+	public static final class Builder {
+		private Integer indexerId;
+		private String reason;
+		private Long expectedVersion;
+
+		private Builder() {
+		}
+
+		public Builder withIndexerId(Integer value) {
+			indexerId = value;
+			return this;
+		}
+
+		public Builder withReason(String value) {
+			reason = value;
+			return this;
+		}
+
+		public Builder withExpectedVersion(long value) {
+			expectedVersion = value;
+			return this;
+		}
+
+		public LoadCancelRequest build() {
+			return new LoadCancelRequest()
+				.setIndexerId(Objects.requireNonNull(indexerId, "indexerId"))
+				.setReason(reason)
+				.setExpectedVersion(Objects.requireNonNull(expectedVersion, "expectedVersion"));
+		}
 	}
 }
