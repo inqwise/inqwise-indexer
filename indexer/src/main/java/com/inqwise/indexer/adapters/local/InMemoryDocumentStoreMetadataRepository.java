@@ -72,19 +72,19 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 
 			Integer id = targetIdSequence.incrementAndGet();
 			Instant now = Instant.now();
-			targetsById.put(id, new TargetRecord(
-				id,
-				requirePrefix(target.prefix()),
-				target.targetName(),
-				target.periodKey(),
-				target.periodStartInclusive(),
-				target.periodEndExclusive(),
-				require(target.status(), "status"),
-				require(target.provisioningState(), "provisioningState"),
-				now,
-				now,
-				0L
-			));
+			targetsById.put(id, TargetRecord.builder()
+				.withId(id)
+				.withPrefix(requirePrefix(target.prefix()))
+				.withTargetName(target.targetName())
+				.withPeriodKey(target.periodKey())
+				.withPeriodStartInclusive(target.periodStartInclusive())
+				.withPeriodEndExclusive(target.periodEndExclusive())
+				.withStatus(require(target.status(), "status"))
+				.withProvisioningState(require(target.provisioningState(), "provisioningState"))
+				.withCreatedAt(now)
+				.withUpdatedAt(now)
+				.withVersion(0L)
+				.build());
 
 			return Future.succeededFuture(id);
 		} catch (RuntimeException error) {
@@ -147,19 +147,19 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 
 			Integer id = targetIdSequence.incrementAndGet();
 			Instant now = Instant.now();
-			TargetRecord created = new TargetRecord(
-				id,
-				"target",
-				targetName,
-				resolvedPeriod.key(),
-				resolvedPeriod.startInclusive(),
-				resolvedPeriod.endExclusive(),
-				TargetStatus.ACTIVE,
-				TargetProvisioningState.READY,
-				now,
-				now,
-				0L
-			);
+			TargetRecord created = TargetRecord.builder()
+				.withId(id)
+				.withPrefix("target")
+				.withTargetName(targetName)
+				.withPeriodKey(resolvedPeriod.key())
+				.withPeriodStartInclusive(resolvedPeriod.startInclusive())
+				.withPeriodEndExclusive(resolvedPeriod.endExclusive())
+				.withStatus(TargetStatus.ACTIVE)
+				.withProvisioningState(TargetProvisioningState.READY)
+				.withCreatedAt(now)
+				.withUpdatedAt(now)
+				.withVersion(0L)
+				.build();
 			targetsById.put(id, created);
 			return Future.succeededFuture(created);
 		} catch (RuntimeException error) {
@@ -219,25 +219,25 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 
 			Integer id = indexerIdSequence.incrementAndGet();
 			Instant now = Instant.now();
-			indexersById.put(id, new IndexerRecord(
-				id,
-				requirePrefix(indexer.prefix()),
-				indexer.targetId(),
-				indexer.targetName(),
-				indexer.indexName(),
-				indexer.queueName(),
-				require(indexer.type(), "type"),
-				require(indexer.role(), "role"),
-				require(indexer.indexOwnership(), "indexOwnership"),
-				require(indexer.status(), "status"),
-				require(indexer.provisioningState(), "provisioningState"),
-				require(indexer.runtimeState(), "runtimeState"),
-				require(indexer.publicationState(), "publicationState"),
-				require(indexer.mutationState(), "mutationState"),
-				now,
-				now,
-				0L
-			));
+			indexersById.put(id, IndexerRecord.builder()
+				.withId(id)
+				.withPrefix(requirePrefix(indexer.prefix()))
+				.withTargetId(indexer.targetId())
+				.withTargetName(indexer.targetName())
+				.withIndexName(indexer.indexName())
+				.withQueueName(indexer.queueName())
+				.withType(require(indexer.type(), "type"))
+				.withRole(require(indexer.role(), "role"))
+				.withIndexOwnership(require(indexer.indexOwnership(), "indexOwnership"))
+				.withStatus(require(indexer.status(), "status"))
+				.withProvisioningState(require(indexer.provisioningState(), "provisioningState"))
+				.withRuntimeState(require(indexer.runtimeState(), "runtimeState"))
+				.withPublicationState(require(indexer.publicationState(), "publicationState"))
+				.withMutationState(require(indexer.mutationState(), "mutationState"))
+				.withCreatedAt(now)
+				.withUpdatedAt(now)
+				.withVersion(0L)
+				.build());
 
 			return Future.succeededFuture(id);
 		} catch (RuntimeException error) {
@@ -578,20 +578,20 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 				publication.readinessState(),
 				ReadinessState.PENDING
 			);
-			publicationsById.put(id, new PublicationRecord(
-				id,
-				requirePrefix(publication.prefix()),
-				publication.indexerId(),
-				publication.targetId(),
-				publication.targetName(),
-				publication.indexName(),
-				readinessState,
-				publication.reason(),
-				readinessState == ReadinessState.READY ? now : null,
-				now,
-				now,
-				0L
-			));
+			publicationsById.put(id, PublicationRecord.builder()
+				.withId(id)
+				.withPrefix(requirePrefix(publication.prefix()))
+				.withIndexerId(publication.indexerId())
+				.withTargetId(publication.targetId())
+				.withTargetName(publication.targetName())
+				.withIndexName(publication.indexName())
+				.withReadinessState(readinessState)
+				.withReason(publication.reason())
+				.withReadyAt(readinessState == ReadinessState.READY ? now : null)
+				.withCreatedAt(now)
+				.withUpdatedAt(now)
+				.withVersion(0L)
+				.build());
 
 			return Future.succeededFuture(id);
 		} catch (RuntimeException error) {
@@ -629,20 +629,20 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 		try {
 			PublicationRecord existing = requirePublication(update.id(), update.expectedVersion());
 			ReadinessState readinessState = require(update.readinessState(), "readinessState");
-			publicationsById.put(update.id(), new PublicationRecord(
-				existing.id(),
-				existing.prefix(),
-				existing.indexerId(),
-				existing.targetId(),
-				existing.targetName(),
-				existing.indexName(),
-				readinessState,
-				update.reason(),
-				readinessState == ReadinessState.READY ? Instant.now() : existing.readyAt(),
-				existing.createdAt(),
-				Instant.now(),
-				existing.version() + 1
-			));
+			publicationsById.put(update.id(), PublicationRecord.builder()
+				.withId(existing.id())
+				.withPrefix(existing.prefix())
+				.withIndexerId(existing.indexerId())
+				.withTargetId(existing.targetId())
+				.withTargetName(existing.targetName())
+				.withIndexName(existing.indexName())
+				.withReadinessState(readinessState)
+				.withReason(update.reason())
+				.withReadyAt(readinessState == ReadinessState.READY ? Instant.now() : existing.readyAt())
+				.withCreatedAt(existing.createdAt())
+				.withUpdatedAt(Instant.now())
+				.withVersion(existing.version() + 1)
+				.build());
 
 			return Future.succeededFuture();
 		} catch (RuntimeException error) {
@@ -678,21 +678,21 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 
 			Integer id = manifestIdSequence.incrementAndGet();
 			Instant now = Instant.now();
-			manifestsById.put(id, new ManifestRecord(
-				id,
-				requirePrefix(manifest.prefix()),
-				manifest.targetId(),
-				manifest.indexerId(),
-				manifest.targetName(),
-				manifest.indexName(),
-				manifest.schemaName(),
-				manifest.schemaVersion(),
-				manifest.manifest(),
-				status,
-				now,
-				now,
-				0L
-			));
+			manifestsById.put(id, ManifestRecord.builder()
+				.withId(id)
+				.withPrefix(requirePrefix(manifest.prefix()))
+				.withTargetId(manifest.targetId())
+				.withIndexerId(manifest.indexerId())
+				.withTargetName(manifest.targetName())
+				.withIndexName(manifest.indexName())
+				.withSchemaName(manifest.schemaName())
+				.withSchemaVersion(manifest.schemaVersion())
+				.withManifest(manifest.manifest())
+				.withStatus(status)
+				.withCreatedAt(now)
+				.withUpdatedAt(now)
+				.withVersion(0L)
+				.build());
 
 			return Future.succeededFuture(id);
 		} catch (RuntimeException error) {
@@ -735,21 +735,21 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 				requireNoActiveManifest(existing.indexerId(), existing.id());
 			}
 
-			manifestsById.put(update.id(), new ManifestRecord(
-				existing.id(),
-				existing.prefix(),
-				existing.targetId(),
-				existing.indexerId(),
-				existing.targetName(),
-				existing.indexName(),
-				existing.schemaName(),
-				existing.schemaVersion(),
-				existing.manifest(),
-				status,
-				existing.createdAt(),
-				Instant.now(),
-				existing.version() + 1
-			));
+			manifestsById.put(update.id(), ManifestRecord.builder()
+				.withId(existing.id())
+				.withPrefix(existing.prefix())
+				.withTargetId(existing.targetId())
+				.withIndexerId(existing.indexerId())
+				.withTargetName(existing.targetName())
+				.withIndexName(existing.indexName())
+				.withSchemaName(existing.schemaName())
+				.withSchemaVersion(existing.schemaVersion())
+				.withManifest(existing.manifest())
+				.withStatus(status)
+				.withCreatedAt(existing.createdAt())
+				.withUpdatedAt(Instant.now())
+				.withVersion(existing.version() + 1)
+				.build());
 
 			return Future.succeededFuture();
 		} catch (RuntimeException error) {
@@ -779,25 +779,25 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 		PublicationState publicationState,
 		MutationState mutationState
 	) {
-		return new IndexerRecord(
-			existing.id(),
-			existing.prefix(),
-			existing.targetId(),
-			existing.targetName(),
-			existing.indexName(),
-			queueName,
-			existing.type(),
-			role,
-			indexOwnership,
-			status,
-			provisioningState,
-			runtimeState,
-			publicationState,
-			mutationState,
-			existing.createdAt(),
-			Instant.now(),
-			existing.version() + 1
-		);
+		return IndexerRecord.builder()
+			.withId(existing.id())
+			.withPrefix(existing.prefix())
+			.withTargetId(existing.targetId())
+			.withTargetName(existing.targetName())
+			.withIndexName(existing.indexName())
+			.withQueueName(queueName)
+			.withType(existing.type())
+			.withRole(role)
+			.withIndexOwnership(indexOwnership)
+			.withStatus(status)
+			.withProvisioningState(provisioningState)
+			.withRuntimeState(runtimeState)
+			.withPublicationState(publicationState)
+			.withMutationState(mutationState)
+			.withCreatedAt(existing.createdAt())
+			.withUpdatedAt(Instant.now())
+			.withVersion(existing.version() + 1)
+			.build();
 	}
 
 	private IndexerRecord copyIndexer(
@@ -831,19 +831,19 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 		TargetStatus status,
 		TargetProvisioningState provisioningState
 	) {
-		return new TargetRecord(
-			existing.id(),
-			existing.prefix(),
-			existing.targetName(),
-			existing.periodKey(),
-			existing.periodStartInclusive(),
-			existing.periodEndExclusive(),
-			status,
-			provisioningState,
-			existing.createdAt(),
-			Instant.now(),
-			existing.version() + 1
-		);
+		return TargetRecord.builder()
+			.withId(existing.id())
+			.withPrefix(existing.prefix())
+			.withTargetName(existing.targetName())
+			.withPeriodKey(existing.periodKey())
+			.withPeriodStartInclusive(existing.periodStartInclusive())
+			.withPeriodEndExclusive(existing.periodEndExclusive())
+			.withStatus(status)
+			.withProvisioningState(provisioningState)
+			.withCreatedAt(existing.createdAt())
+			.withUpdatedAt(Instant.now())
+			.withVersion(existing.version() + 1)
+			.build();
 	}
 
 	private TargetRecord requireTarget(Integer id, long expectedVersion) {
