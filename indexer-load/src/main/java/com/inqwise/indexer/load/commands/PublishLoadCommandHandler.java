@@ -97,30 +97,30 @@ public class PublishLoadCommandHandler implements CommandHandler {
 	) {
 		LoadIndexerReference loadIndexer = publication.loadWriter();
 		LoadIndexerReference candidate = publication.candidate();
-		eventBus.publishIndexerWakeUp(new IndexerMetadataChanged(
-			candidate.id(),
-			candidate.targetId(),
-			getType(),
-			candidate.version() + 1
-		));
+		eventBus.publishIndexerWakeUp(IndexerMetadataChanged.builder()
+			.withIndexerId(candidate.id())
+			.withTargetId(candidate.targetId())
+			.withCommandType(getType())
+			.withVersion(candidate.version() + 1)
+			.build());
 
 		if (load.liveIndexerId() != null && !loadIndexer.id().equals(candidate.id())) {
-			eventBus.publishIndexerWakeUp(new IndexerMetadataChanged(
-				loadIndexer.id(),
-				loadIndexer.targetId(),
-				getType(),
-				loadIndexer.version() + 1
-			));
+			eventBus.publishIndexerWakeUp(IndexerMetadataChanged.builder()
+				.withIndexerId(loadIndexer.id())
+				.withTargetId(loadIndexer.targetId())
+				.withCommandType(getType())
+				.withVersion(loadIndexer.version() + 1)
+				.build());
 		}
 
 		if (publication.oldPublished() != null) {
 			LoadIndexerReference oldPublished = publication.oldPublished();
-			eventBus.publishIndexerWakeUp(new IndexerMetadataChanged(
-				oldPublished.id(),
-				oldPublished.targetId(),
-				getType(),
-				oldPublished.version() + 1
-			));
+			eventBus.publishIndexerWakeUp(IndexerMetadataChanged.builder()
+				.withIndexerId(oldPublished.id())
+				.withTargetId(oldPublished.targetId())
+				.withCommandType(getType())
+				.withVersion(oldPublished.version() + 1)
+				.build());
 		}
 
 		return Future.succeededFuture();

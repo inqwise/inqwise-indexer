@@ -97,12 +97,12 @@ public final class MetadataIndexerOperations implements IndexerOperations {
 		boolean changed
 	) {
 		if (changed) {
-			return metadataChangeNotifier.indexerChanged(new IndexerMetadataChanged(
-				indexer.id(),
-				indexer.targetId(),
-				DELETE_CHANGE_TYPE,
-				indexer.version()
-			)).map(ignored -> Optional.of(indexer));
+			return metadataChangeNotifier.indexerChanged(IndexerMetadataChanged.builder()
+				.withIndexerId(indexer.id())
+				.withTargetId(indexer.targetId())
+				.withCommandType(DELETE_CHANGE_TYPE)
+				.withVersion(indexer.version())
+				.build()).map(ignored -> Optional.of(indexer));
 		}
 
 		return metadataChangeNotifier.confirmTargetInvalidated(indexer.targetId())

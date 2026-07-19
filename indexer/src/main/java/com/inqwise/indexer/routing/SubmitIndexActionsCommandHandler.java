@@ -153,12 +153,12 @@ public class SubmitIndexActionsCommandHandler implements CommandHandler {
 			return Future.succeededFuture();
 		}
 
-		return metadataChangeNotifier.indexerChanged(new IndexerMetadataChanged(
-			group.indexerId(),
-			group.targetId(),
-			getType(),
-			group.indexerVersion()
-		));
+		return metadataChangeNotifier.indexerChanged(IndexerMetadataChanged.builder()
+			.withIndexerId(group.indexerId())
+			.withTargetId(group.targetId())
+			.withCommandType(getType())
+			.withVersion(group.indexerVersion())
+			.build());
 	}
 
 	private Future<Void> recordStableInvalidRoute(SubmitIndexActionsCommand submit, Throwable error) {

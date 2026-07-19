@@ -74,14 +74,22 @@ final class VertxIndexerLifecycleEventBus implements IndexerLifecycleEventBus {
 	public Future<IndexerLifecycleSubscription> subscribe(
 		Handler<IndexerMetadataChanged> handler
 	) {
-		return subscribe(indexerAddress, IndexerMetadataChanged::new, handler);
+		return subscribe(
+			indexerAddress,
+			json -> IndexerMetadataChanged.builder(json).build(),
+			handler
+		);
 	}
 
 	@Override
 	public Future<IndexerLifecycleSubscription> subscribeTarget(
 		Handler<TargetMetadataChanged> handler
 	) {
-		return subscribe(targetAddress, TargetMetadataChanged::new, handler);
+		return subscribe(
+			targetAddress,
+			json -> TargetMetadataChanged.builder(json).build(),
+			handler
+		);
 	}
 
 	@Override

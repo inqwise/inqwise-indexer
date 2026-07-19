@@ -94,9 +94,12 @@ public final class MetadataIndexerManagementService implements IndexerManagement
 	}
 
 	private Future<Void> publish(IndexerRecord indexer, String changeType, long version) {
-		return notifier.indexerChanged(new IndexerMetadataChanged(
-			indexer.id(), indexer.targetId(), changeType, version
-		));
+		return notifier.indexerChanged(IndexerMetadataChanged.builder()
+			.withIndexerId(indexer.id())
+			.withTargetId(indexer.targetId())
+			.withCommandType(changeType)
+			.withVersion(version)
+			.build());
 	}
 
 	private Future<IndexerRecord> load(Integer id) {

@@ -83,9 +83,12 @@ public final class MetadataIndexerQueueManagementService
 		long version,
 		String oldQueueName
 	) {
-		return notifier.indexerChanged(new IndexerMetadataChanged(
-			indexer.id(), indexer.targetId(), CHANGE_TYPE, version
-		)).compose(ignored -> commandService.submit(new CleanupResetIndexerQueueCommand(
+		return notifier.indexerChanged(IndexerMetadataChanged.builder()
+			.withIndexerId(indexer.id())
+			.withTargetId(indexer.targetId())
+			.withCommandType(CHANGE_TYPE)
+			.withVersion(version)
+			.build()).compose(ignored -> commandService.submit(new CleanupResetIndexerQueueCommand(
 			indexer.id(), oldQueueName
 		)));
 	}

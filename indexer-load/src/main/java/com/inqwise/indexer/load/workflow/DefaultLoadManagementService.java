@@ -222,12 +222,12 @@ public final class DefaultLoadManagementService implements LoadManagementService
 	}
 
 	private Future<IndexerLoadRecord> publishApproval(IndexerLoadRecord load) {
-		eventBus.publishIndexerWakeUp(new IndexerMetadataChanged(
-			load.indexerId(),
-			load.targetId(),
-			"indexer.load.approve-publication",
-			load.version()
-		));
+		eventBus.publishIndexerWakeUp(IndexerMetadataChanged.builder()
+			.withIndexerId(load.indexerId())
+			.withTargetId(load.targetId())
+			.withCommandType("indexer.load.approve-publication")
+			.withVersion(load.version())
+			.build());
 		return publicationOrchestrator.publishIfReady(load)
 			.compose(ignored -> load(load.indexerId()));
 	}
@@ -364,24 +364,30 @@ public final class DefaultLoadManagementService implements LoadManagementService
 		LoadCreatedIndexer loadIndexer,
 		LoadCreatedIndexer liveIndexer
 	) {
-		eventBus.publishIndexerWakeUp(new IndexerMetadataChanged(
-			loadIndexer.id(), loadIndexer.targetId(), CHANGE_TYPE, loadIndexer.version()
-		));
+		eventBus.publishIndexerWakeUp(IndexerMetadataChanged.builder()
+			.withIndexerId(loadIndexer.id())
+			.withTargetId(loadIndexer.targetId())
+			.withCommandType(CHANGE_TYPE)
+			.withVersion(loadIndexer.version())
+			.build());
 		if (liveIndexer != null) {
-			eventBus.publishIndexerWakeUp(new IndexerMetadataChanged(
-				liveIndexer.id(), liveIndexer.targetId(), CHANGE_TYPE, liveIndexer.version()
-			));
+			eventBus.publishIndexerWakeUp(IndexerMetadataChanged.builder()
+				.withIndexerId(liveIndexer.id())
+				.withTargetId(liveIndexer.targetId())
+				.withCommandType(CHANGE_TYPE)
+				.withVersion(liveIndexer.version())
+				.build());
 		}
 		return Future.succeededFuture();
 	}
 
 	private Future<Void> publishStateChanged(IndexerLoadRecord load) {
-		eventBus.publishIndexerWakeUp(new IndexerMetadataChanged(
-			load.indexerId(),
-			load.targetId(),
-			"indexer.load.start",
-			load.version()
-		));
+		eventBus.publishIndexerWakeUp(IndexerMetadataChanged.builder()
+			.withIndexerId(load.indexerId())
+			.withTargetId(load.targetId())
+			.withCommandType("indexer.load.start")
+			.withVersion(load.version())
+			.build());
 		return Future.succeededFuture();
 	}
 

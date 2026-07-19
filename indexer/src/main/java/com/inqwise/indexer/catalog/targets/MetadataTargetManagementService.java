@@ -258,12 +258,12 @@ public class MetadataTargetManagementService implements TargetManagementService 
 	}
 
 	private Future<Void> publishMetadataChanged(ProvisionedIndexer indexer) {
-		return metadataChangeNotifier.indexerChanged(new IndexerMetadataChanged(
-			indexer.indexerId(),
-			indexer.targetId(),
-			CHANGE_TYPE,
-			indexer.version()
-		));
+		return metadataChangeNotifier.indexerChanged(IndexerMetadataChanged.builder()
+			.withIndexerId(indexer.indexerId())
+			.withTargetId(indexer.targetId())
+			.withCommandType(CHANGE_TYPE)
+			.withVersion(indexer.version())
+			.build());
 	}
 
 	private Future<Void> publishTargetMetadataChanged(TargetRecord target) {
@@ -279,13 +279,13 @@ public class MetadataTargetManagementService implements TargetManagementService 
 		String changeType,
 		long version
 	) {
-		return metadataChangeNotifier.targetChanged(new TargetMetadataChanged(
-			target.id(),
-			target.targetName(),
-			target.periodKey(),
-			changeType,
-			version
-		));
+		return metadataChangeNotifier.targetChanged(TargetMetadataChanged.builder()
+			.withTargetId(target.id())
+			.withTargetName(target.targetName())
+			.withPeriodKey(target.periodKey())
+			.withCommandType(changeType)
+			.withVersion(version)
+			.build());
 	}
 
 	private Future<TargetRecord> getTarget(Integer targetId) {

@@ -16,19 +16,35 @@ public class IndexerMetadataChanged {
 		String commandType,
 		long version
 	) {
-		this.indexerId = Objects.requireNonNull(indexerId, "indexerId");
-		this.targetId = Objects.requireNonNull(targetId, "targetId");
-		this.commandType = Objects.requireNonNull(commandType, "commandType");
-		this.version = version;
+		this(builder()
+			.withIndexerId(indexerId)
+			.withTargetId(targetId)
+			.withCommandType(commandType)
+			.withVersion(version));
 	}
 
 	public IndexerMetadataChanged(JsonObject json) {
-		this(
-			json.getInteger("indexer_id"),
-			json.getInteger("target_id"),
-			json.getString("command_type"),
-			json.getLong("version", 0L)
-		);
+		this(builder(json));
+	}
+
+	private IndexerMetadataChanged(Builder builder) {
+		this.indexerId = Objects.requireNonNull(builder.indexerId, "indexerId");
+		this.targetId = Objects.requireNonNull(builder.targetId, "targetId");
+		this.commandType = Objects.requireNonNull(builder.commandType, "commandType");
+		this.version = Objects.requireNonNull(builder.version, "version");
+	}
+
+	public static Builder builder() {
+		return new Builder();
+	}
+
+	public static Builder builder(JsonObject json) {
+		Objects.requireNonNull(json, "json");
+		return builder()
+			.withIndexerId(json.getInteger("indexer_id"))
+			.withTargetId(json.getInteger("target_id"))
+			.withCommandType(json.getString("command_type"))
+			.withVersion(json.getLong("version", 0L));
 	}
 
 	public Integer getIndexerId() {
@@ -53,5 +69,39 @@ public class IndexerMetadataChanged {
 			.put("target_id", targetId)
 			.put("command_type", commandType)
 			.put("version", version);
+	}
+
+	public static final class Builder {
+		private Integer indexerId;
+		private Integer targetId;
+		private String commandType;
+		private Long version;
+
+		private Builder() {
+		}
+
+		public Builder withIndexerId(Integer indexerId) {
+			this.indexerId = indexerId;
+			return this;
+		}
+
+		public Builder withTargetId(Integer targetId) {
+			this.targetId = targetId;
+			return this;
+		}
+
+		public Builder withCommandType(String commandType) {
+			this.commandType = commandType;
+			return this;
+		}
+
+		public Builder withVersion(long version) {
+			this.version = version;
+			return this;
+		}
+
+		public IndexerMetadataChanged build() {
+			return new IndexerMetadataChanged(this);
+		}
 	}
 }

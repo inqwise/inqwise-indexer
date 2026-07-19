@@ -188,11 +188,11 @@ public class LoadIndexerMarkerHandler implements IndexerMarkerHandler {
 		String commandType,
 		long version
 	) {
-		eventBus.publishIndexerWakeUp(new IndexerMetadataChanged(
-			load.indexerId(),
-			load.targetId(),
-			commandType,
-			version
-		));
+		eventBus.publishIndexerWakeUp(IndexerMetadataChanged.builder()
+			.withIndexerId(load.indexerId())
+			.withTargetId(load.targetId())
+			.withCommandType(commandType)
+			.withVersion(version)
+			.build());
 	}
 }
