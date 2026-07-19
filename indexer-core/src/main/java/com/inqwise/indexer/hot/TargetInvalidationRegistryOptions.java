@@ -31,4 +31,40 @@ public record TargetInvalidationRegistryOptions(
 	public Duration ttl() {
 		return pollInterval.multipliedBy(retentionFactor);
 	}
+
+	public static Builder builder() {
+		return new Builder();
+	}
+
+	public static final class Builder {
+		private Duration pollInterval;
+		private Integer retentionFactor;
+		private Integer maxTargets;
+
+		private Builder() {
+		}
+
+		public Builder withPollInterval(Duration value) {
+			pollInterval = value;
+			return this;
+		}
+
+		public Builder withRetentionFactor(int value) {
+			retentionFactor = value;
+			return this;
+		}
+
+		public Builder withMaxTargets(int value) {
+			maxTargets = value;
+			return this;
+		}
+
+		public TargetInvalidationRegistryOptions build() {
+			return new TargetInvalidationRegistryOptions(
+				Objects.requireNonNull(pollInterval, "pollInterval"),
+				Objects.requireNonNull(retentionFactor, "retentionFactor"),
+				Objects.requireNonNull(maxTargets, "maxTargets")
+			);
+		}
+	}
 }

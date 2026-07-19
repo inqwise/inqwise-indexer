@@ -76,7 +76,7 @@ public class IndexerNodeOptions {
 		new VertxIndexerLifecycleEventBusOptions();
 	private GatewayRestOptions gatewayOptions = new GatewayRestOptions();
 	private TargetInvalidationNodeOptions targetInvalidationOptions =
-		new TargetInvalidationNodeOptions();
+		TargetInvalidationNodeOptions.builder().build();
 
 	public IndexerNodeOptions() {
 		addDefaults();
@@ -275,7 +275,7 @@ public class IndexerNodeOptions {
 		TargetInvalidationNodeOptions targetInvalidationOptions
 	) {
 		this.targetInvalidationOptions = targetInvalidationOptions == null
-			? new TargetInvalidationNodeOptions()
+			? TargetInvalidationNodeOptions.builder().build()
 			: targetInvalidationOptions;
 		return this;
 	}

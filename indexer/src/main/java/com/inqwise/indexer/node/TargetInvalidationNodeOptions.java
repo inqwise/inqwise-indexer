@@ -59,6 +59,10 @@ public class TargetInvalidationNodeOptions {
 		validate();
 	}
 
+	public static Builder builder() {
+		return new Builder();
+	}
+
 	public JsonObject toJson() {
 		return new JsonObject()
 			.put(Keys.NAMESPACE, namespace)
@@ -69,15 +73,18 @@ public class TargetInvalidationNodeOptions {
 	}
 
 	public TargetInvalidationRegistryConfig registryConfig() {
-		return new TargetInvalidationRegistryConfig(namespace, registryOptions());
+		return TargetInvalidationRegistryConfig.builder()
+			.withNamespace(namespace)
+			.withOptions(registryOptions())
+			.build();
 	}
 
 	public TargetInvalidationRegistryOptions registryOptions() {
-		return new TargetInvalidationRegistryOptions(
-			Duration.ofMillis(pollIntervalMs),
-			retentionFactor,
-			maxTargets
-		);
+		return TargetInvalidationRegistryOptions.builder()
+			.withPollInterval(Duration.ofMillis(pollIntervalMs))
+			.withRetentionFactor(retentionFactor)
+			.withMaxTargets(maxTargets)
+			.build();
 	}
 
 	public TargetInvalidationNodeOptions validate() {
@@ -129,5 +136,51 @@ public class TargetInvalidationNodeOptions {
 	public TargetInvalidationNodeOptions setMaxTargets(int maxTargets) {
 		this.maxTargets = maxTargets;
 		return validate();
+	}
+
+	public static final class Builder {
+		private String namespace = DEFAULT_NAMESPACE;
+		private Provider provider = Provider.VERTX_SHARED_DATA;
+		private long pollIntervalMs = DEFAULT_POLL_INTERVAL_MS;
+		private int retentionFactor = DEFAULT_RETENTION_FACTOR;
+		private int maxTargets = DEFAULT_MAX_TARGETS;
+
+		private Builder() {
+		}
+
+		public Builder withNamespace(String value) {
+			namespace = value;
+			return this;
+		}
+
+		public Builder withProvider(Provider value) {
+			provider = value;
+			return this;
+		}
+
+		public Builder withPollIntervalMs(long value) {
+			pollIntervalMs = value;
+			return this;
+		}
+
+		public Builder withRetentionFactor(int value) {
+			retentionFactor = value;
+			return this;
+		}
+
+		public Builder withMaxTargets(int value) {
+			maxTargets = value;
+			return this;
+		}
+
+		public TargetInvalidationNodeOptions build() {
+			TargetInvalidationNodeOptions options = new TargetInvalidationNodeOptions();
+			options.namespace = namespace;
+			options.provider = provider;
+			options.pollIntervalMs = pollIntervalMs;
+			options.retentionFactor = retentionFactor;
+			options.maxTargets = maxTargets;
+			return options.validate();
+		}
 	}
 }
