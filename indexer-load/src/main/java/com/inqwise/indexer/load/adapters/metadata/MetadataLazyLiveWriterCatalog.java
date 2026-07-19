@@ -44,21 +44,21 @@ public final class MetadataLazyLiveWriterCatalog implements LazyLiveWriterCatalo
 		IndexerLoadRecord load,
 		IndexerModel loadIndexer
 	) {
-		return createIndexer.create(new InsertIndexer(
-			"live" + load.indexerId(),
-			load.targetId(),
-			loadIndexer.getTargetName(),
-			loadIndexer.getIndexName(),
-			liveQueueName(loadIndexer),
-			IndexerType.INDEX,
-			IndexerRole.LIVE_WRITER,
-			IndexResourceOwnership.ATTACHED,
-			IndexerStatus.AVAILABLE,
-			IndexerProvisioningState.READY,
-			IndexerRuntimeState.ACTIVE,
-			PublicationState.UNPUBLISHED,
-			MutationState.WRITABLE
-		)).map(MetadataIndexerModels::fromRecord);
+		return createIndexer.create(InsertIndexer.builder()
+			.withPrefix("live" + load.indexerId())
+			.withTargetId(load.targetId())
+			.withTargetName(loadIndexer.getTargetName())
+			.withIndexName(loadIndexer.getIndexName())
+			.withQueueName(liveQueueName(loadIndexer))
+			.withType(IndexerType.INDEX)
+			.withRole(IndexerRole.LIVE_WRITER)
+			.withIndexOwnership(IndexResourceOwnership.ATTACHED)
+			.withStatus(IndexerStatus.AVAILABLE)
+			.withProvisioningState(IndexerProvisioningState.READY)
+			.withRuntimeState(IndexerRuntimeState.ACTIVE)
+			.withPublicationState(PublicationState.UNPUBLISHED)
+			.withMutationState(MutationState.WRITABLE)
+			.build()).map(MetadataIndexerModels::fromRecord);
 	}
 
 	private String liveQueueName(IndexerModel loadIndexer) {

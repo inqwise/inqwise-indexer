@@ -129,15 +129,19 @@ public final class MetadataLoadPublicationRepository
 		}
 
 		IndexerRecord oldPublished = previous.isEmpty() ? null : previous.get(0);
-		return metadataRepository.replacePublishedIndexer(new ReplacePublishedIndexer(
-			load.targetId(),
-			candidate.id(),
-			candidate.version(),
-			oldPublished == null ? null : oldPublished.id(),
-			oldPublished == null ? null : oldPublished.version(),
-			load.liveIndexerId() == null ? null : loadWriter.id(),
-			load.liveIndexerId() == null ? null : loadWriter.version()
-		));
+		return metadataRepository.replacePublishedIndexer(ReplacePublishedIndexer.builder()
+			.withTargetId(load.targetId())
+			.withCandidateIndexerId(candidate.id())
+			.withExpectedCandidateVersion(candidate.version())
+			.withPreviousIndexerId(oldPublished == null ? null : oldPublished.id())
+			.withExpectedPreviousVersion(oldPublished == null ? null : oldPublished.version())
+			.withOwnershipSourceIndexerId(
+				load.liveIndexerId() == null ? null : loadWriter.id()
+			)
+			.withExpectedOwnershipSourceVersion(
+				load.liveIndexerId() == null ? null : loadWriter.version()
+			)
+			.build());
 	}
 
 	private LoadIndexerReference reference(IndexerRecord indexer) {

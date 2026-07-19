@@ -52,21 +52,21 @@ public final class MetadataLoadCreationCatalog implements LoadCreationCatalog {
 		GeneratedIndexerResources resources = IndexerResourceNameGenerator.forTarget(
 			target.targetName()
 		);
-		return createIndexer.create(new InsertIndexer(
-			resources.prefix(),
-			target.id(),
-			target.targetName(),
-			resources.indexName(),
-			resources.queueName(),
-			IndexerType.INDEX,
-			IndexerRole.LOAD_WRITER,
-			IndexResourceOwnership.OWNER,
-			IndexerStatus.AVAILABLE,
-			IndexerProvisioningState.READY,
-			IndexerRuntimeState.ACTIVE,
-			PublicationState.UNPUBLISHED,
-			MutationState.WRITABLE
-		)).map(this::creationIndexer);
+		return createIndexer.create(InsertIndexer.builder()
+			.withPrefix(resources.prefix())
+			.withTargetId(target.id())
+			.withTargetName(target.targetName())
+			.withIndexName(resources.indexName())
+			.withQueueName(resources.queueName())
+			.withType(IndexerType.INDEX)
+			.withRole(IndexerRole.LOAD_WRITER)
+			.withIndexOwnership(IndexResourceOwnership.OWNER)
+			.withStatus(IndexerStatus.AVAILABLE)
+			.withProvisioningState(IndexerProvisioningState.READY)
+			.withRuntimeState(IndexerRuntimeState.ACTIVE)
+			.withPublicationState(PublicationState.UNPUBLISHED)
+			.withMutationState(MutationState.WRITABLE)
+			.build()).map(this::creationIndexer);
 	}
 
 	@Override
@@ -74,21 +74,21 @@ public final class MetadataLoadCreationCatalog implements LoadCreationCatalog {
 		LoadCreationTarget target,
 		LoadCreatedIndexer loadWriter
 	) {
-		return createIndexer.create(new InsertIndexer(
-			loadWriter.prefix(),
-			target.id(),
-			target.targetName(),
-			loadWriter.indexName(),
-			loadWriter.queueName() + "--live",
-			IndexerType.INDEX,
-			IndexerRole.LIVE_WRITER,
-			IndexResourceOwnership.ATTACHED,
-			IndexerStatus.AVAILABLE,
-			IndexerProvisioningState.READY,
-			IndexerRuntimeState.ACTIVE,
-			PublicationState.UNPUBLISHED,
-			MutationState.WRITABLE
-		)).map(this::creationIndexer);
+		return createIndexer.create(InsertIndexer.builder()
+			.withPrefix(loadWriter.prefix())
+			.withTargetId(target.id())
+			.withTargetName(target.targetName())
+			.withIndexName(loadWriter.indexName())
+			.withQueueName(loadWriter.queueName() + "--live")
+			.withType(IndexerType.INDEX)
+			.withRole(IndexerRole.LIVE_WRITER)
+			.withIndexOwnership(IndexResourceOwnership.ATTACHED)
+			.withStatus(IndexerStatus.AVAILABLE)
+			.withProvisioningState(IndexerProvisioningState.READY)
+			.withRuntimeState(IndexerRuntimeState.ACTIVE)
+			.withPublicationState(PublicationState.UNPUBLISHED)
+			.withMutationState(MutationState.WRITABLE)
+			.build()).map(this::creationIndexer);
 	}
 
 	@Override

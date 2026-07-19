@@ -77,21 +77,21 @@ public class MetadataIndexerProvisioningService implements IndexerProvisioningSe
 		CreateIndexerProvisioningRequest request,
 		TargetRecord target
 	) {
-		return repository.insertIndexer(new InsertIndexer(
-			request.prefix(),
-			target.id(),
-			target.targetName(),
-			request.indexName(),
-			request.queueName(),
-			IndexerType.INDEX,
-			request.role(),
-			request.indexOwnership(),
-			IndexerStatus.AVAILABLE,
-			IndexerProvisioningState.PROVISIONING,
-			request.runtimeState(),
-			PublicationState.UNPUBLISHED,
-			MutationState.WRITABLE
-		)).compose(this::getIndexer);
+		return repository.insertIndexer(InsertIndexer.builder()
+			.withPrefix(request.prefix())
+			.withTargetId(target.id())
+			.withTargetName(target.targetName())
+			.withIndexName(request.indexName())
+			.withQueueName(request.queueName())
+			.withType(IndexerType.INDEX)
+			.withRole(request.role())
+			.withIndexOwnership(request.indexOwnership())
+			.withStatus(IndexerStatus.AVAILABLE)
+			.withProvisioningState(IndexerProvisioningState.PROVISIONING)
+			.withRuntimeState(request.runtimeState())
+			.withPublicationState(PublicationState.UNPUBLISHED)
+			.withMutationState(MutationState.WRITABLE)
+			.build()).compose(this::getIndexer);
 	}
 
 	private Future<Void> ensureResources(IndexerRecord indexer, IndexerDefinition definition) {
