@@ -14,6 +14,8 @@ public final class CommandEnvelopeCodec {
 
 	public CommandEnvelope decode(Buffer encoded) {
 		Objects.requireNonNull(encoded, "encoded");
-		return new CommandEnvelope(new JsonObject(encoded.toString(StandardCharsets.UTF_8.name())));
+		return CommandEnvelope.fromJson(
+			new JsonObject(encoded.toString(StandardCharsets.UTF_8.name()))
+		);
 	}
 }

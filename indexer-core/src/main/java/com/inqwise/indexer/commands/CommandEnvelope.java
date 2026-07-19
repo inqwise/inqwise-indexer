@@ -29,27 +29,32 @@ public record CommandEnvelope(
 		payload = Objects.requireNonNull(payload, "payload").copy();
 	}
 
-	public CommandEnvelope(JsonObject json) {
-		this(
-			json.getString("command_id"),
-			json.getString("command_type"),
-			json.getInteger("schema_version", CURRENT_SCHEMA_VERSION),
-			Instant.parse(json.getString("created_at")),
-			json.getString("correlation_id"),
-			json.getJsonObject("payload")
-		);
+	public static Builder builder() {
+		return new Builder();
 	}
 
 	public static CommandEnvelope create(Command command) {
 		Objects.requireNonNull(command, "command");
-		return new CommandEnvelope(
-			UUID.randomUUID().toString(),
-			command.getType(),
-			CURRENT_SCHEMA_VERSION,
-			Instant.now(),
-			command.getCorrelationId(),
-			command.toJson()
-		);
+		return builder()
+			.withCommandId(UUID.randomUUID().toString())
+			.withCommandType(command.getType())
+			.withSchemaVersion(CURRENT_SCHEMA_VERSION)
+			.withCreatedAt(Instant.now())
+			.withCorrelationId(command.getCorrelationId())
+			.withPayload(command.toJson())
+			.build();
+	}
+
+	public static CommandEnvelope fromJson(JsonObject json) {
+		Objects.requireNonNull(json, "json");
+		return builder()
+			.withCommandId(json.getString("command_id"))
+			.withCommandType(json.getString("command_type"))
+			.withSchemaVersion(json.getInteger("schema_version", CURRENT_SCHEMA_VERSION))
+			.withCreatedAt(Instant.parse(json.getString("created_at")))
+			.withCorrelationId(json.getString("correlation_id"))
+			.withPayload(json.getJsonObject("payload"))
+			.build();
 	}
 
 	@Override
@@ -77,5 +82,58 @@ public record CommandEnvelope(
 			throw new IllegalArgumentException(name + " cannot be blank");
 		}
 		return value;
+	}
+
+	public static final class Builder {
+		private String commandId;
+		private String commandType;
+		private Integer schemaVersion;
+		private Instant createdAt;
+		private String correlationId;
+		private JsonObject payload;
+
+		private Builder() {
+		}
+
+		public Builder withCommandId(String value) {
+			commandId = value;
+			return this;
+		}
+
+		public Builder withCommandType(String value) {
+			commandType = value;
+			return this;
+		}
+
+		public Builder withSchemaVersion(int value) {
+			schemaVersion = value;
+			return this;
+		}
+
+		public Builder withCreatedAt(Instant value) {
+			createdAt = value;
+			return this;
+		}
+
+		public Builder withCorrelationId(String value) {
+			correlationId = value;
+			return this;
+		}
+
+		public Builder withPayload(JsonObject value) {
+			payload = value == null ? null : value.copy();
+			return this;
+		}
+
+		public CommandEnvelope build() {
+			return new CommandEnvelope(
+				commandId,
+				commandType,
+				Objects.requireNonNull(schemaVersion, "schemaVersion"),
+				createdAt,
+				correlationId,
+				payload
+			);
+		}
 	}
 }

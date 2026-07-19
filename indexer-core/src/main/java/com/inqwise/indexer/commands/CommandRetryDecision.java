@@ -23,23 +23,50 @@ public record CommandRetryDecision(
 	}
 
 	public static CommandRetryDecision retry(Duration delay) {
-		return new CommandRetryDecision(
-			CommandRetryDecisionType.RETRY,
-			Optional.of(Objects.requireNonNull(delay, "delay"))
-		);
+		return builder()
+			.withType(CommandRetryDecisionType.RETRY)
+			.withDelay(delay)
+			.build();
 	}
 
 	public static CommandRetryDecision finalFailure() {
-		return new CommandRetryDecision(
-			CommandRetryDecisionType.FINAL_FAILURE,
-			Optional.empty()
-		);
+		return builder()
+			.withType(CommandRetryDecisionType.FINAL_FAILURE)
+			.build();
 	}
 
 	public static CommandRetryDecision exhausted() {
-		return new CommandRetryDecision(
-			CommandRetryDecisionType.EXHAUSTED,
-			Optional.empty()
-		);
+		return builder()
+			.withType(CommandRetryDecisionType.EXHAUSTED)
+			.build();
+	}
+
+	public static Builder builder() {
+		return new Builder();
+	}
+
+	public static final class Builder {
+		private CommandRetryDecisionType type;
+		private Duration delay;
+
+		private Builder() {
+		}
+
+		public Builder withType(CommandRetryDecisionType value) {
+			type = value;
+			return this;
+		}
+
+		public Builder withDelay(Duration value) {
+			delay = value;
+			return this;
+		}
+
+		public CommandRetryDecision build() {
+			return new CommandRetryDecision(
+				Objects.requireNonNull(type, "type"),
+				Optional.ofNullable(delay)
+			);
+		}
 	}
 }

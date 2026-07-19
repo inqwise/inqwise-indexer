@@ -32,6 +32,10 @@ public record CommandRetryPolicy(
 		maximumDelay.toNanos();
 	}
 
+	public static Builder builder() {
+		return new Builder();
+	}
+
 	/**
 	 * Decides the outcome after {@code failedAttempts} handler executions. The first
 	 * failed attempt uses {@link #initialDelay()} when it remains retryable.
@@ -77,5 +81,51 @@ public record CommandRetryPolicy(
 			}
 		}
 		return delay;
+	}
+
+	public static final class Builder {
+		private Integer maxAttempts;
+		private Duration initialDelay;
+		private Duration maximumDelay;
+		private Integer multiplier;
+		private Double jitterRatio;
+
+		private Builder() {
+		}
+
+		public Builder withMaxAttempts(int value) {
+			maxAttempts = value;
+			return this;
+		}
+
+		public Builder withInitialDelay(Duration value) {
+			initialDelay = value;
+			return this;
+		}
+
+		public Builder withMaximumDelay(Duration value) {
+			maximumDelay = value;
+			return this;
+		}
+
+		public Builder withMultiplier(int value) {
+			multiplier = value;
+			return this;
+		}
+
+		public Builder withJitterRatio(double value) {
+			jitterRatio = value;
+			return this;
+		}
+
+		public CommandRetryPolicy build() {
+			return new CommandRetryPolicy(
+				Objects.requireNonNull(maxAttempts, "maxAttempts"),
+				Objects.requireNonNull(initialDelay, "initialDelay"),
+				Objects.requireNonNull(maximumDelay, "maximumDelay"),
+				Objects.requireNonNull(multiplier, "multiplier"),
+				Objects.requireNonNull(jitterRatio, "jitterRatio")
+			);
+		}
 	}
 }

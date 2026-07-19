@@ -31,11 +31,31 @@ public record CommandPartitionKey(String value) {
 		if (name.isBlank()) {
 			throw new IllegalArgumentException(field + " must not be blank");
 		}
-		return new CommandPartitionKey(namespace + ":" + name);
+		return builder().withValue(namespace + ":" + name).build();
 	}
 
 	private static CommandPartitionKey identified(String namespace, Integer id, String field) {
 		Objects.requireNonNull(id, field);
-		return new CommandPartitionKey(namespace + ":" + id);
+		return builder().withValue(namespace + ":" + id).build();
+	}
+
+	public static Builder builder() {
+		return new Builder();
+	}
+
+	public static final class Builder {
+		private String value;
+
+		private Builder() {
+		}
+
+		public Builder withValue(String value) {
+			this.value = value;
+			return this;
+		}
+
+		public CommandPartitionKey build() {
+			return new CommandPartitionKey(value);
+		}
 	}
 }

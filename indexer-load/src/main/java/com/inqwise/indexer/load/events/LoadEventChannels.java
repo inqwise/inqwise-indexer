@@ -7,10 +7,11 @@ public final class LoadEventChannels {
 		"LAZY_LIVE_WRITER_PREPARATION_CONFLICT";
 
 	public static final EventChannel<LazyLiveWriterPreparationConflictEvent>
-		LAZY_LIVE_WRITER_PREPARATION_CONFLICT = new EventChannel<>(
-			"indexer.load.operational",
-			LazyLiveWriterPreparationConflictEvent.class
-		);
+		LAZY_LIVE_WRITER_PREPARATION_CONFLICT =
+			EventChannel.<LazyLiveWriterPreparationConflictEvent>builder()
+				.withName("indexer.load.operational")
+				.withPayloadType(LazyLiveWriterPreparationConflictEvent.class)
+				.build();
 
 	private LoadEventChannels() {
 	}
