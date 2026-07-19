@@ -367,11 +367,11 @@ class MetadataSubmitIndexActionRouter {
 		MetadataRoutingContext routingContext
 	) {
 		GeneratedIndexerResources resources = IndexerResourceNameGenerator.forTarget(target.targetName());
-		return repository.updateTargetProvisioningState(new UpdateTargetProvisioningState(
-			target.id(),
-			TargetProvisioningState.PROVISIONING,
-			target.version()
-		)).recover(error -> Future.failedFuture(CommandFailure.retryable(
+		return repository.updateTargetProvisioningState(UpdateTargetProvisioningState.builder()
+			.withId(target.id())
+			.withProvisioningState(TargetProvisioningState.PROVISIONING)
+			.withExpectedVersion(target.version())
+			.build()).recover(error -> Future.failedFuture(CommandFailure.retryable(
 			"Target provisioning lock changed: " + target.id(),
 			error
 		))).compose(ignored -> provisioningService.createIndexer(
@@ -388,11 +388,13 @@ class MetadataSubmitIndexActionRouter {
 			.onSuccess(indexer -> routingContext.markMetadataChanged(indexer.indexerId()))
 			.compose(indexer -> repository.getTargetById(target.id())
 				.compose(found -> found
-					.map(current -> repository.updateTargetProvisioningState(new UpdateTargetProvisioningState(
-						target.id(),
-						TargetProvisioningState.READY,
-						current.version()
-					)).map(indexer))
+					.map(current -> repository.updateTargetProvisioningState(
+						UpdateTargetProvisioningState.builder()
+							.withId(target.id())
+							.withProvisioningState(TargetProvisioningState.READY)
+							.withExpectedVersion(current.version())
+							.build()
+					).map(indexer))
 					.orElseGet(() -> Future.failedFuture("Target not found: " + target.id()))))
 			.compose(this::getProvisionedIndexer)
 			.recover(error -> recoverWritableIndexerProvisioning(target, error));
@@ -433,11 +435,11 @@ class MetadataSubmitIndexActionRouter {
 					));
 				}
 
-				return repository.updateTargetProvisioningState(new UpdateTargetProvisioningState(
-					target.id(),
-					TargetProvisioningState.FAILED,
-					current.version()
-				)).compose(ignored -> Future.failedFuture(CommandFailure.retryable(
+				return repository.updateTargetProvisioningState(UpdateTargetProvisioningState.builder()
+					.withId(target.id())
+					.withProvisioningState(TargetProvisioningState.FAILED)
+					.withExpectedVersion(current.version())
+					.build()).compose(ignored -> Future.failedFuture(CommandFailure.retryable(
 					"Writable indexer provisioning failed: " + target.id(),
 					error
 				)));

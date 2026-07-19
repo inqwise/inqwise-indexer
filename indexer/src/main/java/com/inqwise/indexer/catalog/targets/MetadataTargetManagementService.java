@@ -100,11 +100,11 @@ public class MetadataTargetManagementService implements TargetManagementService 
 			if (target.provisioningState() != TargetProvisioningState.FAILED) {
 				return Future.failedFuture("Target provisioning is not failed: " + target.id());
 			}
-			return repository.updateTargetProvisioningState(new UpdateTargetProvisioningState(
-				target.id(),
-				TargetProvisioningState.READY,
-				request.expectedVersion()
-			)).compose(ignored -> publishTargetMetadataChanged(
+			return repository.updateTargetProvisioningState(UpdateTargetProvisioningState.builder()
+				.withId(target.id())
+				.withProvisioningState(TargetProvisioningState.READY)
+				.withExpectedVersion(request.expectedVersion())
+				.build()).compose(ignored -> publishTargetMetadataChanged(
 				target,
 				RECOVERY_CHANGE_TYPE,
 				request.expectedVersion() + 1L
@@ -178,15 +178,15 @@ public class MetadataTargetManagementService implements TargetManagementService 
 		TargetDefinition definition,
 		TargetPeriod period
 	) {
-		return repository.insertTarget(new InsertTarget(
-			newTargetPrefix(),
-			definition.targetName(),
-			period.key(),
-			period.startInclusive(),
-			period.endExclusive(),
-			TargetStatus.ACTIVE,
-			TargetProvisioningState.PROVISIONING
-		)).compose(this::getTarget);
+		return repository.insertTarget(InsertTarget.builder()
+			.withPrefix(newTargetPrefix())
+			.withTargetName(definition.targetName())
+			.withPeriodKey(period.key())
+			.withPeriodStartInclusive(period.startInclusive())
+			.withPeriodEndExclusive(period.endExclusive())
+			.withStatus(TargetStatus.ACTIVE)
+			.withProvisioningState(TargetProvisioningState.PROVISIONING)
+			.build()).compose(this::getTarget);
 	}
 
 	private static String newTargetPrefix() {
@@ -239,21 +239,23 @@ public class MetadataTargetManagementService implements TargetManagementService 
 	}
 
 	private Future<TargetRecord> markTargetReady(TargetRecord target) {
-		return repository.updateTargetProvisioningState(new UpdateTargetProvisioningState(
-			target.id(),
-			TargetProvisioningState.READY,
-			target.version()
-		)).compose(ignored -> getTarget(target.id()));
+		return repository.updateTargetProvisioningState(UpdateTargetProvisioningState.builder()
+			.withId(target.id())
+			.withProvisioningState(TargetProvisioningState.READY)
+			.withExpectedVersion(target.version())
+			.build()).compose(ignored -> getTarget(target.id()));
 	}
 
 	private Future<Void> markTargetFailed(TargetRecord target) {
 		return repository.getTargetById(target.id())
 			.compose(found -> found
-				.map(current -> repository.updateTargetProvisioningState(new UpdateTargetProvisioningState(
-					current.id(),
-					TargetProvisioningState.FAILED,
-					current.version()
-				)))
+				.map(current -> repository.updateTargetProvisioningState(
+					UpdateTargetProvisioningState.builder()
+						.withId(current.id())
+						.withProvisioningState(TargetProvisioningState.FAILED)
+						.withExpectedVersion(current.version())
+						.build()
+				))
 				.orElseGet(() -> Future.failedFuture("Target not found: " + target.id())));
 	}
 

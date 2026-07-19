@@ -100,50 +100,50 @@ public class MetadataIndexerProvisioningService implements IndexerProvisioningSe
 	}
 
 	private Future<Integer> insertManifest(IndexerRecord indexer, IndexerDefinition definition) {
-		return repository.insertManifest(new InsertManifest(
-			indexer.prefix(),
-			indexer.targetId(),
-			indexer.id(),
-			indexer.targetName(),
-			indexer.indexName(),
-			definition.index().schemaName(),
-			definition.index().schemaVersion(),
-			new JsonObject()
+		return repository.insertManifest(InsertManifest.builder()
+			.withPrefix(indexer.prefix())
+			.withTargetId(indexer.targetId())
+			.withIndexerId(indexer.id())
+			.withTargetName(indexer.targetName())
+			.withIndexName(indexer.indexName())
+			.withSchemaName(definition.index().schemaName())
+			.withSchemaVersion(definition.index().schemaVersion())
+			.withManifest(new JsonObject()
 				.put("index", new JsonObject()
 					.put("settings", definition.index().settings())
 					.put("mappings", definition.index().mappings()))
 				.put("queue", new JsonObject()
-					.put("settings", definition.queue().settings())),
-			ManifestStatus.ACTIVE
-		));
+					.put("settings", definition.queue().settings())))
+			.withStatus(ManifestStatus.ACTIVE)
+			.build());
 	}
 
 	private Future<Integer> insertPublication(IndexerRecord indexer) {
-		return repository.insertPublication(new InsertPublication(
-			indexer.prefix(),
-			indexer.id(),
-			indexer.targetId(),
-			indexer.targetName(),
-			indexer.indexName(),
-			ReadinessState.PENDING,
-			"indexer created"
-		));
+		return repository.insertPublication(InsertPublication.builder()
+			.withPrefix(indexer.prefix())
+			.withIndexerId(indexer.id())
+			.withTargetId(indexer.targetId())
+			.withTargetName(indexer.targetName())
+			.withIndexName(indexer.indexName())
+			.withReadinessState(ReadinessState.PENDING)
+			.withReason("indexer created")
+			.build());
 	}
 
 	private Future<IndexerRecord> markReady(IndexerRecord indexer) {
-		return repository.updateIndexerProvisioningState(new UpdateIndexerProvisioningState(
-			indexer.id(),
-			IndexerProvisioningState.READY,
-			indexer.version()
-		)).compose(ignored -> getIndexer(indexer.id()));
+		return repository.updateIndexerProvisioningState(UpdateIndexerProvisioningState.builder()
+			.withId(indexer.id())
+			.withProvisioningState(IndexerProvisioningState.READY)
+			.withExpectedVersion(indexer.version())
+			.build()).compose(ignored -> getIndexer(indexer.id()));
 	}
 
 	private Future<Void> markFailed(IndexerRecord indexer) {
-		return repository.updateIndexerProvisioningState(new UpdateIndexerProvisioningState(
-			indexer.id(),
-			IndexerProvisioningState.FAILED,
-			indexer.version()
-		));
+		return repository.updateIndexerProvisioningState(UpdateIndexerProvisioningState.builder()
+			.withId(indexer.id())
+			.withProvisioningState(IndexerProvisioningState.FAILED)
+			.withExpectedVersion(indexer.version())
+			.build());
 	}
 
 	private Future<IndexerRecord> getIndexer(Integer indexerId) {
