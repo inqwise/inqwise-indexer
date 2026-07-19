@@ -71,7 +71,9 @@ public class IndexerNodeOptions {
 	private IndexerRuntimeReconcilerOptions runtimeReconcilerOptions =
 		new IndexerRuntimeReconcilerOptions();
 	private IndexerLifecycleEventBusConfig lifecycleEventBusConfig =
-		new IndexerLifecycleEventBusConfig(LifecycleEvents.DEFAULT_NAMESPACE);
+		IndexerLifecycleEventBusConfig.builder()
+			.withNamespace(LifecycleEvents.DEFAULT_NAMESPACE)
+			.build();
 	private VertxIndexerLifecycleEventBusOptions lifecycleEventBusOptions =
 		new VertxIndexerLifecycleEventBusOptions();
 	private GatewayRestOptions gatewayOptions = new GatewayRestOptions();
@@ -108,12 +110,12 @@ public class IndexerNodeOptions {
 			Keys.LIFECYCLE_EVENTS,
 			new JsonObject()
 		);
-		this.lifecycleEventBusConfig = new IndexerLifecycleEventBusConfig(
-			lifecycleEvents.getString(
+		this.lifecycleEventBusConfig = IndexerLifecycleEventBusConfig.builder()
+			.withNamespace(lifecycleEvents.getString(
 				LifecycleEvents.NAMESPACE,
 				LifecycleEvents.DEFAULT_NAMESPACE
-			)
-		);
+			))
+			.build();
 		this.lifecycleEventBusOptions = new VertxIndexerLifecycleEventBusOptions(
 			lifecycleEvents
 		);
@@ -244,7 +246,9 @@ public class IndexerNodeOptions {
 		IndexerLifecycleEventBusConfig lifecycleEventBusConfig
 	) {
 		this.lifecycleEventBusConfig = lifecycleEventBusConfig == null
-			? new IndexerLifecycleEventBusConfig(LifecycleEvents.DEFAULT_NAMESPACE)
+			? IndexerLifecycleEventBusConfig.builder()
+				.withNamespace(LifecycleEvents.DEFAULT_NAMESPACE)
+				.build()
 			: lifecycleEventBusConfig;
 		return this;
 	}

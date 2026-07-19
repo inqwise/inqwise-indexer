@@ -187,24 +187,26 @@ public final class DefaultIndexerNodeComponentsFactory {
 			nodeOptions.getRuntimeReconcilerOptions()
 		);
 
-		return new IndexerNodeComponents(
-			hotIndexActionsService,
-			runtime,
-			runtimeReconciler,
-			commandEngine,
-			indexerOperations,
-			repository,
-			lifecycleEventBus,
-			queue,
-			targetDefinitionProvider,
-			indexerDefinitionProvider,
-			documentStore,
-			invalidRouteCache,
-			invalidRouteMetadataChangeListener,
-			targetInvalidationRegistryBackend,
-			targetInvalidationRegistry,
-			targetInvalidationMetadataChangeListener,
-			targetInvalidationPoller
-		);
+		return IndexerNodeComponents.builder()
+			.withHotIndexActionsService(hotIndexActionsService)
+			.withRuntime(runtime)
+			.withRuntimeReconciler(runtimeReconciler)
+			.withCommandEngine(commandEngine)
+			.withIndexerOperations(indexerOperations)
+			.withRepository(repository)
+			.withLifecycleEventBus(lifecycleEventBus)
+			.withQueueResources(queue)
+			.withTargetDefinitionProvider(targetDefinitionProvider)
+			.withIndexerDefinitionProvider(indexerDefinitionProvider)
+			.withDocumentIndexResources(documentStore)
+			.withInvalidRouteCache(invalidRouteCache)
+			.withInvalidRouteMetadataChangeListener(invalidRouteMetadataChangeListener)
+			.withTargetInvalidationRegistryBackend(targetInvalidationRegistryBackend)
+			.withTargetInvalidationRegistry(targetInvalidationRegistry)
+			.withTargetInvalidationMetadataChangeListener(
+				targetInvalidationMetadataChangeListener
+			)
+			.withTargetInvalidationPoller(targetInvalidationPoller)
+			.build();
 	}
 }

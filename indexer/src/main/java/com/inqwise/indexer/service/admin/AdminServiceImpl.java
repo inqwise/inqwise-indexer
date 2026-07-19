@@ -246,11 +246,13 @@ public class AdminServiceImpl implements AdminService {
 			Integer indexerId = request.getIndexerId();
 			return repository.getIndexerById(indexerId)
 				.compose(found -> found
-					.map(indexer -> queueManagementService.reset(new ResetIndexerQueueRequest(
-						indexerId,
-						indexer.queueName(),
-						request.getExpectedVersion()
-					)))
+					.map(indexer -> queueManagementService.reset(
+						ResetIndexerQueueRequest.builder()
+							.withIndexerId(indexerId)
+							.withExpectedQueueName(indexer.queueName())
+							.withExpectedVersion(request.getExpectedVersion())
+							.build()
+					))
 					.orElseGet(() -> Future.failedFuture(IndexerErrors.notFound(
 						"Indexer not found"
 					))))

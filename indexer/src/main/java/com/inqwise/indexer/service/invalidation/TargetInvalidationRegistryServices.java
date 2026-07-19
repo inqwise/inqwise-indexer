@@ -84,13 +84,16 @@ public final class TargetInvalidationRegistryServices {
 	private static TargetInvalidationEntries fromJson(JsonObject json) {
 		List<TargetInvalidationEntry> entries = json.getJsonArray(ENTRIES, new JsonArray()).stream()
 			.map(JsonObject.class::cast)
-			.map(entry -> new TargetInvalidationEntry(
-				entry.getInteger(TARGET_ID),
-				entry.getLong(VERSION),
-				Instant.parse(entry.getString(EXPIRES_AT))
-			))
+			.map(entry -> TargetInvalidationEntry.builder()
+				.withConcreteTargetId(entry.getInteger(TARGET_ID))
+				.withVersion(entry.getLong(VERSION))
+				.withExpiresAt(Instant.parse(entry.getString(EXPIRES_AT)))
+				.build())
 			.toList();
-		return new TargetInvalidationEntries(entries, json.getBoolean(TRUNCATED, false));
+		return TargetInvalidationEntries.builder()
+			.withEntries(entries)
+			.withTruncated(json.getBoolean(TRUNCATED, false))
+			.build();
 	}
 
 	static String requireAddress(String address) {

@@ -10,4 +10,24 @@ public record IndexerLifecycleEventBusConfig(String namespace) {
 			throw new IllegalArgumentException("namespace must not be blank");
 		}
 	}
+
+	public static Builder builder() {
+		return new Builder();
+	}
+
+	public static final class Builder {
+		private String namespace;
+
+		private Builder() {
+		}
+
+		public Builder withNamespace(String value) {
+			namespace = value;
+			return this;
+		}
+
+		public IndexerLifecycleEventBusConfig build() {
+			return new IndexerLifecycleEventBusConfig(namespace);
+		}
+	}
 }

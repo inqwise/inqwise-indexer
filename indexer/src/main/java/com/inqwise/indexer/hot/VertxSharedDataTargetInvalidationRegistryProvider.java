@@ -123,7 +123,10 @@ public class VertxSharedDataTargetInvalidationRegistryProvider
 
 			return map.compose(entries -> entries.size().compose(size -> {
 				if (size > maxTargets) {
-					return Future.succeededFuture(new TargetInvalidationEntries(List.of(), true));
+					return Future.succeededFuture(TargetInvalidationEntries.builder()
+						.withEntries(List.of())
+						.withTruncated(true)
+						.build());
 				}
 
 				return entries.entries().map(values -> toEntries(values, maxTargets));
@@ -141,7 +144,10 @@ public class VertxSharedDataTargetInvalidationRegistryProvider
 				.sorted(Comparator.comparing(TargetInvalidationEntry::concreteTargetId))
 				.limit(maxTargets)
 				.toList();
-			return new TargetInvalidationEntries(entries, values.size() > maxTargets);
+			return TargetInvalidationEntries.builder()
+				.withEntries(entries)
+				.withTruncated(values.size() > maxTargets)
+				.build();
 		}
 
 		private TargetInvalidationEntry toEntry(
@@ -153,11 +159,11 @@ public class VertxSharedDataTargetInvalidationRegistryProvider
 				return null;
 			}
 
-			return new TargetInvalidationEntry(
-				Integer.valueOf(entry.getKey()),
-				entry.getValue().getLong(VERSION),
-				expiresAt
-			);
+			return TargetInvalidationEntry.builder()
+				.withConcreteTargetId(Integer.valueOf(entry.getKey()))
+				.withVersion(entry.getValue().getLong(VERSION))
+				.withExpiresAt(expiresAt)
+				.build();
 		}
 
 		private long version(JsonObject existing, Instant now) {

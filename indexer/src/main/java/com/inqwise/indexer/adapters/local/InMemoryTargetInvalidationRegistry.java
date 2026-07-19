@@ -44,11 +44,11 @@ public class InMemoryTargetInvalidationRegistry implements TargetInvalidationReg
 			long version = existing == null || isExpired(existing, now)
 				? 1L
 				: existing.version() + 1;
-			return new TargetInvalidationEntry(
-				concreteTargetId,
-				version,
-				now.plus(ttl)
-			);
+			return TargetInvalidationEntry.builder()
+				.withConcreteTargetId(concreteTargetId)
+				.withVersion(version)
+				.withExpiresAt(now.plus(ttl))
+				.build();
 		});
 		return Future.succeededFuture();
 	}
@@ -67,10 +67,10 @@ public class InMemoryTargetInvalidationRegistry implements TargetInvalidationReg
 			.sorted(Comparator.comparing(TargetInvalidationEntry::concreteTargetId))
 			.toList();
 
-		return Future.succeededFuture(new TargetInvalidationEntries(
-			entries,
-			entriesByTargetId.size() > maxTargets
-		));
+		return Future.succeededFuture(TargetInvalidationEntries.builder()
+			.withEntries(entries)
+			.withTruncated(entriesByTargetId.size() > maxTargets)
+			.build());
 	}
 
 	private void removeExpired() {
