@@ -55,8 +55,9 @@ public class RuntimeRestVerticle extends AbstractVerticle {
 					builder,
 					"reconcileIndexer",
 					context -> runtimeService
-						.reconcileIndexer(new RuntimeReconcileRequest()
-							.setIndexerId(pathInteger(context, "id")))
+						.reconcileIndexer(RuntimeReconcileRequest.builder()
+							.withIndexerId(pathInteger(context, "id"))
+							.build())
 						.map(new JsonObject().put("status", "ACCEPTED")),
 					RuntimeRestVerticle::toJson
 				);

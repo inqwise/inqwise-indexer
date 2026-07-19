@@ -2,6 +2,7 @@ package com.inqwise.indexer.service.action;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 
 import com.inqwise.indexer.actions.IndexerActionItem;
 
@@ -39,6 +40,14 @@ public class TargetActionSubmitRequest {
 			.map(JsonObject.class::cast)
 			.map(IndexerActionItem::fromJson)
 			.toList();
+	}
+
+	public static TargetActionSubmitRequest fromJson(JsonObject json) {
+		return new TargetActionSubmitRequest(Objects.requireNonNull(json, "json"));
+	}
+
+	public static Builder builder() {
+		return new Builder();
 	}
 
 	public JsonObject toJson() {
@@ -96,5 +105,51 @@ public class TargetActionSubmitRequest {
 	public TargetActionSubmitRequest setActions(List<IndexerActionItem> actions) {
 		this.actions = actions == null ? List.of() : List.copyOf(actions);
 		return this;
+	}
+
+	public static final class Builder {
+		private String submissionId;
+		private String targetName;
+		private Instant timestamp;
+		private List<IndexerActionItem> actions;
+
+		private Builder() {
+		}
+
+		public Builder withSubmissionId(String value) {
+			submissionId = value;
+			return this;
+		}
+
+		public Builder withTargetName(String value) {
+			targetName = value;
+			return this;
+		}
+
+		public Builder withTimestamp(Instant value) {
+			timestamp = value;
+			return this;
+		}
+
+		public Builder withActions(List<IndexerActionItem> value) {
+			actions = value == null ? null : List.copyOf(value);
+			return this;
+		}
+
+		public TargetActionSubmitRequest build() {
+			Objects.requireNonNull(targetName, "targetName");
+			if (targetName.isBlank()) {
+				throw new IllegalArgumentException("targetName must not be blank");
+			}
+			Objects.requireNonNull(actions, "actions");
+			if (actions.isEmpty()) {
+				throw new IllegalArgumentException("actions must not be empty");
+			}
+			return new TargetActionSubmitRequest()
+				.setSubmissionId(submissionId)
+				.setTargetName(targetName)
+				.setTimestamp(timestamp)
+				.setActions(actions);
+		}
 	}
 }

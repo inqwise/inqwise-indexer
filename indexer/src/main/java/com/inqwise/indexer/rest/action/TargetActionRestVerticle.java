@@ -96,7 +96,7 @@ public class TargetActionRestVerticle extends AbstractVerticle {
 			throw IndexerErrors.invalidRequest("Request body is required");
 		}
 
-		return new TargetActionSubmitRequest(body.copy()
+		return TargetActionSubmitRequest.fromJson(body.copy()
 			.put(TargetActionSubmitRequest.Keys.TARGET_NAME, context.pathParam("target_name")));
 	}
 }

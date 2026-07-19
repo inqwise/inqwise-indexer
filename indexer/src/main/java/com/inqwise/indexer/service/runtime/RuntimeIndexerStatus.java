@@ -1,5 +1,7 @@
 package com.inqwise.indexer.service.runtime;
 
+import java.util.Objects;
+
 import com.inqwise.indexer.catalog.indexers.IndexResourceOwnership;
 import com.inqwise.indexer.catalog.indexers.IndexerModel;
 import com.inqwise.indexer.catalog.indexers.IndexerRole;
@@ -62,6 +64,10 @@ public class RuntimeIndexerStatus {
 		this.version = json.getLong(Keys.VERSION, 0L);
 	}
 
+	public static Builder builder() {
+		return new Builder();
+	}
+
 	public JsonObject toJson() {
 		return new JsonObject()
 			.put(Keys.INDEXER_ID, indexerId)
@@ -78,19 +84,21 @@ public class RuntimeIndexerStatus {
 	}
 
 	public static RuntimeIndexerStatus from(IndexerSnapshot snapshot) {
+		Objects.requireNonNull(snapshot, "snapshot");
 		IndexerModel model = snapshot.getModel();
-		return new RuntimeIndexerStatus()
-			.setIndexerId(model.getId())
-			.setIndexerUid(model.getUid())
-			.setTargetId(model.getTargetId())
-			.setTargetName(model.getTargetName())
-			.setIndexName(model.getIndexName())
-			.setQueueName(snapshot.getQueueName())
-			.setType(model.getType())
-			.setRole(model.getRole())
-			.setIndexOwnership(model.getIndexOwnership())
-			.setRuntimeState(model.getRuntimeState())
-			.setVersion(model.getVersion());
+		return builder()
+			.withIndexerId(model.getId())
+			.withIndexerUid(model.getUid())
+			.withTargetId(model.getTargetId())
+			.withTargetName(model.getTargetName())
+			.withIndexName(model.getIndexName())
+			.withQueueName(snapshot.getQueueName())
+			.withType(model.getType())
+			.withRole(model.getRole())
+			.withIndexOwnership(model.getIndexOwnership())
+			.withRuntimeState(model.getRuntimeState())
+			.withVersion(model.getVersion())
+			.build();
 	}
 
 	public Integer getIndexerId() {
@@ -190,5 +198,92 @@ public class RuntimeIndexerStatus {
 	public RuntimeIndexerStatus setVersion(long version) {
 		this.version = version;
 		return this;
+	}
+
+	public static final class Builder {
+		private Integer indexerId;
+		private String indexerUid;
+		private Integer targetId;
+		private String targetName;
+		private String indexName;
+		private String queueName;
+		private IndexerType type;
+		private IndexerRole role;
+		private IndexResourceOwnership indexOwnership;
+		private IndexerRuntimeState runtimeState;
+		private Long version;
+
+		private Builder() {
+		}
+
+		public Builder withIndexerId(Integer value) {
+			indexerId = value;
+			return this;
+		}
+
+		public Builder withIndexerUid(String value) {
+			indexerUid = value;
+			return this;
+		}
+
+		public Builder withTargetId(Integer value) {
+			targetId = value;
+			return this;
+		}
+
+		public Builder withTargetName(String value) {
+			targetName = value;
+			return this;
+		}
+
+		public Builder withIndexName(String value) {
+			indexName = value;
+			return this;
+		}
+
+		public Builder withQueueName(String value) {
+			queueName = value;
+			return this;
+		}
+
+		public Builder withType(IndexerType value) {
+			type = value;
+			return this;
+		}
+
+		public Builder withRole(IndexerRole value) {
+			role = value;
+			return this;
+		}
+
+		public Builder withIndexOwnership(IndexResourceOwnership value) {
+			indexOwnership = value;
+			return this;
+		}
+
+		public Builder withRuntimeState(IndexerRuntimeState value) {
+			runtimeState = value;
+			return this;
+		}
+
+		public Builder withVersion(long value) {
+			version = value;
+			return this;
+		}
+
+		public RuntimeIndexerStatus build() {
+			return new RuntimeIndexerStatus()
+				.setIndexerId(Objects.requireNonNull(indexerId, "indexerId"))
+				.setIndexerUid(indexerUid)
+				.setTargetId(Objects.requireNonNull(targetId, "targetId"))
+				.setTargetName(Objects.requireNonNull(targetName, "targetName"))
+				.setIndexName(Objects.requireNonNull(indexName, "indexName"))
+				.setQueueName(Objects.requireNonNull(queueName, "queueName"))
+				.setType(Objects.requireNonNull(type, "type"))
+				.setRole(Objects.requireNonNull(role, "role"))
+				.setIndexOwnership(Objects.requireNonNull(indexOwnership, "indexOwnership"))
+				.setRuntimeState(Objects.requireNonNull(runtimeState, "runtimeState"))
+				.setVersion(Objects.requireNonNull(version, "version"));
+		}
 	}
 }

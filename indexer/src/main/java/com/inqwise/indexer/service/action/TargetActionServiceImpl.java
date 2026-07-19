@@ -31,9 +31,10 @@ public class TargetActionServiceImpl implements TargetActionService {
 				.withTargetName(request.getTargetName())
 				.withTimestamp(request.getTimestamp())
 				.withActions(request.getActions())
-				.build()).map(new TargetActionSubmitResult()
-				.setSubmissionId(submissionId)
-				.setState(TargetActionSubmitState.ACCEPTED))
+				.build()).map(TargetActionSubmitResult.builder()
+					.withSubmissionId(submissionId)
+					.withState(TargetActionSubmitState.ACCEPTED)
+					.build())
 				.recover(error -> Future.failedFuture(IndexerErrors.normalize(error)));
 		} catch (Throwable error) {
 			return Future.failedFuture(IndexerErrors.normalize(error));

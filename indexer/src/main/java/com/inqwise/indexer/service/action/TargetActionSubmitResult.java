@@ -1,5 +1,7 @@
 package com.inqwise.indexer.service.action;
 
+import java.util.Objects;
+
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
 
@@ -24,6 +26,10 @@ public class TargetActionSubmitResult {
 		this.state = TargetActionSubmitState.valueOf(
 			json.getString(Keys.STATE, TargetActionSubmitState.ACCEPTED.name())
 		);
+	}
+
+	public static Builder builder() {
+		return new Builder();
 	}
 
 	public JsonObject toJson() {
@@ -56,5 +62,33 @@ public class TargetActionSubmitResult {
 	public TargetActionSubmitResult setState(TargetActionSubmitState state) {
 		this.state = state;
 		return this;
+	}
+
+	public static final class Builder {
+		private String submissionId;
+		private TargetActionSubmitState state;
+
+		private Builder() {
+		}
+
+		public Builder withSubmissionId(String value) {
+			submissionId = value;
+			return this;
+		}
+
+		public Builder withState(TargetActionSubmitState value) {
+			state = value;
+			return this;
+		}
+
+		public TargetActionSubmitResult build() {
+			Objects.requireNonNull(submissionId, "submissionId");
+			if (submissionId.isBlank()) {
+				throw new IllegalArgumentException("submissionId must not be blank");
+			}
+			return new TargetActionSubmitResult()
+				.setSubmissionId(submissionId)
+				.setState(Objects.requireNonNull(state, "state"));
+		}
 	}
 }
