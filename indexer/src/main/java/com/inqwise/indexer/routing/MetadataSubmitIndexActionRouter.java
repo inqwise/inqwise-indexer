@@ -374,15 +374,17 @@ class MetadataSubmitIndexActionRouter {
 		)).recover(error -> Future.failedFuture(CommandFailure.retryable(
 			"Target provisioning lock changed: " + target.id(),
 			error
-		))).compose(ignored -> provisioningService.createIndexer(new CreateIndexerProvisioningRequest(
-				resources.prefix(),
-				target.id(),
-				resources.indexName(),
-				resources.queueName(),
-				IndexerRole.LIVE_WRITER,
-				IndexResourceOwnership.OWNER,
-				IndexerRuntimeState.ACTIVE
-			)))
+		))).compose(ignored -> provisioningService.createIndexer(
+			CreateIndexerProvisioningRequest.builder()
+				.withPrefix(resources.prefix())
+				.withTargetId(target.id())
+				.withIndexName(resources.indexName())
+				.withQueueName(resources.queueName())
+				.withRole(IndexerRole.LIVE_WRITER)
+				.withIndexOwnership(IndexResourceOwnership.OWNER)
+				.withRuntimeState(IndexerRuntimeState.ACTIVE)
+				.build()
+		))
 			.onSuccess(indexer -> routingContext.markMetadataChanged(indexer.indexerId()))
 			.compose(indexer -> repository.getTargetById(target.id())
 				.compose(found -> found

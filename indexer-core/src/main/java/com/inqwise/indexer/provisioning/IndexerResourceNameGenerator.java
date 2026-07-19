@@ -15,11 +15,11 @@ public final class IndexerResourceNameGenerator {
 		String queueName = targetName + "--queue-" + suffix;
 		TargetNameValidator.requireGeneratedResourceName(indexName);
 		TargetNameValidator.requireGeneratedResourceName(queueName);
-		return new GeneratedIndexerResources(
-			generatedPrefix(suffix),
-			indexName,
-			queueName
-		);
+		return GeneratedIndexerResources.builder()
+			.withPrefix(generatedPrefix(suffix))
+			.withIndexName(indexName)
+			.withQueueName(queueName)
+			.build();
 	}
 
 	private static String generatedPrefix(String suffix) {

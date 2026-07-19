@@ -64,10 +64,17 @@ public final class DefaultIndexerNodeComponentsFactory {
 		TargetDefinitionProvider targetDefinitionProvider =
 			new StaticTargetDefinitionProvider(List.<TargetDefinition>of());
 		IndexerDefinitionProvider indexerDefinitionProvider =
-			new StaticIndexerDefinitionProvider(new IndexerDefinition(
-				new IndexDefinition("default", "v1", new JsonObject(), new JsonObject()),
-				new QueueDefinition(new JsonObject())
-			));
+			new StaticIndexerDefinitionProvider(IndexerDefinition.builder()
+				.withIndex(IndexDefinition.builder()
+					.withSchemaName("default")
+					.withSchemaVersion("v1")
+					.withSettings(new JsonObject())
+					.withMappings(new JsonObject())
+					.build())
+				.withQueue(QueueDefinition.builder()
+					.withSettings(new JsonObject())
+					.build())
+				.build());
 		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
 		InMemoryIndexerDocumentStore documentStore = new InMemoryIndexerDocumentStore();
 		IndexerLifecycleEventBus lifecycleEventBus =

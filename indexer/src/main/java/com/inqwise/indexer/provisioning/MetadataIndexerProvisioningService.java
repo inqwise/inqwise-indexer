@@ -54,23 +54,23 @@ public class MetadataIndexerProvisioningService implements IndexerProvisioningSe
 		CreateIndexerProvisioningRequest request,
 		TargetRecord target
 	) {
-		return definitionProvider.get(new IndexerDefinitionRequest(
-			target.id(),
-			target.targetName(),
-			IndexerType.INDEX,
-			request.role(),
-			request.indexOwnership()
-		)).compose(definition -> insertProvisioning(request, target)
+		return definitionProvider.get(IndexerDefinitionRequest.builder()
+			.withTargetId(target.id())
+			.withTargetName(target.targetName())
+			.withIndexerType(IndexerType.INDEX)
+			.withRole(request.role())
+			.withIndexOwnership(request.indexOwnership())
+			.build()).compose(definition -> insertProvisioning(request, target)
 			.compose(indexer -> ensureResources(indexer, definition)
 				.compose(ignored -> insertManifest(indexer, definition))
 				.compose(ignored -> insertPublication(indexer))
 				.compose(ignored -> markReady(indexer))
 				.recover(error -> markFailed(indexer).compose(ignored -> Future.failedFuture(error)))))
-			.map(indexer -> new ProvisionedIndexer(
-				indexer.id(),
-				indexer.targetId(),
-				indexer.version()
-			));
+			.map(indexer -> ProvisionedIndexer.builder()
+				.withIndexerId(indexer.id())
+				.withTargetId(indexer.targetId())
+				.withVersion(indexer.version())
+				.build());
 	}
 
 	private Future<IndexerRecord> insertProvisioning(

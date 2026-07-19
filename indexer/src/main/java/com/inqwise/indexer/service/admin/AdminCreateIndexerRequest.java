@@ -44,15 +44,15 @@ public class AdminCreateIndexerRequest {
 	}
 
 	CreateIndexerProvisioningRequest toProvisioningRequest() {
-		return new CreateIndexerProvisioningRequest(
-			prefix,
-			targetId,
-			indexName,
-			queueName,
-			IndexerRole.LIVE_WRITER,
-			IndexResourceOwnership.OWNER,
-			IndexerRuntimeState.NON_ACTIVE
-		);
+		return CreateIndexerProvisioningRequest.builder()
+			.withPrefix(prefix)
+			.withTargetId(targetId)
+			.withIndexName(indexName)
+			.withQueueName(queueName)
+			.withRole(IndexerRole.LIVE_WRITER)
+			.withIndexOwnership(IndexResourceOwnership.OWNER)
+			.withRuntimeState(IndexerRuntimeState.NON_ACTIVE)
+			.build();
 	}
 
 	public String getPrefix() {

@@ -197,15 +197,15 @@ public class MetadataTargetManagementService implements TargetManagementService 
 		CreateTargetIndexerRequest create,
 		TargetRecord target
 	) {
-		return provisioningService.createIndexer(new CreateIndexerProvisioningRequest(
-			create.prefix(),
-			target.id(),
-			create.indexName(),
-			create.queueName(),
-			IndexerRole.LIVE_WRITER,
-			IndexResourceOwnership.OWNER,
-			IndexerRuntimeState.NON_ACTIVE
-		));
+		return provisioningService.createIndexer(CreateIndexerProvisioningRequest.builder()
+			.withPrefix(create.prefix())
+			.withTargetId(target.id())
+			.withIndexName(create.indexName())
+			.withQueueName(create.queueName())
+			.withRole(IndexerRole.LIVE_WRITER)
+			.withIndexOwnership(IndexResourceOwnership.OWNER)
+			.withRuntimeState(IndexerRuntimeState.NON_ACTIVE)
+			.build());
 	}
 
 	private Future<ProvisionedIndexer> preparePublication(
@@ -219,11 +219,11 @@ public class MetadataTargetManagementService implements TargetManagementService 
 						? publicationService.publish(new PublishIndexRequest(
 							indexer.indexerId(),
 							indexer.version()
-						)).map(published -> new ProvisionedIndexer(
-							published.indexerId(),
-							published.targetId(),
-							published.version()
-						))
+						)).map(published -> ProvisionedIndexer.builder()
+							.withIndexerId(published.indexerId())
+							.withTargetId(published.targetId())
+							.withVersion(published.version())
+							.build())
 						: Future.succeededFuture(indexer)))
 				.orElseGet(() -> Future.failedFuture(
 					"Publication not found for indexer: " + indexer.indexerId()

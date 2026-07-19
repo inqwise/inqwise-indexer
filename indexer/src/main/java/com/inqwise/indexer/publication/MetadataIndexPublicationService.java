@@ -143,13 +143,13 @@ public final class MetadataIndexPublicationService implements IndexPublicationSe
 	}
 
 	private Future<IndexerRecord> ensureResources(IndexerRecord indexer) {
-		return definitionProvider.get(new IndexerDefinitionRequest(
-			indexer.targetId(),
-			indexer.targetName(),
-			indexer.type(),
-			indexer.role(),
-			indexer.indexOwnership()
-		)).compose(definition -> documentIndexResources.ensure(
+		return definitionProvider.get(IndexerDefinitionRequest.builder()
+			.withTargetId(indexer.targetId())
+			.withTargetName(indexer.targetName())
+			.withIndexerType(indexer.type())
+			.withRole(indexer.role())
+			.withIndexOwnership(indexer.indexOwnership())
+			.build()).compose(definition -> documentIndexResources.ensure(
 			indexer.indexName(),
 			definition.index()
 		).compose(ignored -> queueResources.ensure(
