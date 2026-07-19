@@ -36,4 +36,82 @@ public record IndexerProviderQuery(
 	private static <T> List<T> copy(List<T> values) {
 		return values == null ? List.of() : List.copyOf(values);
 	}
+
+	public static Builder builder() {
+		return new Builder();
+	}
+
+	public static final class Builder {
+		private List<Integer> ids;
+		private List<Integer> targetIds;
+		private List<IndexerType> types;
+		private List<IndexerRole> roles;
+		private List<IndexerStatus> statuses;
+		private List<IndexerProvisioningState> provisioningStates;
+		private List<IndexerRuntimeState> runtimeStates;
+		private List<PublicationState> publicationStates;
+		private List<MutationState> mutationStates;
+
+		private Builder() {
+		}
+
+		public Builder withIds(List<Integer> value) {
+			ids = copy(value);
+			return this;
+		}
+
+		public Builder withTargetIds(List<Integer> value) {
+			targetIds = copy(value);
+			return this;
+		}
+
+		public Builder withTypes(List<IndexerType> value) {
+			types = copy(value);
+			return this;
+		}
+
+		public Builder withRoles(List<IndexerRole> value) {
+			roles = copy(value);
+			return this;
+		}
+
+		public Builder withStatuses(List<IndexerStatus> value) {
+			statuses = copy(value);
+			return this;
+		}
+
+		public Builder withProvisioningStates(List<IndexerProvisioningState> value) {
+			provisioningStates = copy(value);
+			return this;
+		}
+
+		public Builder withRuntimeStates(List<IndexerRuntimeState> value) {
+			runtimeStates = copy(value);
+			return this;
+		}
+
+		public Builder withPublicationStates(List<PublicationState> value) {
+			publicationStates = copy(value);
+			return this;
+		}
+
+		public Builder withMutationStates(List<MutationState> value) {
+			mutationStates = copy(value);
+			return this;
+		}
+
+		public IndexerProviderQuery build() {
+			return new IndexerProviderQuery(
+				ids,
+				targetIds,
+				types,
+				roles,
+				statuses,
+				provisioningStates,
+				runtimeStates,
+				publicationStates,
+				mutationStates
+			);
+		}
+	}
 }

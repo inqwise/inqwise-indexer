@@ -24,14 +24,18 @@ public class MetadataIndexerProvider implements IndexerProvider {
 	@Override
 	public Future<Optional<ResolvedIndexer>> getIndexerById(Integer indexerId) {
 		return repository.getIndexerById(indexerId)
-			.map(found -> found.map(MetadataResolvedIndexer::new));
+			.map(found -> found.map(record -> MetadataResolvedIndexer.builder()
+				.withRecord(record)
+				.build()));
 	}
 
 	@Override
 	public Future<List<ResolvedIndexer>> listIndexers(IndexerProviderQuery query) {
 		return repository.listIndexers(toMetadataQuery(query))
 			.map(indexers -> indexers.stream()
-				.<ResolvedIndexer>map(MetadataResolvedIndexer::new)
+				.<ResolvedIndexer>map(record -> MetadataResolvedIndexer.builder()
+					.withRecord(record)
+					.build())
 				.toList());
 	}
 

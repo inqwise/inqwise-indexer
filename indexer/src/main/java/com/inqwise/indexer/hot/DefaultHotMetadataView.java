@@ -131,17 +131,15 @@ public class DefaultHotMetadataView implements HotMetadataView {
 			.map(TargetRecord::id)
 			.toList();
 
-		return indexerProviders.listIndexers(new IndexerProviderQuery(
-			null,
-			targetIds,
-			List.of(IndexerType.INDEX),
-			List.of(IndexerRole.LIVE_WRITER),
-			List.of(IndexerStatus.AVAILABLE),
-			List.of(IndexerProvisioningState.READY),
-			List.of(IndexerRuntimeState.ACTIVE),
-			null,
-			List.of(MutationState.WRITABLE)
-		)).map(resolvedIndexers -> {
+		return indexerProviders.listIndexers(IndexerProviderQuery.builder()
+			.withTargetIds(targetIds)
+			.withTypes(List.of(IndexerType.INDEX))
+			.withRoles(List.of(IndexerRole.LIVE_WRITER))
+			.withStatuses(List.of(IndexerStatus.AVAILABLE))
+			.withProvisioningStates(List.of(IndexerProvisioningState.READY))
+			.withRuntimeStates(List.of(IndexerRuntimeState.ACTIVE))
+			.withMutationStates(List.of(MutationState.WRITABLE))
+			.build()).map(resolvedIndexers -> {
 			Map<Integer, List<HotIndexerCapability>> liveWritersByTargetId = resolvedIndexers.stream()
 				.flatMap(resolved -> resolved.hotIndexer().stream())
 				.collect(Collectors.groupingBy(

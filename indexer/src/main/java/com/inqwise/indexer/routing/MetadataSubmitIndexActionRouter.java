@@ -278,12 +278,12 @@ class MetadataSubmitIndexActionRouter {
 							return Future.succeededFuture(List.of(candidateModel));
 						}
 
-						return capability.prepareToReceive(new PrepareIndexerForActionsRequest(
-							submit.getCorrelationId(),
-							candidateModel,
-							List.of(action),
-							submit.getTimestamp()
-						)).map(result -> preparedIndexers(result, routingContext));
+						return capability.prepareToReceive(PrepareIndexerForActionsRequest.builder()
+							.withCommandId(submit.getCorrelationId())
+							.withIndexer(candidateModel)
+							.withActions(List.of(action))
+							.withTimestamp(submit.getTimestamp())
+							.build()).map(result -> preparedIndexers(result, routingContext));
 					});
 			});
 		}
