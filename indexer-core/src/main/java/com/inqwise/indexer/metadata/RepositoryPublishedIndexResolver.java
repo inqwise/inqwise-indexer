@@ -73,11 +73,11 @@ public class RepositoryPublishedIndexResolver implements PublishedIndexResolver 
 				.sorted(Comparator
 					.comparingInt((IndexerRecord indexer) -> targetOrder.get(indexer.targetId()))
 					.thenComparing(IndexerRecord::id))
-				.map(indexer -> new PublishedIndex(
-					indexer.id(),
-					indexer.targetId(),
-					indexer.indexName()
-				))
+				.map(indexer -> PublishedIndex.builder()
+					.withIndexerId(indexer.id())
+					.withTargetId(indexer.targetId())
+					.withIndexName(indexer.indexName())
+					.build())
 				.collect(Collectors.collectingAndThen(
 					Collectors.toMap(
 						PublishedIndex::indexName,

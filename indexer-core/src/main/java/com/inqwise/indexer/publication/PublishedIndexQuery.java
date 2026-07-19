@@ -19,4 +19,40 @@ public record PublishedIndexQuery(
 			throw new IllegalArgumentException("fromInclusive must be before toExclusive");
 		}
 	}
+
+	public static Builder builder() {
+		return new Builder();
+	}
+
+	public static final class Builder {
+		private String targetName;
+		private Instant fromInclusive;
+		private Instant toExclusive;
+
+		private Builder() {
+		}
+
+		public Builder withTargetName(String value) {
+			targetName = value;
+			return this;
+		}
+
+		public Builder withFromInclusive(Instant value) {
+			fromInclusive = value;
+			return this;
+		}
+
+		public Builder withToExclusive(Instant value) {
+			toExclusive = value;
+			return this;
+		}
+
+		public PublishedIndexQuery build() {
+			return new PublishedIndexQuery(
+				Objects.requireNonNull(targetName, "targetName"),
+				Objects.requireNonNull(fromInclusive, "fromInclusive"),
+				Objects.requireNonNull(toExclusive, "toExclusive")
+			);
+		}
+	}
 }

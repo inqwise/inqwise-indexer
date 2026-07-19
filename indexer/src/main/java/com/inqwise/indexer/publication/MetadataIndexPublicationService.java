@@ -85,21 +85,21 @@ public final class MetadataIndexPublicationService implements IndexPublicationSe
 	}
 
 	private PublicationReadinessResult toReadinessResult(PublicationRecord publication) {
-		return new PublicationReadinessResult(
-			publication.id(),
-			publication.indexerId(),
-			publication.readinessState(),
-			publication.version()
-		);
+		return PublicationReadinessResult.builder()
+			.withPublicationId(publication.id())
+			.withIndexerId(publication.indexerId())
+			.withReadinessState(publication.readinessState())
+			.withVersion(publication.version())
+			.build();
 	}
 
 	private IndexPublicationResult toPublicationResult(IndexerRecord indexer) {
-		return new IndexPublicationResult(
-			indexer.id(),
-			indexer.targetId(),
-			indexer.publicationState(),
-			indexer.version()
-		);
+		return IndexPublicationResult.builder()
+			.withIndexerId(indexer.id())
+			.withTargetId(indexer.targetId())
+			.withPublicationState(indexer.publicationState())
+			.withVersion(indexer.version())
+			.build();
 	}
 
 	private Future<PublicationRecord> markReady(

@@ -216,10 +216,10 @@ public class MetadataTargetManagementService implements TargetManagementService 
 			.compose(found -> found
 				.map(publication -> markPublicationReady(publication)
 					.compose(ignored -> create.initialPublicationMode() == InitialPublicationMode.PUBLISH
-						? publicationService.publish(new PublishIndexRequest(
-							indexer.indexerId(),
-							indexer.version()
-						)).map(published -> ProvisionedIndexer.builder()
+						? publicationService.publish(PublishIndexRequest.builder()
+							.withIndexerId(indexer.indexerId())
+							.withExpectedVersion(indexer.version())
+							.build()).map(published -> ProvisionedIndexer.builder()
 							.withIndexerId(published.indexerId())
 							.withTargetId(published.targetId())
 							.withVersion(published.version())
@@ -231,11 +231,11 @@ public class MetadataTargetManagementService implements TargetManagementService 
 	}
 
 	private Future<PublicationReadinessResult> markPublicationReady(PublicationRecord publication) {
-		return publicationService.markReady(new MarkIndexReadyRequest(
-			publication.id(),
-			"target creation",
-			publication.version()
-		));
+		return publicationService.markReady(MarkIndexReadyRequest.builder()
+			.withPublicationId(publication.id())
+			.withReason("target creation")
+			.withExpectedVersion(publication.version())
+			.build());
 	}
 
 	private Future<TargetRecord> markTargetReady(TargetRecord target) {
