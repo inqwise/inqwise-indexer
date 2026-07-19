@@ -54,7 +54,7 @@ public class PublishLoadCommandHandler implements CommandHandler {
 
 	@Override
 	public Future<Void> handle(Command command) {
-		PublishLoadCommand publish = new PublishLoadCommand(command.toJson());
+		PublishLoadCommand publish = PublishLoadCommand.builder(command.toJson()).build();
 
 		return loadRepository.getByIndexerId(publish.getIndexerId())
 			.compose(found -> found
@@ -132,9 +132,9 @@ public class PublishLoadCommandHandler implements CommandHandler {
 		}
 
 		LoadIndexerReference oldPublished = publication.oldPublished();
-		return commandService.submit(new CleanupLoadCommand(
-			load.indexerId(),
-			oldPublished == null ? null : oldPublished.id()
-		));
+		return commandService.submit(CleanupLoadCommand.builder()
+			.withIndexerId(load.indexerId())
+			.withOldPublishedIndexerId(oldPublished == null ? null : oldPublished.id())
+			.build());
 	}
 }

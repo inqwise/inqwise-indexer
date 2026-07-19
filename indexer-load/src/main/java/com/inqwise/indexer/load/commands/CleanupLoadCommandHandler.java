@@ -39,7 +39,7 @@ public final class CleanupLoadCommandHandler implements CommandHandler {
 
 	@Override
 	public Future<Void> handle(Command command) {
-		CleanupLoadCommand cleanup = new CleanupLoadCommand(command.toJson());
+		CleanupLoadCommand cleanup = CleanupLoadCommand.builder(command.toJson()).build();
 
 		return loadRepository.getByIndexerId(cleanup.getIndexerId())
 			.compose(found -> found

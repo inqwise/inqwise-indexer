@@ -53,5 +53,48 @@ public final class LoadCommandHandlers {
 			Objects.requireNonNull(loadRepository, "loadRepository");
 			eventBus = eventBus == null ? IndexerLifecycleEventBus.NOOP : eventBus;
 		}
+
+		public static Builder builder() {
+			return new Builder();
+		}
+
+		public static final class Builder {
+			private LoadPublicationRepository publicationRepository;
+			private LoadCleanupRepository cleanupRepository;
+			private IndexerLoadRepository loadRepository;
+			private IndexerLifecycleEventBus eventBus;
+
+			private Builder() {
+			}
+
+			public Builder withPublicationRepository(LoadPublicationRepository value) {
+				publicationRepository = value;
+				return this;
+			}
+
+			public Builder withCleanupRepository(LoadCleanupRepository value) {
+				cleanupRepository = value;
+				return this;
+			}
+
+			public Builder withLoadRepository(IndexerLoadRepository value) {
+				loadRepository = value;
+				return this;
+			}
+
+			public Builder withEventBus(IndexerLifecycleEventBus value) {
+				eventBus = value;
+				return this;
+			}
+
+			public Config build() {
+				return new Config(
+					Objects.requireNonNull(publicationRepository, "publicationRepository"),
+					Objects.requireNonNull(cleanupRepository, "cleanupRepository"),
+					Objects.requireNonNull(loadRepository, "loadRepository"),
+					eventBus
+				);
+			}
+		}
 	}
 }

@@ -13,12 +13,29 @@ public final class CleanupLoadCommand implements Command {
 	private final Integer oldPublishedIndexerId;
 
 	public CleanupLoadCommand(Integer indexerId, Integer oldPublishedIndexerId) {
-		this.indexerId = Objects.requireNonNull(indexerId, "indexerId");
-		this.oldPublishedIndexerId = oldPublishedIndexerId;
+		this(builder()
+			.withIndexerId(indexerId)
+			.withOldPublishedIndexerId(oldPublishedIndexerId));
 	}
 
 	public CleanupLoadCommand(JsonObject json) {
-		this(json.getInteger("indexer_id"), json.getInteger("old_published_indexer_id"));
+		this(builder(json));
+	}
+
+	private CleanupLoadCommand(Builder builder) {
+		indexerId = Objects.requireNonNull(builder.indexerId, "indexerId");
+		oldPublishedIndexerId = builder.oldPublishedIndexerId;
+	}
+
+	public static Builder builder() {
+		return new Builder();
+	}
+
+	public static Builder builder(JsonObject json) {
+		Objects.requireNonNull(json, "json");
+		return builder()
+			.withIndexerId(json.getInteger("indexer_id"))
+			.withOldPublishedIndexerId(json.getInteger("old_published_indexer_id"));
 	}
 
 	@Override
@@ -41,5 +58,27 @@ public final class CleanupLoadCommand implements Command {
 			json.put("old_published_indexer_id", oldPublishedIndexerId);
 		}
 		return json;
+	}
+
+	public static final class Builder {
+		private Integer indexerId;
+		private Integer oldPublishedIndexerId;
+
+		private Builder() {
+		}
+
+		public Builder withIndexerId(Integer value) {
+			indexerId = value;
+			return this;
+		}
+
+		public Builder withOldPublishedIndexerId(Integer value) {
+			oldPublishedIndexerId = value;
+			return this;
+		}
+
+		public CleanupLoadCommand build() {
+			return new CleanupLoadCommand(this);
+		}
 	}
 }

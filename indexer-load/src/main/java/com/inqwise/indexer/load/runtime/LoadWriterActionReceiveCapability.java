@@ -275,24 +275,25 @@ public class LoadWriterActionReceiveCapability implements IndexerActionReceiveCa
 	) {
 		Instant timestamp = Instant.now();
 		LazyLiveWriterPreparationConflictEvent payload =
-			new LazyLiveWriterPreparationConflictEvent(
-				load.targetId(),
-				load.indexerId(),
-				candidateLiveIndexerId,
-				winnerLiveIndexerId,
-				reason,
-				cleanupSubmitted,
-				cleanupSucceeded,
-				timestamp
-			);
-		EventEnvelope<LazyLiveWriterPreparationConflictEvent> envelope = new EventEnvelope<>(
-			UUID.randomUUID().toString(),
-			LoadEventChannels.LAZY_LIVE_WRITER_PREPARATION_CONFLICT_TYPE,
-			timestamp,
-			"indexer-load",
-			correlationId,
-			payload
-		);
+			LazyLiveWriterPreparationConflictEvent.builder()
+				.withTargetId(load.targetId())
+				.withLoadIndexerId(load.indexerId())
+				.withCandidateLiveIndexerId(candidateLiveIndexerId)
+				.withWinnerLiveIndexerId(winnerLiveIndexerId)
+				.withReason(reason)
+				.withCleanupSubmitted(cleanupSubmitted)
+				.withCleanupSucceeded(cleanupSucceeded)
+				.withTimestamp(timestamp)
+				.build();
+		EventEnvelope<LazyLiveWriterPreparationConflictEvent> envelope =
+			EventEnvelope.<LazyLiveWriterPreparationConflictEvent>builder()
+				.withEventId(UUID.randomUUID().toString())
+				.withEventType(LoadEventChannels.LAZY_LIVE_WRITER_PREPARATION_CONFLICT_TYPE)
+				.withOccurredAt(timestamp)
+				.withSource("indexer-load")
+				.withCorrelationId(correlationId)
+				.withPayload(payload)
+				.build();
 
 		return eventPublisher.publish(
 			LoadEventChannels.LAZY_LIVE_WRITER_PREPARATION_CONFLICT,

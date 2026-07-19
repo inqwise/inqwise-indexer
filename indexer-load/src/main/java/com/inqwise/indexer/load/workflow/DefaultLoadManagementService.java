@@ -201,7 +201,9 @@ public final class DefaultLoadManagementService implements LoadManagementService
 	}
 
 	private Future<Void> submitCleanup(IndexerLoadRecord load) {
-		return commandService.submit(new CleanupLoadCommand(load.indexerId(), null));
+		return commandService.submit(CleanupLoadCommand.builder()
+			.withIndexerId(load.indexerId())
+			.build());
 	}
 
 	private boolean isAppliedApproval(

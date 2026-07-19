@@ -13,12 +13,35 @@ public class PublishLoadCommand implements Command {
 	private final long expectedLoadVersion;
 
 	public PublishLoadCommand(Integer indexerId, long expectedLoadVersion) {
-		this.indexerId = Objects.requireNonNull(indexerId, "indexerId");
-		this.expectedLoadVersion = expectedLoadVersion;
+		this(builder()
+			.withIndexerId(indexerId)
+			.withExpectedLoadVersion(expectedLoadVersion));
 	}
 
 	public PublishLoadCommand(JsonObject json) {
-		this(json.getInteger("indexer_id"), json.getLong("expected_load_version"));
+		this(builder(json));
+	}
+
+	private PublishLoadCommand(Builder builder) {
+		indexerId = Objects.requireNonNull(builder.indexerId, "indexerId");
+		expectedLoadVersion = Objects.requireNonNull(
+			builder.expectedLoadVersion,
+			"expectedLoadVersion"
+		);
+	}
+
+	public static Builder builder() {
+		return new Builder();
+	}
+
+	public static Builder builder(JsonObject json) {
+		Objects.requireNonNull(json, "json");
+		Builder builder = builder().withIndexerId(json.getInteger("indexer_id"));
+		Long expectedLoadVersion = json.getLong("expected_load_version");
+		if (expectedLoadVersion != null) {
+			builder.withExpectedLoadVersion(expectedLoadVersion);
+		}
+		return builder;
 	}
 
 	@Override
@@ -39,5 +62,27 @@ public class PublishLoadCommand implements Command {
 		return new JsonObject()
 			.put("indexer_id", indexerId)
 			.put("expected_load_version", expectedLoadVersion);
+	}
+
+	public static final class Builder {
+		private Integer indexerId;
+		private Long expectedLoadVersion;
+
+		private Builder() {
+		}
+
+		public Builder withIndexerId(Integer value) {
+			indexerId = value;
+			return this;
+		}
+
+		public Builder withExpectedLoadVersion(long value) {
+			expectedLoadVersion = value;
+			return this;
+		}
+
+		public PublishLoadCommand build() {
+			return new PublishLoadCommand(this);
+		}
 	}
 }

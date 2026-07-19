@@ -21,7 +21,10 @@ public class LoadPublicationOrchestrator {
 			return Future.succeededFuture();
 		}
 
-		return commandService.submit(new PublishLoadCommand(load.indexerId(), load.version()));
+		return commandService.submit(PublishLoadCommand.builder()
+			.withIndexerId(load.indexerId())
+			.withExpectedLoadVersion(load.version())
+			.build());
 	}
 
 	private boolean isPublishable(IndexerLoadRecord load) {
