@@ -68,9 +68,11 @@ public final class MetadataIndexerQueueManagementService
 		}
 		long resultingVersion = request.expectedVersion() + 1L;
 		return queueResources.ensure(newQueueName)
-			.compose(ignored -> repository.updateIndexerQueueName(new UpdateIndexerQueueName(
-				indexer.id(), newQueueName, request.expectedVersion()
-			)))
+			.compose(ignored -> repository.updateIndexerQueueName(UpdateIndexerQueueName.builder()
+				.withId(indexer.id())
+				.withQueueName(newQueueName)
+				.withExpectedVersion(request.expectedVersion())
+				.build()))
 			.compose(ignored -> complete(indexer, resultingVersion, request.expectedQueueName()));
 	}
 

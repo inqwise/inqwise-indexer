@@ -56,11 +56,11 @@ public final class MetadataIndexerOperations implements IndexerOperations {
 	) {
 		boolean mutationChanged = indexer.mutationState() != MutationState.DELETING;
 		Future<Void> marked = mutationChanged
-			? repository.updateIndexerMutationState(new UpdateIndexerMutationState(
-				indexer.id(),
-				MutationState.DELETING,
-				expectedVersion
-			))
+			? repository.updateIndexerMutationState(UpdateIndexerMutationState.builder()
+				.withId(indexer.id())
+				.withMutationState(MutationState.DELETING)
+				.withExpectedVersion(expectedVersion)
+				.build())
 			: Future.succeededFuture();
 
 		return marked
@@ -69,11 +69,11 @@ public final class MetadataIndexerOperations implements IndexerOperations {
 				boolean runtimeChanged =
 					markedIndexer.runtimeState() != IndexerRuntimeState.NON_ACTIVE;
 				Future<Void> deactivated = runtimeChanged
-					? repository.updateIndexerRuntimeState(new UpdateIndexerRuntimeState(
-						markedIndexer.id(),
-						IndexerRuntimeState.NON_ACTIVE,
-						markedIndexer.version()
-					))
+					? repository.updateIndexerRuntimeState(UpdateIndexerRuntimeState.builder()
+						.withId(markedIndexer.id())
+						.withRuntimeState(IndexerRuntimeState.NON_ACTIVE)
+						.withExpectedVersion(markedIndexer.version())
+						.build())
 					: Future.succeededFuture();
 
 				return deactivated

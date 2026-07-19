@@ -76,11 +76,11 @@ public final class MetadataIndexPublicationService implements IndexPublicationSe
 			if (indexer.publicationState() == PublicationState.RETIRED) {
 				return Future.failedFuture("Index is already retired: " + indexer.indexName());
 			}
-			return repository.updateIndexerPublicationState(new UpdateIndexerPublicationState(
-				indexer.id(),
-				PublicationState.RETIRED,
-				request.expectedVersion()
-			)).compose(ignored -> loadIndexer(indexer.id()));
+			return repository.updateIndexerPublicationState(UpdateIndexerPublicationState.builder()
+				.withId(indexer.id())
+				.withPublicationState(PublicationState.RETIRED)
+				.withExpectedVersion(request.expectedVersion())
+				.build()).compose(ignored -> loadIndexer(indexer.id()));
 		}).map(this::toPublicationResult);
 	}
 
@@ -115,12 +115,12 @@ public final class MetadataIndexPublicationService implements IndexPublicationSe
 					+ request.expectedVersion() + " but was " + publication.version()
 			);
 		}
-		return repository.updatePublicationReadiness(new UpdatePublicationReadiness(
-			publication.id(),
-			ReadinessState.READY,
-			request.reason(),
-			request.expectedVersion()
-		)).compose(ignored -> loadPublication(publication.id()));
+		return repository.updatePublicationReadiness(UpdatePublicationReadiness.builder()
+			.withId(publication.id())
+			.withReadinessState(ReadinessState.READY)
+			.withReason(request.reason())
+			.withExpectedVersion(request.expectedVersion())
+			.build()).compose(ignored -> loadPublication(publication.id()));
 	}
 
 	private Future<IndexerRecord> publish(
@@ -134,11 +134,11 @@ public final class MetadataIndexPublicationService implements IndexPublicationSe
 		return validatePublish(request, indexer, publication)
 			.compose(this::ensureResources)
 			.compose(ready -> repository.updateIndexerPublicationState(
-				new UpdateIndexerPublicationState(
-					ready.id(),
-					PublicationState.PUBLISHED,
-					request.expectedVersion()
-				)
+				UpdateIndexerPublicationState.builder()
+					.withId(ready.id())
+					.withPublicationState(PublicationState.PUBLISHED)
+					.withExpectedVersion(request.expectedVersion())
+					.build()
 			).compose(ignored -> loadIndexer(ready.id())));
 	}
 

@@ -68,11 +68,11 @@ public final class MetadataIndexerManagementService implements IndexerManagement
 					+ indexer.id());
 			}
 			long resultingVersion = request.expectedVersion() + 1L;
-			return repository.updateIndexerRuntimeState(new UpdateIndexerRuntimeState(
-				indexer.id(),
-				desiredState,
-				request.expectedVersion()
-			)).compose(ignored -> publish(indexer, changeType, resultingVersion))
+			return repository.updateIndexerRuntimeState(UpdateIndexerRuntimeState.builder()
+				.withId(indexer.id())
+				.withRuntimeState(desiredState)
+				.withExpectedVersion(request.expectedVersion())
+				.build()).compose(ignored -> publish(indexer, changeType, resultingVersion))
 				.compose(ignored -> load(indexer.id()));
 		});
 	}

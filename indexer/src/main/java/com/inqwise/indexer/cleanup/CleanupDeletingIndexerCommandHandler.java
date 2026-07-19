@@ -56,7 +56,10 @@ public final class CleanupDeletingIndexerCommandHandler implements CommandHandle
 		return queueResources.delete(indexer.queueName())
 			.compose(ignored -> deleteDocumentIndex(indexer))
 			.compose(ignored -> repository.finalizeIndexerDeletion(
-				new FinalizeIndexerDeletion(indexer.id(), indexer.version())
+				FinalizeIndexerDeletion.builder()
+					.withIndexerId(indexer.id())
+					.withExpectedVersion(indexer.version())
+					.build()
 			));
 	}
 
