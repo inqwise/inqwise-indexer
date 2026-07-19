@@ -325,10 +325,10 @@ class MetadataSubmitIndexActionRouter {
 					return Future.failedFuture(error);
 				}
 
-				return repository.getTargetByDefinitionAndPeriod(new ConcreteTargetKey(
-					targetDefinition.targetName(),
-					period.key()
-				)).compose(found -> found
+				return repository.getTargetByDefinitionAndPeriod(ConcreteTargetKey.builder()
+					.withTargetName(targetDefinition.targetName())
+					.withPeriodKey(period.key())
+					.build()).compose(found -> found
 					.map(target -> Future.succeededFuture(new ResolvedTarget(
 						target,
 						targetDefinition.autoProvisionOnWrite()

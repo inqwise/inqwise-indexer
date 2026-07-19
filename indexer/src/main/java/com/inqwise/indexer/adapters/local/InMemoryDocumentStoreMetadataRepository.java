@@ -132,7 +132,7 @@ public class InMemoryDocumentStoreMetadataRepository implements DocumentStoreMet
 		try {
 			TargetNameValidator.requireTargetName(targetName);
 			TargetPeriod resolvedPeriod = period == null
-				? new TargetPeriod(TargetPeriodStrategy.NONE, null, null, null)
+				? TargetPeriod.builder().withStrategy(TargetPeriodStrategy.NONE).build()
 				: period;
 			Optional<TargetRecord> existing = targetsById.values().stream()
 				.filter(target -> targetName.equals(target.targetName()))

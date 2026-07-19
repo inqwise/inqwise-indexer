@@ -35,12 +35,12 @@ public final class MetadataIndexerManagementService implements IndexerManagement
 	}
 
 	private IndexerRuntimeStateResult toRuntimeStateResult(IndexerRecord indexer) {
-		return new IndexerRuntimeStateResult(
-			indexer.id(),
-			indexer.targetId(),
-			indexer.runtimeState(),
-			indexer.version()
-		);
+		return IndexerRuntimeStateResult.builder()
+			.withIndexerId(indexer.id())
+			.withTargetId(indexer.targetId())
+			.withRuntimeState(indexer.runtimeState())
+			.withVersion(indexer.version())
+			.build();
 	}
 
 	private Future<IndexerRecord> change(

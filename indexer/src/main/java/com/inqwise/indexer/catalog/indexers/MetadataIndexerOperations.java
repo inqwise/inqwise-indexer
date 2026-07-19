@@ -41,13 +41,13 @@ public final class MetadataIndexerOperations implements IndexerOperations {
 	}
 
 	private IndexerDeletionResult toDeletionResult(IndexerRecord indexer) {
-		return new IndexerDeletionResult(
-			indexer.id(),
-			indexer.targetId(),
-			indexer.mutationState(),
-			indexer.runtimeState(),
-			indexer.version()
-		);
+		return IndexerDeletionResult.builder()
+			.withIndexerId(indexer.id())
+			.withTargetId(indexer.targetId())
+			.withMutationState(indexer.mutationState())
+			.withRuntimeState(indexer.runtimeState())
+			.withVersion(indexer.version())
+			.build();
 	}
 
 	private Future<Optional<IndexerRecord>> markDeleting(

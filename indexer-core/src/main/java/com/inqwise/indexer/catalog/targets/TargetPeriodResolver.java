@@ -12,7 +12,9 @@ public class TargetPeriodResolver {
 			: strategy;
 
 		if (resolvedStrategy == TargetPeriodStrategy.NONE) {
-			return new TargetPeriod(TargetPeriodStrategy.NONE, null, null, null);
+			return TargetPeriod.builder()
+				.withStrategy(TargetPeriodStrategy.NONE)
+				.build();
 		}
 
 		if (timestamp == null) {
@@ -21,7 +23,9 @@ public class TargetPeriodResolver {
 
 		LocalDate date = timestamp.atZone(ZoneOffset.UTC).toLocalDate();
 		return switch (resolvedStrategy) {
-			case NONE -> new TargetPeriod(TargetPeriodStrategy.NONE, null, null, null);
+			case NONE -> TargetPeriod.builder()
+				.withStrategy(TargetPeriodStrategy.NONE)
+				.build();
 			case MONTHLY -> monthly(date);
 			case HALF_YEARLY -> halfYearly(date);
 			case YEARLY -> yearly(date);
@@ -30,33 +34,33 @@ public class TargetPeriodResolver {
 
 	private TargetPeriod monthly(LocalDate date) {
 		LocalDate start = LocalDate.of(date.getYear(), date.getMonth(), 1);
-		return new TargetPeriod(
-			TargetPeriodStrategy.MONTHLY,
-			"%04d-%02d".formatted(start.getYear(), start.getMonthValue()),
-			start.atStartOfDay().toInstant(ZoneOffset.UTC),
-			start.plusMonths(1).atStartOfDay().toInstant(ZoneOffset.UTC)
-		);
+		return TargetPeriod.builder()
+			.withStrategy(TargetPeriodStrategy.MONTHLY)
+			.withKey("%04d-%02d".formatted(start.getYear(), start.getMonthValue()))
+			.withStartInclusive(start.atStartOfDay().toInstant(ZoneOffset.UTC))
+			.withEndExclusive(start.plusMonths(1).atStartOfDay().toInstant(ZoneOffset.UTC))
+			.build();
 	}
 
 	private TargetPeriod halfYearly(LocalDate date) {
 		int half = date.getMonthValue() <= Month.JUNE.getValue() ? 1 : 2;
 		Month startMonth = half == 1 ? Month.JANUARY : Month.JULY;
 		LocalDate start = LocalDate.of(date.getYear(), startMonth, 1);
-		return new TargetPeriod(
-			TargetPeriodStrategy.HALF_YEARLY,
-			"%04d-h%d".formatted(start.getYear(), half),
-			start.atStartOfDay().toInstant(ZoneOffset.UTC),
-			start.plusMonths(6).atStartOfDay().toInstant(ZoneOffset.UTC)
-		);
+		return TargetPeriod.builder()
+			.withStrategy(TargetPeriodStrategy.HALF_YEARLY)
+			.withKey("%04d-h%d".formatted(start.getYear(), half))
+			.withStartInclusive(start.atStartOfDay().toInstant(ZoneOffset.UTC))
+			.withEndExclusive(start.plusMonths(6).atStartOfDay().toInstant(ZoneOffset.UTC))
+			.build();
 	}
 
 	private TargetPeriod yearly(LocalDate date) {
 		LocalDate start = LocalDate.of(date.getYear(), Month.JANUARY, 1);
-		return new TargetPeriod(
-			TargetPeriodStrategy.YEARLY,
-			"%04d".formatted(start.getYear()),
-			start.atStartOfDay().toInstant(ZoneOffset.UTC),
-			start.plusYears(1).atStartOfDay().toInstant(ZoneOffset.UTC)
-		);
+		return TargetPeriod.builder()
+			.withStrategy(TargetPeriodStrategy.YEARLY)
+			.withKey("%04d".formatted(start.getYear()))
+			.withStartInclusive(start.atStartOfDay().toInstant(ZoneOffset.UTC))
+			.withEndExclusive(start.plusYears(1).atStartOfDay().toInstant(ZoneOffset.UTC))
+			.build();
 	}
 }

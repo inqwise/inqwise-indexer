@@ -37,10 +37,10 @@ public final class DeleteIndexerCommandHandler implements CommandHandler {
 			);
 		}
 
-		return indexerOperations.markDeleting(new MarkIndexerDeletingRequest(
-			delete.getIndexerId(),
-			delete.getExpectedVersion()
-		)).compose(marked -> marked
+		return indexerOperations.markDeleting(MarkIndexerDeletingRequest.builder()
+			.withIndexerId(delete.getIndexerId())
+			.withExpectedVersion(delete.getExpectedVersion())
+			.build()).compose(marked -> marked
 			.map(indexer -> commandService.submit(new CleanupDeletingIndexerCommand(
 				indexer.indexerId()
 			)))

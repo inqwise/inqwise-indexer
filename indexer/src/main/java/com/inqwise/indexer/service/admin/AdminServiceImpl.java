@@ -209,10 +209,10 @@ public class AdminServiceImpl implements AdminService {
 			}
 
 			Integer indexerId = request.getIndexerId();
-			return indexerOperations.markDeleting(new MarkIndexerDeletingRequest(
-				indexerId,
-				request.getExpectedVersion()
-			)).compose(marked -> marked
+			return indexerOperations.markDeleting(MarkIndexerDeletingRequest.builder()
+				.withIndexerId(indexerId)
+				.withExpectedVersion(request.getExpectedVersion())
+				.build()).compose(marked -> marked
 				.map(this::submitIndexerCleanup)
 				.orElseGet(() -> Future.failedFuture(IndexerErrors.notFound(
 					"Indexer not found"

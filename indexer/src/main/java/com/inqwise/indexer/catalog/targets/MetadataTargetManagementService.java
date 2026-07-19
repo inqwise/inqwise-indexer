@@ -163,10 +163,10 @@ public class MetadataTargetManagementService implements TargetManagementService 
 	}
 
 	private Future<Void> failIfTargetExists(TargetDefinition definition, TargetPeriod period) {
-		return repository.getTargetByDefinitionAndPeriod(new ConcreteTargetKey(
-			definition.targetName(),
-			period.key()
-		)).compose(found -> found
+		return repository.getTargetByDefinitionAndPeriod(ConcreteTargetKey.builder()
+			.withTargetName(definition.targetName())
+			.withPeriodKey(period.key())
+			.build()).compose(found -> found
 			.map(target -> Future.<Void>failedFuture(
 				"Target already exists: " + definition.targetName()
 			))
