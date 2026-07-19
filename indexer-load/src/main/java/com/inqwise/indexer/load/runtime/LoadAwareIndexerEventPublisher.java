@@ -64,7 +64,10 @@ public class LoadAwareIndexerEventPublisher implements IndexerEventPublisher {
 
 	private Future<Void> stopProvider(IndexerLoadRecord load, String reason) {
 		return loadProviderRegistry.get(load.providerId())
-			.compose(provider -> provider.stop(new LoadStopRequest(load.indexerId(), reason)))
+			.compose(provider -> provider.stop(LoadStopRequest.builder()
+				.withIndexerId(load.indexerId())
+				.withReason(reason)
+				.build()))
 			.recover(ignored -> Future.succeededFuture());
 	}
 

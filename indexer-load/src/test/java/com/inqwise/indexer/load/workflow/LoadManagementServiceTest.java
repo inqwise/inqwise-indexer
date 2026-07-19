@@ -64,6 +64,32 @@ import io.vertx.junit5.VertxTestContext;
 @ExtendWith(VertxExtension.class)
 class LoadManagementServiceTest {
 	@Test
+	void loadRequestCopiesSourceQueryOnInputAndAccess() {
+		JsonObject sourceQuery = new JsonObject().put("segment", "vip");
+		LoadRequest request = new LoadRequest(
+			1,
+			2,
+			null,
+			"history",
+			"customers",
+			"customers-index",
+			"customers-queue",
+			null,
+			null,
+			null,
+			null,
+			sourceQuery,
+			null
+		);
+
+		sourceQuery.put("segment", "changed");
+		JsonObject returnedQuery = request.sourceQuery();
+		returnedQuery.put("segment", "also-changed");
+
+		assertEquals("vip", request.sourceQuery().getString("segment"));
+	}
+
+	@Test
 	void createsLoadWriterStoresSourceFieldsAndStartsProviderAfterExplicitStart(
 		VertxTestContext testContext
 	) {

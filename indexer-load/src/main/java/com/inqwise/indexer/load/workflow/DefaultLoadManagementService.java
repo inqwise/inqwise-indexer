@@ -197,7 +197,10 @@ public final class DefaultLoadManagementService implements LoadManagementService
 			return Future.succeededFuture();
 		}
 		return loadProviderRegistry.get(load.providerId())
-			.compose(provider -> provider.stop(new LoadStopRequest(load.indexerId(), request.reason())));
+			.compose(provider -> provider.stop(LoadStopRequest.builder()
+				.withIndexerId(load.indexerId())
+				.withReason(request.reason())
+				.build()));
 	}
 
 	private Future<Void> submitCleanup(IndexerLoadRecord load) {

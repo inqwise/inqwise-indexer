@@ -27,7 +27,6 @@ import com.inqwise.indexer.provisioning.GeneratedIndexerResources;
 import com.inqwise.indexer.provisioning.IndexerResourceNameGenerator;
 
 import io.vertx.core.Future;
-import io.vertx.core.json.JsonObject;
 
 public final class MetadataLoadCreationCatalog implements LoadCreationCatalog {
 	private final DocumentStoreMetadataRepository metadataRepository;
@@ -97,11 +96,11 @@ public final class MetadataLoadCreationCatalog implements LoadCreationCatalog {
 		return getLoadWriter(load.indexerId())
 			.compose(loadWriter -> getTarget(load.targetId())
 				.compose(target -> verifyLiveWriter(load)
-					.map(ignored -> new LoadStartContext(
-						loadRequest(load, loadWriter, target),
-						loadWriter.indexName(),
-						loadWriter.queueName()
-					))));
+					.map(ignored -> LoadStartContext.builder()
+						.withRequest(loadRequest(load, loadWriter, target))
+						.withIndexName(loadWriter.indexName())
+						.withQueueName(loadWriter.queueName())
+						.build())));
 	}
 
 	private Future<LoadCreationTarget> validateTargetReady(TargetRecord target) {
@@ -114,18 +113,21 @@ public final class MetadataLoadCreationCatalog implements LoadCreationCatalog {
 					+ target.provisioningState()
 			);
 		}
-		return Future.succeededFuture(new LoadCreationTarget(target.id(), target.targetName()));
+		return Future.succeededFuture(LoadCreationTarget.builder()
+			.withId(target.id())
+			.withTargetName(target.targetName())
+			.build());
 	}
 
 	private LoadCreatedIndexer creationIndexer(IndexerRecord indexer) {
-		return new LoadCreatedIndexer(
-			indexer.id(),
-			indexer.targetId(),
-			indexer.prefix(),
-			indexer.indexName(),
-			indexer.queueName(),
-			indexer.version()
-		);
+		return LoadCreatedIndexer.builder()
+			.withId(indexer.id())
+			.withTargetId(indexer.targetId())
+			.withPrefix(indexer.prefix())
+			.withIndexName(indexer.indexName())
+			.withQueueName(indexer.queueName())
+			.withVersion(indexer.version())
+			.build();
 	}
 
 	private Future<IndexerRecord> getLoadWriter(Integer indexerId) {
@@ -159,24 +161,20 @@ public final class MetadataLoadCreationCatalog implements LoadCreationCatalog {
 		IndexerRecord loadWriter,
 		TargetRecord target
 	) {
-		return new LoadRequest(
-			load.indexerId(),
-			load.targetId(),
-			load.liveIndexerId(),
-			load.providerId(),
-			target.targetName(),
-			loadWriter.indexName(),
-			loadWriter.queueName(),
-			load.reloadStartAt(),
-			load.liveReplayFrom(),
-			load.sourceFrom(),
-			load.sourceTo(),
-			copy(load.sourceQuery()),
-			load.sourcePlaybookId()
-		);
-	}
-
-	private JsonObject copy(JsonObject json) {
-		return json == null ? null : json.copy();
+		return LoadRequest.builder()
+			.withIndexerId(load.indexerId())
+			.withTargetId(load.targetId())
+			.withLiveIndexerId(load.liveIndexerId())
+			.withProviderId(load.providerId())
+			.withTargetName(target.targetName())
+			.withIndexName(loadWriter.indexName())
+			.withQueueName(loadWriter.queueName())
+			.withReloadStartAt(load.reloadStartAt())
+			.withLiveReplayFrom(load.liveReplayFrom())
+			.withSourceFrom(load.sourceFrom())
+			.withSourceTo(load.sourceTo())
+			.withSourceQuery(load.sourceQuery())
+			.withSourcePlaybookId(load.sourcePlaybookId())
+			.build();
 	}
 }
