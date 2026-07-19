@@ -27,14 +27,16 @@ public class SubmitIndexActionsCommand implements Command {
 	public SubmitIndexActionsCommand(
 		List<IndexerActionItem> actions
 	) {
-		this(UUID.randomUUID().toString(), actions);
+		this(builder().withActions(actions));
 	}
 
 	public SubmitIndexActionsCommand(
 		String correlationId,
 		List<IndexerActionItem> actions
 	) {
-		this(correlationId, null, null, actions);
+		this(builder()
+			.withCorrelationId(correlationId)
+			.withActions(actions));
 	}
 
 	public SubmitIndexActionsCommand(
@@ -42,7 +44,10 @@ public class SubmitIndexActionsCommand implements Command {
 		Instant timestamp,
 		List<IndexerActionItem> actions
 	) {
-		this(UUID.randomUUID().toString(), targetName, timestamp, actions);
+		this(builder()
+			.withTargetName(targetName)
+			.withTimestamp(timestamp)
+			.withActions(actions));
 	}
 
 	public SubmitIndexActionsCommand(
@@ -51,22 +56,39 @@ public class SubmitIndexActionsCommand implements Command {
 		Instant timestamp,
 		List<IndexerActionItem> actions
 	) {
-		this.correlationId = Objects.requireNonNull(correlationId, "correlationId");
-		this.targetName = targetName;
-		this.timestamp = timestamp;
-		this.actions = validateActions(actions);
+		this(builder()
+			.withCorrelationId(correlationId)
+			.withTargetName(targetName)
+			.withTimestamp(timestamp)
+			.withActions(actions));
 	}
 
 	public SubmitIndexActionsCommand(JsonObject json, String correlationId) {
-		this(
-			correlationId,
-			json.getString("target_name"),
-			json.getString("timestamp") == null ? null : Instant.parse(json.getString("timestamp")),
-			json.getJsonArray("actions", new JsonArray()).stream()
+		this(builder(json, correlationId));
+	}
+
+	private SubmitIndexActionsCommand(Builder builder) {
+		correlationId = Objects.requireNonNull(builder.correlationId, "correlationId");
+		targetName = builder.targetName;
+		timestamp = builder.timestamp;
+		actions = validateActions(builder.actions);
+	}
+
+	public static Builder builder() {
+		return new Builder();
+	}
+
+	public static Builder builder(JsonObject json, String correlationId) {
+		Objects.requireNonNull(json, "json");
+		String timestamp = json.getString("timestamp");
+		return builder()
+			.withCorrelationId(correlationId)
+			.withTargetName(json.getString("target_name"))
+			.withTimestamp(timestamp == null ? null : Instant.parse(timestamp))
+			.withActions(json.getJsonArray("actions", new JsonArray()).stream()
 				.map(JsonObject.class::cast)
 				.map(IndexerActionItem::fromJson)
-				.toList()
-		);
+				.toList());
 	}
 
 	@Override
@@ -175,5 +197,39 @@ public class SubmitIndexActionsCommand implements Command {
 	private boolean isDocumentMutation(IndexerActionItem action) {
 		return action.getActionType() == IndexerActionType.PUT_DOCUMENT
 			|| action.getActionType() == IndexerActionType.REMOVE_DOCUMENT;
+	}
+
+	public static final class Builder {
+		private String correlationId = UUID.randomUUID().toString();
+		private String targetName;
+		private Instant timestamp;
+		private List<IndexerActionItem> actions;
+
+		private Builder() {
+		}
+
+		public Builder withCorrelationId(String value) {
+			correlationId = value;
+			return this;
+		}
+
+		public Builder withTargetName(String value) {
+			targetName = value;
+			return this;
+		}
+
+		public Builder withTimestamp(Instant value) {
+			timestamp = value;
+			return this;
+		}
+
+		public Builder withActions(List<IndexerActionItem> value) {
+			actions = value == null ? null : List.copyOf(value);
+			return this;
+		}
+
+		public SubmitIndexActionsCommand build() {
+			return new SubmitIndexActionsCommand(this);
+		}
 	}
 }

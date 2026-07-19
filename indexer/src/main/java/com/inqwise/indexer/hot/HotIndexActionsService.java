@@ -135,18 +135,20 @@ public class HotIndexActionsService {
 
 	private SubmitIndexActionsCommand fallbackCommand(HotIndexActionsRequest request) {
 		if (hasTargetEnvelope(request)) {
-			return new SubmitIndexActionsCommand(
-				request.targetName(),
-				request.timestamp(),
-				request.actions()
-			);
+			return SubmitIndexActionsCommand.builder()
+				.withTargetName(request.targetName())
+				.withTimestamp(request.timestamp())
+				.withActions(request.actions())
+				.build();
 		}
 
 		if (request.timestamp() != null) {
 			throw new IllegalArgumentException("Timestamp is allowed only with target envelope routing");
 		}
 
-		return new SubmitIndexActionsCommand(request.actions());
+		return SubmitIndexActionsCommand.builder()
+			.withActions(request.actions())
+			.build();
 	}
 
 	private boolean hasTargetEnvelope(HotIndexActionsRequest request) {

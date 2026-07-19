@@ -39,13 +39,13 @@ public class MetadataHotIndexer implements HotIndexerCapability {
 	public Optional<IndexerActionItem> route(IndexerActionItem item, IndexerActionRouteMode mode) {
 		return Actions.getProvider(item.getActionType())
 			.router()
-			.route(new IndexerActionRouteContext(
-				record.targetId(),
-				record.id(),
-				record.targetName(),
-				record.indexName(),
-				queueName(),
-				record.role()
-			), item, mode);
+			.route(IndexerActionRouteContext.builder()
+				.withTargetId(record.targetId())
+				.withIndexerId(record.id())
+				.withTargetName(record.targetName())
+				.withIndexName(record.indexName())
+				.withQueueName(queueName())
+				.withRole(record.role())
+				.build(), item, mode);
 	}
 }

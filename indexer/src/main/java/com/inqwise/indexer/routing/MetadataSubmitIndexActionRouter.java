@@ -498,14 +498,14 @@ class MetadataSubmitIndexActionRouter {
 	) {
 		return Actions.getProvider(action.getActionType())
 			.router()
-			.route(new IndexerActionRouteContext(
-				indexer.getTargetId(),
-				indexer.getId(),
-				indexer.getTargetName(),
-				indexer.getIndexName(),
-				getQueueName(indexer),
-				indexer.getRole()
-			), action, IndexerActionRouteMode.DIRECT)
+			.route(IndexerActionRouteContext.builder()
+				.withTargetId(indexer.getTargetId())
+				.withIndexerId(indexer.getId())
+				.withTargetName(indexer.getTargetName())
+				.withIndexName(indexer.getIndexName())
+				.withQueueName(getQueueName(indexer))
+				.withRole(indexer.getRole())
+				.build(), action, IndexerActionRouteMode.DIRECT)
 			.orElseThrow(() -> new IllegalArgumentException(
 				"Action is not accepted by indexer: " + indexer.getIndexName()
 			));

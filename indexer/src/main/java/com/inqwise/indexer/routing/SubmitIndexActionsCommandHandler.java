@@ -119,10 +119,10 @@ public class SubmitIndexActionsCommandHandler implements CommandHandler {
 
 	@Override
 	public Future<Void> handle(Command command) {
-		SubmitIndexActionsCommand submit = new SubmitIndexActionsCommand(
+		SubmitIndexActionsCommand submit = SubmitIndexActionsCommand.builder(
 			command.toJson(),
 			command.getCorrelationId()
-		);
+		).build();
 
 		return route(submit)
 			.compose(groups -> publish(groups)

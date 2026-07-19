@@ -126,14 +126,13 @@ public class QueueLoadWriter implements LoadWriter {
 		return switch (item.getActionType()) {
 			case PUT_DOCUMENT, REMOVE_DOCUMENT -> Actions.getProvider(item.getActionType())
 				.router()
-				.route(new IndexerActionRouteContext(
-					targetId,
-					indexerId,
-					null,
-					indexName,
-					queueName,
-					IndexerRole.LOAD_WRITER
-				), item, IndexerActionRouteMode.DIRECT)
+				.route(IndexerActionRouteContext.builder()
+					.withTargetId(targetId)
+					.withIndexerId(indexerId)
+					.withIndexName(indexName)
+					.withQueueName(queueName)
+					.withRole(IndexerRole.LOAD_WRITER)
+					.build(), item, IndexerActionRouteMode.DIRECT)
 				.orElseThrow(() -> new IllegalArgumentException("Action is not accepted by load writer"));
 			case COMPLETE, CATCH_UP_BARRIER -> throw new IllegalArgumentException(
 				"LoadWriter.submit does not accept internal marker action: " + item.getActionType()

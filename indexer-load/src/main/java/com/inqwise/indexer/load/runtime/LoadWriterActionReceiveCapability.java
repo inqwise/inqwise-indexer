@@ -106,7 +106,10 @@ public class LoadWriterActionReceiveCapability implements IndexerActionReceiveCa
 	) {
 		if (load.liveIndexerId() != null) {
 			return lazyLiveWriterCatalog.getLiveWriter(load.liveIndexerId())
-				.map(indexer -> new PreparedIndexers(java.util.List.of(indexer), false));
+				.map(indexer -> PreparedIndexers.builder()
+					.withIndexers(java.util.List.of(indexer))
+					.withMetadataChanged(false)
+					.build());
 		}
 
 		if (!isActive(load.state())) {
@@ -208,7 +211,10 @@ public class LoadWriterActionReceiveCapability implements IndexerActionReceiveCa
 		String correlationId
 	) {
 		if (attached.liveIndexerId().equals(candidate.getId())) {
-			return Future.succeededFuture(new PreparedIndexers(java.util.List.of(candidate), true));
+			return Future.succeededFuture(PreparedIndexers.builder()
+				.withIndexers(java.util.List.of(candidate))
+				.withMetadataChanged(true)
+				.build());
 		}
 
 		return abandonCandidate(
@@ -218,7 +224,10 @@ public class LoadWriterActionReceiveCapability implements IndexerActionReceiveCa
 			LazyLiveWriterPreparationConflictReason.ATTACH_LOST,
 			correlationId
 		).compose(ignored -> lazyLiveWriterCatalog.getLiveWriter(attached.liveIndexerId())
-			.map(winner -> new PreparedIndexers(java.util.List.of(winner), false)));
+			.map(winner -> PreparedIndexers.builder()
+				.withIndexers(java.util.List.of(winner))
+				.withMetadataChanged(false)
+				.build()));
 	}
 
 	private Future<Void> abandonCandidate(

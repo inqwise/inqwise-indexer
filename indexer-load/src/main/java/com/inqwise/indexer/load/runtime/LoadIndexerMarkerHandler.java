@@ -138,7 +138,9 @@ public class LoadIndexerMarkerHandler implements IndexerMarkerHandler {
 			.withBarrierId(load.lastBarrierId())
 			.withBarrierTimestamp(load.lastBarrierTimestamp())
 			.build();
-		return commandService.submit(new SubmitIndexActionsCommand(List.of(barrier)));
+		return commandService.submit(SubmitIndexActionsCommand.builder()
+			.withActions(List.of(barrier))
+			.build());
 	}
 
 	private Future<Void> markBarrierReached(
