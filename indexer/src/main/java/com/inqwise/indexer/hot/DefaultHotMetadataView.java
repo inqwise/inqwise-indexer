@@ -154,14 +154,14 @@ public class DefaultHotMetadataView implements HotMetadataView {
 				definition.targetName(),
 				definition.periodStrategy(),
 				concreteTargets.stream()
-					.map(target -> new HotConcreteTarget(
-						target.id(),
-						target.targetName(),
-						target.periodKey(),
-						target.periodStartInclusive(),
-						target.periodEndExclusive(),
-						liveWritersByTargetId.getOrDefault(target.id(), List.of())
-					))
+					.map(target -> HotConcreteTarget.builder()
+						.withTargetId(target.id())
+						.withTargetName(target.targetName())
+						.withPeriodKey(target.periodKey())
+						.withPeriodStartInclusive(target.periodStartInclusive())
+						.withPeriodEndExclusive(target.periodEndExclusive())
+						.withLiveWriters(liveWritersByTargetId.getOrDefault(target.id(), List.of()))
+						.build())
 					.toList()
 			);
 

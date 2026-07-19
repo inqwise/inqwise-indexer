@@ -27,14 +27,18 @@ public record InvalidRouteInvalidation(
 		Integer indexerId,
 		String indexName
 	) {
-		return new InvalidRouteInvalidation(
-			targetName,
-			periodKey,
-			targetId,
-			indexerId,
-			indexName,
-			false
-		);
+		return builder()
+			.withTargetName(targetName)
+			.withPeriodKey(periodKey)
+			.withTargetId(targetId)
+			.withIndexerId(indexerId)
+			.withIndexName(indexName)
+			.withPeriodKeyWildcard(false)
+			.build();
+	}
+
+	public static Builder builder() {
+		return new Builder();
 	}
 
 	public boolean matches(InvalidRouteSignature signature) {
@@ -55,5 +59,58 @@ public record InvalidRouteInvalidation(
 
 	private boolean matches(Object expected, Object actual) {
 		return expected == null || expected.equals(actual);
+	}
+
+	public static final class Builder {
+		private String targetName;
+		private String periodKey;
+		private Integer targetId;
+		private Integer indexerId;
+		private String indexName;
+		private boolean periodKeyWildcard = true;
+
+		private Builder() {
+		}
+
+		public Builder withTargetName(String value) {
+			targetName = value;
+			return this;
+		}
+
+		public Builder withPeriodKey(String value) {
+			periodKey = value;
+			return this;
+		}
+
+		public Builder withTargetId(Integer value) {
+			targetId = value;
+			return this;
+		}
+
+		public Builder withIndexerId(Integer value) {
+			indexerId = value;
+			return this;
+		}
+
+		public Builder withIndexName(String value) {
+			indexName = value;
+			return this;
+		}
+
+		public Builder withPeriodKeyWildcard(boolean value) {
+			periodKeyWildcard = value;
+			return this;
+		}
+
+		public InvalidRouteInvalidation build() {
+			return new InvalidRouteInvalidation(
+				targetName,
+				periodKey,
+				targetId,
+				indexerId,
+				indexName,
+				periodKeyWildcard
+			);
+		}
 	}
 }

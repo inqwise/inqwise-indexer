@@ -54,24 +54,24 @@ public class InMemoryInvalidRouteCache implements InvalidRouteCache {
 		Instant now = clock.instant();
 		records.compute(signature, (ignored, existing) -> {
 			if (existing == null || isExpired(existing, now)) {
-				return new InvalidRouteRecord(
-					signature,
-					reason,
-					now,
-					now,
-					now.plus(ttl),
-					1L
-				);
+				return InvalidRouteRecord.builder()
+					.withSignature(signature)
+					.withReason(reason)
+					.withFirstSeenAt(now)
+					.withLastSeenAt(now)
+					.withExpiresAt(now.plus(ttl))
+					.withCount(1L)
+					.build();
 			}
 
-			return new InvalidRouteRecord(
-				signature,
-				reason,
-				existing.firstSeenAt(),
-				now,
-				now.plus(ttl),
-				existing.count() + 1
-			);
+			return InvalidRouteRecord.builder()
+				.withSignature(signature)
+				.withReason(reason)
+				.withFirstSeenAt(existing.firstSeenAt())
+				.withLastSeenAt(now)
+				.withExpiresAt(now.plus(ttl))
+				.withCount(existing.count() + 1)
+				.build();
 		});
 	}
 

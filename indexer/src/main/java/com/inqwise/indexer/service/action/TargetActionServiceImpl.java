@@ -27,11 +27,11 @@ public class TargetActionServiceImpl implements TargetActionService {
 		try {
 			validate(request);
 			String submissionId = resolveSubmissionId(request);
-			return hotActions.submit(new HotIndexActionsRequest(
-				request.getTargetName(),
-				request.getTimestamp(),
-				request.getActions()
-			)).map(new TargetActionSubmitResult()
+			return hotActions.submit(HotIndexActionsRequest.builder()
+				.withTargetName(request.getTargetName())
+				.withTimestamp(request.getTimestamp())
+				.withActions(request.getActions())
+				.build()).map(new TargetActionSubmitResult()
 				.setSubmissionId(submissionId)
 				.setState(TargetActionSubmitState.ACCEPTED))
 				.recover(error -> Future.failedFuture(IndexerErrors.normalize(error)));

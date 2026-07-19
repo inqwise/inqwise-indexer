@@ -184,13 +184,13 @@ public class SubmitIndexActionsCommandHandler implements CommandHandler {
 		return invalidRouteSignatures(submit)
 			.map(signatures -> {
 				for (InvalidRouteSignature signature : signatures) {
-					invalidRouteCache.invalidateMatching(new InvalidRouteInvalidation(
-						signature.targetName(),
-						signature.periodKey(),
-						signature.targetId(),
-						signature.indexerId(),
-						signature.indexName()
-					));
+					invalidRouteCache.invalidateMatching(InvalidRouteInvalidation.builder()
+						.withTargetName(signature.targetName())
+						.withPeriodKey(signature.periodKey())
+						.withTargetId(signature.targetId())
+						.withIndexerId(signature.indexerId())
+						.withIndexName(signature.indexName())
+						.build());
 				}
 
 				return null;

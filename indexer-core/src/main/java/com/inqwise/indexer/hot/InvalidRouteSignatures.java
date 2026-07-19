@@ -34,13 +34,13 @@ public final class InvalidRouteSignatures {
 	) {
 		ActionDestination destination = ActionDestination.from(action);
 		boolean hasTargetEnvelope = targetName != null;
-		return new InvalidRouteSignature(
-			hasTargetEnvelope ? targetName : null,
-			hasTargetEnvelope ? periodKey : null,
-			hasTargetEnvelope ? null : destination.targetId(),
-			hasTargetEnvelope ? null : destination.indexerId(),
-			hasTargetEnvelope ? null : destination.indexName(),
-			action.getActionType()
-		);
+		return InvalidRouteSignature.builder()
+			.withTargetName(hasTargetEnvelope ? targetName : null)
+			.withPeriodKey(hasTargetEnvelope ? periodKey : null)
+			.withTargetId(hasTargetEnvelope ? null : destination.targetId())
+			.withIndexerId(hasTargetEnvelope ? null : destination.indexerId())
+			.withIndexName(hasTargetEnvelope ? null : destination.indexName())
+			.withActionType(action.getActionType())
+			.build();
 	}
 }

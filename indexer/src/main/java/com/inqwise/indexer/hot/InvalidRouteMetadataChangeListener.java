@@ -102,20 +102,12 @@ public class InvalidRouteMetadataChangeListener {
 	}
 
 	private void invalidateDirectIndexerRoutes(Integer targetId, Integer indexerId) {
-		invalidRouteCache.invalidateMatching(new InvalidRouteInvalidation(
-			null,
-			null,
-			targetId,
-			null,
-			null
-		));
-		invalidRouteCache.invalidateMatching(new InvalidRouteInvalidation(
-			null,
-			null,
-			null,
-			indexerId,
-			null
-		));
+		invalidRouteCache.invalidateMatching(InvalidRouteInvalidation.builder()
+			.withTargetId(targetId)
+			.build());
+		invalidRouteCache.invalidateMatching(InvalidRouteInvalidation.builder()
+			.withIndexerId(indexerId)
+			.build());
 	}
 
 	private void invalidate(TargetRecord target) {
@@ -124,32 +116,23 @@ public class InvalidRouteMetadataChangeListener {
 
 	private void invalidate(Integer targetId, String targetName, String periodKey) {
 		invalidateTargetEnvelope(targetName, periodKey);
-		invalidRouteCache.invalidateMatching(new InvalidRouteInvalidation(
-			null,
-			null,
-			targetId,
-			null,
-			null
-		));
+		invalidRouteCache.invalidateMatching(InvalidRouteInvalidation.builder()
+			.withTargetId(targetId)
+			.build());
 	}
 
 	private void invalidateTargetEnvelope(String targetName, String periodKey) {
-		invalidRouteCache.invalidateMatching(InvalidRouteInvalidation.exactPeriodKey(
-			targetName,
-			null,
-			null,
-			null,
-			null
-		));
+		invalidRouteCache.invalidateMatching(InvalidRouteInvalidation.builder()
+			.withTargetName(targetName)
+			.withPeriodKeyWildcard(false)
+			.build());
 
 		if (periodKey != null) {
-			invalidRouteCache.invalidateMatching(InvalidRouteInvalidation.exactPeriodKey(
-				targetName,
-				periodKey,
-				null,
-				null,
-				null
-			));
+			invalidRouteCache.invalidateMatching(InvalidRouteInvalidation.builder()
+				.withTargetName(targetName)
+				.withPeriodKey(periodKey)
+				.withPeriodKeyWildcard(false)
+				.build());
 		}
 	}
 

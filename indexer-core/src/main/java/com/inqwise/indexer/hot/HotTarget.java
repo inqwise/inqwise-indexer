@@ -93,13 +93,13 @@ public class HotTarget {
 		}
 
 		return new HotRouteResult.Routed(actionsByIndexer.entrySet().stream()
-			.map(entry -> new RoutedIndexActions(
-				entry.getKey().id(),
-				entry.getKey().targetId(),
-				0L,
-				entry.getKey().queueName(),
-				entry.getValue()
-			))
+			.map(entry -> RoutedIndexActions.builder()
+				.withIndexerId(entry.getKey().id())
+				.withTargetId(entry.getKey().targetId())
+				.withIndexerVersion(0L)
+				.withQueueName(entry.getKey().queueName())
+				.withActions(entry.getValue())
+				.build())
 			.toList());
 	}
 

@@ -111,14 +111,14 @@ class MetadataSubmitIndexActionRouter {
 			.map(entry -> {
 				IndexerActionGroup group = entry.getValue();
 				IndexerModel indexer = group.indexer();
-				return new RoutedIndexActions(
-					indexer.getId(),
-					indexer.getTargetId(),
-					indexer.getVersion(),
-					getQueueName(indexer),
-					group.actions(),
-					routingContext.metadataChanged(indexer.getId())
-				);
+				return RoutedIndexActions.builder()
+					.withIndexerId(indexer.getId())
+					.withTargetId(indexer.getTargetId())
+					.withIndexerVersion(indexer.getVersion())
+					.withQueueName(getQueueName(indexer))
+					.withActions(group.actions())
+					.withMetadataChanged(routingContext.metadataChanged(indexer.getId()))
+					.build();
 			})
 			.toList());
 	}
