@@ -24,6 +24,18 @@ public final class CleanupResetIndexerQueueCommand implements Command {
 		);
 	}
 
+	public static CleanupResetIndexerQueueCommand fromJson(JsonObject json) {
+		Objects.requireNonNull(json, "json");
+		return builder()
+			.withIndexerId(json.getInteger("indexer_id"))
+			.withQueueName(json.getString("queue_name"))
+			.build();
+	}
+
+	public static Builder builder() {
+		return new Builder();
+	}
+
 	@Override
 	public String getType() {
 		return TYPE;
@@ -42,5 +54,27 @@ public final class CleanupResetIndexerQueueCommand implements Command {
 		return new JsonObject()
 			.put("indexer_id", indexerId)
 			.put("queue_name", queueName);
+	}
+
+	public static final class Builder {
+		private Integer indexerId;
+		private String queueName;
+
+		private Builder() {
+		}
+
+		public Builder withIndexerId(Integer value) {
+			indexerId = value;
+			return this;
+		}
+
+		public Builder withQueueName(String value) {
+			queueName = value;
+			return this;
+		}
+
+		public CleanupResetIndexerQueueCommand build() {
+			return new CleanupResetIndexerQueueCommand(indexerId, queueName);
+		}
 	}
 }

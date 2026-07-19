@@ -63,7 +63,11 @@ public record CommandEnvelope(
 	}
 
 	public GenericCommand toCommand() {
-		return new GenericCommand(commandType, correlationId, payload);
+		return GenericCommand.builder()
+			.withType(commandType)
+			.withCorrelationId(correlationId)
+			.withPayload(payload)
+			.build();
 	}
 
 	public JsonObject toJson() {

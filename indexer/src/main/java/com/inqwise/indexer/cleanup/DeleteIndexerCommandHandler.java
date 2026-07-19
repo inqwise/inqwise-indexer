@@ -29,7 +29,7 @@ public final class DeleteIndexerCommandHandler implements CommandHandler {
 
 	@Override
 	public Future<Void> handle(Command command) {
-		DeleteIndexerCommand delete = new DeleteIndexerCommand(command.toJson());
+		DeleteIndexerCommand delete = DeleteIndexerCommand.fromJson(command.toJson());
 		if (delete.getExpectedVersion() == null) {
 			return Future.failedFuture(
 				"Expected version is required for metadata indexer delete: "
@@ -41,9 +41,9 @@ public final class DeleteIndexerCommandHandler implements CommandHandler {
 			.withIndexerId(delete.getIndexerId())
 			.withExpectedVersion(delete.getExpectedVersion())
 			.build()).compose(marked -> marked
-			.map(indexer -> commandService.submit(new CleanupDeletingIndexerCommand(
-				indexer.indexerId()
-			)))
+			.map(indexer -> commandService.submit(CleanupDeletingIndexerCommand.builder()
+				.withIndexerId(indexer.indexerId())
+				.build()))
 			.orElseGet(Future::succeededFuture));
 	}
 }

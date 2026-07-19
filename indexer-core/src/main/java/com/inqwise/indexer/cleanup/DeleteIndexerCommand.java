@@ -25,6 +25,18 @@ public class DeleteIndexerCommand implements Command {
 		this(json.getInteger("indexer_id"), json.getLong("expected_version"));
 	}
 
+	public static DeleteIndexerCommand fromJson(JsonObject json) {
+		Objects.requireNonNull(json, "json");
+		return builder()
+			.withIndexerId(json.getInteger("indexer_id"))
+			.withExpectedVersion(json.getLong("expected_version"))
+			.build();
+	}
+
+	public static Builder builder() {
+		return new Builder();
+	}
+
 	@Override
 	public String getType() {
 		return TYPE;
@@ -48,5 +60,27 @@ public class DeleteIndexerCommand implements Command {
 		}
 
 		return json;
+	}
+
+	public static final class Builder {
+		private Integer indexerId;
+		private Long expectedVersion;
+
+		private Builder() {
+		}
+
+		public Builder withIndexerId(Integer value) {
+			indexerId = value;
+			return this;
+		}
+
+		public Builder withExpectedVersion(Long value) {
+			expectedVersion = value;
+			return this;
+		}
+
+		public DeleteIndexerCommand build() {
+			return new DeleteIndexerCommand(indexerId, expectedVersion);
+		}
 	}
 }

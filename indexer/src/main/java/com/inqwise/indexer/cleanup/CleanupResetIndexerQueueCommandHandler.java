@@ -25,7 +25,7 @@ public final class CleanupResetIndexerQueueCommandHandler implements CommandHand
 	@Override
 	public Future<Void> handle(Command command) {
 		CleanupResetIndexerQueueCommand cleanup =
-			new CleanupResetIndexerQueueCommand(command.toJson());
+			CleanupResetIndexerQueueCommand.fromJson(command.toJson());
 		return queueResources.delete(cleanup.getQueueName());
 	}
 }

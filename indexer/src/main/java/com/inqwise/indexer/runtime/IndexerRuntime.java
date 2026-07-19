@@ -166,7 +166,9 @@ public class IndexerRuntime {
 		IndexerEventPublisher eventPublisher,
 		IndexerMarkerHandler markerHandler
 	) {
-		IndexerOptions resolvedOptions = options == null ? new IndexerOptions() : options;
+		IndexerOptions resolvedOptions = options == null
+			? IndexerOptions.builder().build()
+			: options;
 		IndexerEventPublisher resolvedPublisher = eventPublisher == null
 			? IndexerEventPublisher.NOOP
 			: eventPublisher;

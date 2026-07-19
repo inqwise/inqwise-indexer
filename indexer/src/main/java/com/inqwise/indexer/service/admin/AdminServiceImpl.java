@@ -226,9 +226,9 @@ public class AdminServiceImpl implements AdminService {
 	private Future<AdminIndexerResult> submitIndexerCleanup(IndexerDeletionResult deletion) {
 		return repository.getIndexerById(deletion.indexerId())
 			.compose(found -> found
-				.map(indexer -> commandService.submit(new CleanupDeletingIndexerCommand(
-					deletion.indexerId()
-				)).map(ignored -> new AdminIndexerResult().setIndexer(
+				.map(indexer -> commandService.submit(CleanupDeletingIndexerCommand.builder()
+					.withIndexerId(deletion.indexerId())
+					.build()).map(ignored -> new AdminIndexerResult().setIndexer(
 					AdminIndexerView.from(indexer)
 				)))
 				.orElseGet(() -> Future.failedFuture(IndexerErrors.notFound(

@@ -176,7 +176,7 @@ public final class DefaultIndexerNodeComponentsFactory {
 			vertx,
 			queue,
 			documentStore,
-			new IndexerOptions(),
+			IndexerOptions.builder().build(),
 			IndexerEventPublisher.NOOP
 		);
 		IndexerRuntimeReconciler runtimeReconciler = new IndexerRuntimeReconciler(

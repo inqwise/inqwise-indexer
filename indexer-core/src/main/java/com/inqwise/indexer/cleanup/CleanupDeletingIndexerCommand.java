@@ -19,6 +19,17 @@ public final class CleanupDeletingIndexerCommand implements Command {
 		this(json.getInteger("indexer_id"));
 	}
 
+	public static CleanupDeletingIndexerCommand fromJson(JsonObject json) {
+		Objects.requireNonNull(json, "json");
+		return builder()
+			.withIndexerId(json.getInteger("indexer_id"))
+			.build();
+	}
+
+	public static Builder builder() {
+		return new Builder();
+	}
+
 	@Override
 	public String getType() {
 		return TYPE;
@@ -32,5 +43,21 @@ public final class CleanupDeletingIndexerCommand implements Command {
 	public JsonObject toJson() {
 		return new JsonObject()
 			.put("indexer_id", indexerId);
+	}
+
+	public static final class Builder {
+		private Integer indexerId;
+
+		private Builder() {
+		}
+
+		public Builder withIndexerId(Integer value) {
+			indexerId = value;
+			return this;
+		}
+
+		public CleanupDeletingIndexerCommand build() {
+			return new CleanupDeletingIndexerCommand(indexerId);
+		}
 	}
 }

@@ -21,6 +21,10 @@ public final class GenericCommand implements Command {
 		this.payload = Objects.requireNonNull(payload, "payload").copy();
 	}
 
+	public static Builder builder() {
+		return new Builder();
+	}
+
 	@Override
 	public String getType() {
 		return type;
@@ -42,5 +46,33 @@ public final class GenericCommand implements Command {
 			throw new IllegalArgumentException(name + " cannot be blank");
 		}
 		return value;
+	}
+
+	public static final class Builder {
+		private String type;
+		private String correlationId;
+		private JsonObject payload;
+
+		private Builder() {
+		}
+
+		public Builder withType(String value) {
+			type = value;
+			return this;
+		}
+
+		public Builder withCorrelationId(String value) {
+			correlationId = value;
+			return this;
+		}
+
+		public Builder withPayload(JsonObject value) {
+			payload = value == null ? null : value.copy();
+			return this;
+		}
+
+		public GenericCommand build() {
+			return new GenericCommand(type, correlationId, payload);
+		}
 	}
 }

@@ -249,10 +249,10 @@ public class LoadWriterActionReceiveCapability implements IndexerActionReceiveCa
 			);
 		}
 
-		return commandService.submit(new DeleteIndexerCommand(
-			candidate.getId(),
-			candidate.getVersion()
-		))
+		return commandService.submit(DeleteIndexerCommand.builder()
+			.withIndexerId(candidate.getId())
+			.withExpectedVersion(candidate.getVersion())
+			.build())
 			.compose(ignored -> publishConflict(
 				load,
 				candidate.getId(),

@@ -24,7 +24,7 @@ public class IndexerProcessorVerticle extends VerticleBase {
 		IndexerEventPublisher eventPublisher
 	) {
 		this.model = Objects.requireNonNull(model, "model");
-		this.options = options == null ? new IndexerOptions() : options;
+		this.options = options == null ? IndexerOptions.builder().build() : options;
 		this.queue = Objects.requireNonNull(queue, "queue");
 		this.processHandler = Objects.requireNonNull(processHandler, "processHandler");
 		this.eventPublisher = eventPublisher == null ? IndexerEventPublisher.NOOP : eventPublisher;
@@ -32,11 +32,11 @@ public class IndexerProcessorVerticle extends VerticleBase {
 
 	@Override
 	public Future<?> start() {
-		IndexerQueueConsumerOptions consumerOptions = new IndexerQueueConsumerOptions(
-			model.getTargetName(),
-			getQueueName(),
-			options.getBulkSize()
-		);
+		IndexerQueueConsumerOptions consumerOptions = IndexerQueueConsumerOptions.builder()
+			.withTargetName(model.getTargetName())
+			.withQueueName(getQueueName())
+			.withBulkSize(options.getBulkSize())
+			.build();
 
 		return queue.consumer(consumerOptions)
 			.compose(created -> {

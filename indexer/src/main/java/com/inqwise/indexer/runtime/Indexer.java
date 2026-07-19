@@ -43,7 +43,7 @@ public class Indexer {
 	private Future<Void> activation;
 
 	public Indexer(Vertx vertx, IndexerModel model, IndexerDocumentStore documentStore) {
-		this(vertx, model, documentStore, new IndexerOptions());
+		this(vertx, model, documentStore, IndexerOptions.builder().build());
 	}
 
 	public Indexer(
@@ -185,7 +185,7 @@ public class Indexer {
 		this.vertx = Objects.requireNonNull(vertx, "vertx");
 		this.model = Objects.requireNonNull(model, "model");
 		this.documentStore = Objects.requireNonNull(documentStore, "documentStore");
-		this.options = options == null ? new IndexerOptions() : options;
+		this.options = options == null ? IndexerOptions.builder().build() : options;
 		this.queue = queue;
 		this.eventPublisher = eventPublisher == null ? IndexerEventPublisher.NOOP : eventPublisher;
 		this.processor = processor;
@@ -217,11 +217,11 @@ public class Indexer {
 			return Future.succeededFuture();
 		}
 
-		IndexerQueueConsumerOptions consumerOptions = new IndexerQueueConsumerOptions(
-			model.getTargetName(),
-			getQueueName(),
-			options.getBulkSize()
-		);
+		IndexerQueueConsumerOptions consumerOptions = IndexerQueueConsumerOptions.builder()
+			.withTargetName(model.getTargetName())
+			.withQueueName(getQueueName())
+			.withBulkSize(options.getBulkSize())
+			.build();
 
 		return queue.consumer(consumerOptions)
 			.compose(consumer -> {
@@ -528,10 +528,10 @@ public class Indexer {
 	}
 
 	public IndexerSnapshot status() {
-		return new IndexerSnapshot(
-			model,
-			getQueueName()
-		);
+		return IndexerSnapshot.builder()
+			.withModel(model)
+			.withQueueName(getQueueName())
+			.build();
 	}
 
 	public Future<IndexerModel> delete() {

@@ -40,7 +40,7 @@ public final class CleanupDeletingIndexerCommandHandler implements CommandHandle
 	@Override
 	public Future<Void> handle(Command command) {
 		CleanupDeletingIndexerCommand cleanup =
-			new CleanupDeletingIndexerCommand(command.toJson());
+			CleanupDeletingIndexerCommand.fromJson(command.toJson());
 
 		return repository.getIndexerById(cleanup.getIndexerId())
 			.compose(found -> found

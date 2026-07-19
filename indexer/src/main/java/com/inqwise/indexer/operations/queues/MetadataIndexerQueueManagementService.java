@@ -90,9 +90,12 @@ public final class MetadataIndexerQueueManagementService
 			.withTargetId(indexer.targetId())
 			.withCommandType(CHANGE_TYPE)
 			.withVersion(version)
-			.build()).compose(ignored -> commandService.submit(new CleanupResetIndexerQueueCommand(
-			indexer.id(), oldQueueName
-		)));
+			.build()).compose(ignored -> commandService.submit(
+				CleanupResetIndexerQueueCommand.builder()
+					.withIndexerId(indexer.id())
+					.withQueueName(oldQueueName)
+					.build()
+			));
 	}
 
 	private String nextQueueName(String queueName, long expectedVersion) {

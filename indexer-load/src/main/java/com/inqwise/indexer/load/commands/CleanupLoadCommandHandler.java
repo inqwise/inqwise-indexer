@@ -93,6 +93,9 @@ public final class CleanupLoadCommandHandler implements CommandHandler {
 	}
 
 	private Future<Void> submitDelete(LoadIndexerReference indexer) {
-		return commandService.submit(new DeleteIndexerCommand(indexer.id(), indexer.version()));
+		return commandService.submit(DeleteIndexerCommand.builder()
+			.withIndexerId(indexer.id())
+			.withExpectedVersion(indexer.version())
+			.build());
 	}
 }
