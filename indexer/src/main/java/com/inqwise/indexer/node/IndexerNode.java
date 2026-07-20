@@ -47,13 +47,17 @@ public class IndexerNode {
 		IndexerNodeComponents components
 	) {
 		this.vertx = Objects.requireNonNull(vertx, "vertx");
-		this.options = (options == null ? new IndexerNodeOptions() : options).validate();
+		this.options = (
+			options == null ? IndexerNodeOptions.builder().build() : options
+		).validate();
 		this.components = Objects.requireNonNull(components, "components");
 		this.components.runtimeReconciler().onFailure(this::enterRecoveryOnly);
 	}
 
 	public static IndexerNode create(Vertx vertx, IndexerNodeOptions options) {
-		IndexerNodeOptions resolved = options == null ? new IndexerNodeOptions() : options;
+		IndexerNodeOptions resolved = options == null
+			? IndexerNodeOptions.builder().build()
+			: options;
 		resolved.validate();
 		return new IndexerNode(
 			vertx,

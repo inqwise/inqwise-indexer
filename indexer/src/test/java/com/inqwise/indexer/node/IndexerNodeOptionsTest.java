@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.Test;
 
+import com.inqwise.indexer.lifecycle.IndexerLifecycleEventBusConfig;
 import com.inqwise.indexer.runtime.IndexerRuntimeReconcilerOptions;
 import com.inqwise.indexer.lifecycle.VertxIndexerLifecycleEventBusOptions;
 import com.inqwise.indexer.gateway.GatewayRestOptions;
@@ -52,6 +53,83 @@ class IndexerNodeOptionsTest {
 			VertxIndexerLifecycleEventBusOptions.DEFAULT_MAX_TRANSPORT_LAG_MS,
 			options.getLifecycleEventBusOptions().getMaxTransportLagMs()
 		);
+	}
+
+	@Test
+	void builderCopiesMutableNestedOptions() {
+		AdminRestOptions adminRestOptions = AdminRestOptions.builder()
+			.withPort(9090)
+			.build();
+		IndexerServiceDeploymentOptions adminDeployment =
+			IndexerServiceDeploymentOptions.builder()
+				.withEnabled(false)
+				.build();
+		IndexerNodeOptions.Builder builder = IndexerNodeOptions.builder()
+			.withAdminRestOptions(adminRestOptions)
+			.withService(IndexerNodeOptions.Services.ADMIN, adminDeployment);
+
+		adminRestOptions.setPort(9091);
+		adminDeployment.setEnabled(true);
+		IndexerNodeOptions first = builder.build();
+		assertEquals(9090, first.getAdminRestOptions().getPort());
+		assertFalse(first.admin().isEnabled());
+
+		first.getAdminRestOptions().setPort(9092);
+		first.admin().setEnabled(true);
+		IndexerNodeOptions second = builder.build();
+		assertEquals(9090, second.getAdminRestOptions().getPort());
+		assertFalse(second.admin().isEnabled());
+	}
+
+	@Test
+	void builderComposesEveryNestedOptionGroup() {
+		IndexerNodeOptions options = IndexerNodeOptions.builder()
+			.withAdminRestOptions(AdminRestOptions.builder().withPort(9001).build())
+			.withTargetActionRestOptions(
+				TargetActionRestOptions.builder().withPort(9002).build()
+			)
+			.withRuntimeRestOptions(RuntimeRestOptions.builder().withPort(9003).build())
+			.withRuntimeReconcilerOptions(
+				IndexerRuntimeReconcilerOptions.builder()
+					.withMaxDirtyIndexers(25)
+					.withSafetySyncIntervalMs(1_000L)
+					.build()
+			)
+			.withLifecycleEventBusConfig(
+				IndexerLifecycleEventBusConfig.builder()
+					.withNamespace("production")
+					.build()
+			)
+			.withLifecycleEventBusOptions(
+				VertxIndexerLifecycleEventBusOptions.builder()
+					.withMaxTransportLagMs(500L)
+					.withSignalCooldownMs(2_000L)
+					.build()
+			)
+			.withGatewayOptions(
+				GatewayRestOptions.builder()
+					.withPort(9004)
+					.withApiKey("secret")
+					.build()
+			)
+			.withTargetInvalidationOptions(
+				TargetInvalidationNodeOptions.builder()
+					.withNamespace("production")
+					.withMaxTargets(500)
+					.build()
+			)
+			.build();
+
+		assertEquals(9001, options.getAdminRestOptions().getPort());
+		assertEquals(9002, options.getTargetActionRestOptions().getPort());
+		assertEquals(9003, options.getRuntimeRestOptions().getPort());
+		assertEquals(25, options.getRuntimeReconcilerOptions().getMaxDirtyIndexers());
+		assertEquals("production", options.getLifecycleEventBusConfig().namespace());
+		assertEquals(500L, options.getLifecycleEventBusOptions().getMaxTransportLagMs());
+		assertEquals(9004, options.getGatewayOptions().getPort());
+		assertEquals("secret", options.getGatewayOptions().getApiKey());
+		assertEquals("production", options.getTargetInvalidationOptions().getNamespace());
+		assertEquals(500, options.getTargetInvalidationOptions().getMaxTargets());
 	}
 
 	@Test

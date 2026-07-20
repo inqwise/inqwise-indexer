@@ -2,6 +2,7 @@ package com.inqwise.indexer.node;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 import com.inqwise.indexer.lifecycle.IndexerLifecycleEventBusConfig;
@@ -125,6 +126,10 @@ public class IndexerNodeOptions {
 			json.getJsonObject(Keys.TARGET_INVALIDATION, new JsonObject())
 		);
 		validate();
+	}
+
+	public static Builder builder() {
+		return new Builder();
 	}
 
 	public JsonObject toJson() {
@@ -356,6 +361,181 @@ public class IndexerNodeOptions {
 		return this;
 	}
 
+	public static final class Builder {
+		private final Map<String, IndexerServiceDeploymentOptions> services =
+			new LinkedHashMap<>();
+		private AdminRestOptions adminRestOptions;
+		private TargetActionRestOptions targetActionRestOptions;
+		private RuntimeRestOptions runtimeRestOptions;
+		private IndexerRuntimeReconcilerOptions runtimeReconcilerOptions;
+		private IndexerLifecycleEventBusConfig lifecycleEventBusConfig;
+		private VertxIndexerLifecycleEventBusOptions lifecycleEventBusOptions;
+		private GatewayRestOptions gatewayOptions;
+		private TargetInvalidationNodeOptions targetInvalidationOptions;
+
+		private Builder() {
+		}
+
+		public Builder withService(String name, IndexerServiceDeploymentOptions value) {
+			requireKnownService(name);
+			services.put(name, copy(Objects.requireNonNull(value, "value")));
+			return this;
+		}
+
+		public Builder withAdminRestOptions(AdminRestOptions value) {
+			adminRestOptions = copy(Objects.requireNonNull(value, "value"));
+			return this;
+		}
+
+		public Builder withTargetActionRestOptions(TargetActionRestOptions value) {
+			targetActionRestOptions = copy(Objects.requireNonNull(value, "value"));
+			return this;
+		}
+
+		public Builder withRuntimeRestOptions(RuntimeRestOptions value) {
+			runtimeRestOptions = copy(Objects.requireNonNull(value, "value"));
+			return this;
+		}
+
+		public Builder withRuntimeReconcilerOptions(
+			IndexerRuntimeReconcilerOptions value
+		) {
+			runtimeReconcilerOptions = copy(Objects.requireNonNull(value, "value"));
+			return this;
+		}
+
+		public Builder withLifecycleEventBusConfig(IndexerLifecycleEventBusConfig value) {
+			lifecycleEventBusConfig = Objects.requireNonNull(value, "value");
+			return this;
+		}
+
+		public Builder withLifecycleEventBusOptions(
+			VertxIndexerLifecycleEventBusOptions value
+		) {
+			lifecycleEventBusOptions = copy(Objects.requireNonNull(value, "value"));
+			return this;
+		}
+
+		public Builder withGatewayOptions(GatewayRestOptions value) {
+			gatewayOptions = copy(Objects.requireNonNull(value, "value"));
+			return this;
+		}
+
+		public Builder withTargetInvalidationOptions(TargetInvalidationNodeOptions value) {
+			targetInvalidationOptions = copy(Objects.requireNonNull(value, "value"));
+			return this;
+		}
+
+		public IndexerNodeOptions build() {
+			IndexerNodeOptions options = new IndexerNodeOptions();
+			for (Map.Entry<String, IndexerServiceDeploymentOptions> entry : services.entrySet()) {
+				options.services.put(entry.getKey(), copy(entry.getValue()));
+			}
+			if (adminRestOptions != null) {
+				options.adminRestOptions = copy(adminRestOptions);
+			}
+			if (targetActionRestOptions != null) {
+				options.targetActionRestOptions = copy(targetActionRestOptions);
+			}
+			if (runtimeRestOptions != null) {
+				options.runtimeRestOptions = copy(runtimeRestOptions);
+			}
+			if (runtimeReconcilerOptions != null) {
+				options.runtimeReconcilerOptions = copy(runtimeReconcilerOptions);
+			}
+			if (lifecycleEventBusConfig != null) {
+				options.lifecycleEventBusConfig = lifecycleEventBusConfig;
+			}
+			if (lifecycleEventBusOptions != null) {
+				options.lifecycleEventBusOptions = copy(lifecycleEventBusOptions);
+			}
+			if (gatewayOptions != null) {
+				options.gatewayOptions = copy(gatewayOptions);
+			}
+			if (targetInvalidationOptions != null) {
+				options.targetInvalidationOptions = copy(targetInvalidationOptions);
+			}
+			return options.validate();
+		}
+	}
+
+	private static IndexerServiceDeploymentOptions copy(
+		IndexerServiceDeploymentOptions value
+	) {
+		return IndexerServiceDeploymentOptions.builder()
+			.withEnabled(value.isEnabled())
+			.withInstances(value.getInstances())
+			.build();
+	}
+
+	private static AdminRestOptions copy(AdminRestOptions value) {
+		return AdminRestOptions.builder()
+			.withHost(value.getHost())
+			.withPort(value.getPort())
+			.withOpenApiPath(value.getOpenApiPath())
+			.build();
+	}
+
+	private static TargetActionRestOptions copy(TargetActionRestOptions value) {
+		return TargetActionRestOptions.builder()
+			.withHost(value.getHost())
+			.withPort(value.getPort())
+			.withOpenApiPath(value.getOpenApiPath())
+			.build();
+	}
+
+	private static RuntimeRestOptions copy(RuntimeRestOptions value) {
+		return RuntimeRestOptions.builder()
+			.withHost(value.getHost())
+			.withPort(value.getPort())
+			.withOpenApiPath(value.getOpenApiPath())
+			.build();
+	}
+
+	private static IndexerRuntimeReconcilerOptions copy(
+		IndexerRuntimeReconcilerOptions value
+	) {
+		return IndexerRuntimeReconcilerOptions.builder()
+			.withMaxDirtyIndexers(value.getMaxDirtyIndexers())
+			.withSafetySyncIntervalMs(value.getSafetySyncIntervalMs())
+			.build();
+	}
+
+	private static VertxIndexerLifecycleEventBusOptions copy(
+		VertxIndexerLifecycleEventBusOptions value
+	) {
+		return VertxIndexerLifecycleEventBusOptions.builder()
+			.withMaxTransportLagMs(value.getMaxTransportLagMs())
+			.withSignalCooldownMs(value.getSignalCooldownMs())
+			.build();
+	}
+
+	private static GatewayRestOptions copy(GatewayRestOptions value) {
+		return GatewayRestOptions.builder()
+			.withHost(value.getHost())
+			.withPort(value.getPort())
+			.withOpenApiPath(value.getOpenApiPath())
+			.withAdminRestBaseUri(value.getAdminRestBaseUri())
+			.withRequestTimeoutMs(value.getRequestTimeoutMs())
+			.withApiKey(value.getApiKey())
+			.withApiKeyHeader(value.getApiKeyHeader())
+			.withRateLimitRequests(value.getRateLimitRequests())
+			.withRateLimitWindowMs(value.getRateLimitWindowMs())
+			.build();
+	}
+
+	private static TargetInvalidationNodeOptions copy(
+		TargetInvalidationNodeOptions value
+	) {
+		return TargetInvalidationNodeOptions.builder()
+			.withNamespace(value.getNamespace())
+			.withProvider(value.getProvider())
+			.withPollIntervalMs(value.getPollIntervalMs())
+			.withRetentionFactor(value.getRetentionFactor())
+			.withMaxTargets(value.getMaxTargets())
+			.build();
+	}
+
 	private void addDefaults() {
 		services.put(Services.ADMIN, IndexerServiceDeploymentOptions.builder().build());
 		services.put(
@@ -382,7 +562,7 @@ public class IndexerNodeOptions {
 		);
 	}
 
-	private void requireKnownService(String name) {
+	private static void requireKnownService(String name) {
 		if (!Services.ALL.contains(name)) {
 			throw new IllegalArgumentException("Unknown indexer node service: " + name);
 		}
