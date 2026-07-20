@@ -1,6 +1,7 @@
 package com.inqwise.indexer.service.admin;
 
 import java.time.Instant;
+import java.util.Objects;
 
 import com.inqwise.indexer.catalog.indexers.IndexResourceOwnership;
 import com.inqwise.indexer.catalog.indexers.IndexerRole;
@@ -81,6 +82,10 @@ public class AdminIndexerView {
 		this.version = json.getLong(Keys.VERSION, 0L);
 	}
 
+	public static Builder builder() {
+		return new Builder();
+	}
+
 	public JsonObject toJson() {
 		return new JsonObject()
 			.put(Keys.ID, id)
@@ -103,24 +108,26 @@ public class AdminIndexerView {
 	}
 
 	public static AdminIndexerView from(IndexerRecord record) {
-		return new AdminIndexerView()
-			.setId(record.id())
-			.setUid(record.uid())
-			.setTargetId(record.targetId())
-			.setTargetName(record.targetName())
-			.setIndexName(record.indexName())
-			.setQueueName(record.queueName())
-			.setType(record.type())
-			.setRole(record.role())
-			.setIndexOwnership(record.indexOwnership())
-			.setStatus(record.status())
-			.setProvisioningState(record.provisioningState())
-			.setRuntimeState(record.runtimeState())
-			.setPublicationState(record.publicationState())
-			.setMutationState(record.mutationState())
-			.setCreatedAt(record.createdAt())
-			.setUpdatedAt(record.updatedAt())
-			.setVersion(record.version());
+		Objects.requireNonNull(record, "record");
+		return builder()
+			.withId(record.id())
+			.withUid(record.uid())
+			.withTargetId(record.targetId())
+			.withTargetName(record.targetName())
+			.withIndexName(record.indexName())
+			.withQueueName(record.queueName())
+			.withType(record.type())
+			.withRole(record.role())
+			.withIndexOwnership(record.indexOwnership())
+			.withStatus(record.status())
+			.withProvisioningState(record.provisioningState())
+			.withRuntimeState(record.runtimeState())
+			.withPublicationState(record.publicationState())
+			.withMutationState(record.mutationState())
+			.withCreatedAt(record.createdAt())
+			.withUpdatedAt(record.updatedAt())
+			.withVersion(record.version())
+			.build();
 	}
 
 	public Integer getId() {
@@ -292,5 +299,140 @@ public class AdminIndexerView {
 	private static <E extends Enum<E>> E enumValue(JsonObject json, String key, Class<E> type) {
 		String value = json.getString(key);
 		return value == null ? null : Enum.valueOf(type, value);
+	}
+
+	public static final class Builder {
+		private Integer id;
+		private String uid;
+		private Integer targetId;
+		private String targetName;
+		private String indexName;
+		private String queueName;
+		private IndexerType type;
+		private IndexerRole role;
+		private IndexResourceOwnership indexOwnership;
+		private IndexerStatus status;
+		private IndexerProvisioningState provisioningState;
+		private IndexerRuntimeState runtimeState;
+		private PublicationState publicationState;
+		private MutationState mutationState;
+		private Instant createdAt;
+		private Instant updatedAt;
+		private Long version;
+
+		private Builder() {
+		}
+
+		public Builder withId(Integer value) {
+			id = value;
+			return this;
+		}
+
+		public Builder withUid(String value) {
+			uid = value;
+			return this;
+		}
+
+		public Builder withTargetId(Integer value) {
+			targetId = value;
+			return this;
+		}
+
+		public Builder withTargetName(String value) {
+			targetName = value;
+			return this;
+		}
+
+		public Builder withIndexName(String value) {
+			indexName = value;
+			return this;
+		}
+
+		public Builder withQueueName(String value) {
+			queueName = value;
+			return this;
+		}
+
+		public Builder withType(IndexerType value) {
+			type = value;
+			return this;
+		}
+
+		public Builder withRole(IndexerRole value) {
+			role = value;
+			return this;
+		}
+
+		public Builder withIndexOwnership(IndexResourceOwnership value) {
+			indexOwnership = value;
+			return this;
+		}
+
+		public Builder withStatus(IndexerStatus value) {
+			status = value;
+			return this;
+		}
+
+		public Builder withProvisioningState(IndexerProvisioningState value) {
+			provisioningState = value;
+			return this;
+		}
+
+		public Builder withRuntimeState(IndexerRuntimeState value) {
+			runtimeState = value;
+			return this;
+		}
+
+		public Builder withPublicationState(PublicationState value) {
+			publicationState = value;
+			return this;
+		}
+
+		public Builder withMutationState(MutationState value) {
+			mutationState = value;
+			return this;
+		}
+
+		public Builder withCreatedAt(Instant value) {
+			createdAt = value;
+			return this;
+		}
+
+		public Builder withUpdatedAt(Instant value) {
+			updatedAt = value;
+			return this;
+		}
+
+		public Builder withVersion(long value) {
+			version = value;
+			return this;
+		}
+
+		public AdminIndexerView build() {
+			return new AdminIndexerView()
+				.setId(Objects.requireNonNull(id, "id"))
+				.setUid(Objects.requireNonNull(uid, "uid"))
+				.setTargetId(Objects.requireNonNull(targetId, "targetId"))
+				.setTargetName(Objects.requireNonNull(targetName, "targetName"))
+				.setIndexName(Objects.requireNonNull(indexName, "indexName"))
+				.setQueueName(queueName)
+				.setType(Objects.requireNonNull(type, "type"))
+				.setRole(Objects.requireNonNull(role, "role"))
+				.setIndexOwnership(Objects.requireNonNull(indexOwnership, "indexOwnership"))
+				.setStatus(Objects.requireNonNull(status, "status"))
+				.setProvisioningState(Objects.requireNonNull(
+					provisioningState,
+					"provisioningState"
+				))
+				.setRuntimeState(Objects.requireNonNull(runtimeState, "runtimeState"))
+				.setPublicationState(Objects.requireNonNull(
+					publicationState,
+					"publicationState"
+				))
+				.setMutationState(Objects.requireNonNull(mutationState, "mutationState"))
+				.setCreatedAt(Objects.requireNonNull(createdAt, "createdAt"))
+				.setUpdatedAt(Objects.requireNonNull(updatedAt, "updatedAt"))
+				.setVersion(Objects.requireNonNull(version, "version"));
+		}
 	}
 }

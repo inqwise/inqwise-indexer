@@ -27,6 +27,10 @@ public class AdminTargetListResult {
 			.toList();
 	}
 
+	public static Builder builder() {
+		return new Builder();
+	}
+
 	public JsonObject toJson() {
 		return new JsonObject().put(Keys.TARGETS, new JsonArray(targets.stream()
 			.map(AdminTargetView::toJson)
@@ -40,5 +44,21 @@ public class AdminTargetListResult {
 	public AdminTargetListResult setTargets(List<AdminTargetView> targets) {
 		this.targets = targets == null ? List.of() : List.copyOf(targets);
 		return this;
+	}
+
+	public static final class Builder {
+		private List<AdminTargetView> targets = List.of();
+
+		private Builder() {
+		}
+
+		public Builder withTargets(List<AdminTargetView> value) {
+			targets = value == null ? List.of() : List.copyOf(value);
+			return this;
+		}
+
+		public AdminTargetListResult build() {
+			return new AdminTargetListResult().setTargets(targets);
+		}
 	}
 }

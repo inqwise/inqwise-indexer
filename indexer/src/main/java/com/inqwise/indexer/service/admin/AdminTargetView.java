@@ -1,6 +1,7 @@
 package com.inqwise.indexer.service.admin;
 
 import java.time.Instant;
+import java.util.Objects;
 
 import com.inqwise.indexer.catalog.targets.TargetProvisioningState;
 import com.inqwise.indexer.metadata.TargetRecord;
@@ -57,6 +58,10 @@ public class AdminTargetView {
 		this.version = json.getLong(Keys.VERSION, 0L);
 	}
 
+	public static Builder builder() {
+		return new Builder();
+	}
+
 	public JsonObject toJson() {
 		return new JsonObject()
 			.put(Keys.ID, id)
@@ -73,18 +78,20 @@ public class AdminTargetView {
 	}
 
 	public static AdminTargetView from(TargetRecord record) {
-		return new AdminTargetView()
-			.setId(record.id())
-			.setUid(record.uid())
-			.setTargetName(record.targetName())
-			.setPeriodKey(record.periodKey())
-			.setPeriodStartInclusive(record.periodStartInclusive())
-			.setPeriodEndExclusive(record.periodEndExclusive())
-			.setStatus(record.status())
-			.setProvisioningState(record.provisioningState())
-			.setCreatedAt(record.createdAt())
-			.setUpdatedAt(record.updatedAt())
-			.setVersion(record.version());
+		Objects.requireNonNull(record, "record");
+		return builder()
+			.withId(record.id())
+			.withUid(record.uid())
+			.withTargetName(record.targetName())
+			.withPeriodKey(record.periodKey())
+			.withPeriodStartInclusive(record.periodStartInclusive())
+			.withPeriodEndExclusive(record.periodEndExclusive())
+			.withStatus(record.status())
+			.withProvisioningState(record.provisioningState())
+			.withCreatedAt(record.createdAt())
+			.withUpdatedAt(record.updatedAt())
+			.withVersion(record.version())
+			.build();
 	}
 
 	public Integer getId() {
@@ -202,5 +209,95 @@ public class AdminTargetView {
 	private static <E extends Enum<E>> E enumValue(JsonObject json, String key, Class<E> type) {
 		String value = json.getString(key);
 		return value == null ? null : Enum.valueOf(type, value);
+	}
+
+	public static final class Builder {
+		private Integer id;
+		private String uid;
+		private String targetName;
+		private String periodKey;
+		private Instant periodStartInclusive;
+		private Instant periodEndExclusive;
+		private TargetStatus status;
+		private TargetProvisioningState provisioningState;
+		private Instant createdAt;
+		private Instant updatedAt;
+		private Long version;
+
+		private Builder() {
+		}
+
+		public Builder withId(Integer value) {
+			id = value;
+			return this;
+		}
+
+		public Builder withUid(String value) {
+			uid = value;
+			return this;
+		}
+
+		public Builder withTargetName(String value) {
+			targetName = value;
+			return this;
+		}
+
+		public Builder withPeriodKey(String value) {
+			periodKey = value;
+			return this;
+		}
+
+		public Builder withPeriodStartInclusive(Instant value) {
+			periodStartInclusive = value;
+			return this;
+		}
+
+		public Builder withPeriodEndExclusive(Instant value) {
+			periodEndExclusive = value;
+			return this;
+		}
+
+		public Builder withStatus(TargetStatus value) {
+			status = value;
+			return this;
+		}
+
+		public Builder withProvisioningState(TargetProvisioningState value) {
+			provisioningState = value;
+			return this;
+		}
+
+		public Builder withCreatedAt(Instant value) {
+			createdAt = value;
+			return this;
+		}
+
+		public Builder withUpdatedAt(Instant value) {
+			updatedAt = value;
+			return this;
+		}
+
+		public Builder withVersion(long value) {
+			version = value;
+			return this;
+		}
+
+		public AdminTargetView build() {
+			return new AdminTargetView()
+				.setId(Objects.requireNonNull(id, "id"))
+				.setUid(Objects.requireNonNull(uid, "uid"))
+				.setTargetName(Objects.requireNonNull(targetName, "targetName"))
+				.setPeriodKey(periodKey)
+				.setPeriodStartInclusive(periodStartInclusive)
+				.setPeriodEndExclusive(periodEndExclusive)
+				.setStatus(Objects.requireNonNull(status, "status"))
+				.setProvisioningState(Objects.requireNonNull(
+					provisioningState,
+					"provisioningState"
+				))
+				.setCreatedAt(Objects.requireNonNull(createdAt, "createdAt"))
+				.setUpdatedAt(Objects.requireNonNull(updatedAt, "updatedAt"))
+				.setVersion(Objects.requireNonNull(version, "version"));
+		}
 	}
 }

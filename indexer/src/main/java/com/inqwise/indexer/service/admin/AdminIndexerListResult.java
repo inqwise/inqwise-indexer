@@ -27,6 +27,10 @@ public class AdminIndexerListResult {
 			.toList();
 	}
 
+	public static Builder builder() {
+		return new Builder();
+	}
+
 	public JsonObject toJson() {
 		return new JsonObject().put(Keys.INDEXERS, new JsonArray(indexers.stream()
 			.map(AdminIndexerView::toJson)
@@ -40,5 +44,21 @@ public class AdminIndexerListResult {
 	public AdminIndexerListResult setIndexers(List<AdminIndexerView> indexers) {
 		this.indexers = indexers == null ? List.of() : List.copyOf(indexers);
 		return this;
+	}
+
+	public static final class Builder {
+		private List<AdminIndexerView> indexers = List.of();
+
+		private Builder() {
+		}
+
+		public Builder withIndexers(List<AdminIndexerView> value) {
+			indexers = value == null ? List.of() : List.copyOf(value);
+			return this;
+		}
+
+		public AdminIndexerListResult build() {
+			return new AdminIndexerListResult().setIndexers(indexers);
+		}
 	}
 }

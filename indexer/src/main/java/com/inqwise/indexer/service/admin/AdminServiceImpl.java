@@ -99,9 +99,11 @@ public class AdminServiceImpl implements AdminService {
 		try {
 			AdminTargetQuery resolved = query == null ? AdminTargetQuery.builder().build() : query;
 			return repository.listTargets(resolved.toCatalogQuery())
-				.map(targets -> new AdminTargetListResult().setTargets(targets.stream()
-					.map(AdminTargetView::from)
-					.toList()))
+				.map(targets -> AdminTargetListResult.builder()
+					.withTargets(targets.stream()
+						.map(AdminTargetView::from)
+						.toList())
+					.build())
 				.recover(error -> Future.failedFuture(IndexerErrors.normalize(error)));
 		} catch (Throwable error) {
 			return Future.failedFuture(IndexerErrors.normalize(error));
@@ -113,9 +115,11 @@ public class AdminServiceImpl implements AdminService {
 		try {
 			AdminIndexerQuery resolved = query == null ? AdminIndexerQuery.builder().build() : query;
 			return repository.listIndexers(resolved.toMetadataQuery())
-				.map(indexers -> new AdminIndexerListResult().setIndexers(indexers.stream()
-					.map(AdminIndexerView::from)
-					.toList()))
+				.map(indexers -> AdminIndexerListResult.builder()
+					.withIndexers(indexers.stream()
+						.map(AdminIndexerView::from)
+						.toList())
+					.build())
 				.recover(error -> Future.failedFuture(IndexerErrors.normalize(error)));
 		} catch (Throwable error) {
 			return Future.failedFuture(IndexerErrors.normalize(error));
@@ -228,9 +232,9 @@ public class AdminServiceImpl implements AdminService {
 			.compose(found -> found
 				.map(indexer -> commandService.submit(CleanupDeletingIndexerCommand.builder()
 					.withIndexerId(deletion.indexerId())
-					.build()).map(ignored -> new AdminIndexerResult().setIndexer(
-					AdminIndexerView.from(indexer)
-				)))
+					.build()).map(ignored -> AdminIndexerResult.builder()
+						.withIndexer(AdminIndexerView.from(indexer))
+						.build()))
 				.orElseGet(() -> Future.failedFuture(IndexerErrors.notFound(
 					"Indexer not found"
 				))));
@@ -335,14 +339,14 @@ public class AdminServiceImpl implements AdminService {
 	private AdminTargetResult targetResult(Optional<TargetRecord> found) {
 		return found
 			.map(AdminTargetView::from)
-			.map(view -> new AdminTargetResult().setTarget(view))
+			.map(view -> AdminTargetResult.builder().withTarget(view).build())
 			.orElseThrow(() -> IndexerErrors.notFound("Target not found"));
 	}
 
 	private AdminIndexerResult indexerResult(Optional<IndexerRecord> found) {
 		return found
 			.map(AdminIndexerView::from)
-			.map(view -> new AdminIndexerResult().setIndexer(view))
+			.map(view -> AdminIndexerResult.builder().withIndexer(view).build())
 			.orElseThrow(() -> IndexerErrors.notFound("Indexer not found"));
 	}
 
