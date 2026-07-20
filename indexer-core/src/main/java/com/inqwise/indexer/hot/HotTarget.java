@@ -62,45 +62,59 @@ public class HotTarget {
 
 	public HotRouteResult route(HotIndexActionsRequest request) {
 		if (request.actions().isEmpty()) {
-			return new HotRouteResult.Miss("No actions submitted");
+			return HotRouteResult.Miss.builder()
+				.withReason("No actions submitted")
+				.build();
 		}
 
 		if (!matchesTarget(request)) {
-			return new HotRouteResult.Miss("Request target does not match hot target: " + targetName);
+			return HotRouteResult.Miss.builder()
+				.withReason("Request target does not match hot target: " + targetName)
+				.build();
 		}
 
 		TargetPeriod period;
 		try {
 			period = periodResolver.resolve(periodStrategy, request.timestamp());
 		} catch (RuntimeException error) {
-			return new HotRouteResult.Miss(error.getMessage());
+			return HotRouteResult.Miss.builder()
+				.withReason(error.getMessage())
+				.build();
 		}
 
 		HotConcreteTarget concreteTarget = concreteTargetsByPeriodKey.get(periodKey(period.key()));
 		if (concreteTarget == null) {
-			return new HotRouteResult.Miss("Concrete hot target not found: " + period.key());
+			return HotRouteResult.Miss.builder()
+				.withReason("Concrete hot target not found: " + period.key())
+				.build();
 		}
 
 		if (concreteTarget.liveWriters().isEmpty()) {
-			return new HotRouteResult.Miss("No hot live writers for target: " + concreteTarget.targetId());
+			return HotRouteResult.Miss.builder()
+				.withReason("No hot live writers for target: " + concreteTarget.targetId())
+				.build();
 		}
 
 		Map<HotIndexerCapability, List<IndexerActionItem>> actionsByIndexer = new LinkedHashMap<>();
 		for (IndexerActionItem action : request.actions()) {
 			if (!routeAction(concreteTarget, actionsByIndexer, action)) {
-				return new HotRouteResult.Miss("Action was not accepted by hot live writers");
+				return HotRouteResult.Miss.builder()
+					.withReason("Action was not accepted by hot live writers")
+					.build();
 			}
 		}
 
-		return new HotRouteResult.Routed(actionsByIndexer.entrySet().stream()
-			.map(entry -> RoutedIndexActions.builder()
-				.withIndexerId(entry.getKey().id())
-				.withTargetId(entry.getKey().targetId())
-				.withIndexerVersion(0L)
-				.withQueueName(entry.getKey().queueName())
-				.withActions(entry.getValue())
-				.build())
-			.toList());
+		return HotRouteResult.Routed.builder()
+			.withGroups(actionsByIndexer.entrySet().stream()
+				.map(entry -> RoutedIndexActions.builder()
+					.withIndexerId(entry.getKey().id())
+					.withTargetId(entry.getKey().targetId())
+					.withIndexerVersion(0L)
+					.withQueueName(entry.getKey().queueName())
+					.withActions(entry.getValue())
+					.build())
+				.toList())
+			.build();
 	}
 
 	private boolean routeAction(

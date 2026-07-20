@@ -21,12 +21,40 @@ public final class MetadataUid {
 			throw new IllegalArgumentException("Invalid metadata uid: " + uid);
 		}
 
-		return new Parsed(
-			uid.substring(0, separatorIndex),
-			Integer.parseInt(uid.substring(separatorIndex + 1), 36)
-		);
+		return Parsed.builder()
+			.withPrefix(uid.substring(0, separatorIndex))
+			.withId(Integer.parseInt(uid.substring(separatorIndex + 1), 36))
+			.build();
 	}
 
 	public record Parsed(String prefix, Integer id) {
+		public static Builder builder() {
+			return new Builder();
+		}
+
+		public static final class Builder {
+			private String prefix;
+			private Integer id;
+
+			private Builder() {
+			}
+
+			public Builder withPrefix(String value) {
+				prefix = value;
+				return this;
+			}
+
+			public Builder withId(Integer value) {
+				id = value;
+				return this;
+			}
+
+			public Parsed build() {
+				return new Parsed(
+					Objects.requireNonNull(prefix, "prefix"),
+					Objects.requireNonNull(id, "id")
+				);
+			}
+		}
 	}
 }

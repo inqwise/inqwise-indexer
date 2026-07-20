@@ -126,13 +126,13 @@ public final class DefaultIndexerNodeComponentsFactory {
 		InMemoryCommandEngine commandEngine = new InMemoryCommandEngine();
 		DocumentStoreCommandHandlers.register(
 			commandEngine,
-			new DocumentStoreCommandHandlers.Config(
-				repository,
-				documentStore,
-				queue,
-				metadataChangeNotifier,
-				indexerOperations
-			)
+			DocumentStoreCommandHandlers.Config.builder()
+				.withRepository(repository)
+				.withDocumentIndexResources(documentStore)
+				.withQueueResources(queue)
+				.withMetadataChangeNotifier(metadataChangeNotifier)
+				.withIndexerOperations(indexerOperations)
+				.build()
 		);
 		IndexerProvisioningService provisioningService = new MetadataIndexerProvisioningService(
 			repository,

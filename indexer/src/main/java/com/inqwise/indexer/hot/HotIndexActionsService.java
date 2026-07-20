@@ -82,7 +82,9 @@ public class HotIndexActionsService {
 
 		return target
 			.<HotRouteResult>map(found -> found.route(request))
-			.orElseGet(() -> new HotRouteResult.Miss("Hot target not found"));
+			.orElseGet(() -> HotRouteResult.Miss.builder()
+				.withReason("Hot target not found")
+				.build());
 	}
 
 	private HotRouteResult routeDirect(HotIndexActionsRequest request) {
@@ -91,14 +93,18 @@ public class HotIndexActionsService {
 		for (IndexerActionItem action : request.actions()) {
 			ActionDestination destination = ActionDestination.from(action);
 			if (destination.indexerId() == null) {
-				return new HotRouteResult.Miss("Direct hot route requires indexer id");
+				return HotRouteResult.Miss.builder()
+					.withReason("Direct hot route requires indexer id")
+					.build();
 			}
 
 			HotIndexerCapability indexer = hotMetadataView.findIndexerById(
 				destination.indexerId()
 			).orElse(null);
 			if (indexer == null) {
-				return new HotRouteResult.Miss("Hot indexer not found: " + destination.indexerId());
+				return HotRouteResult.Miss.builder()
+					.withReason("Hot indexer not found: " + destination.indexerId())
+					.build();
 			}
 
 			IndexerActionItem routed = indexer.route(action, IndexerActionRouteMode.DIRECT)
@@ -109,15 +115,17 @@ public class HotIndexActionsService {
 				.add(routed);
 		}
 
-		return new HotRouteResult.Routed(actionsByIndexer.entrySet().stream()
-			.map(entry -> RoutedIndexActions.builder()
-				.withIndexerId(entry.getKey().id())
-				.withTargetId(entry.getKey().targetId())
-				.withIndexerVersion(0L)
-				.withQueueName(entry.getKey().queueName())
-				.withActions(entry.getValue())
-				.build())
-			.toList());
+		return HotRouteResult.Routed.builder()
+			.withGroups(actionsByIndexer.entrySet().stream()
+				.map(entry -> RoutedIndexActions.builder()
+					.withIndexerId(entry.getKey().id())
+					.withTargetId(entry.getKey().targetId())
+					.withIndexerVersion(0L)
+					.withQueueName(entry.getKey().queueName())
+					.withActions(entry.getValue())
+					.build())
+				.toList())
+			.build();
 	}
 
 	private Future<Void> fallback(HotIndexActionsRequest request) {

@@ -57,5 +57,57 @@ public final class DocumentStoreCommandHandlers {
 			Objects.requireNonNull(metadataChangeNotifier, "metadataChangeNotifier");
 			Objects.requireNonNull(indexerOperations, "indexerOperations");
 		}
+
+		public static Builder builder() {
+			return new Builder();
+		}
+
+		public static final class Builder {
+			private DocumentStoreMetadataRepository repository;
+			private IndexerDocumentIndexResourceManager documentIndexResources;
+			private IndexerQueueResourceManager queueResources;
+			private MetadataChangeNotifier metadataChangeNotifier;
+			private IndexerOperations indexerOperations;
+
+			private Builder() {
+			}
+
+			public Builder withRepository(DocumentStoreMetadataRepository value) {
+				repository = value;
+				return this;
+			}
+
+			public Builder withDocumentIndexResources(
+				IndexerDocumentIndexResourceManager value
+			) {
+				documentIndexResources = value;
+				return this;
+			}
+
+			public Builder withQueueResources(IndexerQueueResourceManager value) {
+				queueResources = value;
+				return this;
+			}
+
+			public Builder withMetadataChangeNotifier(MetadataChangeNotifier value) {
+				metadataChangeNotifier = value;
+				return this;
+			}
+
+			public Builder withIndexerOperations(IndexerOperations value) {
+				indexerOperations = value;
+				return this;
+			}
+
+			public Config build() {
+				return new Config(
+					Objects.requireNonNull(repository, "repository"),
+					Objects.requireNonNull(documentIndexResources, "documentIndexResources"),
+					Objects.requireNonNull(queueResources, "queueResources"),
+					Objects.requireNonNull(metadataChangeNotifier, "metadataChangeNotifier"),
+					Objects.requireNonNull(indexerOperations, "indexerOperations")
+				);
+			}
+		}
 	}
 }
