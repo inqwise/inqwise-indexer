@@ -10,7 +10,7 @@ public class IndexerSnapshot {
 	private final IndexerModel model;
 	private final String queueName;
 
-	public IndexerSnapshot(IndexerModel model, String queueName) {
+	private IndexerSnapshot(IndexerModel model, String queueName) {
 		this.model = model;
 		this.queueName = queueName;
 	}
