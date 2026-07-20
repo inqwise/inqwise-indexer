@@ -1,6 +1,7 @@
 package com.inqwise.indexer.service.admin;
 
 import java.time.Instant;
+import java.util.Objects;
 
 import com.inqwise.indexer.catalog.targets.CreateTargetRequest;
 
@@ -34,6 +35,10 @@ public class AdminCreateTargetRequest {
 		this.createIndexer = createIndexerJson == null
 			? null
 			: new AdminCreateTargetIndexerRequest(createIndexerJson);
+	}
+
+	public static Builder builder() {
+		return new Builder();
 	}
 
 	public JsonObject toJson() {
@@ -76,5 +81,40 @@ public class AdminCreateTargetRequest {
 	public AdminCreateTargetRequest setCreateIndexer(AdminCreateTargetIndexerRequest createIndexer) {
 		this.createIndexer = createIndexer;
 		return this;
+	}
+
+	public static final class Builder {
+		private String targetName;
+		private Instant timestamp;
+		private AdminCreateTargetIndexerRequest createIndexer;
+
+		private Builder() {
+		}
+
+		public Builder withTargetName(String value) {
+			targetName = value;
+			return this;
+		}
+
+		public Builder withTimestamp(Instant value) {
+			timestamp = value;
+			return this;
+		}
+
+		public Builder withCreateIndexer(AdminCreateTargetIndexerRequest value) {
+			createIndexer = value;
+			return this;
+		}
+
+		public AdminCreateTargetRequest build() {
+			Objects.requireNonNull(targetName, "targetName");
+			if (targetName.isBlank()) {
+				throw new IllegalArgumentException("targetName must not be blank");
+			}
+			return new AdminCreateTargetRequest()
+				.setTargetName(targetName)
+				.setTimestamp(timestamp)
+				.setCreateIndexer(createIndexer);
+		}
 	}
 }

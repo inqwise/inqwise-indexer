@@ -97,7 +97,7 @@ public class AdminServiceImpl implements AdminService {
 	@Override
 	public Future<AdminTargetListResult> listTargets(AdminTargetQuery query) {
 		try {
-			AdminTargetQuery resolved = query == null ? new AdminTargetQuery() : query;
+			AdminTargetQuery resolved = query == null ? AdminTargetQuery.builder().build() : query;
 			return repository.listTargets(resolved.toCatalogQuery())
 				.map(targets -> new AdminTargetListResult().setTargets(targets.stream()
 					.map(AdminTargetView::from)
@@ -111,7 +111,7 @@ public class AdminServiceImpl implements AdminService {
 	@Override
 	public Future<AdminIndexerListResult> listIndexers(AdminIndexerQuery query) {
 		try {
-			AdminIndexerQuery resolved = query == null ? new AdminIndexerQuery() : query;
+			AdminIndexerQuery resolved = query == null ? AdminIndexerQuery.builder().build() : query;
 			return repository.listIndexers(resolved.toMetadataQuery())
 				.map(indexers -> new AdminIndexerListResult().setIndexers(indexers.stream()
 					.map(AdminIndexerView::from)

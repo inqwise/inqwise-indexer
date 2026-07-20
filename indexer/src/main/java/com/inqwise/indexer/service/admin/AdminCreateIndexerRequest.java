@@ -1,5 +1,7 @@
 package com.inqwise.indexer.service.admin;
 
+import java.util.Objects;
+
 import com.inqwise.indexer.catalog.indexers.IndexResourceOwnership;
 import com.inqwise.indexer.catalog.indexers.IndexerRole;
 import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
@@ -33,6 +35,10 @@ public class AdminCreateIndexerRequest {
 		this.targetId = json.getInteger(Keys.TARGET_ID);
 		this.indexName = json.getString(Keys.INDEX_NAME);
 		this.queueName = json.getString(Keys.QUEUE_NAME);
+	}
+
+	public static Builder builder() {
+		return new Builder();
 	}
 
 	public JsonObject toJson() {
@@ -89,6 +95,52 @@ public class AdminCreateIndexerRequest {
 	public AdminCreateIndexerRequest setQueueName(String queueName) {
 		this.queueName = queueName;
 		return this;
+	}
+
+	private static String requireText(String value, String name) {
+		Objects.requireNonNull(value, name);
+		if (value.isBlank()) {
+			throw new IllegalArgumentException(name + " must not be blank");
+		}
+		return value;
+	}
+
+	public static final class Builder {
+		private String prefix;
+		private Integer targetId;
+		private String indexName;
+		private String queueName;
+
+		private Builder() {
+		}
+
+		public Builder withPrefix(String value) {
+			prefix = value;
+			return this;
+		}
+
+		public Builder withTargetId(Integer value) {
+			targetId = value;
+			return this;
+		}
+
+		public Builder withIndexName(String value) {
+			indexName = value;
+			return this;
+		}
+
+		public Builder withQueueName(String value) {
+			queueName = value;
+			return this;
+		}
+
+		public AdminCreateIndexerRequest build() {
+			return new AdminCreateIndexerRequest()
+				.setPrefix(requireText(prefix, "prefix"))
+				.setTargetId(Objects.requireNonNull(targetId, "targetId"))
+				.setIndexName(requireText(indexName, "indexName"))
+				.setQueueName(requireText(queueName, "queueName"));
+		}
 	}
 
 }

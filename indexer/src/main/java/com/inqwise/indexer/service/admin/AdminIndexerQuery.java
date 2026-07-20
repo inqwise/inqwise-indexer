@@ -57,6 +57,10 @@ public class AdminIndexerQuery {
 		this.mutationStates = enums(json, Keys.MUTATION_STATES, MutationState.class);
 	}
 
+	public static Builder builder() {
+		return new Builder();
+	}
+
 	public JsonObject toJson() {
 		return new JsonObject()
 			.put(Keys.IDS, new JsonArray(ids))
@@ -181,5 +185,82 @@ public class AdminIndexerQuery {
 
 	private static JsonArray enumArray(List<? extends Enum<?>> values) {
 		return new JsonArray(values.stream().map(Enum::name).toList());
+	}
+
+	public static final class Builder {
+		private List<Integer> ids = List.of();
+		private List<Integer> targetIds = List.of();
+		private List<IndexerType> types = List.of();
+		private List<IndexerRole> roles = List.of();
+		private List<IndexerStatus> statuses = List.of();
+		private List<IndexerProvisioningState> provisioningStates = List.of();
+		private List<IndexerRuntimeState> runtimeStates = List.of();
+		private List<PublicationState> publicationStates = List.of();
+		private List<MutationState> mutationStates = List.of();
+
+		private Builder() {
+		}
+
+		public Builder withIds(List<Integer> value) {
+			ids = copy(value);
+			return this;
+		}
+
+		public Builder withTargetIds(List<Integer> value) {
+			targetIds = copy(value);
+			return this;
+		}
+
+		public Builder withTypes(List<IndexerType> value) {
+			types = copy(value);
+			return this;
+		}
+
+		public Builder withRoles(List<IndexerRole> value) {
+			roles = copy(value);
+			return this;
+		}
+
+		public Builder withStatuses(List<IndexerStatus> value) {
+			statuses = copy(value);
+			return this;
+		}
+
+		public Builder withProvisioningStates(List<IndexerProvisioningState> value) {
+			provisioningStates = copy(value);
+			return this;
+		}
+
+		public Builder withRuntimeStates(List<IndexerRuntimeState> value) {
+			runtimeStates = copy(value);
+			return this;
+		}
+
+		public Builder withPublicationStates(List<PublicationState> value) {
+			publicationStates = copy(value);
+			return this;
+		}
+
+		public Builder withMutationStates(List<MutationState> value) {
+			mutationStates = copy(value);
+			return this;
+		}
+
+		public AdminIndexerQuery build() {
+			return new AdminIndexerQuery()
+				.setIds(ids)
+				.setTargetIds(targetIds)
+				.setTypes(types)
+				.setRoles(roles)
+				.setStatuses(statuses)
+				.setProvisioningStates(provisioningStates)
+				.setRuntimeStates(runtimeStates)
+				.setPublicationStates(publicationStates)
+				.setMutationStates(mutationStates);
+		}
+
+		private static <T> List<T> copy(List<T> value) {
+			return value == null ? List.of() : List.copyOf(value);
+		}
 	}
 }

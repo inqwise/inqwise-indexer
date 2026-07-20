@@ -24,20 +24,21 @@ public class AdminCreateRequestResolver {
 		Instant timestamp,
 		InitialPublicationMode initialPublicationMode
 	) {
-		AdminCreateTargetRequest request = new AdminCreateTargetRequest()
-			.setTargetName(targetName)
-			.setTimestamp(timestamp);
+		AdminCreateTargetRequest.Builder request = AdminCreateTargetRequest.builder()
+			.withTargetName(targetName)
+			.withTimestamp(timestamp);
 
 		if (initialPublicationMode != null) {
 			GeneratedIndexerResources resources = IndexerResourceNameGenerator.forTarget(targetName);
-			request.setCreateIndexer(new AdminCreateTargetIndexerRequest()
-				.setPrefix(resources.prefix())
-				.setIndexName(resources.indexName())
-				.setQueueName(resources.queueName())
-				.setInitialPublicationMode(initialPublicationMode));
+			request.withCreateIndexer(AdminCreateTargetIndexerRequest.builder()
+				.withPrefix(resources.prefix())
+				.withIndexName(resources.indexName())
+				.withQueueName(resources.queueName())
+				.withInitialPublicationMode(initialPublicationMode)
+				.build());
 		}
 
-		return request;
+		return request.build();
 	}
 
 	public Future<AdminCreateIndexerRequest> indexer(Integer targetId) {
@@ -53,10 +54,11 @@ public class AdminCreateRequestResolver {
 
 	private AdminCreateIndexerRequest indexer(TargetRecord target) {
 		GeneratedIndexerResources resources = IndexerResourceNameGenerator.forTarget(target.targetName());
-		return new AdminCreateIndexerRequest()
-			.setPrefix(resources.prefix())
-			.setTargetId(target.id())
-			.setIndexName(resources.indexName())
-			.setQueueName(resources.queueName());
+		return AdminCreateIndexerRequest.builder()
+			.withPrefix(resources.prefix())
+			.withTargetId(target.id())
+			.withIndexName(resources.indexName())
+			.withQueueName(resources.queueName())
+			.build();
 	}
 }

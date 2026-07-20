@@ -48,6 +48,10 @@ public class AdminTargetQuery {
 			.toList();
 	}
 
+	public static Builder builder() {
+		return new Builder();
+	}
+
 	public JsonObject toJson() {
 		return new JsonObject()
 			.put(Keys.IDS, new JsonArray(ids))
@@ -99,5 +103,43 @@ public class AdminTargetQuery {
 	public AdminTargetQuery setProvisioningStates(List<TargetProvisioningState> provisioningStates) {
 		this.provisioningStates = provisioningStates == null ? List.of() : List.copyOf(provisioningStates);
 		return this;
+	}
+
+	public static final class Builder {
+		private List<Integer> ids = List.of();
+		private List<String> targetNames = List.of();
+		private List<TargetStatus> statuses = List.of();
+		private List<TargetProvisioningState> provisioningStates = List.of();
+
+		private Builder() {
+		}
+
+		public Builder withIds(List<Integer> value) {
+			ids = value == null ? List.of() : List.copyOf(value);
+			return this;
+		}
+
+		public Builder withTargetNames(List<String> value) {
+			targetNames = value == null ? List.of() : List.copyOf(value);
+			return this;
+		}
+
+		public Builder withStatuses(List<TargetStatus> value) {
+			statuses = value == null ? List.of() : List.copyOf(value);
+			return this;
+		}
+
+		public Builder withProvisioningStates(List<TargetProvisioningState> value) {
+			provisioningStates = value == null ? List.of() : List.copyOf(value);
+			return this;
+		}
+
+		public AdminTargetQuery build() {
+			return new AdminTargetQuery()
+				.setIds(ids)
+				.setTargetNames(targetNames)
+				.setStatuses(statuses)
+				.setProvisioningStates(provisioningStates);
+		}
 	}
 }

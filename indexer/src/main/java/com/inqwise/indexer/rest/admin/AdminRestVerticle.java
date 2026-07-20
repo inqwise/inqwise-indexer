@@ -208,11 +208,16 @@ public class AdminRestVerticle extends AbstractVerticle {
 	}
 
 	private static AdminTargetQuery targetQuery(RoutingContext context) {
-		return new AdminTargetQuery()
-			.setIds(queryIntegers(context, "id"))
-			.setTargetNames(context.queryParam("target_name"))
-			.setStatuses(queryEnums(context, "status", TargetStatus.class))
-			.setProvisioningStates(queryEnums(context, "provisioning_state", TargetProvisioningState.class));
+		return AdminTargetQuery.builder()
+			.withIds(queryIntegers(context, "id"))
+			.withTargetNames(context.queryParam("target_name"))
+			.withStatuses(queryEnums(context, "status", TargetStatus.class))
+			.withProvisioningStates(queryEnums(
+				context,
+				"provisioning_state",
+				TargetProvisioningState.class
+			))
+			.build();
 	}
 
 	private static AdminCreateTargetRequest createTargetRequest(
@@ -270,16 +275,33 @@ public class AdminRestVerticle extends AbstractVerticle {
 	}
 
 	private static AdminIndexerQuery indexerQuery(RoutingContext context) {
-		return new AdminIndexerQuery()
-			.setIds(queryIntegers(context, "id"))
-			.setTargetIds(queryIntegers(context, "target_id"))
-			.setTypes(queryEnums(context, "type", IndexerType.class))
-			.setRoles(queryEnums(context, "role", IndexerRole.class))
-			.setStatuses(queryEnums(context, "status", IndexerStatus.class))
-			.setProvisioningStates(queryEnums(context, "provisioning_state", IndexerProvisioningState.class))
-			.setRuntimeStates(queryEnums(context, "runtime_state", IndexerRuntimeState.class))
-			.setPublicationStates(queryEnums(context, "publication_state", PublicationState.class))
-			.setMutationStates(queryEnums(context, "mutation_state", MutationState.class));
+		return AdminIndexerQuery.builder()
+			.withIds(queryIntegers(context, "id"))
+			.withTargetIds(queryIntegers(context, "target_id"))
+			.withTypes(queryEnums(context, "type", IndexerType.class))
+			.withRoles(queryEnums(context, "role", IndexerRole.class))
+			.withStatuses(queryEnums(context, "status", IndexerStatus.class))
+			.withProvisioningStates(queryEnums(
+				context,
+				"provisioning_state",
+				IndexerProvisioningState.class
+			))
+			.withRuntimeStates(queryEnums(
+				context,
+				"runtime_state",
+				IndexerRuntimeState.class
+			))
+			.withPublicationStates(queryEnums(
+				context,
+				"publication_state",
+				PublicationState.class
+			))
+			.withMutationStates(queryEnums(
+				context,
+				"mutation_state",
+				MutationState.class
+			))
+			.build();
 	}
 
 	private static AdminIndexerLifecycleRequest indexerLifecycleRequest(RoutingContext context) {
