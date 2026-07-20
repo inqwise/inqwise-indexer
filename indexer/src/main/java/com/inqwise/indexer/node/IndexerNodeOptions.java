@@ -65,9 +65,10 @@ public class IndexerNodeOptions {
 	}
 
 	private final Map<String, IndexerServiceDeploymentOptions> services = new LinkedHashMap<>();
-	private AdminRestOptions adminRestOptions = new AdminRestOptions();
-	private TargetActionRestOptions targetActionRestOptions = new TargetActionRestOptions();
-	private RuntimeRestOptions runtimeRestOptions = new RuntimeRestOptions();
+	private AdminRestOptions adminRestOptions = AdminRestOptions.builder().build();
+	private TargetActionRestOptions targetActionRestOptions =
+		TargetActionRestOptions.builder().build();
+	private RuntimeRestOptions runtimeRestOptions = RuntimeRestOptions.builder().build();
 	private IndexerRuntimeReconcilerOptions runtimeReconcilerOptions =
 		new IndexerRuntimeReconcilerOptions();
 	private IndexerLifecycleEventBusConfig lifecycleEventBusConfig =
@@ -194,7 +195,7 @@ public class IndexerNodeOptions {
 		AdminRestOptions adminRestOptions
 	) {
 		this.adminRestOptions = adminRestOptions == null
-			? new AdminRestOptions()
+			? AdminRestOptions.builder().build()
 			: adminRestOptions;
 		return this;
 	}
@@ -207,7 +208,7 @@ public class IndexerNodeOptions {
 		TargetActionRestOptions targetActionRestOptions
 	) {
 		this.targetActionRestOptions = targetActionRestOptions == null
-			? new TargetActionRestOptions()
+			? TargetActionRestOptions.builder().build()
 			: targetActionRestOptions;
 		return this;
 	}
@@ -221,7 +222,9 @@ public class IndexerNodeOptions {
 	}
 
 	public IndexerNodeOptions setRuntimeRestOptions(RuntimeRestOptions runtimeRestOptions) {
-		this.runtimeRestOptions = runtimeRestOptions == null ? new RuntimeRestOptions() : runtimeRestOptions;
+		this.runtimeRestOptions = runtimeRestOptions == null
+			? RuntimeRestOptions.builder().build()
+			: runtimeRestOptions;
 		return this;
 	}
 
