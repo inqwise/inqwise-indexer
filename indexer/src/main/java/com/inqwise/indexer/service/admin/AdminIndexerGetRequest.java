@@ -24,6 +24,10 @@ public class AdminIndexerGetRequest {
 		this.uid = json.getString(Keys.UID);
 	}
 
+	public static Builder builder() {
+		return new Builder();
+	}
+
 	public JsonObject toJson() {
 		return new JsonObject()
 			.put(Keys.ID, id)
@@ -46,5 +50,39 @@ public class AdminIndexerGetRequest {
 	public AdminIndexerGetRequest setUid(String uid) {
 		this.uid = uid;
 		return this;
+	}
+
+	public static final class Builder {
+		private Integer id;
+		private String uid;
+
+		private Builder() {
+		}
+
+		public Builder withId(Integer value) {
+			id = value;
+			return this;
+		}
+
+		public Builder withUid(String value) {
+			uid = value;
+			return this;
+		}
+
+		public AdminIndexerGetRequest build() {
+			validateSelector(id, uid);
+			return new AdminIndexerGetRequest()
+				.setId(id)
+				.setUid(uid);
+		}
+	}
+
+	private static void validateSelector(Integer id, String uid) {
+		if (id == null && (uid == null || uid.isBlank())) {
+			throw new IllegalArgumentException("id or uid is required");
+		}
+		if (id != null && uid != null) {
+			throw new IllegalArgumentException("id and uid are mutually exclusive");
+		}
 	}
 }

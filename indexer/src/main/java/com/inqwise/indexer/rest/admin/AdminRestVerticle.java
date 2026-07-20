@@ -101,8 +101,9 @@ public class AdminRestVerticle extends AbstractVerticle {
 				RestOperations.bind(
 					builder,
 					"getTarget",
-					context -> adminService.getTarget(new AdminTargetGetRequest()
-						.setId(pathInteger(context, "id"))),
+					context -> adminService.getTarget(AdminTargetGetRequest.builder()
+						.withId(pathInteger(context, "id"))
+						.build()),
 					AdminRestVerticle::toJson
 				);
 				RestOperations.bind(
@@ -128,8 +129,9 @@ public class AdminRestVerticle extends AbstractVerticle {
 				RestOperations.bind(
 					builder,
 					"getIndexer",
-					context -> adminService.getIndexer(new AdminIndexerGetRequest()
-						.setId(pathInteger(context, "id"))),
+					context -> adminService.getIndexer(AdminIndexerGetRequest.builder()
+						.withId(pathInteger(context, "id"))
+						.build()),
 					AdminRestVerticle::toJson
 				);
 				RestOperations.bind(
@@ -261,9 +263,10 @@ public class AdminRestVerticle extends AbstractVerticle {
 	}
 
 	private static AdminRecoverTargetProvisioningRequest recoverTargetProvisioningRequest(RoutingContext context) {
-		return new AdminRecoverTargetProvisioningRequest()
-			.setTargetId(pathInteger(context, "id"))
-			.setExpectedVersion(requiredQueryLong(context, "expected_version"));
+		return AdminRecoverTargetProvisioningRequest.builder()
+			.withTargetId(pathInteger(context, "id"))
+			.withExpectedVersion(requiredQueryLong(context, "expected_version"))
+			.build();
 	}
 
 	private static AdminIndexerQuery indexerQuery(RoutingContext context) {
@@ -280,21 +283,24 @@ public class AdminRestVerticle extends AbstractVerticle {
 	}
 
 	private static AdminIndexerLifecycleRequest indexerLifecycleRequest(RoutingContext context) {
-		return new AdminIndexerLifecycleRequest()
-			.setIndexerId(pathInteger(context, "id"))
-			.setExpectedVersion(requiredQueryLong(context, "expected_version"));
+		return AdminIndexerLifecycleRequest.builder()
+			.withIndexerId(pathInteger(context, "id"))
+			.withExpectedVersion(requiredQueryLong(context, "expected_version"))
+			.build();
 	}
 
 	private static AdminResetIndexerQueueRequest resetIndexerQueueRequest(RoutingContext context) {
-		return new AdminResetIndexerQueueRequest()
-			.setIndexerId(pathInteger(context, "id"))
-			.setExpectedVersion(requiredQueryLong(context, "expected_version"));
+		return AdminResetIndexerQueueRequest.builder()
+			.withIndexerId(pathInteger(context, "id"))
+			.withExpectedVersion(requiredQueryLong(context, "expected_version"))
+			.build();
 	}
 
 	private static AdminDeleteIndexerRequest deleteIndexerRequest(RoutingContext context) {
-		return new AdminDeleteIndexerRequest()
-			.setIndexerId(pathInteger(context, "id"))
-			.setExpectedVersion(requiredQueryLong(context, "expected_version"));
+		return AdminDeleteIndexerRequest.builder()
+			.withIndexerId(pathInteger(context, "id"))
+			.withExpectedVersion(requiredQueryLong(context, "expected_version"))
+			.build();
 	}
 
 	private static Integer pathInteger(RoutingContext context, String name) {

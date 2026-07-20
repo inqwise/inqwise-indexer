@@ -1,5 +1,7 @@
 package com.inqwise.indexer.service.admin;
 
+import java.util.Objects;
+
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
 
@@ -24,6 +26,10 @@ public class AdminIndexerLifecycleRequest {
 		this.expectedVersion = json.getLong(Keys.EXPECTED_VERSION);
 	}
 
+	public static Builder builder() {
+		return new Builder();
+	}
+
 	public JsonObject toJson() {
 		return new JsonObject()
 			.put(Keys.INDEXER_ID, indexerId)
@@ -46,5 +52,29 @@ public class AdminIndexerLifecycleRequest {
 	public AdminIndexerLifecycleRequest setExpectedVersion(Long expectedVersion) {
 		this.expectedVersion = expectedVersion;
 		return this;
+	}
+
+	public static final class Builder {
+		private Integer indexerId;
+		private Long expectedVersion;
+
+		private Builder() {
+		}
+
+		public Builder withIndexerId(Integer value) {
+			indexerId = value;
+			return this;
+		}
+
+		public Builder withExpectedVersion(Long value) {
+			expectedVersion = value;
+			return this;
+		}
+
+		public AdminIndexerLifecycleRequest build() {
+			return new AdminIndexerLifecycleRequest()
+				.setIndexerId(Objects.requireNonNull(indexerId, "indexerId"))
+				.setExpectedVersion(Objects.requireNonNull(expectedVersion, "expectedVersion"));
+		}
 	}
 }
