@@ -77,7 +77,7 @@ public class IndexerNodeOptions {
 			.build();
 	private VertxIndexerLifecycleEventBusOptions lifecycleEventBusOptions =
 		new VertxIndexerLifecycleEventBusOptions();
-	private GatewayRestOptions gatewayOptions = new GatewayRestOptions();
+	private GatewayRestOptions gatewayOptions = GatewayRestOptions.builder().build();
 	private TargetInvalidationNodeOptions targetInvalidationOptions =
 		TargetInvalidationNodeOptions.builder().build();
 
@@ -270,7 +270,9 @@ public class IndexerNodeOptions {
 	}
 
 	public IndexerNodeOptions setGatewayOptions(GatewayRestOptions gatewayOptions) {
-		this.gatewayOptions = gatewayOptions == null ? new GatewayRestOptions() : gatewayOptions;
+		this.gatewayOptions = gatewayOptions == null
+			? GatewayRestOptions.builder().build()
+			: gatewayOptions;
 		return this;
 	}
 
