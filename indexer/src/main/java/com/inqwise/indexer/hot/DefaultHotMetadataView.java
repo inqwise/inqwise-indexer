@@ -148,10 +148,10 @@ public class DefaultHotMetadataView implements HotMetadataView {
 					Collectors.toList()
 				));
 
-			HotTarget hotTarget = new HotTarget(
-				definition.targetName(),
-				definition.periodStrategy(),
-				concreteTargets.stream()
+			HotTarget hotTarget = HotTarget.builder()
+				.withTargetName(definition.targetName())
+				.withPeriodStrategy(definition.periodStrategy())
+				.withConcreteTargets(concreteTargets.stream()
 					.map(target -> HotConcreteTarget.builder()
 						.withTargetId(target.id())
 						.withTargetName(target.targetName())
@@ -160,8 +160,8 @@ public class DefaultHotMetadataView implements HotMetadataView {
 						.withPeriodEndExclusive(target.periodEndExclusive())
 						.withLiveWriters(liveWritersByTargetId.getOrDefault(target.id(), List.of()))
 						.build())
-					.toList()
-			);
+					.toList())
+				.build();
 
 			replace(hotTarget);
 			return null;

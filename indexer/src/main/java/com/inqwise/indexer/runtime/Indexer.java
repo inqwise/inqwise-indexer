@@ -300,7 +300,12 @@ public class Indexer {
 	}
 
 	protected Future<Void> emitEvent(IndexerEventType type, IndexerActionItem item, Throwable error) {
-		return eventPublisher.publish(new IndexerEvent(type, model, item, error));
+		return eventPublisher.publish(IndexerEvent.builder()
+			.withType(type)
+			.withModel(model)
+			.withItem(item)
+			.withError(error)
+			.build());
 	}
 
 	protected Future<Void> indexAction(IndexerActionItem item) {

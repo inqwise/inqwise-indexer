@@ -68,7 +68,12 @@ public class IndexerProcessorVerticle extends VerticleBase {
 	}
 
 	private Future<Void> emitEvent(IndexerEventType type, IndexerActionItem item, Throwable error) {
-		return eventPublisher.publish(new IndexerEvent(type, model, item, error));
+		return eventPublisher.publish(IndexerEvent.builder()
+			.withType(type)
+			.withModel(model)
+			.withItem(item)
+			.withError(error)
+			.build());
 	}
 
 	private String getQueueName() {

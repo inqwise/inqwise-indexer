@@ -34,6 +34,10 @@ public class HotTarget {
 		this.concreteTargetsByPeriodKey = concreteTargetsByPeriodKey(concreteTargets);
 	}
 
+	public static Builder builder() {
+		return new Builder();
+	}
+
 	public String targetName() {
 		return targetName;
 	}
@@ -159,5 +163,34 @@ public class HotTarget {
 
 	private String periodKey(String periodKey) {
 		return periodKey == null ? NONE_PERIOD_KEY : periodKey;
+	}
+
+	public static final class Builder {
+		private String targetName;
+		private TargetPeriodStrategy periodStrategy;
+		private List<HotConcreteTarget> concreteTargets;
+
+		public Builder withTargetName(String value) {
+			targetName = value;
+			return this;
+		}
+
+		public Builder withPeriodStrategy(TargetPeriodStrategy value) {
+			periodStrategy = value;
+			return this;
+		}
+
+		public Builder withConcreteTargets(List<HotConcreteTarget> value) {
+			concreteTargets = value == null ? null : List.copyOf(value);
+			return this;
+		}
+
+		public HotTarget build() {
+			return new HotTarget(
+				Objects.requireNonNull(targetName, "targetName"),
+				periodStrategy,
+				List.copyOf(Objects.requireNonNull(concreteTargets, "concreteTargets"))
+			);
+		}
 	}
 }

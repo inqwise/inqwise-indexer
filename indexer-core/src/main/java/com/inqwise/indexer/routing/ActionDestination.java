@@ -23,21 +23,39 @@ public final class ActionDestination {
 		return switch (action.getActionType()) {
 			case PUT_DOCUMENT -> {
 				PutDocumentActionItem put = (PutDocumentActionItem) action;
-				yield new ActionDestination(put.getTargetId(), put.getIndexerId(), put.getIndexName());
+				yield builder()
+					.withTargetId(put.getTargetId())
+					.withIndexerId(put.getIndexerId())
+					.withIndexName(put.getIndexName())
+					.build();
 			}
 			case REMOVE_DOCUMENT -> {
 				RemoveDocumentActionItem remove = (RemoveDocumentActionItem) action;
-				yield new ActionDestination(remove.getTargetId(), remove.getIndexerId(), remove.getIndexName());
+				yield builder()
+					.withTargetId(remove.getTargetId())
+					.withIndexerId(remove.getIndexerId())
+					.withIndexName(remove.getIndexName())
+					.build();
 			}
 			case COMPLETE -> {
 				CompleteIndexActionItem complete = (CompleteIndexActionItem) action;
-				yield new ActionDestination(complete.getTargetId(), complete.getIndexerId(), null);
+				yield builder()
+					.withTargetId(complete.getTargetId())
+					.withIndexerId(complete.getIndexerId())
+					.build();
 			}
 			case CATCH_UP_BARRIER -> {
 				CatchUpBarrierActionItem barrier = (CatchUpBarrierActionItem) action;
-				yield new ActionDestination(barrier.getTargetId(), barrier.getIndexerId(), null);
+				yield builder()
+					.withTargetId(barrier.getTargetId())
+					.withIndexerId(barrier.getIndexerId())
+					.build();
 			}
 		};
+	}
+
+	private static Builder builder() {
+		return new Builder();
 	}
 
 	public Integer targetId() {
@@ -74,5 +92,30 @@ public final class ActionDestination {
 	@Override
 	public int hashCode() {
 		return Objects.hash(targetId, indexerId, indexName);
+	}
+
+	private static final class Builder {
+		private Integer targetId;
+		private Integer indexerId;
+		private String indexName;
+
+		private Builder withTargetId(Integer value) {
+			targetId = value;
+			return this;
+		}
+
+		private Builder withIndexerId(Integer value) {
+			indexerId = value;
+			return this;
+		}
+
+		private Builder withIndexName(String value) {
+			indexName = value;
+			return this;
+		}
+
+		private ActionDestination build() {
+			return new ActionDestination(targetId, indexerId, indexName);
+		}
 	}
 }

@@ -28,7 +28,10 @@ public final class LocalExclusiveFlowCoordinator implements ExclusiveFlowCoordin
 				return current;
 			}
 
-			ActiveFlow<T> created = new ActiveFlow<>(resultType, Promise.promise());
+			ActiveFlow<T> created = ActiveFlow.<T>builder()
+				.withResultType(resultType)
+				.withPromise(Promise.promise())
+				.build();
 			acquired.set(created);
 			return created;
 		});
@@ -63,5 +66,30 @@ public final class LocalExclusiveFlowCoordinator implements ExclusiveFlowCoordin
 		Class<T> resultType,
 		Promise<T> promise
 	) {
+		private static <T> Builder<T> builder() {
+			return new Builder<>();
+		}
+
+		private static final class Builder<T> {
+			private Class<T> resultType;
+			private Promise<T> promise;
+
+			private Builder<T> withResultType(Class<T> value) {
+				resultType = value;
+				return this;
+			}
+
+			private Builder<T> withPromise(Promise<T> value) {
+				promise = value;
+				return this;
+			}
+
+			private ActiveFlow<T> build() {
+				return new ActiveFlow<>(
+					Objects.requireNonNull(resultType, "resultType"),
+					Objects.requireNonNull(promise, "promise")
+				);
+			}
+		}
 	}
 }

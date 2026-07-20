@@ -51,7 +51,10 @@ public class GatewayBuiltInRequestHooks extends GatewayRequestHooks {
 		String key = rateLimitKey(context, operationId);
 		RateLimitWindow window = rateLimitWindows.get(key);
 		if (window == null || now - window.startedAt >= rateLimitWindowMs) {
-			rateLimitWindows.put(key, new RateLimitWindow(now, 1));
+			rateLimitWindows.put(key, RateLimitWindow.builder()
+				.withStartedAt(now)
+				.withCount(1)
+				.build());
 			return true;
 		}
 
@@ -76,6 +79,32 @@ public class GatewayBuiltInRequestHooks extends GatewayRequestHooks {
 		private RateLimitWindow(long startedAt, int count) {
 			this.startedAt = startedAt;
 			this.count = count;
+		}
+
+		private static Builder builder() {
+			return new Builder();
+		}
+
+		private static final class Builder {
+			private long startedAt;
+			private int count;
+
+			private Builder withStartedAt(long value) {
+				startedAt = value;
+				return this;
+			}
+
+			private Builder withCount(int value) {
+				count = value;
+				return this;
+			}
+
+			private RateLimitWindow build() {
+				if (count < 0) {
+					throw new IllegalArgumentException("count must not be negative");
+				}
+				return new RateLimitWindow(startedAt, count);
+			}
 		}
 	}
 }
