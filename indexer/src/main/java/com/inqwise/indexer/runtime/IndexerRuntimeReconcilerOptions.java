@@ -34,6 +34,10 @@ public class IndexerRuntimeReconcilerOptions {
 		validate();
 	}
 
+	public static Builder builder() {
+		return new Builder();
+	}
+
 	public JsonObject toJson() {
 		return new JsonObject()
 			.put(Keys.MAX_DIRTY_INDEXERS, maxDirtyIndexers)
@@ -70,5 +74,30 @@ public class IndexerRuntimeReconcilerOptions {
 			);
 		}
 		return this;
+	}
+
+	public static final class Builder {
+		private int maxDirtyIndexers = DEFAULT_MAX_DIRTY_INDEXERS;
+		private long safetySyncIntervalMs = DEFAULT_SAFETY_SYNC_INTERVAL_MS;
+
+		private Builder() {
+		}
+
+		public Builder withMaxDirtyIndexers(int value) {
+			maxDirtyIndexers = value;
+			return this;
+		}
+
+		public Builder withSafetySyncIntervalMs(long value) {
+			safetySyncIntervalMs = value;
+			return this;
+		}
+
+		public IndexerRuntimeReconcilerOptions build() {
+			return new IndexerRuntimeReconcilerOptions()
+				.setMaxDirtyIndexers(maxDirtyIndexers)
+				.setSafetySyncIntervalMs(safetySyncIntervalMs)
+				.validate();
+		}
 	}
 }

@@ -22,7 +22,7 @@ public class VertxIndexerLifecycleEventBusProvider
 		new ConcurrentHashMap<>();
 
 	public VertxIndexerLifecycleEventBusProvider(Vertx vertx) {
-		this(vertx, new VertxIndexerLifecycleEventBusOptions());
+		this(vertx, VertxIndexerLifecycleEventBusOptions.builder().build());
 	}
 
 	public VertxIndexerLifecycleEventBusProvider(

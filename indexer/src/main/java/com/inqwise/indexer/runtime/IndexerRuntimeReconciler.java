@@ -58,7 +58,13 @@ public final class IndexerRuntimeReconciler {
 		IndexerLifecycleEventBus eventBus,
 		IndexerRuntime runtime
 	) {
-		this(vertx, repository, eventBus, runtime, new IndexerRuntimeReconcilerOptions());
+		this(
+			vertx,
+			repository,
+			eventBus,
+			runtime,
+			IndexerRuntimeReconcilerOptions.builder().build()
+		);
 	}
 
 	public IndexerRuntimeReconciler(

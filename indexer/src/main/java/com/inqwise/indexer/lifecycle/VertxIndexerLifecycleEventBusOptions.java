@@ -34,6 +34,10 @@ public class VertxIndexerLifecycleEventBusOptions {
 		validate();
 	}
 
+	public static Builder builder() {
+		return new Builder();
+	}
+
 	public JsonObject toJson() {
 		return new JsonObject()
 			.put(Keys.MAX_TRANSPORT_LAG_MS, maxTransportLagMs)
@@ -70,5 +74,30 @@ public class VertxIndexerLifecycleEventBusOptions {
 			throw new IllegalArgumentException("signalCooldownMs must be greater than zero");
 		}
 		return this;
+	}
+
+	public static final class Builder {
+		private long maxTransportLagMs = DEFAULT_MAX_TRANSPORT_LAG_MS;
+		private long signalCooldownMs = DEFAULT_SIGNAL_COOLDOWN_MS;
+
+		private Builder() {
+		}
+
+		public Builder withMaxTransportLagMs(long value) {
+			maxTransportLagMs = value;
+			return this;
+		}
+
+		public Builder withSignalCooldownMs(long value) {
+			signalCooldownMs = value;
+			return this;
+		}
+
+		public VertxIndexerLifecycleEventBusOptions build() {
+			return new VertxIndexerLifecycleEventBusOptions()
+				.setMaxTransportLagMs(maxTransportLagMs)
+				.setSignalCooldownMs(signalCooldownMs)
+				.validate();
+		}
 	}
 }

@@ -70,13 +70,13 @@ public class IndexerNodeOptions {
 		TargetActionRestOptions.builder().build();
 	private RuntimeRestOptions runtimeRestOptions = RuntimeRestOptions.builder().build();
 	private IndexerRuntimeReconcilerOptions runtimeReconcilerOptions =
-		new IndexerRuntimeReconcilerOptions();
+		IndexerRuntimeReconcilerOptions.builder().build();
 	private IndexerLifecycleEventBusConfig lifecycleEventBusConfig =
 		IndexerLifecycleEventBusConfig.builder()
 			.withNamespace(LifecycleEvents.DEFAULT_NAMESPACE)
 			.build();
 	private VertxIndexerLifecycleEventBusOptions lifecycleEventBusOptions =
-		new VertxIndexerLifecycleEventBusOptions();
+		VertxIndexerLifecycleEventBusOptions.builder().build();
 	private GatewayRestOptions gatewayOptions = GatewayRestOptions.builder().build();
 	private TargetInvalidationNodeOptions targetInvalidationOptions =
 		TargetInvalidationNodeOptions.builder().build();
@@ -236,7 +236,7 @@ public class IndexerNodeOptions {
 		IndexerRuntimeReconcilerOptions runtimeReconcilerOptions
 	) {
 		this.runtimeReconcilerOptions = runtimeReconcilerOptions == null
-			? new IndexerRuntimeReconcilerOptions()
+			? IndexerRuntimeReconcilerOptions.builder().build()
 			: runtimeReconcilerOptions;
 		return this;
 	}
@@ -264,7 +264,7 @@ public class IndexerNodeOptions {
 		VertxIndexerLifecycleEventBusOptions lifecycleEventBusOptions
 	) {
 		this.lifecycleEventBusOptions = lifecycleEventBusOptions == null
-			? new VertxIndexerLifecycleEventBusOptions()
+			? VertxIndexerLifecycleEventBusOptions.builder().build()
 			: lifecycleEventBusOptions;
 		return this;
 	}
@@ -298,7 +298,10 @@ public class IndexerNodeOptions {
 		IndexerServiceDeploymentOptions options
 	) {
 		requireKnownService(name);
-		services.put(name, options == null ? new IndexerServiceDeploymentOptions() : options);
+		services.put(
+			name,
+			options == null ? IndexerServiceDeploymentOptions.builder().build() : options
+		);
 		validate();
 		return this;
 	}
@@ -354,16 +357,28 @@ public class IndexerNodeOptions {
 	}
 
 	private void addDefaults() {
-		services.put(Services.ADMIN, new IndexerServiceDeploymentOptions());
-		services.put(Services.ADMIN_REST, new IndexerServiceDeploymentOptions().setEnabled(false));
-		services.put(Services.TARGET_ACTION, new IndexerServiceDeploymentOptions());
-		services.put(Services.TARGET_ACTION_REST, new IndexerServiceDeploymentOptions().setEnabled(false));
-		services.put(Services.RUNTIME, new IndexerServiceDeploymentOptions());
-		services.put(Services.RUNTIME_REST, new IndexerServiceDeploymentOptions().setEnabled(false));
-		services.put(Services.GATEWAY, new IndexerServiceDeploymentOptions().setEnabled(false));
+		services.put(Services.ADMIN, IndexerServiceDeploymentOptions.builder().build());
+		services.put(
+			Services.ADMIN_REST,
+			IndexerServiceDeploymentOptions.builder().withEnabled(false).build()
+		);
+		services.put(Services.TARGET_ACTION, IndexerServiceDeploymentOptions.builder().build());
+		services.put(
+			Services.TARGET_ACTION_REST,
+			IndexerServiceDeploymentOptions.builder().withEnabled(false).build()
+		);
+		services.put(Services.RUNTIME, IndexerServiceDeploymentOptions.builder().build());
+		services.put(
+			Services.RUNTIME_REST,
+			IndexerServiceDeploymentOptions.builder().withEnabled(false).build()
+		);
+		services.put(
+			Services.GATEWAY,
+			IndexerServiceDeploymentOptions.builder().withEnabled(false).build()
+		);
 		services.put(
 			Services.TARGET_INVALIDATION_REGISTRY,
-			new IndexerServiceDeploymentOptions()
+			IndexerServiceDeploymentOptions.builder().build()
 		);
 	}
 

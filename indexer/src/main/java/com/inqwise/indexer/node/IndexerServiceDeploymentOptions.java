@@ -27,6 +27,10 @@ public class IndexerServiceDeploymentOptions {
 		validate();
 	}
 
+	public static Builder builder() {
+		return new Builder();
+	}
+
 	public JsonObject toJson() {
 		return new JsonObject()
 			.put(Keys.ENABLED, enabled)
@@ -55,6 +59,30 @@ public class IndexerServiceDeploymentOptions {
 	void validate() {
 		if (instances < 1) {
 			throw new IllegalArgumentException("Service instances must be at least 1");
+		}
+	}
+
+	public static final class Builder {
+		private boolean enabled = true;
+		private int instances = 1;
+
+		private Builder() {
+		}
+
+		public Builder withEnabled(boolean value) {
+			enabled = value;
+			return this;
+		}
+
+		public Builder withInstances(int value) {
+			instances = value;
+			return this;
+		}
+
+		public IndexerServiceDeploymentOptions build() {
+			return new IndexerServiceDeploymentOptions()
+				.setEnabled(enabled)
+				.setInstances(instances);
 		}
 	}
 }
