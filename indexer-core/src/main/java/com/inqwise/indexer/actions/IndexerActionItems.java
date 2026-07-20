@@ -22,13 +22,13 @@ public final class IndexerActionItems {
 		String uid,
 		JsonObject document
 	) {
-		return new PutDocumentActionItem(
-			Objects.requireNonNull(targetId, "targetId"),
-			Objects.requireNonNull(indexerId, "indexerId"),
-			Objects.requireNonNull(indexName, "indexName"),
-			uid,
-			document
-		);
+		return PutDocumentActionItem.builder()
+			.withTargetId(Objects.requireNonNull(targetId, "targetId"))
+			.withIndexerId(Objects.requireNonNull(indexerId, "indexerId"))
+			.withIndexName(Objects.requireNonNull(indexName, "indexName"))
+			.withUid(uid)
+			.withDocument(document)
+			.build();
 	}
 
 	public static RemoveDocumentActionItem removeDocument(String uid) {
@@ -43,11 +43,11 @@ public final class IndexerActionItems {
 		String indexName,
 		String uid
 	) {
-		return new RemoveDocumentActionItem(
-			Objects.requireNonNull(targetId, "targetId"),
-			Objects.requireNonNull(indexerId, "indexerId"),
-			Objects.requireNonNull(indexName, "indexName"),
-			uid
-		);
+		return RemoveDocumentActionItem.builder()
+			.withTargetId(Objects.requireNonNull(targetId, "targetId"))
+			.withIndexerId(Objects.requireNonNull(indexerId, "indexerId"))
+			.withIndexName(Objects.requireNonNull(indexName, "indexName"))
+			.withUid(uid)
+			.build();
 	}
 }

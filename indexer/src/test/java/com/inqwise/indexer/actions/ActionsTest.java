@@ -122,6 +122,18 @@ class ActionsTest {
 	}
 
 	@Test
+	void putActionBuilderSnapshotsDocumentOnInput() {
+		JsonObject document = new JsonObject().put("name", "Ada");
+		PutDocumentActionItem.Builder builder = PutDocumentActionItem.builder()
+			.withUid("42")
+			.withDocument(document);
+
+		document.put("name", "Grace");
+
+		assertEquals("Ada", builder.build().getDocument().getString("name"));
+	}
+
+	@Test
 	void removeActionRoundTripsConcreteIdentityFields() {
 		RemoveDocumentActionItem item = IndexerActionItems.concreteRemoveDocument(
 			10,

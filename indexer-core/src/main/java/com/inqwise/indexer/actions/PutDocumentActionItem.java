@@ -96,10 +96,28 @@ public class PutDocumentActionItem implements IndexerActionItem {
 	}
 
 	public static final class Builder {
+		private Integer targetId;
+		private Integer indexerId;
+		private String indexName;
 		private String uid;
 		private JsonObject document;
 
 		private Builder() {
+		}
+
+		Builder withTargetId(Integer value) {
+			targetId = value;
+			return this;
+		}
+
+		Builder withIndexerId(Integer value) {
+			indexerId = value;
+			return this;
+		}
+
+		Builder withIndexName(String value) {
+			indexName = value;
+			return this;
 		}
 
 		public Builder withUid(String uid) {
@@ -108,15 +126,15 @@ public class PutDocumentActionItem implements IndexerActionItem {
 		}
 
 		public Builder withDocument(JsonObject document) {
-			this.document = document;
+			this.document = document == null ? null : document.copy();
 			return this;
 		}
 
 		public PutDocumentActionItem build() {
 			return new PutDocumentActionItem(
-				null,
-				null,
-				null,
+				targetId,
+				indexerId,
+				indexName,
 				uid,
 				document
 			);
