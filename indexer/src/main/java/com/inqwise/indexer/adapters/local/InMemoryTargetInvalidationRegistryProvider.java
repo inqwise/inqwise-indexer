@@ -28,10 +28,10 @@ public class InMemoryTargetInvalidationRegistryProvider
 				return existing;
 			}
 
-			return new RegistryEntry(
-				config.options(),
-				new InMemoryTargetInvalidationRegistry(config.options())
-			);
+			return RegistryEntry.builder()
+				.withOptions(config.options())
+				.withRegistry(new InMemoryTargetInvalidationRegistry(config.options()))
+				.build();
 		}).registry();
 	}
 
@@ -39,5 +39,30 @@ public class InMemoryTargetInvalidationRegistryProvider
 		TargetInvalidationRegistryOptions options,
 		TargetInvalidationRegistry registry
 	) {
+		private static Builder builder() {
+			return new Builder();
+		}
+
+		private static final class Builder {
+			private TargetInvalidationRegistryOptions options;
+			private TargetInvalidationRegistry registry;
+
+			private Builder withOptions(TargetInvalidationRegistryOptions value) {
+				options = value;
+				return this;
+			}
+
+			private Builder withRegistry(TargetInvalidationRegistry value) {
+				registry = value;
+				return this;
+			}
+
+			private RegistryEntry build() {
+				return new RegistryEntry(
+					Objects.requireNonNull(options, "options"),
+					Objects.requireNonNull(registry, "registry")
+				);
+			}
+		}
 	}
 }

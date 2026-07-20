@@ -2,6 +2,7 @@ package com.inqwise.indexer.gateway;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Objects;
 
 import io.vertx.core.Future;
 import io.vertx.core.buffer.Buffer;
@@ -85,7 +86,11 @@ final class GatewayProxyOperations {
 
 	private static Future<UpstreamResponse> bodyWithResponse(HttpClientResponse response) {
 		return response.body()
-			.map(body -> new UpstreamResponse(response.statusCode(), response.getHeader("content-type"), body));
+			.map(body -> UpstreamResponse.builder()
+				.withStatusCode(response.statusCode())
+				.withContentType(response.getHeader("content-type"))
+				.withBody(body)
+				.build());
 	}
 
 	private static Future<Void> writeProxyResponse(RoutingContext context, UpstreamResponse upstream) {
@@ -103,5 +108,40 @@ final class GatewayProxyOperations {
 	}
 
 	private record UpstreamResponse(int statusCode, String contentType, Buffer body) {
+		private static Builder builder() {
+			return new Builder();
+		}
+
+		private static final class Builder {
+			private int statusCode;
+			private String contentType;
+			private Buffer body;
+
+			private Builder withStatusCode(int value) {
+				statusCode = value;
+				return this;
+			}
+
+			private Builder withContentType(String value) {
+				contentType = value;
+				return this;
+			}
+
+			private Builder withBody(Buffer value) {
+				body = value == null ? null : value.copy();
+				return this;
+			}
+
+			private UpstreamResponse build() {
+				if (statusCode < 100 || statusCode > 999) {
+					throw new IllegalArgumentException("statusCode must be a valid HTTP status");
+				}
+				return new UpstreamResponse(
+					statusCode,
+					contentType,
+					Objects.requireNonNull(body, "body").copy()
+				);
+			}
+		}
 	}
 }

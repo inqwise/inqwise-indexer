@@ -109,7 +109,10 @@ public class IndexerRuntime {
 			return candidate.activate()
 				.onSuccess(value -> indexersById.put(
 					indexerRecord.id(),
-					new RuntimeEntry(model, candidate)
+					RuntimeEntry.builder()
+						.withModel(model)
+						.withIndexer(candidate)
+						.build()
 				))
 				.recover(error -> candidate.close()
 					.recover(closeError -> {
@@ -201,5 +204,30 @@ public class IndexerRuntime {
 	}
 
 	private record RuntimeEntry(IndexerModel model, Indexer indexer) {
+		private static Builder builder() {
+			return new Builder();
+		}
+
+		private static final class Builder {
+			private IndexerModel model;
+			private Indexer indexer;
+
+			private Builder withModel(IndexerModel value) {
+				model = value;
+				return this;
+			}
+
+			private Builder withIndexer(Indexer value) {
+				indexer = value;
+				return this;
+			}
+
+			private RuntimeEntry build() {
+				return new RuntimeEntry(
+					Objects.requireNonNull(model, "model"),
+					Objects.requireNonNull(indexer, "indexer")
+				);
+			}
+		}
 	}
 }

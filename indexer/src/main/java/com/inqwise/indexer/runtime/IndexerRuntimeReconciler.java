@@ -244,7 +244,10 @@ public final class IndexerRuntimeReconciler {
 	private Future<Void> drainPending() {
 		PendingWork work;
 		synchronized (this) {
-			work = new PendingWork(fullSynchronizationRequired, Map.copyOf(dirtyVersions));
+			work = PendingWork.builder()
+				.withFullSynchronization(fullSynchronizationRequired)
+				.withDirtyVersions(dirtyVersions)
+				.build();
 			fullSynchronizationRequired = false;
 			dirtyVersions.clear();
 		}
@@ -449,5 +452,30 @@ public final class IndexerRuntimeReconciler {
 		boolean fullSynchronization,
 		Map<Integer, Long> dirtyVersions
 	) {
+		private static Builder builder() {
+			return new Builder();
+		}
+
+		private static final class Builder {
+			private boolean fullSynchronization;
+			private Map<Integer, Long> dirtyVersions;
+
+			private Builder withFullSynchronization(boolean value) {
+				fullSynchronization = value;
+				return this;
+			}
+
+			private Builder withDirtyVersions(Map<Integer, Long> value) {
+				dirtyVersions = value == null ? null : Map.copyOf(value);
+				return this;
+			}
+
+			private PendingWork build() {
+				return new PendingWork(
+					fullSynchronization,
+					Map.copyOf(Objects.requireNonNull(dirtyVersions, "dirtyVersions"))
+				);
+			}
+		}
 	}
 }

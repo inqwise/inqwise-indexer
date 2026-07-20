@@ -99,7 +99,10 @@ class MetadataSubmitIndexActionRouter {
 						for (IndexerModel indexer : indexers) {
 							groups.computeIfAbsent(
 								IndexerRouteKey.from(indexer),
-								ignored -> new IndexerActionGroup(indexer, new ArrayList<>())
+								ignored -> IndexerActionGroup.builder()
+									.withIndexer(indexer)
+									.withActions(new ArrayList<>())
+									.build()
 							).actions().add(toConcreteAction(action, indexer));
 						}
 
@@ -329,10 +332,10 @@ class MetadataSubmitIndexActionRouter {
 					.withTargetName(targetDefinition.targetName())
 					.withPeriodKey(period.key())
 					.build()).compose(found -> found
-					.map(target -> Future.succeededFuture(new ResolvedTarget(
-						target,
-						targetDefinition.autoProvisionOnWrite()
-					)))
+					.map(target -> Future.succeededFuture(ResolvedTarget.builder()
+						.withRecord(target)
+						.withAutoProvisionOnWrite(targetDefinition.autoProvisionOnWrite())
+						.build()))
 					.orElseGet(() -> {
 						if (!targetDefinition.autoProvisionOnWrite()) {
 							return Future.failedFuture(CommandFailure.stableInvalid(
@@ -342,7 +345,10 @@ class MetadataSubmitIndexActionRouter {
 						}
 
 						return repository.ensureTarget(targetDefinition.targetName(), period)
-							.map(target -> new ResolvedTarget(target, true));
+							.map(target -> ResolvedTarget.builder()
+								.withRecord(target)
+								.withAutoProvisionOnWrite(true)
+								.build());
 					}));
 			});
 	}
@@ -539,6 +545,31 @@ class MetadataSubmitIndexActionRouter {
 		IndexerModel indexer,
 		List<IndexerActionItem> actions
 	) {
+		private static Builder builder() {
+			return new Builder();
+		}
+
+		private static final class Builder {
+			private IndexerModel indexer;
+			private List<IndexerActionItem> actions;
+
+			private Builder withIndexer(IndexerModel value) {
+				indexer = value;
+				return this;
+			}
+
+			private Builder withActions(List<IndexerActionItem> value) {
+				actions = value == null ? null : new ArrayList<>(value);
+				return this;
+			}
+
+			private IndexerActionGroup build() {
+				return new IndexerActionGroup(
+					Objects.requireNonNull(indexer, "indexer"),
+					new ArrayList<>(Objects.requireNonNull(actions, "actions"))
+				);
+			}
+		}
 	}
 
 	private record IndexerRouteKey(
@@ -551,15 +582,76 @@ class MetadataSubmitIndexActionRouter {
 		long version
 	) {
 		private static IndexerRouteKey from(IndexerModel indexer) {
-			return new IndexerRouteKey(
-				indexer.getId(),
-				indexer.getTargetId(),
-				indexer.getTargetName(),
-				indexer.getIndexName(),
-				indexer.getQueueName(),
-				indexer.getRole(),
-				indexer.getVersion()
-			);
+			return builder()
+				.withId(indexer.getId())
+				.withTargetId(indexer.getTargetId())
+				.withTargetName(indexer.getTargetName())
+				.withIndexName(indexer.getIndexName())
+				.withQueueName(indexer.getQueueName())
+				.withRole(indexer.getRole())
+				.withVersion(indexer.getVersion())
+				.build();
+		}
+
+		private static Builder builder() {
+			return new Builder();
+		}
+
+		private static final class Builder {
+			private Integer id;
+			private Integer targetId;
+			private String targetName;
+			private String indexName;
+			private String queueName;
+			private IndexerRole role;
+			private long version;
+
+			private Builder withId(Integer value) {
+				id = value;
+				return this;
+			}
+
+			private Builder withTargetId(Integer value) {
+				targetId = value;
+				return this;
+			}
+
+			private Builder withTargetName(String value) {
+				targetName = value;
+				return this;
+			}
+
+			private Builder withIndexName(String value) {
+				indexName = value;
+				return this;
+			}
+
+			private Builder withQueueName(String value) {
+				queueName = value;
+				return this;
+			}
+
+			private Builder withRole(IndexerRole value) {
+				role = value;
+				return this;
+			}
+
+			private Builder withVersion(long value) {
+				version = value;
+				return this;
+			}
+
+			private IndexerRouteKey build() {
+				return new IndexerRouteKey(
+					Objects.requireNonNull(id, "id"),
+					Objects.requireNonNull(targetId, "targetId"),
+					Objects.requireNonNull(targetName, "targetName"),
+					Objects.requireNonNull(indexName, "indexName"),
+					queueName,
+					Objects.requireNonNull(role, "role"),
+					version
+				);
+			}
 		}
 	}
 
@@ -567,5 +659,30 @@ class MetadataSubmitIndexActionRouter {
 		TargetRecord record,
 		boolean autoProvisionOnWrite
 	) {
+		private static Builder builder() {
+			return new Builder();
+		}
+
+		private static final class Builder {
+			private TargetRecord record;
+			private boolean autoProvisionOnWrite;
+
+			private Builder withRecord(TargetRecord value) {
+				record = value;
+				return this;
+			}
+
+			private Builder withAutoProvisionOnWrite(boolean value) {
+				autoProvisionOnWrite = value;
+				return this;
+			}
+
+			private ResolvedTarget build() {
+				return new ResolvedTarget(
+					Objects.requireNonNull(record, "record"),
+					autoProvisionOnWrite
+				);
+			}
+		}
 	}
 }

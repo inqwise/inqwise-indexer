@@ -55,16 +55,16 @@ public class VertxSharedDataTargetInvalidationRegistryProvider
 			Future<AsyncMap<String, JsonObject>> map = sharedData.getAsyncMap(
 				MAP_PREFIX + config.namespace()
 			);
-			return new RegistryEntry(
-				config.options(),
-				new VertxSharedDataTargetInvalidationRegistry(
+			return RegistryEntry.builder()
+				.withOptions(config.options())
+				.withRegistry(new VertxSharedDataTargetInvalidationRegistry(
 					sharedData,
 					map,
 					LOCK_PREFIX + config.namespace() + ".",
 					config.options(),
 					clock
-				)
-			);
+				))
+				.build();
 		}).registry();
 	}
 
@@ -72,6 +72,31 @@ public class VertxSharedDataTargetInvalidationRegistryProvider
 		TargetInvalidationRegistryOptions options,
 		TargetInvalidationRegistry registry
 	) {
+		private static Builder builder() {
+			return new Builder();
+		}
+
+		private static final class Builder {
+			private TargetInvalidationRegistryOptions options;
+			private TargetInvalidationRegistry registry;
+
+			private Builder withOptions(TargetInvalidationRegistryOptions value) {
+				options = value;
+				return this;
+			}
+
+			private Builder withRegistry(TargetInvalidationRegistry value) {
+				registry = value;
+				return this;
+			}
+
+			private RegistryEntry build() {
+				return new RegistryEntry(
+					Objects.requireNonNull(options, "options"),
+					Objects.requireNonNull(registry, "registry")
+				);
+			}
+		}
 	}
 
 	private static class VertxSharedDataTargetInvalidationRegistry
