@@ -9,6 +9,8 @@ import com.inqwise.indexer.catalog.targets.TargetCatalogNotFoundException;
 import com.inqwise.indexer.catalog.targets.TargetDefinitionNotFoundException;
 import com.inqwise.indexer.errors.IndexerErrorCodes;
 import com.inqwise.indexer.errors.RetryableStaleStateException;
+import com.inqwise.indexer.publication.IndexPublicationConflictException;
+import com.inqwise.indexer.publication.IndexPublicationNotFoundException;
 
 import org.junit.jupiter.api.Test;
 
@@ -46,6 +48,29 @@ class IndexerErrorsTest {
 		assertEquals(
 			"Indexer conflict for id 20: indexer is already active",
 			indexerTicket.getErrorDetails()
+		);
+	}
+
+	@Test
+	void normalizesTypedPublicationErrors() {
+		var missingTicket = IndexerErrors.normalize(
+			IndexPublicationNotFoundException.publicationByIndexer(20)
+		);
+		var conflictTicket = IndexerErrors.normalize(
+			IndexPublicationConflictException.indexer(20, "index is not ready")
+		);
+
+		assertEquals(IndexerErrorCodes.NotFound, missingTicket.getError());
+		assertEquals(404, missingTicket.getStatus());
+		assertEquals(
+			"Publication not found for indexer: 20",
+			missingTicket.getErrorDetails()
+		);
+		assertEquals(IndexerErrorCodes.Conflict, conflictTicket.getError());
+		assertEquals(409, conflictTicket.getStatus());
+		assertEquals(
+			"Indexer publication conflict for id 20: index is not ready",
+			conflictTicket.getErrorDetails()
 		);
 	}
 

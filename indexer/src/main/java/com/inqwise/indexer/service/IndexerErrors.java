@@ -9,6 +9,8 @@ import com.inqwise.indexer.catalog.targets.TargetDefinitionNotFoundException;
 import com.inqwise.indexer.commands.CommandFailure;
 import com.inqwise.indexer.errors.IndexerErrorCodes;
 import com.inqwise.indexer.errors.RetryableStaleStateException;
+import com.inqwise.indexer.publication.IndexPublicationConflictException;
+import com.inqwise.indexer.publication.IndexPublicationNotFoundException;
 
 public final class IndexerErrors {
 	private IndexerErrors() {
@@ -53,12 +55,14 @@ public final class IndexerErrors {
 		}
 
 		if (error instanceof TargetCatalogNotFoundException
-			|| error instanceof IndexerCatalogNotFoundException) {
+			|| error instanceof IndexerCatalogNotFoundException
+			|| error instanceof IndexPublicationNotFoundException) {
 			return notFound(error.getMessage());
 		}
 
 		if (error instanceof TargetCatalogConflictException
-			|| error instanceof IndexerCatalogConflictException) {
+			|| error instanceof IndexerCatalogConflictException
+			|| error instanceof IndexPublicationConflictException) {
 			return conflict(error.getMessage());
 		}
 

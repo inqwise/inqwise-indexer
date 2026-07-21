@@ -45,7 +45,7 @@ public final class MetadataIndexPublicationService implements IndexPublicationSe
 			.compose(found -> found
 				.map(publication -> markReady(request, publication))
 				.orElseGet(() -> Future.failedFuture(
-					"Publication not found: " + request.publicationId()
+					IndexPublicationNotFoundException.publication(request.publicationId())
 				)))
 			.map(this::toReadinessResult);
 	}
@@ -58,7 +58,7 @@ public final class MetadataIndexPublicationService implements IndexPublicationSe
 				.compose(found -> found
 					.map(publication -> publish(request, indexer, publication))
 					.orElseGet(() -> Future.failedFuture(
-						"Publication not found for indexer: " + indexer.id()
+						IndexPublicationNotFoundException.publicationByIndexer(indexer.id())
 					))))
 			.map(this::toPublicationResult);
 	}
@@ -74,7 +74,10 @@ public final class MetadataIndexPublicationService implements IndexPublicationSe
 				return Future.failedFuture(indexerVersionConflict(indexer, request.expectedVersion()));
 			}
 			if (indexer.publicationState() == PublicationState.RETIRED) {
-				return Future.failedFuture("Index is already retired: " + indexer.indexName());
+				return Future.failedFuture(IndexPublicationConflictException.indexer(
+					indexer.id(),
+					"index is already retired"
+				));
 			}
 			return repository.updateIndexerPublicationState(UpdateIndexerPublicationState.builder()
 				.withId(indexer.id())
@@ -110,10 +113,10 @@ public final class MetadataIndexPublicationService implements IndexPublicationSe
 			return Future.succeededFuture(publication);
 		}
 		if (publication.version() != request.expectedVersion()) {
-			return Future.failedFuture(
-				"Publication version conflict for id " + publication.id() + ": expected "
-					+ request.expectedVersion() + " but was " + publication.version()
-			);
+			return Future.failedFuture(IndexPublicationConflictException.publication(
+				publication.id(),
+				"expected version " + request.expectedVersion() + " but was " + publication.version()
+			));
 		}
 		return repository.updatePublicationReadiness(UpdatePublicationReadiness.builder()
 			.withId(publication.id())
@@ -167,7 +170,10 @@ public final class MetadataIndexPublicationService implements IndexPublicationSe
 			return Future.failedFuture(indexerVersionConflict(indexer, request.expectedVersion()));
 		}
 		if (indexer.publicationState() != PublicationState.UNPUBLISHED) {
-			return Future.failedFuture("Index is not unpublished: " + indexer.indexName());
+			return Future.failedFuture(IndexPublicationConflictException.indexer(
+				indexer.id(),
+				"index is not unpublished"
+			));
 		}
 		return validateReadyState(indexer, publication);
 	}
@@ -177,14 +183,23 @@ public final class MetadataIndexPublicationService implements IndexPublicationSe
 		PublicationRecord publication
 	) {
 		if (publication.readinessState() != ReadinessState.READY) {
-			return Future.failedFuture("Index is not ready: " + indexer.indexName());
+			return Future.failedFuture(IndexPublicationConflictException.indexer(
+				indexer.id(),
+				"index is not ready"
+			));
 		}
 		if (indexer.mutationState() == MutationState.DELETING) {
-			return Future.failedFuture("Index is deleting: " + indexer.indexName());
+			return Future.failedFuture(IndexPublicationConflictException.indexer(
+				indexer.id(),
+				"index is deleting"
+			));
 		}
 		if (indexer.status() != IndexerStatus.AVAILABLE
 			|| indexer.provisioningState() != IndexerProvisioningState.READY) {
-			return Future.failedFuture("Indexer is not active: " + indexer.indexName());
+			return Future.failedFuture(IndexPublicationConflictException.indexer(
+				indexer.id(),
+				"indexer is not active"
+			));
 		}
 		return Future.succeededFuture(indexer);
 	}
@@ -214,22 +229,31 @@ public final class MetadataIndexPublicationService implements IndexPublicationSe
 			&& actualVersion == expectedVersion + 1L;
 	}
 
-	private String indexerVersionConflict(IndexerRecord indexer, long expectedVersion) {
-		return "Indexer version conflict for id " + indexer.id() + ": expected "
-			+ expectedVersion + " but was " + indexer.version();
+	private IndexPublicationConflictException indexerVersionConflict(
+		IndexerRecord indexer,
+		long expectedVersion
+	) {
+		return IndexPublicationConflictException.indexer(
+			indexer.id(),
+			"expected version " + expectedVersion + " but was " + indexer.version()
+		);
 	}
 
 	private Future<IndexerRecord> loadIndexer(Integer indexerId) {
 		return repository.getIndexerById(indexerId)
 			.compose(found -> found
 				.map(Future::succeededFuture)
-				.orElseGet(() -> Future.failedFuture("Indexer not found: " + indexerId)));
+				.orElseGet(() -> Future.failedFuture(
+					IndexPublicationNotFoundException.indexer(indexerId)
+				)));
 	}
 
 	private Future<PublicationRecord> loadPublication(Integer publicationId) {
 		return repository.getPublicationById(publicationId)
 			.compose(found -> found
 				.map(Future::succeededFuture)
-				.orElseGet(() -> Future.failedFuture("Publication not found: " + publicationId)));
+				.orElseGet(() -> Future.failedFuture(
+					IndexPublicationNotFoundException.publication(publicationId)
+				)));
 	}
 }

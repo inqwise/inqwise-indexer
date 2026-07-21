@@ -4,6 +4,7 @@ import static com.inqwise.indexer.testing.TestMetadataRecords.indexerRecord;
 import static com.inqwise.indexer.testing.TestMetadataRecords.readyTarget;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -35,6 +36,74 @@ import io.vertx.junit5.VertxTestContext;
 
 @ExtendWith(VertxExtension.class)
 class IndexPublicationServiceTest {
+	@Test
+	void markReadyFailsWithTypedNotFoundForMissingPublication(
+		VertxTestContext testContext
+	) {
+		IndexPublicationService publicationService = publicationService(
+			new InMemoryDocumentStoreMetadataRepository()
+		);
+
+		publicationService.markReady(new MarkIndexReadyRequest(42, "ready", 0L))
+			.onComplete(testContext.failing(error -> testContext.verify(() -> {
+				IndexPublicationNotFoundException missing = assertInstanceOf(
+					IndexPublicationNotFoundException.class,
+					error
+				);
+				assertEquals(
+					IndexPublicationNotFoundException.Lookup.PUBLICATION_ID,
+					missing.lookup()
+				);
+				assertEquals(42, missing.lookupId());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void publishFailsWithTypedNotFoundForMissingIndexer(VertxTestContext testContext) {
+		IndexPublicationService publicationService = publicationService(
+			new InMemoryDocumentStoreMetadataRepository()
+		);
+
+		publicationService.publish(new PublishIndexRequest(42, 0L))
+			.onComplete(testContext.failing(error -> testContext.verify(() -> {
+				IndexPublicationNotFoundException missing = assertInstanceOf(
+					IndexPublicationNotFoundException.class,
+					error
+				);
+				assertEquals(
+					IndexPublicationNotFoundException.Lookup.INDEXER_ID,
+					missing.lookup()
+				);
+				assertEquals(42, missing.lookupId());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void publishFailsWithTypedNotFoundForMissingIndexerPublication(
+		VertxTestContext testContext
+	) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		IndexPublicationService publicationService = publicationService(repository);
+
+		insertPublishedIndexer(repository)
+			.compose(indexerId -> publicationService.publish(new PublishIndexRequest(indexerId, 0L)))
+			.onComplete(testContext.failing(error -> testContext.verify(() -> {
+				IndexPublicationNotFoundException missing = assertInstanceOf(
+					IndexPublicationNotFoundException.class,
+					error
+				);
+				assertEquals(
+					IndexPublicationNotFoundException.Lookup.PUBLICATION_BY_INDEXER_ID,
+					missing.lookup()
+				);
+				assertEquals(1, missing.lookupId());
+				testContext.completeNow();
+			})));
+	}
+
 	@Test
 	void markIndexReadyUpdatesPublicationReadiness(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
@@ -104,9 +173,15 @@ class IndexPublicationServiceTest {
 				0L
 			))))
 			.onComplete(testContext.failing(error -> testContext.verify(() -> {
-				assertTrue(error.getMessage().startsWith(
-					"Publication version conflict for id"
-				));
+				IndexPublicationConflictException conflict = assertInstanceOf(
+					IndexPublicationConflictException.class,
+					error
+				);
+				assertEquals(
+					IndexPublicationConflictException.Resource.PUBLICATION,
+					conflict.resource()
+				);
+				assertEquals(1, conflict.resourceId());
 				testContext.completeNow();
 			})));
 	}
@@ -135,9 +210,15 @@ class IndexPublicationServiceTest {
 				0L
 			))))
 			.onComplete(testContext.failing(error -> testContext.verify(() -> {
-				assertTrue(error.getMessage().startsWith(
-					"Publication version conflict for id"
-				));
+				IndexPublicationConflictException conflict = assertInstanceOf(
+					IndexPublicationConflictException.class,
+					error
+				);
+				assertEquals(
+					IndexPublicationConflictException.Resource.PUBLICATION,
+					conflict.resource()
+				);
+				assertEquals(1, conflict.resourceId());
 				testContext.completeNow();
 			})));
 	}
@@ -151,7 +232,19 @@ class IndexPublicationServiceTest {
 		insertPublishableIndexer(repository, MutationState.WRITABLE, ReadinessState.PENDING)
 			.compose(indexerId -> publicationService.publish(new PublishIndexRequest(indexerId, 0L)))
 			.onComplete(testContext.failing(error -> testContext.verify(() -> {
-				assertTrue(error.getMessage().startsWith("Index is not ready"));
+				IndexPublicationConflictException conflict = assertInstanceOf(
+					IndexPublicationConflictException.class,
+					error
+				);
+				assertEquals(
+					IndexPublicationConflictException.Resource.INDEXER,
+					conflict.resource()
+				);
+				assertEquals(1, conflict.resourceId());
+				assertEquals(
+					"Indexer publication conflict for id 1: index is not ready",
+					conflict.getMessage()
+				);
 				testContext.completeNow();
 			})));
 	}
@@ -257,9 +350,15 @@ class IndexPublicationServiceTest {
 				.compose(ignored -> publicationService.retire(new RetireIndexRequest(indexerId, 1L)))
 				.compose(ignored -> publicationService.publish(new PublishIndexRequest(indexerId, 0L))))
 			.onComplete(testContext.failing(error -> testContext.verify(() -> {
-				assertTrue(error.getMessage().startsWith(
-					"Indexer version conflict for id"
-				));
+				IndexPublicationConflictException conflict = assertInstanceOf(
+					IndexPublicationConflictException.class,
+					error
+				);
+				assertEquals(
+					IndexPublicationConflictException.Resource.INDEXER,
+					conflict.resource()
+				);
+				assertEquals(1, conflict.resourceId());
 				testContext.completeNow();
 			})));
 	}
@@ -273,7 +372,19 @@ class IndexPublicationServiceTest {
 		insertPublishableIndexer(repository, MutationState.DELETING, ReadinessState.READY)
 			.compose(indexerId -> publicationService.publish(new PublishIndexRequest(indexerId, 0L)))
 			.onComplete(testContext.failing(error -> testContext.verify(() -> {
-				assertTrue(error.getMessage().startsWith("Index is deleting"));
+				IndexPublicationConflictException conflict = assertInstanceOf(
+					IndexPublicationConflictException.class,
+					error
+				);
+				assertEquals(
+					IndexPublicationConflictException.Resource.INDEXER,
+					conflict.resource()
+				);
+				assertEquals(1, conflict.resourceId());
+				assertEquals(
+					"Indexer publication conflict for id 1: index is deleting",
+					conflict.getMessage()
+				);
 				testContext.completeNow();
 			})));
 	}
@@ -337,9 +448,15 @@ class IndexPublicationServiceTest {
 				))
 				.compose(ignored -> publicationService.retire(new RetireIndexRequest(indexerId, 0L))))
 			.onComplete(testContext.failing(error -> testContext.verify(() -> {
-				assertTrue(error.getMessage().startsWith(
-					"Indexer version conflict for id"
-				));
+				IndexPublicationConflictException conflict = assertInstanceOf(
+					IndexPublicationConflictException.class,
+					error
+				);
+				assertEquals(
+					IndexPublicationConflictException.Resource.INDEXER,
+					conflict.resource()
+				);
+				assertEquals(1, conflict.resourceId());
 				testContext.completeNow();
 			})));
 	}
