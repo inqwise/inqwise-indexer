@@ -1,6 +1,10 @@
 package com.inqwise.indexer.service;
 
 import com.inqwise.errors.ErrorTicket;
+import com.inqwise.indexer.catalog.indexers.IndexerCatalogConflictException;
+import com.inqwise.indexer.catalog.indexers.IndexerCatalogNotFoundException;
+import com.inqwise.indexer.catalog.targets.TargetCatalogConflictException;
+import com.inqwise.indexer.catalog.targets.TargetCatalogNotFoundException;
 import com.inqwise.indexer.catalog.targets.TargetDefinitionNotFoundException;
 import com.inqwise.indexer.commands.CommandFailure;
 import com.inqwise.indexer.errors.IndexerErrorCodes;
@@ -24,6 +28,13 @@ public final class IndexerErrors {
 			.build();
 	}
 
+	public static ErrorTicket conflict(String message) {
+		return ErrorTicket.builder()
+			.withError(IndexerErrorCodes.Conflict)
+			.withDetails(message)
+			.build();
+	}
+
 	public static ErrorTicket normalize(Throwable error) {
 		if (error instanceof ErrorTicket ticket) {
 			return ticket;
@@ -39,6 +50,16 @@ public final class IndexerErrors {
 
 		if (error instanceof TargetDefinitionNotFoundException missingDefinition) {
 			return notFound(missingDefinition.getMessage());
+		}
+
+		if (error instanceof TargetCatalogNotFoundException
+			|| error instanceof IndexerCatalogNotFoundException) {
+			return notFound(error.getMessage());
+		}
+
+		if (error instanceof TargetCatalogConflictException
+			|| error instanceof IndexerCatalogConflictException) {
+			return conflict(error.getMessage());
 		}
 
 		return ErrorTicket.propagate(error, builder -> builder.withError(IndexerErrorCodes.InternalError));

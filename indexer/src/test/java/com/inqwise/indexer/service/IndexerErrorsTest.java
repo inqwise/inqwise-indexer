@@ -2,6 +2,10 @@ package com.inqwise.indexer.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import com.inqwise.indexer.catalog.indexers.IndexerCatalogConflictException;
+import com.inqwise.indexer.catalog.indexers.IndexerCatalogNotFoundException;
+import com.inqwise.indexer.catalog.targets.TargetCatalogConflictException;
+import com.inqwise.indexer.catalog.targets.TargetCatalogNotFoundException;
 import com.inqwise.indexer.catalog.targets.TargetDefinitionNotFoundException;
 import com.inqwise.indexer.errors.IndexerErrorCodes;
 import com.inqwise.indexer.errors.RetryableStaleStateException;
@@ -9,6 +13,42 @@ import com.inqwise.indexer.errors.RetryableStaleStateException;
 import org.junit.jupiter.api.Test;
 
 class IndexerErrorsTest {
+	@Test
+	void normalizesTypedCatalogNotFoundErrors() {
+		var targetTicket = IndexerErrors.normalize(new TargetCatalogNotFoundException(10));
+		var indexerTicket = IndexerErrors.normalize(new IndexerCatalogNotFoundException(20));
+
+		assertEquals(IndexerErrorCodes.NotFound, targetTicket.getError());
+		assertEquals(404, targetTicket.getStatus());
+		assertEquals("Target not found: 10", targetTicket.getErrorDetails());
+		assertEquals(IndexerErrorCodes.NotFound, indexerTicket.getError());
+		assertEquals(404, indexerTicket.getStatus());
+		assertEquals("Indexer not found: 20", indexerTicket.getErrorDetails());
+	}
+
+	@Test
+	void normalizesTypedCatalogConflictErrors() {
+		var targetTicket = IndexerErrors.normalize(
+			new TargetCatalogConflictException(10, "target is not active")
+		);
+		var indexerTicket = IndexerErrors.normalize(
+			new IndexerCatalogConflictException(20, "indexer is already active")
+		);
+
+		assertEquals(IndexerErrorCodes.Conflict, targetTicket.getError());
+		assertEquals(409, targetTicket.getStatus());
+		assertEquals(
+			"Target conflict for id 10: target is not active",
+			targetTicket.getErrorDetails()
+		);
+		assertEquals(IndexerErrorCodes.Conflict, indexerTicket.getError());
+		assertEquals(409, indexerTicket.getStatus());
+		assertEquals(
+			"Indexer conflict for id 20: indexer is already active",
+			indexerTicket.getErrorDetails()
+		);
+	}
+
 	@Test
 	void normalizesMissingTargetDefinition() {
 		var ticket = IndexerErrors.normalize(new TargetDefinitionNotFoundException("customers"));

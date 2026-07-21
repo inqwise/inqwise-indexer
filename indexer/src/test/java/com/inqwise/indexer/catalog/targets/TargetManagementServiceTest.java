@@ -138,14 +138,22 @@ class TargetManagementServiceTest {
 			Instant.parse("2026-05-18T10:15:00Z"),
 			null
 		)).compose(ignored -> targetManagementService.createTarget(new CreateTargetRequest(
-			"customers",
-			Instant.parse("2026-05-18T10:15:00Z"),
-			null
-		))).onComplete(testContext.failing(error -> testContext.verify(() -> {
-			assertEquals("Target already exists: customers", error.getMessage());
-			testContext.completeNow();
-		})));
-	}
+				"customers",
+				Instant.parse("2026-05-18T10:15:00Z"),
+				null
+			))).onComplete(testContext.failing(error -> testContext.verify(() -> {
+				TargetCatalogConflictException conflict = assertInstanceOf(
+					TargetCatalogConflictException.class,
+					error
+				);
+				assertEquals(1, conflict.targetId());
+				assertEquals(
+					"Target conflict for id 1: target already exists: customers",
+					conflict.getMessage()
+				);
+				testContext.completeNow();
+			})));
+		}
 
 	@Test
 	void createsTargetWithReadyIndexer(VertxTestContext testContext) {

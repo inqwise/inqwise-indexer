@@ -54,18 +54,24 @@ public final class MetadataIndexerManagementService implements IndexerManagement
 				return publish(indexer, changeType, indexer.version()).map(indexer);
 			}
 			if (indexer.version() != request.expectedVersion()) {
-				return Future.failedFuture("Indexer version conflict for id " + indexer.id()
-					+ ": expected " + request.expectedVersion() + " but was " + indexer.version());
+				return Future.failedFuture(new IndexerCatalogConflictException(
+					indexer.id(),
+					"expected version " + request.expectedVersion() + " but was " + indexer.version()
+				));
 			}
 			if (indexer.status() != IndexerStatus.AVAILABLE
 				|| indexer.mutationState() == MutationState.DELETING) {
-				return Future.failedFuture("Cannot " + action(desiredState)
-					+ " deleted indexer: " + indexer.id());
+				return Future.failedFuture(new IndexerCatalogConflictException(
+					indexer.id(),
+					"cannot " + action(desiredState) + " deleted indexer"
+				));
 			}
 			if (indexer.runtimeState() == desiredState) {
-				return Future.failedFuture("Indexer is already "
-					+ (desiredState == IndexerRuntimeState.ACTIVE ? "active: " : "inactive: ")
-					+ indexer.id());
+				return Future.failedFuture(new IndexerCatalogConflictException(
+					indexer.id(),
+					"indexer is already "
+						+ (desiredState == IndexerRuntimeState.ACTIVE ? "active" : "inactive")
+				));
 			}
 			long resultingVersion = request.expectedVersion() + 1L;
 			return repository.updateIndexerRuntimeState(UpdateIndexerRuntimeState.builder()
@@ -105,6 +111,6 @@ public final class MetadataIndexerManagementService implements IndexerManagement
 	private Future<IndexerRecord> load(Integer id) {
 		return repository.getIndexerById(id).compose(found -> found
 			.map(Future::succeededFuture)
-			.orElseGet(() -> Future.failedFuture("Indexer not found: " + id)));
+			.orElseGet(() -> Future.failedFuture(new IndexerCatalogNotFoundException(id))));
 	}
 }

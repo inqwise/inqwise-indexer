@@ -90,15 +90,23 @@ public class MetadataTargetManagementService implements TargetManagementService 
 			}
 			if (target.version() != request.expectedVersion()) {
 				return Future.failedFuture(
-					"Target version conflict for id " + target.id() + ": expected "
-						+ request.expectedVersion() + " but was " + target.version()
+					new TargetCatalogConflictException(
+						target.id(),
+						"expected version " + request.expectedVersion() + " but was " + target.version()
+					)
 				);
 			}
 			if (target.status() != TargetStatus.ACTIVE) {
-				return Future.failedFuture("Target is not active: " + target.id());
+				return Future.failedFuture(new TargetCatalogConflictException(
+					target.id(),
+					"target is not active"
+				));
 			}
 			if (target.provisioningState() != TargetProvisioningState.FAILED) {
-				return Future.failedFuture("Target provisioning is not failed: " + target.id());
+				return Future.failedFuture(new TargetCatalogConflictException(
+					target.id(),
+					"target provisioning is not failed"
+				));
 			}
 			return repository.updateTargetProvisioningState(UpdateTargetProvisioningState.builder()
 				.withId(target.id())
@@ -168,7 +176,10 @@ public class MetadataTargetManagementService implements TargetManagementService 
 			.withPeriodKey(period.key())
 			.build()).compose(found -> found
 			.map(target -> Future.<Void>failedFuture(
-				"Target already exists: " + definition.targetName()
+				new TargetCatalogConflictException(
+					target.id(),
+					"target already exists: " + definition.targetName()
+				)
 			))
 			.orElseGet(() -> Future.succeededFuture()));
 	}
@@ -256,7 +267,9 @@ public class MetadataTargetManagementService implements TargetManagementService 
 						.withExpectedVersion(current.version())
 						.build()
 				))
-				.orElseGet(() -> Future.failedFuture("Target not found: " + target.id())));
+				.orElseGet(() -> Future.failedFuture(
+					new TargetCatalogNotFoundException(target.id())
+				)));
 	}
 
 	private Future<Void> publishMetadataChanged(ProvisionedIndexer indexer) {
@@ -294,6 +307,8 @@ public class MetadataTargetManagementService implements TargetManagementService 
 		return repository.getTargetById(targetId)
 			.compose(found -> found
 				.map(Future::succeededFuture)
-				.orElseGet(() -> Future.failedFuture("Target not found: " + targetId)));
+				.orElseGet(() -> Future.failedFuture(
+					new TargetCatalogNotFoundException(targetId)
+				)));
 	}
 }

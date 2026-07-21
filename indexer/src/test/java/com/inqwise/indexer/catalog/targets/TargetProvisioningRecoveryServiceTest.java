@@ -3,6 +3,7 @@ package com.inqwise.indexer.catalog.targets;
 import static com.inqwise.indexer.testing.TestMetadataRecords.readyTarget;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,7 +30,25 @@ import io.vertx.junit5.VertxExtension;
 import io.vertx.junit5.VertxTestContext;
 
 @ExtendWith(VertxExtension.class)
-class TargetProvisioningRecoveryServiceTest {
+	class TargetProvisioningRecoveryServiceTest {
+	@Test
+	void missingTargetFailsWithTypedNotFound(VertxTestContext testContext) {
+		TargetManagementService service = targetManagementService(
+			new InMemoryDocumentStoreMetadataRepository()
+		);
+
+		service.recoverProvisioning(new RecoverTargetProvisioningRequest(42, 0L))
+			.onComplete(testContext.failing(error -> testContext.verify(() -> {
+				TargetCatalogNotFoundException missing = assertInstanceOf(
+					TargetCatalogNotFoundException.class,
+					error
+				);
+				assertEquals(42, missing.targetId());
+				assertEquals("Target not found: 42", missing.getMessage());
+				testContext.completeNow();
+			})));
+	}
+
 	@Test
 	void recoversFailedActiveTargetToReady(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
@@ -72,12 +91,20 @@ class TargetProvisioningRecoveryServiceTest {
 
 		repository.insertTarget(readyTarget("target-customers", "customers"))
 			.compose(targetId -> service.recoverProvisioning(new RecoverTargetProvisioningRequest(
-				targetId,
-				0L
-			))).onComplete(testContext.failing(error -> testContext.verify(() -> {
-				assertEquals("Target provisioning is not failed: 1", error.getMessage());
-				testContext.completeNow();
-			})));
+					 targetId,
+					0L
+				))).onComplete(testContext.failing(error -> testContext.verify(() -> {
+					TargetCatalogConflictException conflict = assertInstanceOf(
+						TargetCatalogConflictException.class,
+						error
+					);
+					assertEquals(1, conflict.targetId());
+					assertEquals(
+						"Target conflict for id 1: target provisioning is not failed",
+						conflict.getMessage()
+					);
+					testContext.completeNow();
+				})));
 	}
 
 	@Test
@@ -142,9 +169,14 @@ class TargetProvisioningRecoveryServiceTest {
 			targetId,
 			0L
 		)))).onComplete(testContext.failing(error -> testContext.verify(() -> {
+			TargetCatalogConflictException conflict = assertInstanceOf(
+				TargetCatalogConflictException.class,
+				error
+			);
+			assertEquals(1, conflict.targetId());
 			assertEquals(
-				"Target version conflict for id 1: expected 0 but was 3",
-				error.getMessage()
+				"Target conflict for id 1: expected version 0 but was 3",
+				conflict.getMessage()
 			);
 			testContext.completeNow();
 		})));
@@ -172,7 +204,15 @@ class TargetProvisioningRecoveryServiceTest {
 			targetId,
 			1L
 		)))).onComplete(testContext.failing(error -> testContext.verify(() -> {
-			assertEquals("Target is not active: 1", error.getMessage());
+			TargetCatalogConflictException conflict = assertInstanceOf(
+				TargetCatalogConflictException.class,
+				error
+			);
+			assertEquals(1, conflict.targetId());
+			assertEquals(
+				"Target conflict for id 1: target is not active",
+				conflict.getMessage()
+			);
 			testContext.completeNow();
 		})));
 	}
@@ -207,9 +247,14 @@ class TargetProvisioningRecoveryServiceTest {
 			targetId,
 			0L
 		)))).onComplete(testContext.failing(error -> testContext.verify(() -> {
+			TargetCatalogConflictException conflict = assertInstanceOf(
+				TargetCatalogConflictException.class,
+				error
+			);
+			assertEquals(1, conflict.targetId());
 			assertEquals(
-				"Target version conflict for id 1: expected 0 but was 2",
-				error.getMessage()
+				"Target conflict for id 1: expected version 0 but was 2",
+				conflict.getMessage()
 			);
 			testContext.completeNow();
 		})));

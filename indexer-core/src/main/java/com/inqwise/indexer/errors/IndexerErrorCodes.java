@@ -6,6 +6,7 @@ public enum IndexerErrorCodes implements ErrorCode {
 	InvalidRequest(400),
 	NotFound(404),
 	InvalidRoute(404),
+	Conflict(409),
 	RouteRetryable(503),
 	RetryableStaleState(503),
 	RouteFailed(409),

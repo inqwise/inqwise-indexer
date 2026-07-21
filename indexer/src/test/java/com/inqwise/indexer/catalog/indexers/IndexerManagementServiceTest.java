@@ -4,6 +4,7 @@ import static com.inqwise.indexer.testing.TestMetadataRecords.indexerRecord;
 import static com.inqwise.indexer.testing.TestMetadataRecords.readyTarget;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
@@ -26,6 +27,25 @@ import io.vertx.junit5.VertxTestContext;
 
 @ExtendWith(VertxExtension.class)
 class IndexerManagementServiceTest {
+	@Test
+	void missingIndexerFailsWithTypedNotFound(VertxTestContext testContext) {
+		IndexerManagementService service = service(
+			new InMemoryDocumentStoreMetadataRepository(),
+			new InMemoryIndexerLifecycleEventBus()
+		);
+
+		service.activate(new IndexerRuntimeStateRequest(42, 0L))
+			.onComplete(testContext.failing(error -> testContext.verify(() -> {
+				IndexerCatalogNotFoundException missing = assertInstanceOf(
+					IndexerCatalogNotFoundException.class,
+					error
+				);
+				assertEquals(42, missing.indexerId());
+				assertEquals("Indexer not found: 42", missing.getMessage());
+				testContext.completeNow();
+			})));
+	}
+
 	@Test
 	void activateCommandUpdatesMetadataRepositoryAndPublishesEvent(
 		VertxTestContext testContext
@@ -106,7 +126,15 @@ class IndexerManagementServiceTest {
 		insertIndexer(repository, IndexerRuntimeState.NON_ACTIVE, MutationState.DELETING)
 			.compose(indexerId -> service.activate(new IndexerRuntimeStateRequest(indexerId, 0L)))
 			.onComplete(testContext.failing(error -> testContext.verify(() -> {
-				assertTrue(error.getMessage().startsWith("Cannot activate deleted indexer"));
+				IndexerCatalogConflictException conflict = assertInstanceOf(
+					IndexerCatalogConflictException.class,
+					error
+				);
+				assertEquals(1, conflict.indexerId());
+				assertEquals(
+					"Indexer conflict for id 1: cannot activate deleted indexer",
+					conflict.getMessage()
+				);
 				testContext.completeNow();
 			})));
 	}
@@ -125,7 +153,15 @@ class IndexerManagementServiceTest {
 				.compose(ignored -> service.deactivate(new IndexerRuntimeStateRequest(indexerId, 1L)))
 				.compose(ignored -> service.activate(new IndexerRuntimeStateRequest(indexerId, 0L))))
 			.onComplete(testContext.failing(error -> testContext.verify(() -> {
-				assertTrue(error.getMessage().startsWith("Indexer version conflict for id"));
+				IndexerCatalogConflictException conflict = assertInstanceOf(
+					IndexerCatalogConflictException.class,
+					error
+				);
+				assertEquals(1, conflict.indexerId());
+				assertEquals(
+					"Indexer conflict for id 1: expected version 0 but was 2",
+					conflict.getMessage()
+				);
 				testContext.completeNow();
 			})));
 	}
@@ -144,7 +180,15 @@ class IndexerManagementServiceTest {
 				.compose(ignored -> service.activate(new IndexerRuntimeStateRequest(indexerId, 1L)))
 				.compose(ignored -> service.deactivate(new IndexerRuntimeStateRequest(indexerId, 0L))))
 			.onComplete(testContext.failing(error -> testContext.verify(() -> {
-				assertTrue(error.getMessage().startsWith("Indexer version conflict for id"));
+				IndexerCatalogConflictException conflict = assertInstanceOf(
+					IndexerCatalogConflictException.class,
+					error
+				);
+				assertEquals(1, conflict.indexerId());
+				assertEquals(
+					"Indexer conflict for id 1: expected version 0 but was 2",
+					conflict.getMessage()
+				);
 				testContext.completeNow();
 			})));
 	}
@@ -166,7 +210,15 @@ class IndexerManagementServiceTest {
 				0L
 			))))
 			.onComplete(testContext.failing(error -> testContext.verify(() -> {
-				assertTrue(error.getMessage().startsWith("Indexer version conflict for id"));
+				IndexerCatalogConflictException conflict = assertInstanceOf(
+					IndexerCatalogConflictException.class,
+					error
+				);
+				assertEquals(1, conflict.indexerId());
+				assertEquals(
+					"Indexer conflict for id 1: expected version 0 but was 1",
+					conflict.getMessage()
+				);
 				testContext.completeNow();
 			})));
 	}
