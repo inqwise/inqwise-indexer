@@ -13,6 +13,52 @@ Vert.x 5.x indexing library with this Maven reactor layout:
 
 The approved provider-neutral scope is complete. Remaining implementation starts only after selecting a concrete external contract or requirement: production persistence/resource adapters, deployment identity and audit sinks, distributed coordination, a document-query API, historical/live blend tracking, partitioned catch-up lanes, strict distributed queue-reset fencing, or classified and observable automatic runtime recovery. Repository splitting remains deferred until module contracts and release cadence are stable. The public gateway remains intentionally read-only; administration mutations, action submission, and runtime recovery stay internal.
 
+## Local Deployment
+
+The first runnable deployment uses the existing `IndexerNode` composition with in-memory metadata, queue, and document-store adapters. It enables the internal Admin, Target Action, and Runtime REST envelopes, keeps the public Gateway disabled, and registers one local `customers` target definition with monthly periods and cold-write auto-provisioning. This profile is for inspection and development only; all state is discarded when the process stops.
+
+Prerequisites are Java 17 or newer, Maven, and free loopback ports `8080`, `8081`, and `8083`. Build and start it from the repository root:
+
+```sh
+./run-local.sh
+```
+
+The script creates and runs `indexer/target/indexer-local.jar`. In a second terminal, inspect the initially empty control and data planes:
+
+```sh
+curl -sS http://127.0.0.1:8080/admin/targets
+curl -sS http://127.0.0.1:8083/runtime/status
+```
+
+Create the monthly `customers` target with a ready writable indexer:
+
+```sh
+curl -sS -X POST http://127.0.0.1:8080/admin/targets \
+	-H 'content-type: application/json' \
+	--data "{\"target_name\":\"customers\",\"date\":\"$(date -u +%F)\",\"create_indexer\":{\"initial_publication_mode\":\"READY\"}}"
+
+curl -sS http://127.0.0.1:8080/admin/indexers
+```
+
+In a fresh local process, the generated target and indexer ids are both `1`, and the ready indexer version is `1`. Activate it and observe runtime convergence:
+
+```sh
+curl -sS -X POST \
+	'http://127.0.0.1:8080/admin/indexers/1/activate?expected_version=1'
+
+curl -sS http://127.0.0.1:8083/runtime/status
+```
+
+The runtime response now contains indexer `1` in `ACTIVE` state. Submit a document action through the separate Target Action envelope:
+
+```sh
+curl -sS -X POST http://127.0.0.1:8081/targets/customers/actions \
+	-H 'content-type: application/json' \
+	--data '{"submission_id":"local-demo-1","actions":[{"type":"PUT_DOCUMENT","uid":"customer-1","document":{"name":"Ada","tier":"gold"}}]}'
+```
+
+The accepted response is `{"submission_id":"local-demo-1","state":"ACCEPTED"}`. Use `Ctrl+C` to stop the node cleanly.
+
 ## Domain Boundary Direction
 
 Domain boundaries are derived from functions, commands, durable state ownership, invariants, and external-resource coordination. Current service classes are implementation candidates and API facades; they are not treated as final domain boundaries by name alone.

@@ -13,6 +13,7 @@
 		<vertx.version>5.1.1</vertx.version>
 		<junit.version>5.10.2</junit.version>
 		<inqwise.errors.version>2.1.1</inqwise.errors.version>
+		<log4j.version>2.25.4</log4j.version>
 	</properties>
 
 	<dependencyManagement>
@@ -28,6 +29,16 @@
 				<groupId>com.inqwise</groupId>
 				<artifactId>inqwise-errors</artifactId>
 				<version>${inqwise.errors.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.apache.logging.log4j</groupId>
+				<artifactId>log4j-api</artifactId>
+				<version>${log4j.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.apache.logging.log4j</groupId>
+				<artifactId>log4j-core</artifactId>
+				<version>${log4j.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.junit.jupiter</groupId>

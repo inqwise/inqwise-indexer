@@ -6,6 +6,7 @@
 - Production repository implementations and durable/Kafka-backed `CommandEngine` implementations are external integration concerns. Keep their required atomicity, ordering, retry, and compatibility contracts documented, but do not treat implementation of those adapters as unfinished work in this repository.
 - No unblocked provider-neutral implementation item remains. New implementation requires one of these concrete triggers: production adapter selection, deployment identity/audit contracts, distributed coordination, a document-query consumer, historical/live blend requirements, partitioned catch-up queues, strict distributed reset fencing, classified and observable automatic runtime recovery, or stable release cadence for repository splitting.
 - Keep the public gateway read-only until deployment authorization, ownership, and audit contracts are selected. Current administration mutations, target-action submission, runtime reconcile, and node recovery operations remain internal even though some have internal REST envelopes.
+- The first local deployment profile is implemented as a self-contained shaded `indexer` jar over the existing `IndexerNode` composition. It explicitly uses in-memory adapters, enables Admin/Target Action/Runtime REST on loopback, disables Gateway exposure, and supplies only a local `customers` target definition. Keep normal node defaults unchanged and keep this profile ephemeral; production topology, identity, secrets, adapters, and audit remain separate deployment decisions.
 
 ## Module Layout
 

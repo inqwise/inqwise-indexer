@@ -1,6 +1,7 @@
 package com.inqwise.indexer.node;
 
 import java.time.Duration;
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 
@@ -56,13 +57,21 @@ public final class DefaultIndexerNodeComponentsFactory {
 		Vertx vertx,
 		IndexerNodeOptions nodeOptions
 	) {
+		return create(vertx, nodeOptions, List.of());
+	}
+
+	IndexerNodeComponents create(
+		Vertx vertx,
+		IndexerNodeOptions nodeOptions,
+		Collection<TargetDefinition> targetDefinitions
+	) {
 		Objects.requireNonNull(vertx, "vertx");
 		Objects.requireNonNull(nodeOptions, "nodeOptions").validate();
 
 		DocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
 		TargetDefinitionProvider targetDefinitionProvider =
-			new StaticTargetDefinitionProvider(List.<TargetDefinition>of());
+			new StaticTargetDefinitionProvider(targetDefinitions);
 		IndexerDefinitionProvider indexerDefinitionProvider =
 			new StaticIndexerDefinitionProvider(IndexerDefinition.builder()
 				.withIndex(IndexDefinition.builder()
