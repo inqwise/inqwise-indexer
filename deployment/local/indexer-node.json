@@ -1,0 +1,35 @@
+{
+	"services": {
+		"adminRest": {
+			"enabled": true
+		},
+		"targetActionRest": {
+			"enabled": true
+		},
+		"runtimeRest": {
+			"enabled": true
+		},
+		"gateway": {
+			"enabled": false
+		}
+	},
+	"admin_rest": {
+		"host": "0.0.0.0",
+		"port": 8080
+	},
+	"target_action_rest": {
+		"host": "0.0.0.0",
+		"port": 8081
+	},
+	"runtime_rest": {
+		"host": "0.0.0.0",
+		"port": 8083
+	},
+	"target_definitions": [
+		{
+			"target_name": "customers",
+			"period_strategy": "MONTHLY",
+			"auto_provision_on_write": true
+		}
+	]
+}

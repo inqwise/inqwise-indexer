@@ -8,6 +8,7 @@ Vert.x 5.x indexing library with this Maven reactor layout:
 - `indexer-events`: typed cross-module event publication contracts and local publisher implementations.
 - `indexer-coordination`: keyed exclusive-flow coordination contracts and the local shared-promise implementation.
 - `indexer`: command handlers/orchestration, action-routing implementations, hot-routing implementations, catalog implementations, provisioning orchestration, runtime implementations, service communication, node wiring, REST/gateway APIs, and default local adapters. It depends on `indexer-core`.
+- `indexer-node-application`: deployable node boundary. It owns the Vert.x application launcher, runtime logging implementation, Jib image definition, and container process arguments without adding a project-specific `main()` method or shaded application JAR.
 - `indexer-load`: load/reload orchestration, provider/runtime integration, durable workflow commands, and load-specific metadata around the core indexer primitives.
 - Root `inqwise-indexer`: local aggregator POM only.
 
@@ -15,15 +16,25 @@ The approved provider-neutral scope is complete. Remaining implementation starts
 
 ## Local Deployment
 
-The first runnable deployment uses the existing `IndexerNode` composition with in-memory metadata, queue, and document-store adapters. It enables the internal Admin, Target Action, and Runtime REST envelopes, keeps the public Gateway disabled, and registers one local `customers` target definition with monthly periods and cold-write auto-provisioning. This profile is for inspection and development only; all state is discarded when the process stops.
+The first runnable deployment uses the existing `IndexerNode` composition with in-memory metadata, queue, and document-store adapters. It enables the internal Admin, Target Action, and Runtime REST envelopes, keeps the public Gateway disabled, and loads one local `customers` target definition with monthly periods and cold-write auto-provisioning from `deployment/local/indexer-node.json`. This profile is for inspection and development only; all state is discarded when the process stops.
 
-Prerequisites are Java 17 or newer, Maven, and free loopback ports `8080`, `8081`, and `8083`. Build and start it from the repository root:
+Prerequisites are Java 17 or newer, Maven, a running Docker-compatible daemon with Compose support, and free loopback ports `8080`, `8081`, and `8083`. Build the layered image with Jib and start it from the repository root:
 
 ```sh
 ./run-local.sh
 ```
 
-The script creates and runs `indexer/target/indexer-local.jar`. In a second terminal, inspect the initially empty control and data planes:
+The script installs the dependent reactor modules, builds `inqwise/indexer-node:0.1.0-SNAPSHOT` into the local Docker daemon with Jib, and starts `compose.yaml`. Jib launches `com.inqwise.indexer.node.IndexerNodeVerticle` through `io.vertx.launcher.application.VertxApplication`; the project has no deployment-specific `main()` method and does not build an uber JAR. Compose mounts the node configuration read-only and checks `GET /runtime/status` for local readiness.
+
+To build or publish the application image separately after installing reactor dependencies:
+
+```sh
+mvn -pl indexer-dependencies,indexer-parent,indexer-node-application -am -DskipTests install
+mvn -f indexer-node-application/pom.xml jib:dockerBuild
+mvn -f indexer-node-application/pom.xml -Djib.to.image=registry.example/inqwise/indexer-node:0.1.0 jib:build
+```
+
+In a second terminal, inspect the initially empty control and data planes:
 
 ```sh
 curl -sS http://127.0.0.1:8080/admin/targets
@@ -54,10 +65,10 @@ The runtime response now contains indexer `1` in `ACTIVE` state. Submit a docume
 ```sh
 curl -sS -X POST http://127.0.0.1:8081/targets/customers/actions \
 	-H 'content-type: application/json' \
-	--data '{"submission_id":"local-demo-1","actions":[{"type":"PUT_DOCUMENT","uid":"customer-1","document":{"name":"Ada","tier":"gold"}}]}'
+	--data "{\"submission_id\":\"local-demo-1\",\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"actions\":[{\"type\":\"PUT_DOCUMENT\",\"uid\":\"customer-1\",\"document\":{\"name\":\"Ada\",\"tier\":\"gold\"}}]}"
 ```
 
-The accepted response is `{"submission_id":"local-demo-1","state":"ACCEPTED"}`. Use `Ctrl+C` to stop the node cleanly.
+The accepted response is `{"submission_id":"local-demo-1","state":"ACCEPTED"}`. Use `Ctrl+C` to stop Compose; the Vert.x launcher handles the termination signal and undeploys the node cleanly.
 
 ## Domain Boundary Direction
 

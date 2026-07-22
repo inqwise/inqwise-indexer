@@ -1,0 +1,63 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<parent>
+		<groupId>com.inqwise.indexer</groupId>
+		<artifactId>indexer-parent</artifactId>
+		<version>0.1.0-SNAPSHOT</version>
+		<relativePath>../indexer-parent/pom.xml</relativePath>
+	</parent>
+
+	<artifactId>indexer-node-application</artifactId>
+	<name>inqwise-indexer-node-application</name>
+
+	<dependencies>
+		<dependency>
+			<groupId>com.inqwise.indexer</groupId>
+			<artifactId>indexer</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>io.vertx</groupId>
+			<artifactId>vertx-launcher-application</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.logging.log4j</groupId>
+			<artifactId>log4j-core</artifactId>
+			<scope>runtime</scope>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<finalName>inqwise-indexer-node</finalName>
+		<plugins>
+			<plugin>
+				<groupId>com.google.cloud.tools</groupId>
+				<artifactId>jib-maven-plugin</artifactId>
+				<configuration>
+					<from>
+						<image>eclipse-temurin:17-jre-alpine</image>
+					</from>
+					<to>
+						<image>inqwise/indexer-node:${project.version}</image>
+					</to>
+					<container>
+						<mainClass>io.vertx.launcher.application.VertxApplication</mainClass>
+						<args>
+							<arg>com.inqwise.indexer.node.IndexerNodeVerticle</arg>
+							<arg>--conf</arg>
+							<arg>/config/indexer-node.json</arg>
+						</args>
+						<ports>
+							<port>8080</port>
+							<port>8081</port>
+							<port>8083</port>
+						</ports>
+						<user>10001:10001</user>
+					</container>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+</project>

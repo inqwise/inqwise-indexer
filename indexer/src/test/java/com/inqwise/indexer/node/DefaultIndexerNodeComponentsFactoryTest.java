@@ -1,10 +1,14 @@
 package com.inqwise.indexer.node;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -12,6 +16,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import com.inqwise.indexer.adapters.local.InMemoryIndexerDocumentStore;
 import com.inqwise.indexer.adapters.local.InMemoryIndexerQueue;
 import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepository;
+import com.inqwise.indexer.catalog.targets.TargetDefinition;
+import com.inqwise.indexer.catalog.targets.TargetPeriodStrategy;
 
 import io.vertx.core.Vertx;
 import io.vertx.junit5.VertxExtension;
@@ -74,5 +80,28 @@ class DefaultIndexerNodeComponentsFactoryTest {
 			components.targetInvalidationRegistryBackend(),
 			components.targetInvalidationRegistry()
 		);
+	}
+
+	@Test
+	void installsConfiguredTargetDefinitions(Vertx vertx) {
+		IndexerNodeOptions options = IndexerNodeOptions.builder()
+			.withTargetDefinitions(List.of(TargetDefinition.builder()
+				.withTargetName("customers")
+				.withPeriodStrategy(TargetPeriodStrategy.MONTHLY)
+				.withAutoProvisionOnWrite(true)
+				.build()))
+			.build();
+
+		IndexerNodeComponents components = new DefaultIndexerNodeComponentsFactory()
+			.create(vertx, options);
+		var definition = components.targetDefinitionProvider()
+			.getByName("customers")
+			.toCompletionStage()
+			.toCompletableFuture()
+			.join();
+
+		assertTrue(definition.isPresent());
+		assertEquals(TargetPeriodStrategy.MONTHLY, definition.orElseThrow().periodStrategy());
+		assertTrue(definition.orElseThrow().autoProvisionOnWrite());
 	}
 }

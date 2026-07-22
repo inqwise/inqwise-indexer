@@ -3,9 +3,14 @@ package com.inqwise.indexer.node;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import com.inqwise.indexer.catalog.targets.TargetDefinition;
+import com.inqwise.indexer.catalog.targets.TargetPeriodStrategy;
 import com.inqwise.indexer.lifecycle.IndexerLifecycleEventBusConfig;
 import com.inqwise.indexer.runtime.IndexerRuntimeReconcilerOptions;
 import com.inqwise.indexer.lifecycle.VertxIndexerLifecycleEventBusOptions;
@@ -14,6 +19,7 @@ import com.inqwise.indexer.rest.action.TargetActionRestOptions;
 import com.inqwise.indexer.rest.admin.AdminRestOptions;
 import com.inqwise.indexer.rest.runtime.RuntimeRestOptions;
 
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
 class IndexerNodeOptionsTest {
@@ -403,5 +409,69 @@ class IndexerNodeOptionsTest {
 
 		assertEquals("0.0.0.0", options.getRuntimeRestOptions().getHost());
 		assertEquals(9093, options.getRuntimeRestOptions().getPort());
+	}
+
+	@Test
+	void readsAndSerializesTargetDefinitions() {
+		IndexerNodeOptions options = new IndexerNodeOptions(new JsonObject()
+			.put(IndexerNodeOptions.Keys.TARGET_DEFINITIONS, new JsonArray()
+				.add(new JsonObject()
+					.put(IndexerNodeOptions.TargetDefinitions.TARGET_NAME, "customers")
+					.put(
+						IndexerNodeOptions.TargetDefinitions.PERIOD_STRATEGY,
+						TargetPeriodStrategy.MONTHLY.name()
+					)
+					.put(
+						IndexerNodeOptions.TargetDefinitions.AUTO_PROVISION_ON_WRITE,
+						true
+					))));
+
+		assertEquals(1, options.targetDefinitions().size());
+		TargetDefinition definition = options.targetDefinitions().get(0);
+		assertEquals("customers", definition.targetName());
+		assertEquals(TargetPeriodStrategy.MONTHLY, definition.periodStrategy());
+		assertTrue(definition.autoProvisionOnWrite());
+		assertEquals(
+			"customers",
+			options.toJson()
+				.getJsonArray(IndexerNodeOptions.Keys.TARGET_DEFINITIONS)
+				.getJsonObject(0)
+				.getString(IndexerNodeOptions.TargetDefinitions.TARGET_NAME)
+		);
+	}
+
+	@Test
+	void builderCopiesTargetDefinitions() {
+		List<TargetDefinition> definitions = List.of(TargetDefinition.builder()
+			.withTargetName("customers")
+			.withPeriodStrategy(TargetPeriodStrategy.MONTHLY)
+			.withAutoProvisionOnWrite(true)
+			.build());
+
+		IndexerNodeOptions options = IndexerNodeOptions.builder()
+			.withTargetDefinitions(definitions)
+			.build();
+
+		assertEquals(definitions, options.targetDefinitions());
+		assertThrows(
+			UnsupportedOperationException.class,
+			() -> options.targetDefinitions().add(definitions.get(0))
+		);
+	}
+
+	@Test
+	void rejectsDuplicateTargetDefinitions() {
+		TargetDefinition definition = TargetDefinition.builder()
+			.withTargetName("customers")
+			.build();
+
+		IllegalArgumentException error = assertThrows(
+			IllegalArgumentException.class,
+			() -> IndexerNodeOptions.builder()
+				.withTargetDefinitions(List.of(definition, definition))
+				.build()
+		);
+
+		assertEquals("Duplicate target definition: customers", error.getMessage());
 	}
 }

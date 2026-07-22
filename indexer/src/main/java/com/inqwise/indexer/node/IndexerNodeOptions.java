@@ -1,10 +1,16 @@
 package com.inqwise.indexer.node;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
+import com.inqwise.indexer.catalog.targets.TargetDefinition;
+import com.inqwise.indexer.catalog.targets.TargetPeriodStrategy;
 import com.inqwise.indexer.lifecycle.IndexerLifecycleEventBusConfig;
 import com.inqwise.indexer.runtime.IndexerRuntimeReconcilerOptions;
 import com.inqwise.indexer.lifecycle.VertxIndexerLifecycleEventBusOptions;
@@ -14,6 +20,7 @@ import com.inqwise.indexer.rest.admin.AdminRestOptions;
 import com.inqwise.indexer.rest.runtime.RuntimeRestOptions;
 
 import io.vertx.codegen.annotations.DataObject;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
 @DataObject
@@ -26,9 +33,19 @@ public class IndexerNodeOptions {
 		public static final String RUNTIME_RECONCILER = "runtime_reconciler";
 		public static final String LIFECYCLE_EVENTS = "lifecycle_events";
 		public static final String TARGET_INVALIDATION = "target_invalidation";
+		public static final String TARGET_DEFINITIONS = "target_definitions";
 		public static final String GATEWAY = "gateway";
 
 		private Keys() {
+		}
+	}
+
+	public static final class TargetDefinitions {
+		public static final String TARGET_NAME = "target_name";
+		public static final String PERIOD_STRATEGY = "period_strategy";
+		public static final String AUTO_PROVISION_ON_WRITE = "auto_provision_on_write";
+
+		private TargetDefinitions() {
 		}
 	}
 
@@ -81,6 +98,7 @@ public class IndexerNodeOptions {
 	private GatewayRestOptions gatewayOptions = GatewayRestOptions.builder().build();
 	private TargetInvalidationNodeOptions targetInvalidationOptions =
 		TargetInvalidationNodeOptions.builder().build();
+	private List<TargetDefinition> targetDefinitions = List.of();
 
 	public IndexerNodeOptions() {
 		addDefaults();
@@ -125,6 +143,9 @@ public class IndexerNodeOptions {
 		this.targetInvalidationOptions = new TargetInvalidationNodeOptions(
 			json.getJsonObject(Keys.TARGET_INVALIDATION, new JsonObject())
 		);
+		this.targetDefinitions = readTargetDefinitions(
+			json.getJsonArray(Keys.TARGET_DEFINITIONS, new JsonArray())
+		);
 		validate();
 	}
 
@@ -136,6 +157,17 @@ public class IndexerNodeOptions {
 		JsonObject serviceJson = new JsonObject();
 		for (Map.Entry<String, IndexerServiceDeploymentOptions> entry : services.entrySet()) {
 			serviceJson.put(entry.getKey(), entry.getValue().toJson());
+		}
+
+		JsonArray targetDefinitionJson = new JsonArray();
+		for (TargetDefinition definition : targetDefinitions) {
+			targetDefinitionJson.add(new JsonObject()
+				.put(TargetDefinitions.TARGET_NAME, definition.targetName())
+				.put(TargetDefinitions.PERIOD_STRATEGY, definition.periodStrategy().name())
+				.put(
+					TargetDefinitions.AUTO_PROVISION_ON_WRITE,
+					definition.autoProvisionOnWrite()
+				));
 		}
 
 		return new JsonObject()
@@ -152,7 +184,8 @@ public class IndexerNodeOptions {
 				)
 			)
 			.put(Keys.GATEWAY, gatewayOptions.toJson())
-			.put(Keys.TARGET_INVALIDATION, targetInvalidationOptions.toJson());
+			.put(Keys.TARGET_INVALIDATION, targetInvalidationOptions.toJson())
+			.put(Keys.TARGET_DEFINITIONS, targetDefinitionJson);
 	}
 
 	public IndexerServiceDeploymentOptions service(String name) {
@@ -294,6 +327,10 @@ public class IndexerNodeOptions {
 		return this;
 	}
 
+	public List<TargetDefinition> targetDefinitions() {
+		return List.copyOf(targetDefinitions);
+	}
+
 	public Map<String, IndexerServiceDeploymentOptions> getServices() {
 		return Map.copyOf(services);
 	}
@@ -315,6 +352,7 @@ public class IndexerNodeOptions {
 		lifecycleEventBusOptions.validate();
 		runtimeReconcilerOptions.validate();
 		targetInvalidationOptions.validate();
+		validateTargetDefinitions(targetDefinitions);
 		for (IndexerServiceDeploymentOptions options : services.values()) {
 			options.validate();
 		}
@@ -372,6 +410,7 @@ public class IndexerNodeOptions {
 		private VertxIndexerLifecycleEventBusOptions lifecycleEventBusOptions;
 		private GatewayRestOptions gatewayOptions;
 		private TargetInvalidationNodeOptions targetInvalidationOptions;
+		private List<TargetDefinition> targetDefinitions = List.of();
 
 		private Builder() {
 		}
@@ -426,6 +465,11 @@ public class IndexerNodeOptions {
 			return this;
 		}
 
+		public Builder withTargetDefinitions(Collection<TargetDefinition> value) {
+			targetDefinitions = copyTargetDefinitions(value);
+			return this;
+		}
+
 		public IndexerNodeOptions build() {
 			IndexerNodeOptions options = new IndexerNodeOptions();
 			for (Map.Entry<String, IndexerServiceDeploymentOptions> entry : services.entrySet()) {
@@ -455,6 +499,7 @@ public class IndexerNodeOptions {
 			if (targetInvalidationOptions != null) {
 				options.targetInvalidationOptions = copy(targetInvalidationOptions);
 			}
+			options.targetDefinitions = copyTargetDefinitions(targetDefinitions);
 			return options.validate();
 		}
 	}
@@ -466,6 +511,60 @@ public class IndexerNodeOptions {
 			.withEnabled(value.isEnabled())
 			.withInstances(value.getInstances())
 			.build();
+	}
+
+	private static List<TargetDefinition> readTargetDefinitions(JsonArray values) {
+		List<TargetDefinition> definitions = new ArrayList<>();
+		for (int index = 0; index < values.size(); index++) {
+			JsonObject value = values.getJsonObject(index);
+			String strategyName = value.getString(
+				TargetDefinitions.PERIOD_STRATEGY,
+				TargetPeriodStrategy.NONE.name()
+			);
+			TargetPeriodStrategy periodStrategy;
+			try {
+				periodStrategy = TargetPeriodStrategy.valueOf(strategyName);
+			} catch (IllegalArgumentException error) {
+				throw new IllegalArgumentException(
+					"Unknown target period strategy: " + strategyName,
+					error
+				);
+			}
+			definitions.add(TargetDefinition.builder()
+				.withTargetName(value.getString(TargetDefinitions.TARGET_NAME))
+				.withPeriodStrategy(periodStrategy)
+				.withAutoProvisionOnWrite(value.getBoolean(
+					TargetDefinitions.AUTO_PROVISION_ON_WRITE,
+					false
+				))
+				.build());
+		}
+		validateTargetDefinitions(definitions);
+		return List.copyOf(definitions);
+	}
+
+	private static List<TargetDefinition> copyTargetDefinitions(
+		Collection<TargetDefinition> values
+	) {
+		Objects.requireNonNull(values, "targetDefinitions");
+		return values.stream()
+			.map(value -> TargetDefinition.builder()
+				.withTargetName(Objects.requireNonNull(value, "targetDefinition").targetName())
+				.withPeriodStrategy(value.periodStrategy())
+				.withAutoProvisionOnWrite(value.autoProvisionOnWrite())
+				.build())
+			.toList();
+	}
+
+	private static void validateTargetDefinitions(Collection<TargetDefinition> values) {
+		Set<String> targetNames = new HashSet<>();
+		for (TargetDefinition definition : values) {
+			if (!targetNames.add(definition.targetName())) {
+				throw new IllegalArgumentException(
+					"Duplicate target definition: " + definition.targetName()
+				);
+			}
+		}
 	}
 
 	private static AdminRestOptions copy(AdminRestOptions value) {
