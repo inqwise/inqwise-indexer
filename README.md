@@ -18,7 +18,7 @@ The approved provider-neutral scope is complete. Remaining implementation starts
 
 The first runnable deployment uses the existing `IndexerNode` composition with in-memory metadata, queue, and document-store adapters. It enables the internal Admin, Target Action, and Runtime REST envelopes, keeps the public Gateway disabled, and loads one local `customers` target definition with monthly periods and cold-write auto-provisioning from `deployment/local/indexer-node.json`. This profile is for inspection and development only; all state is discarded when the process stops.
 
-Prerequisites are Java 17 or newer, Maven, a running Docker-compatible daemon with Compose support, and free loopback ports `8080`, `8081`, and `8083`. Build the layered image with Jib and start it from the repository root:
+Prerequisites are Java 21 or newer, Maven, a running Docker-compatible daemon with Compose support, and free loopback ports `8080`, `8081`, and `8083`. Build the layered image with Jib and start it from the repository root:
 
 ```sh
 ./run-local.sh

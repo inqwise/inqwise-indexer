@@ -37,7 +37,13 @@
 				<artifactId>jib-maven-plugin</artifactId>
 				<configuration>
 					<from>
-						<image>eclipse-temurin:17-jre-alpine</image>
+						<image>eclipse-temurin:21-jre-alpine</image>
+						<platforms>
+							<platform>
+								<architecture>${jib.platform.architecture}</architecture>
+								<os>linux</os>
+							</platform>
+						</platforms>
 					</from>
 					<to>
 						<image>inqwise/indexer-node:${project.version}</image>
