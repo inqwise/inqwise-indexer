@@ -37,7 +37,7 @@
 				<artifactId>jib-maven-plugin</artifactId>
 				<configuration>
 					<from>
-						<image>eclipse-temurin:21-jre-alpine</image>
+						<image>eclipse-temurin:21-jre-alpine@sha256:3f08b13888f595cc49edabea7250ba69499ba25602b267da591720769400e08c</image>
 						<platforms>
 							<platform>
 								<architecture>${jib.platform.architecture}</architecture>

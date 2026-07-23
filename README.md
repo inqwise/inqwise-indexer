@@ -24,7 +24,7 @@ Prerequisites are Java 21 or newer, Maven, a running Docker-compatible daemon wi
 ./run-local.sh
 ```
 
-The script installs the dependent reactor modules, builds `inqwise/indexer-node:0.1.0-SNAPSHOT` into the local Docker daemon with Jib, and starts `compose.yaml`. Jib launches `com.inqwise.indexer.node.IndexerNodeVerticle` through `io.vertx.launcher.application.VertxApplication`; the project has no deployment-specific `main()` method and does not build an uber JAR. Compose mounts the node configuration read-only and checks `GET /health/ready` on the deployment-owned health port.
+The script installs the dependent reactor modules, builds `inqwise/indexer-node:0.1.0-SNAPSHOT` into the local Docker daemon with Jib, and starts `compose.yaml`. Jib launches `com.inqwise.indexer.node.IndexerNodeVerticle` through `io.vertx.launcher.application.VertxApplication`; the project has no deployment-specific `main()` method and does not build an uber JAR. The Java 21 base image is pinned to an approved multi-platform OCI digest in `indexer-node-application/pom.xml`; dependency maintenance must update that digest explicitly. Compose mounts the node configuration read-only and checks `GET /health/ready` on the deployment-owned health port.
 
 To build or publish the application image separately after installing reactor dependencies:
 
