@@ -59,6 +59,7 @@
 							<port>8080</port>
 							<port>8081</port>
 							<port>8083</port>
+							<port>8084</port>
 						</ports>
 						<user>10001:10001</user>
 					</container>

@@ -30,6 +30,7 @@ public class IndexerNodeOptions {
 		public static final String ADMIN_REST = "admin_rest";
 		public static final String TARGET_ACTION_REST = "target_action_rest";
 		public static final String RUNTIME_REST = "runtime_rest";
+		public static final String HEALTH_REST = "health_rest";
 		public static final String RUNTIME_RECONCILER = "runtime_reconciler";
 		public static final String LIFECYCLE_EVENTS = "lifecycle_events";
 		public static final String TARGET_INVALIDATION = "target_invalidation";
@@ -64,6 +65,7 @@ public class IndexerNodeOptions {
 		public static final String TARGET_ACTION_REST = "targetActionRest";
 		public static final String RUNTIME = "runtime";
 		public static final String RUNTIME_REST = "runtimeRest";
+		public static final String HEALTH_REST = "healthRest";
 		public static final String GATEWAY = "gateway";
 		public static final String TARGET_INVALIDATION_REGISTRY = "targetInvalidationRegistry";
 
@@ -74,6 +76,7 @@ public class IndexerNodeOptions {
 			TARGET_ACTION_REST,
 			RUNTIME,
 			RUNTIME_REST,
+			HEALTH_REST,
 			GATEWAY,
 			TARGET_INVALIDATION_REGISTRY
 		);
@@ -87,6 +90,7 @@ public class IndexerNodeOptions {
 	private TargetActionRestOptions targetActionRestOptions =
 		TargetActionRestOptions.builder().build();
 	private RuntimeRestOptions runtimeRestOptions = RuntimeRestOptions.builder().build();
+	private NodeHealthRestOptions healthRestOptions = NodeHealthRestOptions.builder().build();
 	private IndexerRuntimeReconcilerOptions runtimeReconcilerOptions =
 		IndexerRuntimeReconcilerOptions.builder().build();
 	private IndexerLifecycleEventBusConfig lifecycleEventBusConfig =
@@ -122,6 +126,9 @@ public class IndexerNodeOptions {
 		);
 		this.runtimeRestOptions = new RuntimeRestOptions(
 			json.getJsonObject(Keys.RUNTIME_REST, new JsonObject())
+		);
+		this.healthRestOptions = new NodeHealthRestOptions(
+			json.getJsonObject(Keys.HEALTH_REST, new JsonObject())
 		);
 		this.runtimeReconcilerOptions = new IndexerRuntimeReconcilerOptions(
 			json.getJsonObject(Keys.RUNTIME_RECONCILER, new JsonObject())
@@ -175,6 +182,7 @@ public class IndexerNodeOptions {
 			.put(Keys.ADMIN_REST, adminRestOptions.toJson())
 			.put(Keys.TARGET_ACTION_REST, targetActionRestOptions.toJson())
 			.put(Keys.RUNTIME_REST, runtimeRestOptions.toJson())
+			.put(Keys.HEALTH_REST, healthRestOptions.toJson())
 			.put(Keys.RUNTIME_RECONCILER, runtimeReconcilerOptions.toJson())
 			.put(
 				Keys.LIFECYCLE_EVENTS,
@@ -215,6 +223,10 @@ public class IndexerNodeOptions {
 
 	public IndexerServiceDeploymentOptions runtimeRest() {
 		return service(Services.RUNTIME_REST);
+	}
+
+	public IndexerServiceDeploymentOptions healthRest() {
+		return service(Services.HEALTH_REST);
 	}
 
 	public IndexerServiceDeploymentOptions gateway() {
@@ -263,6 +275,17 @@ public class IndexerNodeOptions {
 		this.runtimeRestOptions = runtimeRestOptions == null
 			? RuntimeRestOptions.builder().build()
 			: runtimeRestOptions;
+		return this;
+	}
+
+	public NodeHealthRestOptions getHealthRestOptions() {
+		return healthRestOptions;
+	}
+
+	public IndexerNodeOptions setHealthRestOptions(NodeHealthRestOptions healthRestOptions) {
+		this.healthRestOptions = healthRestOptions == null
+			? NodeHealthRestOptions.builder().build()
+			: healthRestOptions;
 		return this;
 	}
 
@@ -381,6 +404,11 @@ public class IndexerNodeOptions {
 			throw new IllegalArgumentException("Runtime REST service must be deployed with exactly one instance");
 		}
 
+		IndexerServiceDeploymentOptions healthRest = healthRest();
+		if (healthRest.isEnabled() && healthRest.getInstances() != 1) {
+			throw new IllegalArgumentException("Health REST service must be deployed with exactly one instance");
+		}
+
 		IndexerServiceDeploymentOptions gateway = gateway();
 		if (gateway.isEnabled() && gateway.getInstances() != 1) {
 			throw new IllegalArgumentException("Gateway service must be deployed with exactly one instance");
@@ -405,6 +433,7 @@ public class IndexerNodeOptions {
 		private AdminRestOptions adminRestOptions;
 		private TargetActionRestOptions targetActionRestOptions;
 		private RuntimeRestOptions runtimeRestOptions;
+		private NodeHealthRestOptions healthRestOptions;
 		private IndexerRuntimeReconcilerOptions runtimeReconcilerOptions;
 		private IndexerLifecycleEventBusConfig lifecycleEventBusConfig;
 		private VertxIndexerLifecycleEventBusOptions lifecycleEventBusOptions;
@@ -433,6 +462,11 @@ public class IndexerNodeOptions {
 
 		public Builder withRuntimeRestOptions(RuntimeRestOptions value) {
 			runtimeRestOptions = copy(Objects.requireNonNull(value, "value"));
+			return this;
+		}
+
+		public Builder withHealthRestOptions(NodeHealthRestOptions value) {
+			healthRestOptions = copy(Objects.requireNonNull(value, "value"));
 			return this;
 		}
 
@@ -483,6 +517,9 @@ public class IndexerNodeOptions {
 			}
 			if (runtimeRestOptions != null) {
 				options.runtimeRestOptions = copy(runtimeRestOptions);
+			}
+			if (healthRestOptions != null) {
+				options.healthRestOptions = copy(healthRestOptions);
 			}
 			if (runtimeReconcilerOptions != null) {
 				options.runtimeReconcilerOptions = copy(runtimeReconcilerOptions);
@@ -591,6 +628,13 @@ public class IndexerNodeOptions {
 			.build();
 	}
 
+	private static NodeHealthRestOptions copy(NodeHealthRestOptions value) {
+		return NodeHealthRestOptions.builder()
+			.withHost(value.getHost())
+			.withPort(value.getPort())
+			.build();
+	}
+
 	private static IndexerRuntimeReconcilerOptions copy(
 		IndexerRuntimeReconcilerOptions value
 	) {
@@ -649,6 +693,10 @@ public class IndexerNodeOptions {
 		services.put(Services.RUNTIME, IndexerServiceDeploymentOptions.builder().build());
 		services.put(
 			Services.RUNTIME_REST,
+			IndexerServiceDeploymentOptions.builder().withEnabled(false).build()
+		);
+		services.put(
+			Services.HEALTH_REST,
 			IndexerServiceDeploymentOptions.builder().withEnabled(false).build()
 		);
 		services.put(

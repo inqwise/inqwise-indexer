@@ -18,13 +18,13 @@ The approved provider-neutral scope is complete. Remaining implementation starts
 
 The first runnable deployment uses the existing `IndexerNode` composition with in-memory metadata, queue, and document-store adapters. It enables the internal Admin, Target Action, and Runtime REST envelopes, keeps the public Gateway disabled, and loads one local `customers` target definition with monthly periods and cold-write auto-provisioning from `deployment/local/indexer-node.json`. This profile is for inspection and development only; all state is discarded when the process stops.
 
-Prerequisites are Java 21 or newer, Maven, a running Docker-compatible daemon with Compose support, and free loopback ports `8080`, `8081`, and `8083`. Build the layered image with Jib and start it from the repository root:
+Prerequisites are Java 21 or newer, Maven, a running Docker-compatible daemon with Compose support, and free loopback ports `8080`, `8081`, `8083`, and `8084`. Build the layered image with Jib and start it from the repository root:
 
 ```sh
 ./run-local.sh
 ```
 
-The script installs the dependent reactor modules, builds `inqwise/indexer-node:0.1.0-SNAPSHOT` into the local Docker daemon with Jib, and starts `compose.yaml`. Jib launches `com.inqwise.indexer.node.IndexerNodeVerticle` through `io.vertx.launcher.application.VertxApplication`; the project has no deployment-specific `main()` method and does not build an uber JAR. Compose mounts the node configuration read-only and checks `GET /runtime/status` for local readiness.
+The script installs the dependent reactor modules, builds `inqwise/indexer-node:0.1.0-SNAPSHOT` into the local Docker daemon with Jib, and starts `compose.yaml`. Jib launches `com.inqwise.indexer.node.IndexerNodeVerticle` through `io.vertx.launcher.application.VertxApplication`; the project has no deployment-specific `main()` method and does not build an uber JAR. Compose mounts the node configuration read-only and checks `GET /health/ready` on the deployment-owned health port.
 
 To build or publish the application image separately after installing reactor dependencies:
 
@@ -37,9 +37,13 @@ mvn -f indexer-node-application/pom.xml -Djib.to.image=registry.example/inqwise/
 In a second terminal, inspect the initially empty control and data planes:
 
 ```sh
+curl -i http://127.0.0.1:8084/health/live
+curl -i http://127.0.0.1:8084/health/ready
 curl -sS http://127.0.0.1:8080/admin/targets
 curl -sS http://127.0.0.1:8083/runtime/status
 ```
+
+Both health requests return `204` after successful startup. Liveness remains `204` while the node is running, including recovery-only mode. Readiness returns `503` during startup, shutdown, or recovery-only mode and returns `204` only when the full data plane is available.
 
 Create the monthly `customers` target with a ready writable indexer:
 

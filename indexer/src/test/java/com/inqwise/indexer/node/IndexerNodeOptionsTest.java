@@ -38,6 +38,12 @@ class IndexerNodeOptionsTest {
 		assertEquals(1, options.gateway().getInstances());
 		assertFalse(options.runtimeRest().isEnabled());
 		assertEquals(1, options.runtimeRest().getInstances());
+		assertFalse(options.healthRest().isEnabled());
+		assertEquals(1, options.healthRest().getInstances());
+		assertEquals(
+			NodeHealthRestOptions.DEFAULT_PORT,
+			options.getHealthRestOptions().getPort()
+		);
 		assertEquals(1, options.targetInvalidationRegistry().getInstances());
 		assertEquals(
 			TargetInvalidationNodeOptions.Provider.VERTX_SHARED_DATA,
@@ -95,6 +101,7 @@ class IndexerNodeOptionsTest {
 				TargetActionRestOptions.builder().withPort(9002).build()
 			)
 			.withRuntimeRestOptions(RuntimeRestOptions.builder().withPort(9003).build())
+			.withHealthRestOptions(NodeHealthRestOptions.builder().withPort(9005).build())
 			.withRuntimeReconcilerOptions(
 				IndexerRuntimeReconcilerOptions.builder()
 					.withMaxDirtyIndexers(25)
@@ -129,6 +136,7 @@ class IndexerNodeOptionsTest {
 		assertEquals(9001, options.getAdminRestOptions().getPort());
 		assertEquals(9002, options.getTargetActionRestOptions().getPort());
 		assertEquals(9003, options.getRuntimeRestOptions().getPort());
+		assertEquals(9005, options.getHealthRestOptions().getPort());
 		assertEquals(25, options.getRuntimeReconcilerOptions().getMaxDirtyIndexers());
 		assertEquals("production", options.getLifecycleEventBusConfig().namespace());
 		assertEquals(500L, options.getLifecycleEventBusOptions().getMaxTransportLagMs());
@@ -354,6 +362,22 @@ class IndexerNodeOptionsTest {
 	}
 
 	@Test
+	void rejectsMultipleHealthRestInstancesWhenEnabled() {
+		IllegalArgumentException error = assertThrows(
+			IllegalArgumentException.class,
+			() -> new IndexerNodeOptions(new JsonObject()
+				.put(IndexerNodeOptions.Keys.SERVICES, new JsonObject()
+					.put(IndexerNodeOptions.Services.HEALTH_REST, new JsonObject()
+						.put(IndexerServiceDeploymentOptions.Keys.INSTANCES, 2))))
+		);
+
+		assertEquals(
+			"Health REST service must be deployed with exactly one instance",
+			error.getMessage()
+		);
+	}
+
+	@Test
 	void readsAdminRestOptionsFromJson() {
 		IndexerNodeOptions options = new IndexerNodeOptions(new JsonObject()
 			.put(IndexerNodeOptions.Keys.ADMIN_REST, new JsonObject()
@@ -409,6 +433,23 @@ class IndexerNodeOptionsTest {
 
 		assertEquals("0.0.0.0", options.getRuntimeRestOptions().getHost());
 		assertEquals(9093, options.getRuntimeRestOptions().getPort());
+	}
+
+	@Test
+	void readsHealthRestOptionsFromJson() {
+		IndexerNodeOptions options = new IndexerNodeOptions(new JsonObject()
+			.put(IndexerNodeOptions.Keys.HEALTH_REST, new JsonObject()
+				.put(NodeHealthRestOptions.Keys.HOST, "0.0.0.0")
+				.put(NodeHealthRestOptions.Keys.PORT, 9094)));
+
+		assertEquals("0.0.0.0", options.getHealthRestOptions().getHost());
+		assertEquals(9094, options.getHealthRestOptions().getPort());
+		assertEquals(
+			9094,
+			options.toJson()
+				.getJsonObject(IndexerNodeOptions.Keys.HEALTH_REST)
+				.getInteger(NodeHealthRestOptions.Keys.PORT)
+		);
 	}
 
 	@Test

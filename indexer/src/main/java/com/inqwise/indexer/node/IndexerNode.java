@@ -37,6 +37,7 @@ public class IndexerNode {
 	private final List<String> deploymentIds = new ArrayList<>();
 	private final List<String> dataPlaneDeploymentIds = new ArrayList<>();
 	private final List<String> infrastructureDeploymentIds = new ArrayList<>();
+	private boolean started;
 	private boolean recoveryOnly;
 	private boolean stopping;
 	private Future<Void> recoveryFuture;
@@ -69,6 +70,7 @@ public class IndexerNode {
 	public Future<Void> start() {
 		options.validate();
 		synchronized (this) {
+			started = false;
 			stopping = false;
 			recoveryOnly = false;
 		}
@@ -82,7 +84,12 @@ public class IndexerNode {
 		deployed = deployed.compose(ignored -> deployAdminRest());
 		deployed = deployed.compose(ignored -> components.runtimeReconciler().start());
 		deployed = deployed.compose(ignored -> deployDataPlane());
-		return deployed;
+		deployed = deployed.compose(ignored -> deployHealthRest());
+		return deployed.onSuccess(ignored -> {
+			synchronized (this) {
+				started = true;
+			}
+		});
 	}
 
 	private Future<Void> deployDataPlane() {
@@ -114,6 +121,7 @@ public class IndexerNode {
 		List<String> deployments;
 		List<String> infrastructureDeployments;
 		synchronized (this) {
+			started = false;
 			stopping = true;
 			infrastructureDeployments = List.copyOf(infrastructureDeploymentIds);
 			deployments = deploymentIds.stream()
@@ -144,6 +152,7 @@ public class IndexerNode {
 					deploymentIds.clear();
 					dataPlaneDeploymentIds.clear();
 					infrastructureDeploymentIds.clear();
+					started = false;
 					recoveryOnly = false;
 					recoveryFuture = null;
 				}
@@ -156,6 +165,10 @@ public class IndexerNode {
 
 	public synchronized boolean isRecoveryOnly() {
 		return recoveryOnly;
+	}
+
+	public synchronized boolean isReady() {
+		return started && !stopping && !recoveryOnly;
 	}
 
 	public synchronized Future<Void> recover() {
@@ -373,6 +386,18 @@ public class IndexerNode {
 			new RuntimeRestVerticle(options.getRuntimeRestOptions()),
 			new DeploymentOptions()
 		).onSuccess(this::trackDataPlaneDeployment).mapEmpty();
+	}
+
+	private Future<Void> deployHealthRest() {
+		IndexerServiceDeploymentOptions deployment = options.healthRest();
+		if (!deployment.isEnabled()) {
+			return Future.succeededFuture();
+		}
+
+		return vertx.deployVerticle(
+			new NodeHealthRestVerticle(options.getHealthRestOptions(), this::isReady),
+			new DeploymentOptions()
+		).onSuccess(this::trackControlPlaneDeployment).mapEmpty();
 	}
 
 }

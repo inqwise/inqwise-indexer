@@ -5,10 +5,11 @@ services:
       - "8080:8080"
       - "8081:8081"
       - "8083:8083"
+      - "8084:8084"
     volumes:
       - ./deployment/local/indexer-node.json:/config/indexer-node.json:ro
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8083/runtime/status"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8084/health/ready"]
       interval: 5s
       timeout: 2s
       retries: 12

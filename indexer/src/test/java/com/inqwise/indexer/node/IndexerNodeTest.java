@@ -51,11 +51,13 @@ class IndexerNodeTest {
 			.compose(ignored -> {
 				assertTrue(engine.isStarted());
 				assertTrue(node.components().targetInvalidationPoller().isStarted());
+				assertTrue(node.isReady());
 				return node.stop();
 			})
 			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
 				assertFalse(engine.isStarted());
 				assertFalse(node.components().targetInvalidationPoller().isStarted());
+				assertFalse(node.isReady());
 				testContext.completeNow();
 			})));
 	}
@@ -134,8 +136,17 @@ class IndexerNodeTest {
 	void recoveryOnlyModeKeepsControlPlaneAndCanRestoreDataPlane(
 		Vertx vertx,
 		VertxTestContext testContext
-	) {
-		IndexerNode node = IndexerNode.create(vertx, new IndexerNodeOptions());
+	) throws IOException {
+		int healthPort = availablePort();
+		IndexerNodeOptions options = new IndexerNodeOptions()
+			.setService(
+				IndexerNodeOptions.Services.HEALTH_REST,
+				IndexerServiceDeploymentOptions.builder().build()
+			)
+			.setHealthRestOptions(
+				NodeHealthRestOptions.builder().withPort(healthPort).build()
+			);
+		IndexerNode node = IndexerNode.create(vertx, options);
 		int[] activeDeployments = new int[1];
 
 		node.start()
@@ -146,14 +157,40 @@ class IndexerNodeTest {
 			.compose(ignored -> node.enterRecoveryOnly(new IllegalStateException("test failure")))
 			.compose(ignored -> {
 				assertTrue(node.isRecoveryOnly());
+				assertFalse(node.isReady());
 				assertTrue(node.deploymentIds().size() < activeDeployments[0]);
 				assertTrue(node.deploymentIds().size() > 0);
 				assertTrue(((InMemoryCommandEngine) node.components().commandEngine()).isStarted());
+				return healthStatus(
+					vertx,
+					healthPort,
+					NodeHealthRestVerticle.READY_PATH
+				);
+			})
+			.compose(status -> {
+				assertEquals(503, status);
+				return healthStatus(
+					vertx,
+					healthPort,
+					NodeHealthRestVerticle.LIVE_PATH
+				);
+			})
+			.compose(status -> {
+				assertEquals(204, status);
 				return node.recover();
 			})
 			.compose(ignored -> {
 				assertFalse(node.isRecoveryOnly());
+				assertTrue(node.isReady());
 				assertEquals(activeDeployments[0], node.deploymentIds().size());
+				return healthStatus(
+					vertx,
+					healthPort,
+					NodeHealthRestVerticle.READY_PATH
+				);
+			})
+			.compose(status -> {
+				assertEquals(204, status);
 				return node.stop();
 			})
 			.onComplete(testContext.succeeding(ignored -> testContext.completeNow()));
@@ -337,6 +374,37 @@ class IndexerNodeTest {
 			.onComplete(testContext.succeeding(ignored -> testContext.completeNow()));
 	}
 
+	@Test
+	void deploysNodeHealthRestWhenEnabled(
+		Vertx vertx,
+		VertxTestContext testContext
+	) throws IOException {
+		int port = availablePort();
+		IndexerNodeOptions options = disabledServices()
+			.setService(
+				IndexerNodeOptions.Services.HEALTH_REST,
+				IndexerServiceDeploymentOptions.builder().build()
+			)
+			.setHealthRestOptions(NodeHealthRestOptions.builder().withPort(port).build());
+		IndexerNode node = IndexerNode.create(vertx, options);
+
+		node.start()
+			.compose(ignored -> vertx.createHttpClient()
+				.request(HttpMethod.GET, port, "127.0.0.1", NodeHealthRestVerticle.LIVE_PATH)
+				.compose(request -> request.send()))
+			.compose(response -> {
+				assertEquals(204, response.statusCode());
+				return vertx.createHttpClient()
+					.request(HttpMethod.GET, port, "127.0.0.1", NodeHealthRestVerticle.READY_PATH)
+					.compose(request -> request.send());
+			})
+			.compose(response -> {
+				assertEquals(204, response.statusCode());
+				return node.stop();
+			})
+			.onComplete(testContext.succeeding(ignored -> testContext.completeNow()));
+	}
+
 	private static int availablePort() throws IOException {
 		try (ServerSocket socket = new ServerSocket(0)) {
 			return socket.getLocalPort();
@@ -347,6 +415,13 @@ class IndexerNodeTest {
 		Promise<Void> delayed = Promise.promise();
 		vertx.setTimer(delayMs, ignored -> delayed.tryComplete());
 		return delayed.future();
+	}
+
+	private static Future<Integer> healthStatus(Vertx vertx, int port, String path) {
+		return vertx.createHttpClient()
+			.request(HttpMethod.GET, port, "127.0.0.1", path)
+			.compose(request -> request.send())
+			.map(response -> response.statusCode());
 	}
 
 	private static IndexerNodeOptions disabledServices() {
