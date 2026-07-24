@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.net.ServerSocket;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -19,6 +20,11 @@ import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
 import com.inqwise.indexer.catalog.indexers.IndexerType;
 import com.inqwise.indexer.lifecycle.TargetMetadataChanged;
 import com.inqwise.indexer.adapters.local.InMemoryCommandEngine;
+import com.inqwise.indexer.gateway.GatewayAuditEvent;
+import com.inqwise.indexer.gateway.GatewayAuditOutcome;
+import com.inqwise.indexer.gateway.GatewayRequestHooks;
+import com.inqwise.indexer.gateway.GatewayRequestMetadata;
+import com.inqwise.indexer.gateway.GatewayPrincipal;
 import com.inqwise.indexer.gateway.GatewayRestOptions;
 import com.inqwise.indexer.routing.InvalidRouteSignature;
 import com.inqwise.indexer.catalog.indexers.MutationState;
@@ -308,6 +314,50 @@ class IndexerNodeTest {
 				JsonObject status = body.toJsonObject();
 				assertEquals("UP", status.getString("status"));
 				assertEquals(true, status.getBoolean("admin_rest_configured"));
+				return node.stop();
+			})
+			.onComplete(testContext.succeeding(ignored -> testContext.completeNow()));
+	}
+
+	@Test
+	void deploysGatewayWithNodeSuppliedPolicy(
+		Vertx vertx,
+		VertxTestContext testContext
+	) throws IOException {
+		int port = availablePort();
+		AtomicInteger auditFailures = new AtomicInteger();
+		IndexerNodeOptions options = new IndexerNodeOptions()
+			.setService(
+				IndexerNodeOptions.Services.GATEWAY,
+				IndexerServiceDeploymentOptions.builder().build()
+			)
+			.setGatewayOptions(GatewayRestOptions.builder().withPort(port).build());
+		GatewayRequestHooks hooks = new GatewayRequestHooks() {
+			@Override
+			public Future<Void> authorize(
+				GatewayRequestMetadata request,
+				GatewayPrincipal principal
+			) {
+				return Future.failedFuture("denied");
+			}
+
+			@Override
+			public Future<Void> audit(GatewayAuditEvent event) {
+				if (event.outcome() == GatewayAuditOutcome.FAILURE) {
+					auditFailures.incrementAndGet();
+				}
+				return Future.succeededFuture();
+			}
+		};
+		IndexerNode node = IndexerNode.create(vertx, options, hooks);
+
+		node.start()
+			.compose(ignored -> vertx.createHttpClient()
+				.request(HttpMethod.GET, port, "127.0.0.1", "/gateway/status")
+				.compose(request -> request.send()))
+			.compose(response -> {
+				assertEquals(403, response.statusCode());
+				assertEquals(1, auditFailures.get());
 				return node.stop();
 			})
 			.onComplete(testContext.succeeding(ignored -> testContext.completeNow()));

@@ -1,6 +1,11 @@
 package com.inqwise.indexer.gateway;
 
+import java.util.Objects;
 import java.util.function.Supplier;
+import java.util.UUID;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
@@ -8,6 +13,7 @@ import io.vertx.core.Promise;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.json.JsonObject;
+import io.vertx.core.net.SocketAddress;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.ext.web.openapi.router.RequestExtractor;
@@ -15,6 +21,9 @@ import io.vertx.ext.web.openapi.router.RouterBuilder;
 import io.vertx.openapi.contract.OpenAPIContract;
 
 public class GatewayRestVerticle extends AbstractVerticle {
+	private static final Logger LOGGER = LogManager.getLogger(GatewayRestVerticle.class);
+	private static final String REQUEST_ID_HEADER = "x-request-id";
+
 	private final GatewayRestOptions configuredOptions;
 	private final GatewayRequestHooks configuredHooks;
 	private HttpServer server;
@@ -143,17 +152,97 @@ public class GatewayRestVerticle extends AbstractVerticle {
 		String operationId,
 		Supplier<Future<Void>> operation
 	) {
-		hooks.authenticate(context, operationId)
-			.compose(ignored -> hooks.authorize(context, operationId))
-			.compose(ignored -> hooks.rateLimit(context, operationId))
+		GatewayRequestMetadata request = requestMetadata(context, operationId);
+		GatewayPrincipal[] principal = new GatewayPrincipal[1];
+		context.response().putHeader(REQUEST_ID_HEADER, request.requestId());
+
+		authenticate(hooks, context, request)
+			.compose(authenticated -> {
+				principal[0] = Objects.requireNonNull(
+					authenticated,
+					"Gateway authenticator returned a null principal"
+				);
+				return hooks.authorize(request, authenticated);
+			})
+			.compose(ignored -> hooks.rateLimit(request, principal[0]))
 			.compose(ignored -> operation.get())
-			.onSuccess(ignored -> hooks.auditSuccess(context, operationId))
-			.onFailure(error -> {
-				hooks.auditFailure(context, operationId, error);
-				if (!context.response().ended()) {
-					GatewayErrorResponses.requestRejected(context, error);
-				}
+			.onComplete(result -> {
+				GatewayAuditEvent event = auditEvent(request, principal[0], result.cause());
+				audit(hooks, event).onComplete(auditResult -> {
+					if (auditResult.failed()) {
+						LOGGER.error(
+							"Gateway audit sink failed for request {}",
+							request.requestId(),
+							auditResult.cause()
+						);
+					}
+					if (result.failed() && !context.response().ended()) {
+						GatewayErrorResponses.requestRejected(context, result.cause());
+					}
+				});
 			});
+	}
+
+	private static Future<GatewayPrincipal> authenticate(
+		GatewayRequestHooks hooks,
+		RoutingContext context,
+		GatewayRequestMetadata request
+	) {
+		try {
+			return Objects.requireNonNull(
+				hooks.authenticate(context, request),
+				"Gateway authenticator returned a null future"
+			);
+		} catch (Throwable error) {
+			return Future.failedFuture(error);
+		}
+	}
+
+	private static Future<Void> audit(
+		GatewayRequestHooks hooks,
+		GatewayAuditEvent event
+	) {
+		try {
+			return Objects.requireNonNull(
+				hooks.audit(event),
+				"Gateway audit sink returned a null future"
+			);
+		} catch (Throwable error) {
+			return Future.failedFuture(error);
+		}
+	}
+
+	private static GatewayRequestMetadata requestMetadata(
+		RoutingContext context,
+		String operationId
+	) {
+		SocketAddress address = context.request().remoteAddress();
+		return GatewayRequestMetadata.builder()
+			.withRequestId(UUID.randomUUID().toString())
+			.withOperationId(operationId)
+			.withMethod(context.request().method().name())
+			.withPath(context.request().path())
+			.withRemoteAddress(address == null ? "unknown" : address.hostAddress())
+			.build();
+	}
+
+	private static GatewayAuditEvent auditEvent(
+		GatewayRequestMetadata request,
+		GatewayPrincipal principal,
+		Throwable error
+	) {
+		GatewayAuditEvent.Builder builder = GatewayAuditEvent.builder()
+			.withRequest(request)
+			.withPrincipal(principal);
+		if (error == null) {
+			return builder
+				.withOutcome(GatewayAuditOutcome.SUCCESS)
+				.build();
+		}
+		return builder
+			.withOutcome(GatewayAuditOutcome.FAILURE)
+			.withFailureCode(GatewayErrorResponses.auditFailureCode(error))
+			.build();
 	}
 
 	private static Future<Void> writeJson(RoutingContext context, JsonObject body) {

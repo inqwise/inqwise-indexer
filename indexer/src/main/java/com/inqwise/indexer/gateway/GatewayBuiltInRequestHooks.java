@@ -4,7 +4,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 import io.vertx.core.Future;
-import io.vertx.core.net.SocketAddress;
 import io.vertx.ext.web.RoutingContext;
 
 public class GatewayBuiltInRequestHooks extends GatewayRequestHooks {
@@ -22,33 +21,43 @@ public class GatewayBuiltInRequestHooks extends GatewayRequestHooks {
 	}
 
 	@Override
-	public Future<Void> authenticate(RoutingContext context, String operationId) {
+	public Future<GatewayPrincipal> authenticate(
+		RoutingContext context,
+		GatewayRequestMetadata request
+	) {
 		if (apiKey == null || apiKey.isBlank()) {
-			return Future.succeededFuture();
+			return super.authenticate(context, request);
 		}
 
 		String actual = context.request().getHeader(apiKeyHeader);
 		if (apiKey.equals(actual)) {
-			return Future.succeededFuture();
+			return Future.succeededFuture(GatewayPrincipal.builder()
+				.withSubject("configured-api-key")
+				.withAuthenticationScheme("api-key")
+				.withAuthenticated(true)
+				.build());
 		}
 
 		return Future.failedFuture(GatewayErrorResponses.unauthenticated());
 	}
 
 	@Override
-	public Future<Void> rateLimit(RoutingContext context, String operationId) {
+	public Future<Void> rateLimit(
+		GatewayRequestMetadata request,
+		GatewayPrincipal principal
+	) {
 		if (rateLimitRequests <= 0 || rateLimitWindowMs <= 0) {
 			return Future.succeededFuture();
 		}
 
-		return acquire(context, operationId)
+		return acquire(request)
 			? Future.succeededFuture()
 			: Future.failedFuture(GatewayErrorResponses.rateLimited());
 	}
 
-	private synchronized boolean acquire(RoutingContext context, String operationId) {
+	private synchronized boolean acquire(GatewayRequestMetadata request) {
 		long now = System.currentTimeMillis();
-		String key = rateLimitKey(context, operationId);
+		String key = rateLimitKey(request);
 		RateLimitWindow window = rateLimitWindows.get(key);
 		if (window == null || now - window.startedAt >= rateLimitWindowMs) {
 			rateLimitWindows.put(key, RateLimitWindow.builder()
@@ -66,10 +75,8 @@ public class GatewayBuiltInRequestHooks extends GatewayRequestHooks {
 		return true;
 	}
 
-	private static String rateLimitKey(RoutingContext context, String operationId) {
-		SocketAddress address = context.request().remoteAddress();
-		String host = address == null ? "unknown" : address.hostAddress();
-		return operationId + ':' + host;
+	private static String rateLimitKey(GatewayRequestMetadata request) {
+		return request.operationId() + ':' + request.remoteAddress();
 	}
 
 	private static final class RateLimitWindow {

@@ -7,6 +7,7 @@ import java.util.Objects;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.inqwise.indexer.gateway.GatewayRequestHooks;
 import com.inqwise.indexer.gateway.GatewayRestVerticle;
 import com.inqwise.indexer.lifecycle.MetadataChangeNotifier;
 import com.inqwise.indexer.hot.InvalidRouteMetadataChangeListener;
@@ -34,6 +35,7 @@ public class IndexerNode {
 	private final Vertx vertx;
 	private final IndexerNodeOptions options;
 	private final IndexerNodeComponents components;
+	private final GatewayRequestHooks gatewayRequestHooks;
 	private final List<String> deploymentIds = new ArrayList<>();
 	private final List<String> dataPlaneDeploymentIds = new ArrayList<>();
 	private final List<String> infrastructureDeploymentIds = new ArrayList<>();
@@ -47,15 +49,33 @@ public class IndexerNode {
 		IndexerNodeOptions options,
 		IndexerNodeComponents components
 	) {
+		this(vertx, options, components, null);
+	}
+
+	public IndexerNode(
+		Vertx vertx,
+		IndexerNodeOptions options,
+		IndexerNodeComponents components,
+		GatewayRequestHooks gatewayRequestHooks
+	) {
 		this.vertx = Objects.requireNonNull(vertx, "vertx");
 		this.options = (
 			options == null ? IndexerNodeOptions.builder().build() : options
 		).validate();
 		this.components = Objects.requireNonNull(components, "components");
+		this.gatewayRequestHooks = gatewayRequestHooks;
 		this.components.runtimeReconciler().onFailure(this::enterRecoveryOnly);
 	}
 
 	public static IndexerNode create(Vertx vertx, IndexerNodeOptions options) {
+		return create(vertx, options, null);
+	}
+
+	public static IndexerNode create(
+		Vertx vertx,
+		IndexerNodeOptions options,
+		GatewayRequestHooks gatewayRequestHooks
+	) {
 		IndexerNodeOptions resolved = options == null
 			? IndexerNodeOptions.builder().build()
 			: options;
@@ -63,7 +83,8 @@ public class IndexerNode {
 		return new IndexerNode(
 			vertx,
 			resolved,
-			DEFAULT_COMPONENTS_FACTORY.create(vertx, resolved)
+			DEFAULT_COMPONENTS_FACTORY.create(vertx, resolved),
+			gatewayRequestHooks
 		);
 	}
 
@@ -355,8 +376,11 @@ public class IndexerNode {
 			return Future.succeededFuture();
 		}
 
+		GatewayRestVerticle gateway = gatewayRequestHooks == null
+			? new GatewayRestVerticle(options.getGatewayOptions())
+			: new GatewayRestVerticle(options.getGatewayOptions(), gatewayRequestHooks);
 		return vertx.deployVerticle(
-			new GatewayRestVerticle(options.getGatewayOptions()),
+			gateway,
 			new DeploymentOptions()
 		).onSuccess(this::trackDataPlaneDeployment).mapEmpty();
 	}

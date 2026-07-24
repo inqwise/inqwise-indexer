@@ -51,6 +51,16 @@ final class GatewayErrorResponses {
 		return ticket(GatewayErrorCodes.RateLimited, "Too many requests");
 	}
 
+	static String auditFailureCode(Throwable error) {
+		if (error instanceof ErrorTicket ticket) {
+			String code = ticket.toJson().getString("code");
+			if (code != null && !code.isBlank()) {
+				return code;
+			}
+		}
+		return GatewayErrorCodes.GatewayRequestRejected.name();
+	}
+
 	private static ErrorTicket ticket(GatewayErrorCodes code, String message) {
 		return ErrorTicket.builder()
 			.withError(code)
