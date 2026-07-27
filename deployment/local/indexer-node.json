@@ -32,6 +32,18 @@
 		"host": "0.0.0.0",
 		"port": 8084
 	},
+	"web": {
+		"host": "0.0.0.0",
+		"port": 3000,
+		"admin_host": "127.0.0.1",
+		"admin_port": 8080,
+		"target_action_host": "127.0.0.1",
+		"target_action_port": 8081,
+		"runtime_host": "127.0.0.1",
+		"runtime_port": 8083,
+		"health_host": "127.0.0.1",
+		"health_port": 8084
+	},
 	"target_definitions": [
 		{
 			"target_name": "customers",

@@ -2,6 +2,7 @@
 /**/.*/
 !/.gitignore
 !/.github
+!/indexer-web/.gitignore
 /target
 /*/target
 PROGRESS.md

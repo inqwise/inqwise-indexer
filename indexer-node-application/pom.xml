@@ -19,6 +19,10 @@
 			<artifactId>indexer</artifactId>
 		</dependency>
 		<dependency>
+			<groupId>com.inqwise.indexer</groupId>
+			<artifactId>indexer-web</artifactId>
+		</dependency>
+		<dependency>
 			<groupId>io.vertx</groupId>
 			<artifactId>vertx-launcher-application</artifactId>
 		</dependency>
@@ -26,6 +30,16 @@
 			<groupId>org.apache.logging.log4j</groupId>
 			<artifactId>log4j-core</artifactId>
 			<scope>runtime</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>io.vertx</groupId>
+			<artifactId>vertx-junit5</artifactId>
+			<scope>test</scope>
 		</dependency>
 	</dependencies>
 
@@ -51,11 +65,12 @@
 					<container>
 						<mainClass>io.vertx.launcher.application.VertxApplication</mainClass>
 						<args>
-							<arg>com.inqwise.indexer.node.IndexerNodeVerticle</arg>
+							<arg>com.inqwise.indexer.node.application.IndexerNodeApplicationVerticle</arg>
 							<arg>--conf</arg>
 							<arg>/config/indexer-node.json</arg>
 						</args>
 						<ports>
+							<port>3000</port>
 							<port>8080</port>
 							<port>8081</port>
 							<port>8083</port>

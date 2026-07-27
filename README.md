@@ -8,23 +8,55 @@ Vert.x 5.x indexing library with this Maven reactor layout:
 - `indexer-events`: typed cross-module event publication contracts and local publisher implementations.
 - `indexer-coordination`: keyed exclusive-flow coordination contracts and the local shared-promise implementation.
 - `indexer`: command handlers/orchestration, action-routing implementations, hot-routing implementations, catalog implementations, provisioning orchestration, runtime implementations, service communication, node wiring, REST/gateway APIs, and default local adapters. It depends on `indexer-core`.
-- `indexer-node-application`: deployable node boundary. It owns the Vert.x application launcher, runtime logging implementation, Jib image definition, and container process arguments without adding a project-specific `main()` method or shaded application JAR.
+- `indexer-web`: internal React operator console plus its Vert.x static-delivery and same-origin API-proxy boundary. Maven builds the SPA into the module classpath without depending on Indexer domain/runtime code or Gateway.
+- `indexer-node-application`: deployable node boundary. It composes the Indexer node and web verticles, and owns the Vert.x application launcher, runtime logging implementation, Jib image definition, and container process arguments without adding a project-specific `main()` method or shaded application JAR.
 - `indexer-load`: load/reload orchestration, provider/runtime integration, durable workflow commands, and load-specific metadata around the core indexer primitives.
 - Root `inqwise-indexer`: local aggregator POM only.
 
 The approved provider-neutral scope is complete. Remaining implementation starts only after selecting a concrete external contract or requirement: production persistence/resource adapters, deployment identity and audit sinks, distributed coordination, a document-query API, historical/live blend tracking, partitioned catch-up lanes, strict distributed queue-reset fencing, or classified and observable automatic runtime recovery. Repository splitting remains deferred until module contracts and release cadence are stable. The public gateway remains intentionally read-only; administration mutations, action submission, and runtime recovery stay internal.
 
-## Local Deployment
+## Internal Web Console
 
-The first runnable deployment uses the existing `IndexerNode` composition with in-memory metadata, queue, and document-store adapters. It enables the internal Admin, Target Action, and Runtime REST envelopes, keeps the public Gateway disabled, and loads one local `customers` target definition with monthly periods and cold-write auto-provisioning from `deployment/local/indexer-node.json`. This profile is for inspection and development only; all state is discarded when the process stops.
+`indexer-web` is the internal operator interface for the local Indexer deployment. It is a separate logical Maven module containing a static React SPA and a narrow Vert.x delivery wrapper. It depends only on Vert.x Web/HTTP Proxy and the existing internal HTTP envelopes; it does not depend on Java domain packages, Vert.x EventBus services, or the public Gateway. `indexer-node-application` packages and deploys it beside the Indexer node in the same Vert.x JVM and container.
 
-Prerequisites are Java 21 or newer, Maven, a running Docker-compatible daemon with Compose support, and free loopback ports `8080`, `8081`, `8083`, and `8084`. Build the layered image with Jib and start it from the repository root:
+The first slice is read-only and displays node readiness, runtime attachment, targets, indexers, provisioning state, and publication state. In development, Vite provides hot reload and forwards the same paths that the Vert.x wrapper owns in packaged/runtime use:
+
+- `/api/admin` proxies the Admin REST service on port `8080`.
+- `/api/actions` proxies the Target Action REST service on port `8081`.
+- `/api/runtime` proxies the Runtime REST service on port `8083`.
+- `/api/health` proxies the deployment health service on port `8084`.
+
+Run the local node first, then start the hot-reload frontend:
+
+```sh
+cd indexer-web/src/main/frontend
+npm run dev
+```
+
+Vite listens on `http://localhost:3001` so it can run beside the packaged
+console exposed by the node container on port `3000`.
+
+To exercise the packaged delivery boundary, build and run the node application:
 
 ```sh
 ./run-local.sh
 ```
 
-The script installs the dependent reactor modules, builds `inqwise/indexer-node:0.1.0-SNAPSHOT` into the local Docker daemon with Jib, and starts `compose.yaml`. Jib launches `com.inqwise.indexer.node.IndexerNodeVerticle` through `io.vertx.launcher.application.VertxApplication`; the project has no deployment-specific `main()` method and does not build an uber JAR. The Java 21 base image is pinned to an approved multi-platform OCI digest in `indexer-node-application/pom.xml`; dependency maintenance must update that digest explicitly. Compose mounts the node configuration read-only and checks `GET /health/ready` on the deployment-owned health port.
+The React/Vite workspace lives under `indexer-web/src/main/frontend`. The Maven lifecycle installs a pinned Node/npm toolchain there, runs `npm ci`, creates the Vite production bundle, and copies it to the classpath `webroot` served by `IndexerWebVerticle`. The Vert.x wrapper strips the UI-only `/api/{service}` prefix and forwards requests to the corresponding internal REST port. It is a delivery adapter, not a second business API or a replacement Gateway.
+
+The console is an internal development and operations surface. Excluding Gateway also excludes public exposure, production identity, and authorization from this scope. A deployment-owned authenticated boundary must be approved before the console is exposed outside a trusted internal environment.
+
+## Local Deployment
+
+The first runnable deployment uses the existing `IndexerNode` composition with in-memory metadata, queue, and document-store adapters. It enables the internal Admin, Target Action, and Runtime REST envelopes, keeps the public Gateway disabled, and loads one local `customers` target definition with monthly periods and cold-write auto-provisioning from `deployment/local/indexer-node.json`. This profile is for inspection and development only; all state is discarded when the process stops.
+
+Prerequisites are Java 21 or newer, Maven, a running Docker-compatible daemon with Compose support, and free loopback ports `3000`, `8080`, `8081`, `8083`, and `8084`. Build the layered image with Jib and start it from the repository root:
+
+```sh
+./run-local.sh
+```
+
+The script installs the dependent reactor modules, builds `inqwise/indexer-node:0.1.0-SNAPSHOT` into the local Docker daemon with Jib, and starts `compose.yaml`. Jib launches `IndexerNodeApplicationVerticle` through `io.vertx.launcher.application.VertxApplication`; that application verticle starts the Indexer node first and then deploys `IndexerWebVerticle` in the same JVM. The project has no deployment-specific `main()` method and does not build an uber JAR. The Java 21 base image is pinned to an approved multi-platform OCI digest; dependency maintenance must update that digest explicitly. Compose mounts the combined node configuration read-only and checks Indexer readiness on port `8084`; the console is exposed from the same container on port `3000`.
 
 To build or publish the application image separately after installing reactor dependencies:
 
