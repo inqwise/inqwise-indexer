@@ -69,7 +69,7 @@ test("uses generated DTOs instead of handwritten dashboard response models", asy
   assert.doesNotMatch(source, /getJson</);
 });
 
-test("provides read-only catalog filters and accessible entity details", async () => {
+test("provides catalog filters and accessible entity details", async () => {
   const app = await readFile(
     new URL("../src/App.tsx", import.meta.url),
     "utf8",
@@ -78,21 +78,15 @@ test("provides read-only catalog filters and accessible entity details", async (
     new URL("../src/components/CatalogDetailPanel.tsx", import.meta.url),
     "utf8",
   );
-  const api = await readFile(
-    new URL("../src/api/indexer-api.ts", import.meta.url),
-    "utf8",
-  );
-
   assert.match(app, /aria-label="Indexer filters"/);
   assert.match(app, /aria-label="Target filters"/);
   assert.match(app, /type="search"/);
   assert.match(details, /data-testid="catalog-detail-panel"/);
   assert.match(details, /aria-label="Close details"/);
   assert.match(details, /event\.key === "Escape"/);
-  assert.doesNotMatch(api, /\.DELETE\(/);
 });
 
-test("limits mutations to bounded lifecycle, recovery, reconcile, and confirmed queue reset changes", async () => {
+test("limits mutations to bounded and explicitly confirmed operator changes", async () => {
   const details = await readFile(
     new URL("../src/components/CatalogDetailPanel.tsx", import.meta.url),
     "utf8",
@@ -116,8 +110,10 @@ test("limits mutations to bounded lifecycle, recovery, reconcile, and confirmed 
     api,
     /POST\(\s*"\/admin\/indexers\/\{id\}\/reset-queue"/,
   );
-  assert.equal(api.match(/expected_version: expectedVersion/g)?.length, 4);
-  assert.doesNotMatch(api, /\.(PUT|PATCH|DELETE)\(/);
+  assert.match(api, /DELETE\(\s*"\/admin\/indexers\/\{id\}"/);
+  assert.equal(api.match(/expected_version: expectedVersion/g)?.length, 5);
+  assert.equal(api.match(/\.DELETE\(/g)?.length, 1);
+  assert.doesNotMatch(api, /\.(PUT|PATCH)\(/);
   assert.match(details, /Activate indexer/);
   assert.match(details, /Deactivate indexer/);
   assert.match(details, /Recover provisioning/);
@@ -125,6 +121,11 @@ test("limits mutations to bounded lifecycle, recovery, reconcile, and confirmed 
   assert.match(details, /Review queue reset/);
   assert.match(details, /Confirm queue reset/);
   assert.match(details, /Old in-flight\s+items are not synchronously guaranteed to stop/);
+  assert.match(details, /Review indexer deletion/);
+  assert.match(details, /Confirm indexer deletion/);
+  assert.match(details, /deleteConfirmationText !== indexer\.index_name/);
+  assert.match(details, /This cannot be undone/);
+  assert.match(details, /Acceptance starts durable\s+cleanup/);
   assert.match(details, /This does not change the desired catalog state/);
   assert.match(details, /target\.provisioning_state === "FAILED"/);
   assert.match(details, /role="alert"/);

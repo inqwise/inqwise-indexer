@@ -1052,6 +1052,17 @@ td small {
   color: #f1a2a2;
 }
 
+.lifecycle-control--delete {
+  border-color: rgba(238, 78, 78, 0.34);
+  background: rgba(238, 78, 78, 0.065);
+}
+
+.lifecycle-control--delete .lifecycle-button {
+  border-color: rgba(238, 78, 78, 0.42);
+  background: rgba(238, 78, 78, 0.12);
+  color: #ffb1b1;
+}
+
 .lifecycle-control h3 {
   margin: 6px 0 0;
   font-size: 14px;
@@ -1122,6 +1133,41 @@ td small {
   border-color: rgba(241, 121, 121, 0.42);
   background: rgba(241, 121, 121, 0.13);
   color: #ffc0c0;
+}
+
+.delete-confirmation {
+  margin-top: 14px;
+  border-top: 1px solid rgba(238, 78, 78, 0.22);
+  padding-top: 12px;
+}
+
+.delete-confirmation label {
+  display: block;
+  color: #949caf;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.delete-confirmation label strong {
+  color: #ffc0c0;
+}
+
+.delete-confirmation input {
+  width: 100%;
+  min-height: 39px;
+  margin-top: 8px;
+  border: 1px solid rgba(238, 78, 78, 0.32);
+  border-radius: 9px;
+  outline: none;
+  background: rgba(8, 11, 19, 0.72);
+  color: #e6e9f0;
+  padding: 0 11px;
+  font: inherit;
+}
+
+.delete-confirmation input:focus {
+  border-color: rgba(238, 78, 78, 0.62);
+  box-shadow: 0 0 0 3px rgba(238, 78, 78, 0.08);
 }
 
 .lifecycle-control .lifecycle-control__hint {

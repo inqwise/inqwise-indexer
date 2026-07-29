@@ -10,7 +10,10 @@ every attempt. Failed targets also expose version-aware provisioning recovery.
 Ready indexers can request node-local runtime reconciliation without changing
 their desired catalog state. Single-indexer queue reset is exposed behind a
 separate explicit confirmation step; it advances future writes to a versioned
-queue and schedules cleanup of the retired queue. Deletion is not exposed.
+queue and schedules cleanup of the retired queue. Single-indexer deletion
+requires typing the exact indexer name and explains that acceptance fences the
+indexer before durable physical cleanup completes. Bulk destructive operations
+are not exposed.
 
 The React/Vite workspace is located at `src/main/frontend`; the Java delivery
 wrapper uses the standard Maven `src/main/java` layout.

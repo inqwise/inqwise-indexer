@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   activateIndexer,
   deactivateIndexer,
+  deleteIndexer,
   isReady,
   listIndexers,
   listTargets,
@@ -287,6 +288,25 @@ export default function App() {
       let mutationFailure: unknown;
       try {
         await resetIndexerQueue(indexer.id, indexer.version);
+      } catch (error) {
+        mutationFailure = error;
+      }
+
+      const controller = new AbortController();
+      setRefreshing(true);
+      await load(controller.signal);
+      if (mutationFailure) {
+        throw mutationFailure;
+      }
+    },
+    [load],
+  );
+
+  const deleteSelectedIndexer = useCallback(
+    async (indexer: Indexer) => {
+      let mutationFailure: unknown;
+      try {
+        await deleteIndexer(indexer.id, indexer.version);
       } catch (error) {
         mutationFailure = error;
       }
@@ -689,6 +709,7 @@ export default function App() {
           setSelectedIndexerId(null);
           setSelectedTargetId(null);
         }}
+        onIndexerDelete={deleteSelectedIndexer}
         onQueueReset={resetQueue}
         onRuntimeReconcile={reconcileRuntime}
         onRuntimeStateChange={changeIndexerRuntimeState}

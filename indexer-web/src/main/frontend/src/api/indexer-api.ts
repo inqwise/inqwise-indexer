@@ -124,6 +124,25 @@ export async function resetIndexerQueue(
   return data.indexer;
 }
 
+export async function deleteIndexer(
+  indexerId: number,
+  expectedVersion: number,
+): Promise<Indexer> {
+  const { data, error, response } = await adminClient.DELETE(
+    "/admin/indexers/{id}",
+    {
+      params: {
+        path: { id: indexerId },
+        query: { expected_version: expectedVersion },
+      },
+    },
+  );
+  if (!data) {
+    throw requestError(response.status, error);
+  }
+  return data.indexer;
+}
+
 export async function runtimeStatus(
   signal: AbortSignal,
 ): Promise<RuntimeIndexer[]> {

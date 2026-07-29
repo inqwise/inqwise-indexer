@@ -11,6 +11,7 @@ type CatalogDetailPanelProps = {
   indexer: Indexer | null;
   runtimeIndexer: RuntimeIndexer | null;
   onClose: () => void;
+  onIndexerDelete: (indexer: Indexer) => Promise<void>;
   onQueueReset: (indexer: Indexer) => Promise<void>;
   onTargetRecovery: (target: Target) => Promise<void>;
   onRuntimeReconcile: (indexer: Indexer) => Promise<void>;
@@ -25,6 +26,7 @@ export default function CatalogDetailPanel({
   indexer,
   runtimeIndexer,
   onClose,
+  onIndexerDelete,
   onQueueReset,
   onTargetRecovery,
   onRuntimeReconcile,
@@ -45,6 +47,10 @@ export default function CatalogDetailPanel({
   const [queueResetConfirming, setQueueResetConfirming] = useState(false);
   const [queueResetPending, setQueueResetPending] = useState(false);
   const [queueResetError, setQueueResetError] = useState<string | null>(null);
+  const [deleteConfirming, setDeleteConfirming] = useState(false);
+  const [deleteConfirmationText, setDeleteConfirmationText] = useState("");
+  const [deletePending, setDeletePending] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!target && !indexer) {
@@ -67,6 +73,10 @@ export default function CatalogDetailPanel({
     setQueueResetConfirming(false);
     setQueueResetPending(false);
     setQueueResetError(null);
+    setDeleteConfirming(false);
+    setDeleteConfirmationText("");
+    setDeletePending(false);
+    setDeleteError(null);
   }, [indexer?.id]);
 
   useEffect(() => {
@@ -127,8 +137,28 @@ export default function CatalogDetailPanel({
       ) : (
         indexer && (
           <IndexerDetails
+            deleteConfirmationText={deleteConfirmationText}
+            deleteConfirming={deleteConfirming}
+            deleteError={deleteError}
+            deletePending={deletePending}
             indexer={indexer}
             mutationError={mutationError}
+            onDelete={async () => {
+              setDeletePending(true);
+              setDeleteError(null);
+              try {
+                await onIndexerDelete(indexer);
+                onClose();
+              } catch (error) {
+                setDeleteError(
+                  error instanceof Error
+                    ? error.message
+                    : "Indexer deletion request failed",
+                );
+              } finally {
+                setDeletePending(false);
+              }
+            }}
             onQueueReset={async () => {
               setQueueResetPending(true);
               setQueueResetError(null);
@@ -182,6 +212,9 @@ export default function CatalogDetailPanel({
             runtimeReconcileError={runtimeReconcileError}
             runtimeReconcilePending={runtimeReconcilePending}
             runtimeIndexer={runtimeIndexer}
+            setDeleteConfirmationText={setDeleteConfirmationText}
+            setDeleteConfirming={setDeleteConfirming}
+            setDeleteError={setDeleteError}
             setQueueResetConfirming={setQueueResetConfirming}
             setQueueResetError={setQueueResetError}
           />
@@ -268,6 +301,10 @@ function TargetDetails({
 }
 
 function IndexerDetails({
+  deleteConfirmationText,
+  deleteConfirming,
+  deletePending,
+  deleteError,
   indexer,
   runtimeIndexer,
   pendingRuntimeState,
@@ -277,12 +314,20 @@ function IndexerDetails({
   queueResetError,
   runtimeReconcilePending,
   runtimeReconcileError,
+  setDeleteConfirmationText,
+  setDeleteConfirming,
+  setDeleteError,
   setQueueResetConfirming,
   setQueueResetError,
+  onDelete,
   onQueueReset,
   onRuntimeReconcile,
   onRuntimeStateChange,
 }: {
+  deleteConfirmationText: string;
+  deleteConfirming: boolean;
+  deletePending: boolean;
+  deleteError: string | null;
   indexer: Indexer;
   runtimeIndexer: RuntimeIndexer | null;
   pendingRuntimeState: Indexer["runtime_state"] | null;
@@ -292,8 +337,12 @@ function IndexerDetails({
   queueResetError: string | null;
   runtimeReconcilePending: boolean;
   runtimeReconcileError: string | null;
+  setDeleteConfirmationText: (value: string) => void;
+  setDeleteConfirming: (confirming: boolean) => void;
+  setDeleteError: (error: string | null) => void;
   setQueueResetConfirming: (confirming: boolean) => void;
   setQueueResetError: (error: string | null) => void;
+  onDelete: () => Promise<void>;
   onQueueReset: () => Promise<void>;
   onRuntimeReconcile: () => Promise<void>;
   onRuntimeStateChange: (
@@ -307,6 +356,8 @@ function IndexerDetails({
     indexer.mutation_state !== "DELETING";
   const canResetQueue = canChangeRuntime && indexer.queue_name !== null;
   const queueResetFlowActive = queueResetConfirming || queueResetPending;
+  const canDelete = indexer.mutation_state !== "DELETING";
+  const deleteFlowActive = deleteConfirming || deletePending;
 
   return (
     <>
@@ -371,7 +422,8 @@ function IndexerDetails({
             !canChangeRuntime ||
             pendingRuntimeState !== null ||
             runtimeReconcilePending ||
-            queueResetFlowActive
+            queueResetFlowActive ||
+            deleteFlowActive
           }
           onClick={() => void onRuntimeStateChange(desiredState)}
           type="button"
@@ -413,7 +465,8 @@ function IndexerDetails({
             !canChangeRuntime ||
             runtimeReconcilePending ||
             pendingRuntimeState !== null ||
-            queueResetFlowActive
+            queueResetFlowActive ||
+            deleteFlowActive
           }
           onClick={() => void onRuntimeReconcile()}
           type="button"
@@ -455,7 +508,8 @@ function IndexerDetails({
               !canResetQueue ||
               queueResetPending ||
               pendingRuntimeState !== null ||
-              runtimeReconcilePending
+              runtimeReconcilePending ||
+              deleteFlowActive
             }
             onClick={() => {
               setQueueResetError(null);
@@ -504,6 +558,97 @@ function IndexerDetails({
         {queueResetError && (
           <p className="lifecycle-control__error" role="alert">
             {queueResetError}
+          </p>
+        )}
+      </section>
+      <section
+        className="lifecycle-control lifecycle-control--delete"
+        aria-labelledby="indexer-delete-title"
+      >
+        <div>
+          <span className="eyebrow">Destructive operation</span>
+          <h3 id="indexer-delete-title">Delete this indexer</h3>
+          <p>
+            Deletion immediately fences the indexer as non-active, then
+            asynchronously removes its queue, any owned document index, and
+            catalog metadata. This cannot be undone.
+          </p>
+        </div>
+        {!deleteConfirming ? (
+          <button
+            className="lifecycle-button"
+            disabled={
+              !canDelete ||
+              deletePending ||
+              pendingRuntimeState !== null ||
+              runtimeReconcilePending ||
+              queueResetFlowActive
+            }
+            onClick={() => {
+              setDeleteError(null);
+              setDeleteConfirmationText("");
+              setDeleteConfirming(true);
+            }}
+            type="button"
+          >
+            Review indexer deletion
+          </button>
+        ) : (
+          <div className="delete-confirmation">
+            <label htmlFor="delete-indexer-confirmation">
+              Type <strong>{indexer.index_name}</strong> to confirm
+            </label>
+            <input
+              aria-label="Type indexer name to confirm deletion"
+              autoComplete="off"
+              id="delete-indexer-confirmation"
+              onChange={(event) =>
+                setDeleteConfirmationText(event.currentTarget.value)
+              }
+              spellCheck={false}
+              type="text"
+              value={deleteConfirmationText}
+            />
+            <p>
+              The request uses catalog version{" "}
+              <strong>v{indexer.version}</strong>. Acceptance starts durable
+              cleanup; it does not mean cleanup has already finished.
+            </p>
+            <div className="queue-reset-confirmation__actions">
+              <button
+                className="lifecycle-button lifecycle-button--secondary"
+                disabled={deletePending}
+                onClick={() => {
+                  setDeleteConfirming(false);
+                  setDeleteConfirmationText("");
+                  setDeleteError(null);
+                }}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                className="lifecycle-button lifecycle-button--danger"
+                disabled={
+                  deletePending ||
+                  deleteConfirmationText !== indexer.index_name
+                }
+                onClick={() => void onDelete()}
+                type="button"
+              >
+                {deletePending ? "Deleting…" : "Confirm indexer deletion"}
+              </button>
+            </div>
+          </div>
+        )}
+        {!canDelete && (
+          <p className="lifecycle-control__hint">
+            This indexer is already deleting; durable cleanup is in progress.
+          </p>
+        )}
+        {deleteError && (
+          <p className="lifecycle-control__error" role="alert">
+            {deleteError}
           </p>
         )}
       </section>
