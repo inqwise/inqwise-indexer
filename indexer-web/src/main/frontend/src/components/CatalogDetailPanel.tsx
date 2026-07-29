@@ -11,6 +11,7 @@ type CatalogDetailPanelProps = {
   indexer: Indexer | null;
   runtimeIndexer: RuntimeIndexer | null;
   onClose: () => void;
+  onQueueReset: (indexer: Indexer) => Promise<void>;
   onTargetRecovery: (target: Target) => Promise<void>;
   onRuntimeReconcile: (indexer: Indexer) => Promise<void>;
   onRuntimeStateChange: (
@@ -24,6 +25,7 @@ export default function CatalogDetailPanel({
   indexer,
   runtimeIndexer,
   onClose,
+  onQueueReset,
   onTargetRecovery,
   onRuntimeReconcile,
   onRuntimeStateChange,
@@ -40,6 +42,9 @@ export default function CatalogDetailPanel({
   const [runtimeReconcileError, setRuntimeReconcileError] = useState<
     string | null
   >(null);
+  const [queueResetConfirming, setQueueResetConfirming] = useState(false);
+  const [queueResetPending, setQueueResetPending] = useState(false);
+  const [queueResetError, setQueueResetError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!target && !indexer) {
@@ -59,6 +64,9 @@ export default function CatalogDetailPanel({
     setMutationError(null);
     setRuntimeReconcilePending(false);
     setRuntimeReconcileError(null);
+    setQueueResetConfirming(false);
+    setQueueResetPending(false);
+    setQueueResetError(null);
   }, [indexer?.id]);
 
   useEffect(() => {
@@ -121,6 +129,22 @@ export default function CatalogDetailPanel({
           <IndexerDetails
             indexer={indexer}
             mutationError={mutationError}
+            onQueueReset={async () => {
+              setQueueResetPending(true);
+              setQueueResetError(null);
+              try {
+                await onQueueReset(indexer);
+                setQueueResetConfirming(false);
+              } catch (error) {
+                setQueueResetError(
+                  error instanceof Error
+                    ? error.message
+                    : "Indexer queue reset failed",
+                );
+              } finally {
+                setQueueResetPending(false);
+              }
+            }}
             onRuntimeReconcile={async () => {
               setRuntimeReconcilePending(true);
               setRuntimeReconcileError(null);
@@ -152,9 +176,14 @@ export default function CatalogDetailPanel({
               }
             }}
             pendingRuntimeState={pendingRuntimeState}
+            queueResetConfirming={queueResetConfirming}
+            queueResetError={queueResetError}
+            queueResetPending={queueResetPending}
             runtimeReconcileError={runtimeReconcileError}
             runtimeReconcilePending={runtimeReconcilePending}
             runtimeIndexer={runtimeIndexer}
+            setQueueResetConfirming={setQueueResetConfirming}
+            setQueueResetError={setQueueResetError}
           />
         )
       )}
@@ -243,8 +272,14 @@ function IndexerDetails({
   runtimeIndexer,
   pendingRuntimeState,
   mutationError,
+  queueResetConfirming,
+  queueResetPending,
+  queueResetError,
   runtimeReconcilePending,
   runtimeReconcileError,
+  setQueueResetConfirming,
+  setQueueResetError,
+  onQueueReset,
   onRuntimeReconcile,
   onRuntimeStateChange,
 }: {
@@ -252,8 +287,14 @@ function IndexerDetails({
   runtimeIndexer: RuntimeIndexer | null;
   pendingRuntimeState: Indexer["runtime_state"] | null;
   mutationError: string | null;
+  queueResetConfirming: boolean;
+  queueResetPending: boolean;
+  queueResetError: string | null;
   runtimeReconcilePending: boolean;
   runtimeReconcileError: string | null;
+  setQueueResetConfirming: (confirming: boolean) => void;
+  setQueueResetError: (error: string | null) => void;
+  onQueueReset: () => Promise<void>;
   onRuntimeReconcile: () => Promise<void>;
   onRuntimeStateChange: (
     desiredState: Indexer["runtime_state"],
@@ -264,6 +305,8 @@ function IndexerDetails({
   const canChangeRuntime =
     indexer.provisioning_state === "READY" &&
     indexer.mutation_state !== "DELETING";
+  const canResetQueue = canChangeRuntime && indexer.queue_name !== null;
+  const queueResetFlowActive = queueResetConfirming || queueResetPending;
 
   return (
     <>
@@ -327,7 +370,8 @@ function IndexerDetails({
           disabled={
             !canChangeRuntime ||
             pendingRuntimeState !== null ||
-            runtimeReconcilePending
+            runtimeReconcilePending ||
+            queueResetFlowActive
           }
           onClick={() => void onRuntimeStateChange(desiredState)}
           type="button"
@@ -368,7 +412,8 @@ function IndexerDetails({
           disabled={
             !canChangeRuntime ||
             runtimeReconcilePending ||
-            pendingRuntimeState !== null
+            pendingRuntimeState !== null ||
+            queueResetFlowActive
           }
           onClick={() => void onRuntimeReconcile()}
           type="button"
@@ -386,6 +431,79 @@ function IndexerDetails({
         {runtimeReconcileError && (
           <p className="lifecycle-control__error" role="alert">
             {runtimeReconcileError}
+          </p>
+        )}
+      </section>
+      <section
+        className="lifecycle-control lifecycle-control--danger"
+        aria-labelledby="queue-reset-title"
+      >
+        <div>
+          <span className="eyebrow">Operational troubleshooting</span>
+          <h3 id="queue-reset-title">Reset indexer queue</h3>
+          <p>
+            Future writes move from{" "}
+            <strong>{indexer.queue_name ?? "no assigned queue"}</strong> to a
+            new versioned queue. Cleanup of the retired queue continues
+            asynchronously.
+          </p>
+        </div>
+        {!queueResetConfirming ? (
+          <button
+            className="lifecycle-button"
+            disabled={
+              !canResetQueue ||
+              queueResetPending ||
+              pendingRuntimeState !== null ||
+              runtimeReconcilePending
+            }
+            onClick={() => {
+              setQueueResetError(null);
+              setQueueResetConfirming(true);
+            }}
+            type="button"
+          >
+            Review queue reset
+          </button>
+        ) : (
+          <div className="queue-reset-confirmation" role="group">
+            <p>
+              Confirm queue reset for <strong>{indexer.index_name}</strong> at
+              catalog version <strong>v{indexer.version}</strong>. Old in-flight
+              items are not synchronously guaranteed to stop.
+            </p>
+            <div className="queue-reset-confirmation__actions">
+              <button
+                className="lifecycle-button lifecycle-button--secondary"
+                disabled={queueResetPending}
+                onClick={() => {
+                  setQueueResetConfirming(false);
+                  setQueueResetError(null);
+                }}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                className="lifecycle-button lifecycle-button--danger"
+                disabled={queueResetPending}
+                onClick={() => void onQueueReset()}
+                type="button"
+              >
+                {queueResetPending ? "Resetting…" : "Confirm queue reset"}
+              </button>
+            </div>
+          </div>
+        )}
+        {!canResetQueue && (
+          <p className="lifecycle-control__hint">
+            Queue reset requires a ready, non-deleting indexer with an assigned
+            queue.
+          </p>
+        )}
+        {queueResetError && (
+          <p className="lifecycle-control__error" role="alert">
+            {queueResetError}
           </p>
         )}
       </section>

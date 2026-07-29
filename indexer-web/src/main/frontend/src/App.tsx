@@ -8,6 +8,7 @@ import {
   listTargets,
   reconcileIndexer,
   recoverTargetProvisioning,
+  resetIndexerQueue,
   runtimeStatus,
 } from "./api/indexer-api";
 import type {
@@ -267,6 +268,25 @@ export default function App() {
       let mutationFailure: unknown;
       try {
         await reconcileIndexer(indexer.id);
+      } catch (error) {
+        mutationFailure = error;
+      }
+
+      const controller = new AbortController();
+      setRefreshing(true);
+      await load(controller.signal);
+      if (mutationFailure) {
+        throw mutationFailure;
+      }
+    },
+    [load],
+  );
+
+  const resetQueue = useCallback(
+    async (indexer: Indexer) => {
+      let mutationFailure: unknown;
+      try {
+        await resetIndexerQueue(indexer.id, indexer.version);
       } catch (error) {
         mutationFailure = error;
       }
@@ -669,6 +689,7 @@ export default function App() {
           setSelectedIndexerId(null);
           setSelectedTargetId(null);
         }}
+        onQueueReset={resetQueue}
         onRuntimeReconcile={reconcileRuntime}
         onRuntimeStateChange={changeIndexerRuntimeState}
         onTargetRecovery={recoverTarget}

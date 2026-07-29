@@ -8,7 +8,9 @@ not add another API boundary. The first mutation slice is limited to
 version-aware indexer activate/deactivate; it refreshes durable state after
 every attempt. Failed targets also expose version-aware provisioning recovery.
 Ready indexers can request node-local runtime reconciliation without changing
-their desired catalog state. Queue reset and deletion are not exposed.
+their desired catalog state. Single-indexer queue reset is exposed behind a
+separate explicit confirmation step; it advances future writes to a versioned
+queue and schedules cleanup of the retired queue. Deletion is not exposed.
 
 The React/Vite workspace is located at `src/main/frontend`; the Java delivery
 wrapper uses the standard Maven `src/main/java` layout.

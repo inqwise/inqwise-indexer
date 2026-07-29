@@ -105,6 +105,25 @@ export async function deactivateIndexer(
   return data.indexer;
 }
 
+export async function resetIndexerQueue(
+  indexerId: number,
+  expectedVersion: number,
+): Promise<Indexer> {
+  const { data, error, response } = await adminClient.POST(
+    "/admin/indexers/{id}/reset-queue",
+    {
+      params: {
+        path: { id: indexerId },
+        query: { expected_version: expectedVersion },
+      },
+    },
+  );
+  if (!data) {
+    throw requestError(response.status, error);
+  }
+  return data.indexer;
+}
+
 export async function runtimeStatus(
   signal: AbortSignal,
 ): Promise<RuntimeIndexer[]> {

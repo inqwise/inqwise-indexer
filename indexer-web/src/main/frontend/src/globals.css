@@ -1027,18 +1027,29 @@ td small {
 .lifecycle-control--recovery .lifecycle-button {
   border-color: rgba(247, 191, 103, 0.34);
   background: rgba(247, 191, 103, 0.1);
-	color: #f4cb89;
+  color: #f4cb89;
 }
 
 .lifecycle-control--runtime {
-	border-color: rgba(77, 228, 218, 0.2);
-	background: rgba(77, 228, 218, 0.04);
+  border-color: rgba(77, 228, 218, 0.2);
+  background: rgba(77, 228, 218, 0.04);
 }
 
 .lifecycle-control--runtime .lifecycle-button {
-	border-color: rgba(77, 228, 218, 0.32);
-	background: rgba(77, 228, 218, 0.08);
-	color: var(--cyan);
+  border-color: rgba(77, 228, 218, 0.32);
+  background: rgba(77, 228, 218, 0.08);
+  color: var(--cyan);
+}
+
+.lifecycle-control--danger {
+  border-color: rgba(241, 121, 121, 0.24);
+  background: rgba(241, 121, 121, 0.045);
+}
+
+.lifecycle-control--danger .lifecycle-button {
+  border-color: rgba(241, 121, 121, 0.32);
+  background: rgba(241, 121, 121, 0.08);
+  color: #f1a2a2;
 }
 
 .lifecycle-control h3 {
@@ -1083,6 +1094,34 @@ td small {
 .lifecycle-button:disabled {
   cursor: not-allowed;
   opacity: 0.48;
+}
+
+.queue-reset-confirmation {
+  margin-top: 14px;
+  border-top: 1px solid rgba(241, 121, 121, 0.18);
+  padding-top: 4px;
+}
+
+.queue-reset-confirmation__actions {
+  display: grid;
+  grid-template-columns: 0.8fr 1.2fr;
+  gap: 8px;
+}
+
+.queue-reset-confirmation__actions .lifecycle-button {
+  margin-top: 10px;
+}
+
+.queue-reset-confirmation__actions .lifecycle-button--secondary {
+  border-color: rgba(151, 160, 180, 0.24);
+  background: rgba(151, 160, 180, 0.06);
+  color: #9aa3b5;
+}
+
+.queue-reset-confirmation__actions .lifecycle-button--danger {
+  border-color: rgba(241, 121, 121, 0.42);
+  background: rgba(241, 121, 121, 0.13);
+  color: #ffc0c0;
 }
 
 .lifecycle-control .lifecycle-control__hint {

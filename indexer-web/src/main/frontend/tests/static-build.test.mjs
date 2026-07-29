@@ -89,10 +89,10 @@ test("provides read-only catalog filters and accessible entity details", async (
   assert.match(details, /data-testid="catalog-detail-panel"/);
   assert.match(details, /aria-label="Close details"/);
   assert.match(details, /event\.key === "Escape"/);
-  assert.doesNotMatch(api, /reset-queue/);
+  assert.doesNotMatch(api, /\.DELETE\(/);
 });
 
-test("limits mutations to bounded lifecycle, recovery, and reconcile changes", async () => {
+test("limits mutations to bounded lifecycle, recovery, reconcile, and confirmed queue reset changes", async () => {
   const details = await readFile(
     new URL("../src/components/CatalogDetailPanel.tsx", import.meta.url),
     "utf8",
@@ -112,13 +112,19 @@ test("limits mutations to bounded lifecycle, recovery, and reconcile changes", a
     api,
     /POST\(\s*"\/runtime\/indexers\/\{id\}\/reconcile"/,
   );
-  assert.equal(api.match(/expected_version: expectedVersion/g)?.length, 3);
+  assert.match(
+    api,
+    /POST\(\s*"\/admin\/indexers\/\{id\}\/reset-queue"/,
+  );
+  assert.equal(api.match(/expected_version: expectedVersion/g)?.length, 4);
   assert.doesNotMatch(api, /\.(PUT|PATCH|DELETE)\(/);
-  assert.doesNotMatch(api, /reset-queue/);
   assert.match(details, /Activate indexer/);
   assert.match(details, /Deactivate indexer/);
   assert.match(details, /Recover provisioning/);
   assert.match(details, /Reconcile local runtime/);
+  assert.match(details, /Review queue reset/);
+  assert.match(details, /Confirm queue reset/);
+  assert.match(details, /Old in-flight\s+items are not synchronously guaranteed to stop/);
   assert.match(details, /This does not change the desired catalog state/);
   assert.match(details, /target\.provisioning_state === "FAILED"/);
   assert.match(details, /role="alert"/);
