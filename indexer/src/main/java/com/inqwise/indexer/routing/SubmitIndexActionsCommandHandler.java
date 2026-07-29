@@ -18,6 +18,7 @@ import com.inqwise.indexer.catalog.targets.TargetPeriodResolver;
 import com.inqwise.indexer.providers.IndexerActionReceiveCapability;
 import com.inqwise.indexer.providers.IndexerPlugins;
 import com.inqwise.indexer.provisioning.IndexerProvisioningService;
+import com.inqwise.indexer.publication.IndexPublicationService;
 
 import io.vertx.core.Future;
 
@@ -78,6 +79,7 @@ public class SubmitIndexActionsCommandHandler implements CommandHandler {
 			metadataRepository,
 			targetDefinitionProvider,
 			provisioningService,
+			IndexPublicationService.UNSUPPORTED,
 			metadataChangeNotifier,
 			queue,
 			invalidRouteCache,
@@ -89,6 +91,7 @@ public class SubmitIndexActionsCommandHandler implements CommandHandler {
 		DocumentStoreMetadataRepository metadataRepository,
 		TargetDefinitionProvider targetDefinitionProvider,
 		IndexerProvisioningService provisioningService,
+		IndexPublicationService publicationService,
 		MetadataChangeNotifier metadataChangeNotifier,
 		IndexerQueueClient queue,
 		InvalidRouteCache invalidRouteCache,
@@ -98,6 +101,7 @@ public class SubmitIndexActionsCommandHandler implements CommandHandler {
 			metadataRepository,
 			targetDefinitionProvider,
 			provisioningService,
+			publicationService,
 			receiveCapabilities
 		);
 		this.targetDefinitionProvider = Objects.requireNonNull(
@@ -110,6 +114,27 @@ public class SubmitIndexActionsCommandHandler implements CommandHandler {
 		);
 		this.publisher = new RoutedIndexActionPublisher(queue);
 		this.invalidRouteCache = invalidRouteCache;
+	}
+
+	public SubmitIndexActionsCommandHandler(
+		DocumentStoreMetadataRepository metadataRepository,
+		TargetDefinitionProvider targetDefinitionProvider,
+		IndexerProvisioningService provisioningService,
+		MetadataChangeNotifier metadataChangeNotifier,
+		IndexerQueueClient queue,
+		InvalidRouteCache invalidRouteCache,
+		List<IndexerActionReceiveCapability> receiveCapabilities
+	) {
+		this(
+			metadataRepository,
+			targetDefinitionProvider,
+			provisioningService,
+			IndexPublicationService.UNSUPPORTED,
+			metadataChangeNotifier,
+			queue,
+			invalidRouteCache,
+			receiveCapabilities
+		);
 	}
 
 	@Override

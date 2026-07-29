@@ -45,6 +45,7 @@ public class IndexerNodeOptions {
 		public static final String TARGET_NAME = "target_name";
 		public static final String PERIOD_STRATEGY = "period_strategy";
 		public static final String AUTO_PROVISION_ON_WRITE = "auto_provision_on_write";
+		public static final String AUTO_PUBLISH_ON_WRITE = "auto_publish_on_write";
 
 		private TargetDefinitions() {
 		}
@@ -174,6 +175,10 @@ public class IndexerNodeOptions {
 				.put(
 					TargetDefinitions.AUTO_PROVISION_ON_WRITE,
 					definition.autoProvisionOnWrite()
+				)
+				.put(
+					TargetDefinitions.AUTO_PUBLISH_ON_WRITE,
+					definition.autoPublishOnWrite()
 				));
 		}
 
@@ -567,12 +572,17 @@ public class IndexerNodeOptions {
 					error
 				);
 			}
+			boolean autoProvisionOnWrite = value.getBoolean(
+				TargetDefinitions.AUTO_PROVISION_ON_WRITE,
+				false
+			);
 			definitions.add(TargetDefinition.builder()
 				.withTargetName(value.getString(TargetDefinitions.TARGET_NAME))
 				.withPeriodStrategy(periodStrategy)
-				.withAutoProvisionOnWrite(value.getBoolean(
-					TargetDefinitions.AUTO_PROVISION_ON_WRITE,
-					false
+				.withAutoProvisionOnWrite(autoProvisionOnWrite)
+				.withAutoPublishOnWrite(value.getBoolean(
+					TargetDefinitions.AUTO_PUBLISH_ON_WRITE,
+					autoProvisionOnWrite
 				))
 				.build());
 		}
@@ -589,6 +599,7 @@ public class IndexerNodeOptions {
 				.withTargetName(Objects.requireNonNull(value, "targetDefinition").targetName())
 				.withPeriodStrategy(value.periodStrategy())
 				.withAutoProvisionOnWrite(value.autoProvisionOnWrite())
+				.withAutoPublishOnWrite(value.autoPublishOnWrite())
 				.build())
 			.toList();
 	}

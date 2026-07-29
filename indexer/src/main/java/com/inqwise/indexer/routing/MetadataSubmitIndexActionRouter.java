@@ -47,6 +47,9 @@ import com.inqwise.indexer.provisioning.GeneratedIndexerResources;
 import com.inqwise.indexer.provisioning.IndexerProvisioningService;
 import com.inqwise.indexer.provisioning.IndexerResourceNameGenerator;
 import com.inqwise.indexer.provisioning.ProvisionedIndexer;
+import com.inqwise.indexer.publication.IndexPublicationService;
+import com.inqwise.indexer.publication.MarkIndexReadyRequest;
+import com.inqwise.indexer.publication.PublishIndexRequest;
 
 import io.vertx.core.Future;
 
@@ -55,12 +58,14 @@ class MetadataSubmitIndexActionRouter {
 	private final TargetDefinitionProvider targetDefinitionProvider;
 	private final List<IndexerActionReceiveCapability> receiveCapabilities;
 	private final IndexerProvisioningService provisioningService;
+	private final IndexPublicationService publicationService;
 	private final TargetPeriodResolver periodResolver = new TargetPeriodResolver();
 
 	MetadataSubmitIndexActionRouter(
 		DocumentStoreMetadataRepository repository,
 		TargetDefinitionProvider targetDefinitionProvider,
 		IndexerProvisioningService provisioningService,
+		IndexPublicationService publicationService,
 		List<IndexerActionReceiveCapability> receiveCapabilities
 	) {
 		this.repository = Objects.requireNonNull(repository, "repository");
@@ -76,6 +81,9 @@ class MetadataSubmitIndexActionRouter {
 			provisioningService,
 			"provisioningService"
 		);
+		this.publicationService = publicationService == null
+			? IndexPublicationService.UNSUPPORTED
+			: publicationService;
 	}
 
 	Future<List<RoutedIndexActions>> route(SubmitIndexActionsCommand submit) {
@@ -151,6 +159,7 @@ class MetadataSubmitIndexActionRouter {
 					destination,
 					target.record(),
 					target.autoProvisionOnWrite(),
+					target.autoPublishOnWrite(),
 					routingContext
 				));
 		}
@@ -173,6 +182,7 @@ class MetadataSubmitIndexActionRouter {
 				destination,
 				target,
 				false,
+				false,
 				routingContext
 			));
 	}
@@ -183,6 +193,7 @@ class MetadataSubmitIndexActionRouter {
 		ActionDestination destination,
 		TargetRecord target,
 		boolean autoProvision,
+		boolean autoPublish,
 		MetadataRoutingContext routingContext
 	) {
 		if (target.status() != TargetStatus.ACTIVE) {
@@ -221,7 +232,7 @@ class MetadataSubmitIndexActionRouter {
 							}
 
 							return autoProvision
-								? ensureWritableIndexer(target, routingContext)
+								? ensureWritableIndexer(target, autoPublish, routingContext)
 									.map(MetadataIndexerModels::fromRecord)
 									.map(List::of)
 								: Future.failedFuture(CommandFailure.stableInvalid(
@@ -335,6 +346,7 @@ class MetadataSubmitIndexActionRouter {
 					.map(target -> Future.succeededFuture(ResolvedTarget.builder()
 						.withRecord(target)
 						.withAutoProvisionOnWrite(targetDefinition.autoProvisionOnWrite())
+						.withAutoPublishOnWrite(targetDefinition.autoPublishOnWrite())
 						.build()))
 					.orElseGet(() -> {
 						if (!targetDefinition.autoProvisionOnWrite()) {
@@ -348,6 +360,7 @@ class MetadataSubmitIndexActionRouter {
 							.map(target -> ResolvedTarget.builder()
 								.withRecord(target)
 								.withAutoProvisionOnWrite(true)
+								.withAutoPublishOnWrite(targetDefinition.autoPublishOnWrite())
 								.build());
 					}));
 			});
@@ -370,6 +383,7 @@ class MetadataSubmitIndexActionRouter {
 
 	private Future<IndexerRecord> ensureWritableIndexer(
 		TargetRecord target,
+		boolean autoPublish,
 		MetadataRoutingContext routingContext
 	) {
 		GeneratedIndexerResources resources = IndexerResourceNameGenerator.forTarget(target.targetName());
@@ -403,7 +417,31 @@ class MetadataSubmitIndexActionRouter {
 					).map(indexer))
 					.orElseGet(() -> Future.failedFuture("Target not found: " + target.id()))))
 			.compose(this::getProvisionedIndexer)
+			.compose(indexer -> autoPublish
+				? publishProvisionedIndexer(indexer)
+				: Future.succeededFuture(indexer))
 			.recover(error -> recoverWritableIndexerProvisioning(target, error));
+	}
+
+	private Future<IndexerRecord> publishProvisionedIndexer(IndexerRecord indexer) {
+		return repository.getPublicationByIndexerId(indexer.id())
+			.compose(found -> found
+				.map(publication -> publicationService.markReady(MarkIndexReadyRequest.builder()
+					.withPublicationId(publication.id())
+					.withReason("auto publish on write")
+					.withExpectedVersion(publication.version())
+					.build()))
+				.orElseGet(() -> Future.failedFuture(
+					"Publication not found for indexer: " + indexer.id()
+				)))
+			.compose(ignored -> publicationService.publish(PublishIndexRequest.builder()
+				.withIndexerId(indexer.id())
+				.withExpectedVersion(indexer.version())
+				.build()))
+			.compose(ignored -> repository.getIndexerById(indexer.id()))
+			.compose(found -> found
+				.map(Future::succeededFuture)
+				.orElseGet(() -> Future.failedFuture("Indexer not found: " + indexer.id())));
 	}
 
 	private Future<IndexerRecord> getProvisionedIndexer(ProvisionedIndexer provisioned) {
@@ -657,7 +695,8 @@ class MetadataSubmitIndexActionRouter {
 
 	private record ResolvedTarget(
 		TargetRecord record,
-		boolean autoProvisionOnWrite
+		boolean autoProvisionOnWrite,
+		boolean autoPublishOnWrite
 	) {
 		private static Builder builder() {
 			return new Builder();
@@ -666,6 +705,7 @@ class MetadataSubmitIndexActionRouter {
 		private static final class Builder {
 			private TargetRecord record;
 			private boolean autoProvisionOnWrite;
+			private boolean autoPublishOnWrite;
 
 			private Builder withRecord(TargetRecord value) {
 				record = value;
@@ -677,10 +717,16 @@ class MetadataSubmitIndexActionRouter {
 				return this;
 			}
 
+			private Builder withAutoPublishOnWrite(boolean value) {
+				autoPublishOnWrite = value;
+				return this;
+			}
+
 			private ResolvedTarget build() {
 				return new ResolvedTarget(
 					Objects.requireNonNull(record, "record"),
-					autoProvisionOnWrite
+					autoProvisionOnWrite,
+					autoPublishOnWrite
 				);
 			}
 		}

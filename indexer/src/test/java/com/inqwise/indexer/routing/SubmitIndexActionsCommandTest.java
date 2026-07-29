@@ -59,6 +59,7 @@ import com.inqwise.indexer.metadata.UpdateTargetProvisioningState;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 import com.inqwise.indexer.provisioning.IndexerProvisioningService;
 import com.inqwise.indexer.provisioning.MetadataIndexerProvisioningService;
+import com.inqwise.indexer.publication.MetadataIndexPublicationService;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -357,17 +358,72 @@ class SubmitIndexActionsCommandTest {
 				assertTrue(queue.publishedByQueueName.containsKey(indexers.get(0).queueName()));
 				assertTrue(indexers.get(0).indexName().matches("customers--idx-[a-f0-9-]{36}"));
 				assertTrue(indexers.get(0).queueName().matches("customers--queue-[a-f0-9-]{36}"));
-				assertEquals(List.of(indexers.get(0).indexName()), documentResources.ensured);
-				assertEquals(List.of(indexers.get(0).queueName()), queueResources.ensured);
+				assertEquals(
+					List.of(indexers.get(0).indexName(), indexers.get(0).indexName()),
+					documentResources.ensured
+				);
+				assertEquals(
+					List.of(indexers.get(0).queueName(), indexers.get(0).queueName()),
+					queueResources.ensured
+				);
 				assertEquals(ManifestStatus.ACTIVE, result.manifest().status());
 				assertEquals("customers", result.manifest().schemaName());
-				assertEquals(ReadinessState.PENDING, result.publication().readinessState());
+				assertEquals(PublicationState.PUBLISHED, result.indexer().publicationState());
+				assertEquals(ReadinessState.READY, result.publication().readinessState());
 				assertConcretePut(
 					queue.published.get(0),
 					indexers.get(0).targetId(),
 					indexers.get(0).id(),
 					indexers.get(0).indexName()
 				);
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void publicTargetCommandCanAutoProvisionWithoutPublishingOnWrite(
+		VertxTestContext testContext
+	) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		RecordingQueue queue = new RecordingQueue();
+		RecordingDocumentIndexResourceManager documentResources =
+			new RecordingDocumentIndexResourceManager();
+		RecordingQueueResourceManager queueResources = new RecordingQueueResourceManager();
+		InMemoryCommandEngine commandService = metadataCommandService(
+			repository,
+			eventBus,
+			queue,
+			documentResources,
+			queueResources,
+			true,
+			false
+		);
+
+		commandService.submit(new SubmitIndexActionsCommand(
+			"customers",
+			Instant.parse("2026-05-18T10:15:00Z"),
+			List.of(PutDocumentActionItem.builder()
+				.withUid("42")
+				.withDocument(new JsonObject().put("name", "Ada"))
+				.build())
+		)).compose(ignored -> repository.getTargetByDefinitionAndPeriod(
+			ConcreteTargetKey.builder()
+				.withTargetName("customers")
+				.withPeriodKey("2026-05")
+				.build()
+		)).compose(found -> repository.listWritableIndexersByTargetId(found.orElseThrow().id()))
+			.compose(indexers -> repository.getPublicationByIndexerId(indexers.get(0).id())
+				.map(publication -> new ColdProvisionResult(
+					indexers.get(0),
+					null,
+					publication.orElseThrow()
+				)))
+			.onComplete(testContext.succeeding(result -> testContext.verify(() -> {
+				assertEquals(PublicationState.UNPUBLISHED, result.indexer().publicationState());
+				assertEquals(ReadinessState.PENDING, result.publication().readinessState());
+				assertEquals(1, queue.published.size());
 				testContext.completeNow();
 			})));
 	}
@@ -1052,6 +1108,7 @@ class SubmitIndexActionsCommandTest {
 			queue,
 			documentResources,
 			queueResources,
+			true,
 			true
 		);
 	}
@@ -1064,11 +1121,37 @@ class SubmitIndexActionsCommandTest {
 		IndexerQueueResourceManager queueResources,
 		boolean autoProvisionOnWrite
 	) {
+		return metadataCommandService(
+			repository,
+			eventBus,
+			queue,
+			documentResources,
+			queueResources,
+			autoProvisionOnWrite,
+			autoProvisionOnWrite
+		);
+	}
+
+	private InMemoryCommandEngine metadataCommandService(
+		InMemoryDocumentStoreMetadataRepository repository,
+		InMemoryIndexerLifecycleEventBus eventBus,
+		RecordingQueue queue,
+		IndexerDocumentIndexResourceManager documentResources,
+		IndexerQueueResourceManager queueResources,
+		boolean autoProvisionOnWrite,
+		boolean autoPublishOnWrite
+	) {
 		return new InMemoryCommandEngine()
 			.register(new SubmitIndexActionsCommandHandler(
 				repository,
-				customersMonthlyTargetDefinitionProvider(autoProvisionOnWrite),
+				customersMonthlyTargetDefinitionProvider(autoProvisionOnWrite, autoPublishOnWrite),
 				provisioningService(repository, documentResources, queueResources),
+				new MetadataIndexPublicationService(
+					repository,
+					indexerDefinitionProvider(),
+					documentResources,
+					queueResources
+				),
 				TestMetadataChangeNotifiers.create(eventBus),
 				queue,
 				null,
@@ -1090,6 +1173,12 @@ class SubmitIndexActionsCommandTest {
 				repository,
 				customersMonthlyTargetDefinitionProvider(autoProvisionOnWrite),
 				provisioningService(repository, documentResources, queueResources),
+				new MetadataIndexPublicationService(
+					repository,
+					indexerDefinitionProvider(),
+					documentResources,
+					queueResources
+				),
 				TestMetadataChangeNotifiers.create(eventBus),
 				queue,
 				invalidRouteCache,
@@ -1114,13 +1203,24 @@ class SubmitIndexActionsCommandTest {
 	) {
 		return new MetadataIndexerProvisioningService(
 			repository,
-			new StaticIndexerDefinitionProvider(new IndexerDefinition(
-				new IndexDefinition("customers", "v1", new JsonObject(), new JsonObject()),
-				new QueueDefinition(new JsonObject())
-			)),
+			indexerDefinitionProvider(),
 			documentResources,
 			queueResources
 		);
+	}
+
+	private StaticIndexerDefinitionProvider indexerDefinitionProvider() {
+		return new StaticIndexerDefinitionProvider(IndexerDefinition.builder()
+			.withIndex(IndexDefinition.builder()
+				.withSchemaName("customers")
+				.withSchemaVersion("v1")
+				.withSettings(new JsonObject())
+				.withMappings(new JsonObject())
+				.build())
+			.withQueue(QueueDefinition.builder()
+				.withSettings(new JsonObject())
+				.build())
+			.build());
 	}
 
 	private record ColdProvisionResult(
@@ -1160,8 +1260,23 @@ class SubmitIndexActionsCommandTest {
 	private StaticTargetDefinitionProvider customersMonthlyTargetDefinitionProvider(
 		boolean autoProvisionOnWrite
 	) {
+		return customersMonthlyTargetDefinitionProvider(
+			autoProvisionOnWrite,
+			autoProvisionOnWrite
+		);
+	}
+
+	private StaticTargetDefinitionProvider customersMonthlyTargetDefinitionProvider(
+		boolean autoProvisionOnWrite,
+		boolean autoPublishOnWrite
+	) {
 		return new StaticTargetDefinitionProvider(List.of(
-			new TargetDefinition("customers", TargetPeriodStrategy.MONTHLY, autoProvisionOnWrite)
+			TargetDefinition.builder()
+				.withTargetName("customers")
+				.withPeriodStrategy(TargetPeriodStrategy.MONTHLY)
+				.withAutoProvisionOnWrite(autoProvisionOnWrite)
+				.withAutoPublishOnWrite(autoPublishOnWrite)
+				.build()
 		));
 	}
 

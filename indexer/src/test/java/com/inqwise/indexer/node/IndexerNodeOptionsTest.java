@@ -472,6 +472,7 @@ class IndexerNodeOptionsTest {
 		assertEquals("customers", definition.targetName());
 		assertEquals(TargetPeriodStrategy.MONTHLY, definition.periodStrategy());
 		assertTrue(definition.autoProvisionOnWrite());
+		assertTrue(definition.autoPublishOnWrite());
 		assertEquals(
 			"customers",
 			options.toJson()
@@ -479,6 +480,30 @@ class IndexerNodeOptionsTest {
 				.getJsonObject(0)
 				.getString(IndexerNodeOptions.TargetDefinitions.TARGET_NAME)
 		);
+		assertTrue(options.toJson()
+			.getJsonArray(IndexerNodeOptions.Keys.TARGET_DEFINITIONS)
+			.getJsonObject(0)
+			.getBoolean(IndexerNodeOptions.TargetDefinitions.AUTO_PUBLISH_ON_WRITE));
+	}
+
+	@Test
+	void readsExplicitAutoPublishOnWriteTargetDefinition() {
+		IndexerNodeOptions options = new IndexerNodeOptions(new JsonObject()
+			.put(IndexerNodeOptions.Keys.TARGET_DEFINITIONS, new JsonArray()
+				.add(new JsonObject()
+					.put(IndexerNodeOptions.TargetDefinitions.TARGET_NAME, "customers")
+					.put(
+						IndexerNodeOptions.TargetDefinitions.AUTO_PROVISION_ON_WRITE,
+						true
+					)
+					.put(
+						IndexerNodeOptions.TargetDefinitions.AUTO_PUBLISH_ON_WRITE,
+						false
+					))));
+
+		TargetDefinition definition = options.targetDefinitions().get(0);
+		assertTrue(definition.autoProvisionOnWrite());
+		assertFalse(definition.autoPublishOnWrite());
 	}
 
 	@Test

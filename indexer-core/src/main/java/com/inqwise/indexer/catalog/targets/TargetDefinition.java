@@ -3,15 +3,19 @@ package com.inqwise.indexer.catalog.targets;
 public record TargetDefinition(
 	String targetName,
 	TargetPeriodStrategy periodStrategy,
-	boolean autoProvisionOnWrite
+	boolean autoProvisionOnWrite,
+	boolean autoPublishOnWrite
 ) {
 	public TargetDefinition(String targetName, TargetPeriodStrategy periodStrategy) {
-		this(targetName, periodStrategy, false);
+		this(targetName, periodStrategy, false, false);
 	}
 
-	public TargetDefinition {
-		TargetNameValidator.requireTargetName(targetName);
-		periodStrategy = periodStrategy == null ? TargetPeriodStrategy.NONE : periodStrategy;
+	public TargetDefinition(
+		String targetName,
+		TargetPeriodStrategy periodStrategy,
+		boolean autoProvisionOnWrite
+	) {
+		this(targetName, periodStrategy, autoProvisionOnWrite, autoProvisionOnWrite);
 	}
 
 	public static Builder builder() {
@@ -22,6 +26,7 @@ public record TargetDefinition(
 		private String targetName;
 		private TargetPeriodStrategy periodStrategy;
 		private boolean autoProvisionOnWrite;
+		private Boolean autoPublishOnWrite;
 
 		private Builder() {
 		}
@@ -41,9 +46,24 @@ public record TargetDefinition(
 			return this;
 		}
 
+		public Builder withAutoPublishOnWrite(boolean value) {
+			autoPublishOnWrite = value;
+			return this;
+		}
+
 		public TargetDefinition build() {
 			TargetNameValidator.requireTargetName(targetName);
-			return new TargetDefinition(targetName, periodStrategy, autoProvisionOnWrite);
+			return new TargetDefinition(
+				targetName,
+				periodStrategy,
+				autoProvisionOnWrite,
+				autoPublishOnWrite == null ? autoProvisionOnWrite : autoPublishOnWrite
+			);
 		}
+	}
+
+	public TargetDefinition {
+		TargetNameValidator.requireTargetName(targetName);
+		periodStrategy = periodStrategy == null ? TargetPeriodStrategy.NONE : periodStrategy;
 	}
 }
