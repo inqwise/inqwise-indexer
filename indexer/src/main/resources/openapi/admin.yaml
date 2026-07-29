@@ -38,7 +38,9 @@ paths:
           content:
             application/json:
               schema:
-                type: object
+                $ref: '#/components/schemas/AdminTargetList'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
     post:
       operationId: createTarget
       requestBody:
@@ -69,7 +71,9 @@ paths:
           content:
             application/json:
               schema:
-                type: object
+                $ref: '#/components/schemas/AdminTargetResult'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
   /admin/targets/{id}:
     get:
       operationId: getTarget
@@ -81,7 +85,9 @@ paths:
           content:
             application/json:
               schema:
-                type: object
+                $ref: '#/components/schemas/AdminTargetResult'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
   /admin/targets/{id}/recover-provisioning:
     post:
       operationId: recoverTargetProvisioning
@@ -94,7 +100,9 @@ paths:
           content:
             application/json:
               schema:
-                type: object
+                $ref: '#/components/schemas/AdminTargetResult'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
   /admin/indexers:
     get:
       operationId: listIndexers
@@ -170,7 +178,9 @@ paths:
           content:
             application/json:
               schema:
-                type: object
+                $ref: '#/components/schemas/AdminIndexerList'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
     post:
       operationId: createIndexer
       requestBody:
@@ -190,7 +200,9 @@ paths:
           content:
             application/json:
               schema:
-                type: object
+                $ref: '#/components/schemas/AdminIndexerResult'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
   /admin/indexers/{id}:
     get:
       operationId: getIndexer
@@ -202,7 +214,9 @@ paths:
           content:
             application/json:
               schema:
-                type: object
+                $ref: '#/components/schemas/AdminIndexerResult'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
     delete:
       operationId: deleteIndexer
       parameters:
@@ -214,7 +228,9 @@ paths:
           content:
             application/json:
               schema:
-                type: object
+                $ref: '#/components/schemas/AdminIndexerResult'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
   /admin/indexers/{id}/activate:
     post:
       operationId: activateIndexer
@@ -227,7 +243,9 @@ paths:
           content:
             application/json:
               schema:
-                type: object
+                $ref: '#/components/schemas/AdminIndexerResult'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
   /admin/indexers/{id}/deactivate:
     post:
       operationId: deactivateIndexer
@@ -240,7 +258,9 @@ paths:
           content:
             application/json:
               schema:
-                type: object
+                $ref: '#/components/schemas/AdminIndexerResult'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
   /admin/indexers/{id}/reset-queue:
     post:
       operationId: resetIndexerQueue
@@ -253,8 +273,17 @@ paths:
           content:
             application/json:
               schema:
-                type: object
+                $ref: '#/components/schemas/AdminIndexerResult'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
 components:
+  responses:
+    ErrorResponse:
+      description: Structured request or service failure.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
   parameters:
     IdPath:
       name: id
@@ -278,3 +307,230 @@ components:
       schema:
         type: integer
         format: int64
+  schemas:
+    AdminTargetList:
+      type: object
+      required:
+        - targets
+      properties:
+        targets:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminTargetView'
+    AdminTargetResult:
+      type: object
+      required:
+        - target
+      properties:
+        target:
+          $ref: '#/components/schemas/AdminTargetView'
+    AdminTargetView:
+      type: object
+      required:
+        - id
+        - uid
+        - target_name
+        - period_key
+        - period_start_inclusive
+        - period_end_exclusive
+        - status
+        - provisioning_state
+        - created_at
+        - updated_at
+        - version
+      properties:
+        id:
+          type: integer
+        uid:
+          type: string
+        target_name:
+          type: string
+        period_key:
+          type: string
+          nullable: true
+        period_start_inclusive:
+          type: string
+          format: date-time
+          nullable: true
+        period_end_exclusive:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          $ref: '#/components/schemas/TargetStatus'
+        provisioning_state:
+          $ref: '#/components/schemas/TargetProvisioningState'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          format: int64
+    AdminIndexerList:
+      type: object
+      required:
+        - indexers
+      properties:
+        indexers:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminIndexerView'
+    AdminIndexerResult:
+      type: object
+      required:
+        - indexer
+      properties:
+        indexer:
+          $ref: '#/components/schemas/AdminIndexerView'
+    AdminIndexerView:
+      type: object
+      required:
+        - id
+        - uid
+        - target_id
+        - target_name
+        - index_name
+        - queue_name
+        - type
+        - role
+        - index_ownership
+        - status
+        - provisioning_state
+        - runtime_state
+        - publication_state
+        - mutation_state
+        - created_at
+        - updated_at
+        - version
+      properties:
+        id:
+          type: integer
+        uid:
+          type: string
+        target_id:
+          type: integer
+        target_name:
+          type: string
+        index_name:
+          type: string
+        queue_name:
+          type: string
+          nullable: true
+        type:
+          $ref: '#/components/schemas/IndexerType'
+        role:
+          $ref: '#/components/schemas/IndexerRole'
+        index_ownership:
+          $ref: '#/components/schemas/IndexResourceOwnership'
+        status:
+          $ref: '#/components/schemas/IndexerStatus'
+        provisioning_state:
+          $ref: '#/components/schemas/IndexerProvisioningState'
+        runtime_state:
+          $ref: '#/components/schemas/IndexerRuntimeState'
+        publication_state:
+          $ref: '#/components/schemas/PublicationState'
+        mutation_state:
+          $ref: '#/components/schemas/MutationState'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          format: int64
+    TargetStatus:
+      type: string
+      enum:
+        - ACTIVE
+        - NON_ACTIVE
+        - DELETED
+    TargetProvisioningState:
+      type: string
+      enum:
+        - READY
+        - PROVISIONING
+        - FAILED
+    IndexerType:
+      type: string
+      enum:
+        - INDEX
+    IndexerRole:
+      type: string
+      enum:
+        - LIVE_WRITER
+        - LOAD_WRITER
+    IndexResourceOwnership:
+      type: string
+      enum:
+        - OWNER
+        - ATTACHED
+    IndexerStatus:
+      type: string
+      enum:
+        - AVAILABLE
+    IndexerProvisioningState:
+      type: string
+      enum:
+        - PROVISIONING
+        - READY
+        - FAILED
+    IndexerRuntimeState:
+      type: string
+      enum:
+        - ACTIVE
+        - NON_ACTIVE
+    PublicationState:
+      type: string
+      enum:
+        - UNPUBLISHED
+        - PUBLISHED
+        - RETIRED
+    MutationState:
+      type: string
+      enum:
+        - WRITABLE
+        - READ_ONLY
+        - DELETING
+    ErrorBody:
+      oneOf:
+        - $ref: '#/components/schemas/ErrorTicket'
+        - $ref: '#/components/schemas/HttpError'
+    ErrorTicket:
+      type: object
+      additionalProperties: true
+      properties:
+        code:
+          type: string
+        group:
+          type: string
+        id:
+          type: string
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri
+    HttpError:
+      type: object
+      required:
+        - status
+        - message
+      properties:
+        status:
+          type: integer
+        message:
+          type: string
+          nullable: true

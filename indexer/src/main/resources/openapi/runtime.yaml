@@ -12,7 +12,9 @@ paths:
           content:
             application/json:
               schema:
-                type: object
+                $ref: '#/components/schemas/RuntimeStatusResult'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
   /runtime/indexers/{id}/reconcile:
     post:
       operationId: reconcileIndexer
@@ -28,4 +30,127 @@ paths:
           content:
             application/json:
               schema:
-                type: object
+                $ref: '#/components/schemas/RuntimeReconcileResult'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+components:
+  responses:
+    ErrorResponse:
+      description: Structured request or service failure.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+  schemas:
+    RuntimeStatusResult:
+      type: object
+      required:
+        - indexers
+      properties:
+        indexers:
+          type: array
+          items:
+            $ref: '#/components/schemas/RuntimeIndexerStatus'
+    RuntimeIndexerStatus:
+      type: object
+      required:
+        - indexer_id
+        - indexer_uid
+        - target_id
+        - target_name
+        - index_name
+        - queue_name
+        - type
+        - role
+        - index_ownership
+        - runtime_state
+        - version
+      properties:
+        indexer_id:
+          type: integer
+        indexer_uid:
+          type: string
+        target_id:
+          type: integer
+        target_name:
+          type: string
+        index_name:
+          type: string
+        queue_name:
+          type: string
+        type:
+          $ref: '#/components/schemas/IndexerType'
+        role:
+          $ref: '#/components/schemas/IndexerRole'
+        index_ownership:
+          $ref: '#/components/schemas/IndexResourceOwnership'
+        runtime_state:
+          $ref: '#/components/schemas/IndexerRuntimeState'
+        version:
+          type: integer
+          format: int64
+    RuntimeReconcileResult:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum:
+            - ACCEPTED
+    IndexerType:
+      type: string
+      enum:
+        - INDEX
+    IndexerRole:
+      type: string
+      enum:
+        - LIVE_WRITER
+        - LOAD_WRITER
+    IndexResourceOwnership:
+      type: string
+      enum:
+        - OWNER
+        - ATTACHED
+    IndexerRuntimeState:
+      type: string
+      enum:
+        - ACTIVE
+        - NON_ACTIVE
+    ErrorBody:
+      oneOf:
+        - $ref: '#/components/schemas/ErrorTicket'
+        - $ref: '#/components/schemas/HttpError'
+    ErrorTicket:
+      type: object
+      additionalProperties: true
+      properties:
+        code:
+          type: string
+        group:
+          type: string
+        id:
+          type: string
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri
+    HttpError:
+      type: object
+      required:
+        - status
+        - message
+      properties:
+        status:
+          type: integer
+        message:
+          type: string
+          nullable: true

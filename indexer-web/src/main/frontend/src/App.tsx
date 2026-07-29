@@ -1,34 +1,26 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import {
+  activateIndexer,
+  deactivateIndexer,
+  isReady,
+  listIndexers,
+  listTargets,
+  reconcileIndexer,
+  recoverTargetProvisioning,
+  runtimeStatus,
+} from "./api/indexer-api";
+import type {
+  Indexer,
+  RuntimeIndexer,
+  Target,
+} from "./api/indexer-api";
+import CatalogDetailPanel from "./components/CatalogDetailPanel";
+
 type HealthState = "checking" | "online" | "offline";
-
-type Target = {
-  id: number;
-  target_name: string;
-  period_key: string;
-  status: string;
-  provisioning_state: string;
-  version: number;
-};
-
-type Indexer = {
-  id: number;
-  target_name: string;
-  index_name: string;
-  role: string;
-  status: string;
-  provisioning_state: string;
-  runtime_state: string;
-  publication_state: string;
-  version: number;
-};
-
-type RuntimeIndexer = {
-  indexer_id: number;
-  target_name: string;
-  index_name: string;
-  runtime_state: string;
-};
+type IndexerRuntimeFilter = Indexer["runtime_state"] | "ALL";
+type IndexerPublicationFilter = Indexer["publication_state"] | "ALL";
+type TargetProvisioningFilter = Target["provisioning_state"] | "ALL";
 
 type DashboardData = {
   health: HealthState;
@@ -45,22 +37,6 @@ const INITIAL_DATA: DashboardData = {
   runtimeIndexers: [],
   error: null,
 };
-
-async function isReady(signal: AbortSignal): Promise<boolean> {
-  const response = await fetch("/api/health/health/ready", { signal });
-  return response.status === 204;
-}
-
-async function getJson<T>(path: string, signal: AbortSignal): Promise<T> {
-  const response = await fetch(path, {
-    headers: { accept: "application/json" },
-    signal,
-  });
-  if (!response.ok) {
-    throw new Error(`${response.status} ${response.statusText}`.trim());
-  }
-  return response.json() as Promise<T>;
-}
 
 function statusTone(status: string): "good" | "warn" | "neutral" {
   if (["ACTIVE", "READY", "PUBLISHED", "COMPLETED"].includes(status)) {
@@ -108,25 +84,34 @@ export default function App() {
   const [data, setData] = useState<DashboardData>(INITIAL_DATA);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [indexerSearch, setIndexerSearch] = useState("");
+  const [indexerRuntimeFilter, setIndexerRuntimeFilter] =
+    useState<IndexerRuntimeFilter>("ALL");
+  const [indexerPublicationFilter, setIndexerPublicationFilter] =
+    useState<IndexerPublicationFilter>("ALL");
+  const [targetSearch, setTargetSearch] = useState("");
+  const [targetProvisioningFilter, setTargetProvisioningFilter] =
+    useState<TargetProvisioningFilter>("ALL");
+  const [selectedTargetId, setSelectedTargetId] = useState<number | null>(null);
+  const [selectedIndexerId, setSelectedIndexerId] = useState<number | null>(
+    null,
+  );
 
   const load = useCallback(async (signal: AbortSignal) => {
     try {
       const [health, targetResult, indexerResult, runtimeResult] =
         await Promise.all([
           isReady(signal),
-          getJson<{ targets?: Target[] }>("/api/admin/admin/targets", signal),
-          getJson<{ indexers?: Indexer[] }>("/api/admin/admin/indexers", signal),
-          getJson<{ indexers?: RuntimeIndexer[] }>(
-            "/api/runtime/runtime/status",
-            signal,
-          ),
+          listTargets(signal),
+          listIndexers(signal),
+          runtimeStatus(signal),
         ]);
 
       setData({
         health: health ? "online" : "offline",
-        targets: targetResult.targets ?? [],
-        indexers: indexerResult.indexers ?? [],
-        runtimeIndexers: runtimeResult.indexers ?? [],
+        targets: targetResult,
+        indexers: indexerResult,
+        runtimeIndexers: runtimeResult,
         error: null,
       });
       setLastUpdated(new Date());
@@ -163,10 +148,8 @@ export default function App() {
 
   const activeIndexers = useMemo(
     () =>
-      data.indexers.filter(
-        (indexer) =>
-          indexer.runtime_state === "ACTIVE" || indexer.status === "ACTIVE",
-      ).length,
+      data.indexers.filter((indexer) => indexer.runtime_state === "ACTIVE")
+        .length,
     [data.indexers],
   );
 
@@ -186,6 +169,116 @@ export default function App() {
         (indexer) => indexer.provisioning_state === "FAILED",
       ).length,
     [data.indexers, data.targets],
+  );
+
+  const filteredIndexers = useMemo(() => {
+    const query = indexerSearch.trim().toLowerCase();
+    return data.indexers.filter(
+      (indexer) =>
+        (!query ||
+          [indexer.index_name, indexer.target_name, indexer.uid].some((value) =>
+            value.toLowerCase().includes(query),
+          )) &&
+        (indexerRuntimeFilter === "ALL" ||
+          indexer.runtime_state === indexerRuntimeFilter) &&
+        (indexerPublicationFilter === "ALL" ||
+          indexer.publication_state === indexerPublicationFilter),
+    );
+  }, [
+    data.indexers,
+    indexerPublicationFilter,
+    indexerRuntimeFilter,
+    indexerSearch,
+  ]);
+
+  const filteredTargets = useMemo(() => {
+    const query = targetSearch.trim().toLowerCase();
+    return data.targets.filter(
+      (target) =>
+        (!query ||
+          [target.target_name, target.uid, target.period_key ?? ""].some(
+            (value) => value.toLowerCase().includes(query),
+          )) &&
+        (targetProvisioningFilter === "ALL" ||
+          target.provisioning_state === targetProvisioningFilter),
+    );
+  }, [data.targets, targetProvisioningFilter, targetSearch]);
+
+  const selectedTarget =
+    selectedTargetId === null
+      ? null
+      : (data.targets.find((target) => target.id === selectedTargetId) ?? null);
+  const selectedIndexer =
+    selectedIndexerId === null
+      ? null
+      : (data.indexers.find((indexer) => indexer.id === selectedIndexerId) ??
+        null);
+  const selectedRuntimeIndexer =
+    selectedIndexerId === null
+      ? null
+      : (data.runtimeIndexers.find(
+          (indexer) => indexer.indexer_id === selectedIndexerId,
+        ) ?? null);
+
+  const changeIndexerRuntimeState = useCallback(
+    async (indexer: Indexer, desiredState: Indexer["runtime_state"]) => {
+      let mutationFailure: unknown;
+      try {
+        if (desiredState === "ACTIVE") {
+          await activateIndexer(indexer.id, indexer.version);
+        } else {
+          await deactivateIndexer(indexer.id, indexer.version);
+        }
+      } catch (error) {
+        mutationFailure = error;
+      }
+
+      const controller = new AbortController();
+      setRefreshing(true);
+      await load(controller.signal);
+      if (mutationFailure) {
+        throw mutationFailure;
+      }
+    },
+    [load],
+  );
+
+  const recoverTarget = useCallback(
+    async (target: Target) => {
+      let mutationFailure: unknown;
+      try {
+        await recoverTargetProvisioning(target.id, target.version);
+      } catch (error) {
+        mutationFailure = error;
+      }
+
+      const controller = new AbortController();
+      setRefreshing(true);
+      await load(controller.signal);
+      if (mutationFailure) {
+        throw mutationFailure;
+      }
+    },
+    [load],
+  );
+
+  const reconcileRuntime = useCallback(
+    async (indexer: Indexer) => {
+      let mutationFailure: unknown;
+      try {
+        await reconcileIndexer(indexer.id);
+      } catch (error) {
+        mutationFailure = error;
+      }
+
+      const controller = new AbortController();
+      setRefreshing(true);
+      await load(controller.signal);
+      if (mutationFailure) {
+        throw mutationFailure;
+      }
+    },
+    [load],
   );
 
   return (
@@ -295,7 +388,7 @@ export default function App() {
               detail={
                 data.targets.length === 0
                   ? "No catalog records"
-                  : `${data.targets.filter((target) => target.status === "READY").length} ready`
+                  : `${data.targets.filter((target) => target.provisioning_state === "READY").length} ready`
               }
               accent="cyan"
             />
@@ -324,10 +417,55 @@ export default function App() {
                   <span className="eyebrow">Catalog</span>
                   <h3>Indexers</h3>
                 </div>
-                <span className="panel__count">{data.indexers.length} total</span>
+                <span className="panel__count">
+                  {filteredIndexers.length} of {data.indexers.length}
+                </span>
               </div>
 
-              {data.indexers.length > 0 ? (
+              <div className="filters" aria-label="Indexer filters">
+                <label className="filter-field filter-field--search">
+                  <span>Search</span>
+                  <input
+                    onChange={(event) => setIndexerSearch(event.target.value)}
+                    placeholder="Name, target, or UID"
+                    type="search"
+                    value={indexerSearch}
+                  />
+                </label>
+                <label className="filter-field">
+                  <span>Runtime</span>
+                  <select
+                    onChange={(event) =>
+                      setIndexerRuntimeFilter(
+                        event.target.value as IndexerRuntimeFilter,
+                      )
+                    }
+                    value={indexerRuntimeFilter}
+                  >
+                    <option value="ALL">All</option>
+                    <option value="ACTIVE">Active</option>
+                    <option value="NON_ACTIVE">Non active</option>
+                  </select>
+                </label>
+                <label className="filter-field">
+                  <span>Publication</span>
+                  <select
+                    onChange={(event) =>
+                      setIndexerPublicationFilter(
+                        event.target.value as IndexerPublicationFilter,
+                      )
+                    }
+                    value={indexerPublicationFilter}
+                  >
+                    <option value="ALL">All</option>
+                    <option value="PUBLISHED">Published</option>
+                    <option value="UNPUBLISHED">Unpublished</option>
+                    <option value="RETIRED">Retired</option>
+                  </select>
+                </label>
+              </div>
+
+              {filteredIndexers.length > 0 ? (
                 <div className="table-wrap">
                   <table>
                     <thead>
@@ -340,13 +478,22 @@ export default function App() {
                       </tr>
                     </thead>
                     <tbody>
-                      {data.indexers.slice(0, 6).map((indexer) => (
+                      {filteredIndexers.map((indexer) => (
                         <tr key={indexer.id}>
                           <td>
-                            <strong>{indexer.index_name}</strong>
-                            <small>
-                              #{indexer.id} · {indexer.role}
-                            </small>
+                            <button
+                              className="entity-link"
+                              onClick={() => {
+                                setSelectedTargetId(null);
+                                setSelectedIndexerId(indexer.id);
+                              }}
+                              type="button"
+                            >
+                              <strong>{indexer.index_name}</strong>
+                              <small>
+                                #{indexer.id} · {indexer.role}
+                              </small>
+                            </button>
                           </td>
                           <td>{indexer.target_name}</td>
                           <td>
@@ -364,8 +511,16 @@ export default function App() {
               ) : (
                 <div className="empty-state">
                   <span aria-hidden="true">◇</span>
-                  <strong>No indexers yet</strong>
-                  <p>Indexers will appear here after a target is provisioned.</p>
+                  <strong>
+                    {data.indexers.length === 0
+                      ? "No indexers yet"
+                      : "No indexers match these filters"}
+                  </strong>
+                  <p>
+                    {data.indexers.length === 0
+                      ? "Indexers will appear here after a target is provisioned."
+                      : "Adjust the search, runtime, or publication filters."}
+                  </p>
                 </div>
               )}
             </section>
@@ -418,12 +573,50 @@ export default function App() {
                   <span className="eyebrow">Routing destinations</span>
                   <h3>Targets</h3>
                 </div>
-                <span className="panel__count">{data.targets.length} total</span>
+                <span className="panel__count">
+                  {filteredTargets.length} of {data.targets.length}
+                </span>
+              </div>
+
+              <div className="filters" aria-label="Target filters">
+                <label className="filter-field filter-field--search">
+                  <span>Search</span>
+                  <input
+                    onChange={(event) => setTargetSearch(event.target.value)}
+                    placeholder="Name, period, or UID"
+                    type="search"
+                    value={targetSearch}
+                  />
+                </label>
+                <label className="filter-field">
+                  <span>Provisioning</span>
+                  <select
+                    onChange={(event) =>
+                      setTargetProvisioningFilter(
+                        event.target.value as TargetProvisioningFilter,
+                      )
+                    }
+                    value={targetProvisioningFilter}
+                  >
+                    <option value="ALL">All</option>
+                    <option value="READY">Ready</option>
+                    <option value="PROVISIONING">Provisioning</option>
+                    <option value="FAILED">Failed</option>
+                  </select>
+                </label>
               </div>
 
               <div className="target-list">
-                {data.targets.slice(0, 5).map((target) => (
-                  <article key={target.id}>
+                {filteredTargets.map((target) => (
+                  <button
+                    className="target-card"
+                    key={target.id}
+                    onClick={() => {
+                      setSelectedIndexerId(null);
+                      setSelectedTargetId(target.id);
+                    }}
+                    type="button"
+                  >
                     <span className="target-list__glyph">
                       {target.target_name.slice(0, 1).toUpperCase()}
                     </span>
@@ -434,13 +627,21 @@ export default function App() {
                       </small>
                     </div>
                     <StatusPill value={target.provisioning_state} />
-                  </article>
+                  </button>
                 ))}
-                {data.targets.length === 0 && (
+                {filteredTargets.length === 0 && (
                   <div className="empty-state empty-state--compact">
                     <span aria-hidden="true">◎</span>
-                    <strong>No targets configured</strong>
-                    <p>Create a target through the internal Admin API.</p>
+                    <strong>
+                      {data.targets.length === 0
+                        ? "No targets configured"
+                        : "No targets match these filters"}
+                    </strong>
+                    <p>
+                      {data.targets.length === 0
+                        ? "Create a target through the internal Admin API."
+                        : "Adjust the search or provisioning filter."}
+                    </p>
                   </div>
                 )}
               </div>
@@ -462,6 +663,18 @@ export default function App() {
           </footer>
         </div>
       </section>
+      <CatalogDetailPanel
+        indexer={selectedIndexer}
+        onClose={() => {
+          setSelectedIndexerId(null);
+          setSelectedTargetId(null);
+        }}
+        onRuntimeReconcile={reconcileRuntime}
+        onRuntimeStateChange={changeIndexerRuntimeState}
+        onTargetRecovery={recoverTarget}
+        runtimeIndexer={selectedRuntimeIndexer}
+        target={selectedTarget}
+      />
     </main>
   );
 }

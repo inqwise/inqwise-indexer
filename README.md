@@ -19,7 +19,7 @@ The approved provider-neutral scope is complete. Remaining implementation starts
 
 `indexer-web` is the internal operator interface for the local Indexer deployment. It is a separate logical Maven module containing a static React SPA and a narrow Vert.x delivery wrapper. It depends only on Vert.x Web/HTTP Proxy and the existing internal HTTP envelopes; it does not depend on Java domain packages, Vert.x EventBus services, or the public Gateway. `indexer-node-application` packages and deploys it beside the Indexer node in the same Vert.x JVM and container.
 
-The first slice is read-only and displays node readiness, runtime attachment, targets, indexers, provisioning state, and publication state. In development, Vite provides hot reload and forwards the same paths that the Vert.x wrapper owns in packaged/runtime use:
+The console displays node readiness, runtime attachment, targets, indexers, provisioning state, and publication state. Target and indexer catalogs support local search/status filters and accessible entity detail drawers without introducing additional read API calls. Bounded operations expose indexer activate/deactivate, failed target-provisioning recovery, and manual local-runtime reconciliation from their detail drawers. Catalog mutations send the selected catalog `version` as `expected_version`; reconciliation only asks the current node to reload durable state and converge its local runtime. Every operation disables duplicate submission while pending, reports controlled errors, and reloads durable catalog/runtime state after success or failure. Queue reset and deletion remain outside the frontend. In development, Vite provides hot reload and forwards the same paths that the Vert.x wrapper owns in packaged/runtime use:
 
 - `/api/admin` proxies the Admin REST service on port `8080`.
 - `/api/actions` proxies the Target Action REST service on port `8081`.
@@ -42,7 +42,7 @@ To exercise the packaged delivery boundary, build and run the node application:
 ./run-local.sh
 ```
 
-The React/Vite workspace lives under `indexer-web/src/main/frontend`. The Maven lifecycle installs a pinned Node/npm toolchain there, runs `npm ci`, creates the Vite production bundle, and copies it to the classpath `webroot` served by `IndexerWebVerticle`. The Vert.x wrapper strips the UI-only `/api/{service}` prefix and forwards requests to the corresponding internal REST port. It is a delivery adapter, not a second business API or a replacement Gateway.
+The React/Vite workspace lives under `indexer-web/src/main/frontend`. Admin and Runtime response/error schemas are concrete OpenAPI contracts; the frontend build regenerates TypeScript path and component types from those source contracts and uses `openapi-fetch` for type-safe same-origin requests. The Maven lifecycle installs a pinned Node/npm toolchain, runs `npm ci`, generates the API types, creates the Vite production bundle, and copies it to the classpath `webroot` served by `IndexerWebVerticle`. The Vert.x wrapper strips the UI-only `/api/{service}` prefix and forwards requests to the corresponding internal REST port. It is a delivery adapter, not a second business API or a replacement Gateway.
 
 The console is an internal development and operations surface. Excluding Gateway also excludes public exposure, production identity, and authorization from this scope. A deployment-owned authenticated boundary must be approved before the console is exposed outside a trusted internal environment.
 

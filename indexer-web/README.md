@@ -1,6 +1,14 @@
 # Inqwise Indexer Console
 
-Internal read-only operations console for the local Inqwise Indexer node.
+Internal operations console for the local Inqwise Indexer node.
+
+The console provides client-side target/indexer search and state filters plus
+detail drawers. These projections use the already-loaded generated DTOs and do
+not add another API boundary. The first mutation slice is limited to
+version-aware indexer activate/deactivate; it refreshes durable state after
+every attempt. Failed targets also expose version-aware provisioning recovery.
+Ready indexers can request node-local runtime reconciliation without changing
+their desired catalog state. Queue reset and deletion are not exposed.
 
 The React/Vite workspace is located at `src/main/frontend`; the Java delivery
 wrapper uses the standard Maven `src/main/java` layout.
@@ -9,6 +17,9 @@ The module follows the Vert.x React SPA pattern:
 
 - Vite serves the React application with hot reload during frontend development.
 - Maven builds the static SPA and copies it to the classpath `webroot`.
+- The frontend build generates Admin and Runtime TypeScript contracts from the
+  Java REST OpenAPI source files.
+- `openapi-fetch` provides typed same-origin Admin and Runtime clients.
 - `IndexerWebVerticle` serves that webroot in packaged/runtime use.
 - Both development and runtime expose the same `/api/{service}` browser paths.
 - The Vert.x wrapper forwards those paths to the existing internal REST ports.
@@ -53,6 +64,7 @@ uses loopback addresses for the node-owned REST services.
 
 ```sh
 cd src/main/frontend
+npm run generate:api
 npm run build
 npm test
 npm run lint

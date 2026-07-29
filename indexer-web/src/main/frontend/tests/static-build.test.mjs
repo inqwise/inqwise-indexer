@@ -19,13 +19,120 @@ test("builds a static React application for the Vert.x webroot", async () => {
 
 test("keeps the browser API surface same-origin and Gateway-independent", async () => {
   const source = await readFile(
+    new URL("../src/api/indexer-api.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /baseUrl: "\/api\/admin"/);
+  assert.match(source, /GET\("\/admin\/targets"/);
+  assert.match(source, /GET\("\/admin\/indexers"/);
+  assert.match(source, /baseUrl: "\/api\/runtime"/);
+  assert.match(source, /GET\("\/runtime\/status"/);
+  assert.match(source, /"\/api\/health\/health\/ready"/);
+  assert.doesNotMatch(source, /\/gateway\//);
+});
+
+test("generates dashboard contracts from the Java REST OpenAPI schemas", async () => {
+  const adminTypes = await readFile(
+    new URL("../src/generated/admin-api.ts", import.meta.url),
+    "utf8",
+  );
+  const runtimeTypes = await readFile(
+    new URL("../src/generated/runtime-api.ts", import.meta.url),
+    "utf8",
+  );
+
+  await assertGeneratedFields(
+    "../../../../../indexer/src/main/java/com/inqwise/indexer/service/admin/AdminTargetView.java",
+    adminTypes,
+  );
+  await assertGeneratedFields(
+    "../../../../../indexer/src/main/java/com/inqwise/indexer/service/admin/AdminIndexerView.java",
+    adminTypes,
+  );
+  await assertGeneratedFields(
+    "../../../../../indexer/src/main/java/com/inqwise/indexer/service/runtime/RuntimeIndexerStatus.java",
+    runtimeTypes,
+  );
+  assert.match(adminTypes, /ErrorBody:/);
+  assert.match(runtimeTypes, /ErrorBody:/);
+});
+
+test("uses generated DTOs instead of handwritten dashboard response models", async () => {
+  const source = await readFile(
     new URL("../src/App.tsx", import.meta.url),
     "utf8",
   );
 
-  assert.match(source, /"\/api\/admin\/admin\/targets"/);
-  assert.match(source, /"\/api\/admin\/admin\/indexers"/);
-  assert.match(source, /"\/api\/runtime\/runtime\/status"/);
-  assert.match(source, /"\/api\/health\/health\/ready"/);
-  assert.doesNotMatch(source, /\/gateway\//);
+  assert.match(source, /from "\.\/api\/indexer-api"/);
+  assert.doesNotMatch(source, /type (Target|Indexer|RuntimeIndexer) = \{/);
+  assert.doesNotMatch(source, /getJson</);
 });
+
+test("provides read-only catalog filters and accessible entity details", async () => {
+  const app = await readFile(
+    new URL("../src/App.tsx", import.meta.url),
+    "utf8",
+  );
+  const details = await readFile(
+    new URL("../src/components/CatalogDetailPanel.tsx", import.meta.url),
+    "utf8",
+  );
+  const api = await readFile(
+    new URL("../src/api/indexer-api.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(app, /aria-label="Indexer filters"/);
+  assert.match(app, /aria-label="Target filters"/);
+  assert.match(app, /type="search"/);
+  assert.match(details, /data-testid="catalog-detail-panel"/);
+  assert.match(details, /aria-label="Close details"/);
+  assert.match(details, /event\.key === "Escape"/);
+  assert.doesNotMatch(api, /reset-queue/);
+});
+
+test("limits mutations to bounded lifecycle, recovery, and reconcile changes", async () => {
+  const details = await readFile(
+    new URL("../src/components/CatalogDetailPanel.tsx", import.meta.url),
+    "utf8",
+  );
+  const api = await readFile(
+    new URL("../src/api/indexer-api.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(api, /POST\(\s*"\/admin\/indexers\/\{id\}\/activate"/);
+  assert.match(api, /POST\(\s*"\/admin\/indexers\/\{id\}\/deactivate"/);
+  assert.match(
+    api,
+    /POST\(\s*"\/admin\/targets\/\{id\}\/recover-provisioning"/,
+  );
+  assert.match(
+    api,
+    /POST\(\s*"\/runtime\/indexers\/\{id\}\/reconcile"/,
+  );
+  assert.equal(api.match(/expected_version: expectedVersion/g)?.length, 3);
+  assert.doesNotMatch(api, /\.(PUT|PATCH|DELETE)\(/);
+  assert.doesNotMatch(api, /reset-queue/);
+  assert.match(details, /Activate indexer/);
+  assert.match(details, /Deactivate indexer/);
+  assert.match(details, /Recover provisioning/);
+  assert.match(details, /Reconcile local runtime/);
+  assert.match(details, /This does not change the desired catalog state/);
+  assert.match(details, /target\.provisioning_state === "FAILED"/);
+  assert.match(details, /role="alert"/);
+});
+
+async function assertGeneratedFields(javaPath, generatedTypes) {
+  const source = await readFile(new URL(javaPath, import.meta.url), "utf8");
+  const fields = Array.from(
+    source.matchAll(/public static final String \w+ = "([^"]+)";/g),
+    (match) => match[1],
+  );
+
+  assert.ok(fields.length > 0, `No serialized fields found in ${javaPath}`);
+  for (const field of fields) {
+    assert.match(generatedTypes, new RegExp(`\\b${field}:`));
+  }
+}
