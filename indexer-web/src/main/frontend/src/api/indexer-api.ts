@@ -25,7 +25,7 @@ const runtimeClient = createClient<RuntimePaths>({
 
 export async function isReady(signal: AbortSignal): Promise<boolean> {
   const response = await fetch("/api/health/health/ready", { signal });
-  return response.status === 204;
+  return response.ok;
 }
 
 export async function listTargets(signal: AbortSignal): Promise<Target[]> {

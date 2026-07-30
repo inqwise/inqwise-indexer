@@ -38,7 +38,7 @@ class NodeHealthRestVerticleTest {
 				return status(vertx, health.actualPort(), NodeHealthRestVerticle.READY_PATH);
 			})
 			.onComplete(testContext.succeeding(status -> testContext.verify(() -> {
-				assertEquals(204, status);
+				assertEquals(200, status);
 				testContext.completeNow();
 			})));
 	}
@@ -47,6 +47,18 @@ class NodeHealthRestVerticleTest {
 		return vertx.createHttpClient()
 			.request(HttpMethod.GET, port, "127.0.0.1", path)
 			.compose(request -> request.send())
-			.map(response -> response.statusCode());
+			.compose(response -> {
+				int statusCode = response.statusCode();
+				if (statusCode == 204) {
+					return Future.succeededFuture(statusCode);
+				}
+				return response.body().map(body -> {
+					assertEquals(
+						statusCode == 200 ? "UP" : "DOWN",
+						body.toJsonObject().getString("outcome")
+					);
+					return statusCode;
+				});
+			});
 	}
 }

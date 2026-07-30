@@ -29,6 +29,7 @@ test("keeps the browser API surface same-origin and Gateway-independent", async 
   assert.match(source, /baseUrl: "\/api\/runtime"/);
   assert.match(source, /GET\("\/runtime\/status"/);
   assert.match(source, /"\/api\/health\/health\/ready"/);
+  assert.match(source, /return response\.ok/);
   assert.doesNotMatch(source, /\/gateway\//);
 });
 

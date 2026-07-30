@@ -155,7 +155,7 @@ curl -sS http://127.0.0.1:8083/runtime/status
 curl -sS 'http://127.0.0.1:8087/documents/search?target_name=hacker-news&q=vertx'
 ```
 
-Both health requests return `204` after successful startup. Liveness remains `204` while the node is running, including recovery-only mode. Readiness returns `503` during startup, shutdown, or recovery-only mode and returns `204` only when the full data plane is available.
+Health checks use Vert.x Health Check response semantics. Liveness returns `204` while the node is running, including recovery-only mode. Readiness returns `503` with a JSON health report during startup, shutdown, or recovery-only mode and returns `200` with an `UP` report only when the full data plane is available.
 
 Create the monthly `customers` target with a ready writable indexer:
 

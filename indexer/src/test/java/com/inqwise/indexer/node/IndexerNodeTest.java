@@ -196,7 +196,7 @@ class IndexerNodeTest {
 				);
 			})
 			.compose(status -> {
-				assertEquals(204, status);
+				assertEquals(200, status);
 				return node.stop();
 			})
 			.onComplete(testContext.succeeding(ignored -> testContext.completeNow()));
@@ -449,7 +449,7 @@ class IndexerNodeTest {
 					.compose(request -> request.send());
 			})
 			.compose(response -> {
-				assertEquals(204, response.statusCode());
+				assertEquals(200, response.statusCode());
 				return node.stop();
 			})
 			.onComplete(testContext.succeeding(ignored -> testContext.completeNow()));

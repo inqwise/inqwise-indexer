@@ -6,7 +6,9 @@ import java.util.function.BooleanSupplier;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Promise;
 import io.vertx.core.http.HttpServer;
+import io.vertx.ext.healthchecks.Status;
 import io.vertx.ext.web.Router;
+import io.vertx.ext.web.healthchecks.HealthCheckHandler;
 
 public final class NodeHealthRestVerticle extends AbstractVerticle {
 	public static final String LIVE_PATH = "/health/live";
@@ -28,12 +30,14 @@ public final class NodeHealthRestVerticle extends AbstractVerticle {
 	@Override
 	public void start(Promise<Void> startPromise) {
 		Router router = Router.router(vertx);
-		router.get(LIVE_PATH).handler(context -> context.response()
-			.setStatusCode(204)
-			.end());
-		router.get(READY_PATH).handler(context -> context.response()
-			.setStatusCode(readiness.getAsBoolean() ? 204 : 503)
-			.end());
+		HealthCheckHandler livenessHandler = HealthCheckHandler.create(vertx);
+		HealthCheckHandler readinessHandler = HealthCheckHandler.create(vertx)
+			.register("node-ready", promise -> promise.complete(
+				readiness.getAsBoolean() ? Status.OK() : Status.KO()
+			));
+
+		router.get(LIVE_PATH).handler(livenessHandler);
+		router.get(READY_PATH).handler(readinessHandler);
 
 		vertx.createHttpServer()
 			.requestHandler(router)
