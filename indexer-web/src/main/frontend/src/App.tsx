@@ -25,6 +25,13 @@ type IndexerPublicationFilter = Indexer["publication_state"] | "ALL";
 type TargetProvisioningFilter = Target["provisioning_state"] | "ALL";
 type PollInterval = 0 | 15_000 | 30_000 | 60_000;
 type DashboardSection = "overview" | "targets" | "indexers" | "runtime";
+type CatalogPageSize = 10 | 25 | 50;
+type IndexerSort =
+  | "NAME_ASC"
+  | "TARGET_ASC"
+  | "UPDATED_DESC"
+  | "VERSION_DESC";
+type TargetSort = "NAME_ASC" | "PERIOD_DESC" | "UPDATED_DESC" | "STATUS_ASC";
 type ServiceName = "readiness" | "targets" | "indexers" | "runtime";
 type ServiceState = "checking" | "online" | "degraded";
 type ServiceDiagnostic = {
@@ -72,6 +79,7 @@ const SERVICE_LABELS: Record<ServiceName, string> = {
 };
 const DEFAULT_POLL_INTERVAL: PollInterval = 15_000;
 const POLL_INTERVALS: readonly PollInterval[] = [0, 15_000, 30_000, 60_000];
+const CATALOG_PAGE_SIZES: readonly CatalogPageSize[] = [10, 25, 50];
 const DASHBOARD_SECTIONS: readonly DashboardSection[] = [
   "overview",
   "targets",
@@ -121,6 +129,41 @@ function Metric({
   );
 }
 
+function Pagination({
+  page,
+  pageCount,
+  onPageChange,
+}: {
+  page: number;
+  pageCount: number;
+  onPageChange: (page: number) => void;
+}) {
+  if (pageCount <= 1) {
+    return null;
+  }
+  return (
+    <nav className="pagination" aria-label="Catalog pages">
+      <button
+        disabled={page === 1}
+        onClick={() => onPageChange(page - 1)}
+        type="button"
+      >
+        Previous
+      </button>
+      <span>
+        Page <strong>{page}</strong> of {pageCount}
+      </span>
+      <button
+        disabled={page === pageCount}
+        onClick={() => onPageChange(page + 1)}
+        type="button"
+      >
+        Next
+      </button>
+    </nav>
+  );
+}
+
 function queryValue(name: string): string | null {
   return new URLSearchParams(window.location.search).get(name);
 }
@@ -141,6 +184,22 @@ function queryId(name: string): number | null {
   }
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function queryPositiveInteger(name: string, fallback: number): number {
+  const value = queryValue(name);
+  if (!value) {
+    return fallback;
+  }
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function queryPageSize(name: string): CatalogPageSize {
+  const value = queryPositiveInteger(name, 10);
+  return CATALOG_PAGE_SIZES.includes(value as CatalogPageSize)
+    ? (value as CatalogPageSize)
+    : 10;
 }
 
 function initialPollInterval(): PollInterval {
@@ -232,6 +291,19 @@ export default function App() {
         "ALL",
       ),
     );
+  const [indexerSort, setIndexerSort] = useState<IndexerSort>(() =>
+    queryEnum(
+      "isort",
+      ["NAME_ASC", "TARGET_ASC", "UPDATED_DESC", "VERSION_DESC"],
+      "NAME_ASC",
+    ),
+  );
+  const [indexerPageSize, setIndexerPageSize] = useState<CatalogPageSize>(() =>
+    queryPageSize("ilimit"),
+  );
+  const [indexerPage, setIndexerPage] = useState(() =>
+    queryPositiveInteger("ipage", 1),
+  );
   const [targetSearch, setTargetSearch] = useState(
     () => queryValue("tq") ?? "",
   );
@@ -239,6 +311,19 @@ export default function App() {
     useState<TargetProvisioningFilter>(() =>
       queryEnum("tp", ["ALL", "READY", "PROVISIONING", "FAILED"], "ALL"),
     );
+  const [targetSort, setTargetSort] = useState<TargetSort>(() =>
+    queryEnum(
+      "tsort",
+      ["NAME_ASC", "PERIOD_DESC", "UPDATED_DESC", "STATUS_ASC"],
+      "NAME_ASC",
+    ),
+  );
+  const [targetPageSize, setTargetPageSize] = useState<CatalogPageSize>(() =>
+    queryPageSize("tlimit"),
+  );
+  const [targetPage, setTargetPage] = useState(() =>
+    queryPositiveInteger("tpage", 1),
+  );
   const [selectedTargetId, setSelectedTargetId] = useState<number | null>(() =>
     queryId("indexer") === null ? queryId("target") : null,
   );
@@ -404,8 +489,14 @@ export default function App() {
     setOptional("iq", indexerSearch);
     setOptional("ir", indexerRuntimeFilter, "ALL");
     setOptional("ip", indexerPublicationFilter, "ALL");
+    setOptional("isort", indexerSort, "NAME_ASC");
+    setOptional("ilimit", String(indexerPageSize), "10");
+    setOptional("ipage", String(indexerPage), "1");
     setOptional("tq", targetSearch);
     setOptional("tp", targetProvisioningFilter, "ALL");
+    setOptional("tsort", targetSort, "NAME_ASC");
+    setOptional("tlimit", String(targetPageSize), "10");
+    setOptional("tpage", String(targetPage), "1");
     setOptional(
       "poll",
       String(pollInterval / 1_000),
@@ -422,13 +513,19 @@ export default function App() {
     window.history.replaceState(null, "", url);
   }, [
     indexerPublicationFilter,
+    indexerPage,
+    indexerPageSize,
     indexerRuntimeFilter,
     indexerSearch,
+    indexerSort,
     pollInterval,
     selectedIndexerId,
     selectedTargetId,
     targetProvisioningFilter,
+    targetPage,
+    targetPageSize,
     targetSearch,
+    targetSort,
   ]);
 
   useEffect(() => {
@@ -546,36 +643,127 @@ export default function App() {
 
   const filteredIndexers = useMemo(() => {
     const query = indexerSearch.trim().toLowerCase();
-    return data.indexers.filter(
-      (indexer) =>
-        (!query ||
-          [indexer.index_name, indexer.target_name, indexer.uid].some((value) =>
-            value.toLowerCase().includes(query),
-          )) &&
-        (indexerRuntimeFilter === "ALL" ||
-          indexer.runtime_state === indexerRuntimeFilter) &&
-        (indexerPublicationFilter === "ALL" ||
-          indexer.publication_state === indexerPublicationFilter),
-    );
+    return data.indexers
+      .filter(
+        (indexer) =>
+          (!query ||
+            [indexer.index_name, indexer.target_name, indexer.uid].some(
+              (value) => value.toLowerCase().includes(query),
+            )) &&
+          (indexerRuntimeFilter === "ALL" ||
+            indexer.runtime_state === indexerRuntimeFilter) &&
+          (indexerPublicationFilter === "ALL" ||
+            indexer.publication_state === indexerPublicationFilter),
+      )
+      .sort((left, right) => {
+        const idOrder = left.id - right.id;
+        switch (indexerSort) {
+          case "TARGET_ASC":
+            return (
+              left.target_name.localeCompare(right.target_name) ||
+              left.index_name.localeCompare(right.index_name) ||
+              idOrder
+            );
+          case "UPDATED_DESC":
+            return (
+              right.updated_at.localeCompare(left.updated_at) ||
+              right.id - left.id
+            );
+          case "VERSION_DESC":
+            return right.version - left.version || right.id - left.id;
+          default:
+            return left.index_name.localeCompare(right.index_name) || idOrder;
+        }
+      });
   }, [
     data.indexers,
     indexerPublicationFilter,
     indexerRuntimeFilter,
     indexerSearch,
+    indexerSort,
   ]);
 
   const filteredTargets = useMemo(() => {
     const query = targetSearch.trim().toLowerCase();
-    return data.targets.filter(
-      (target) =>
-        (!query ||
-          [target.target_name, target.uid, target.period_key ?? ""].some(
-            (value) => value.toLowerCase().includes(query),
-          )) &&
-        (targetProvisioningFilter === "ALL" ||
-          target.provisioning_state === targetProvisioningFilter),
-    );
-  }, [data.targets, targetProvisioningFilter, targetSearch]);
+    return data.targets
+      .filter(
+        (target) =>
+          (!query ||
+            [target.target_name, target.uid, target.period_key ?? ""].some(
+              (value) => value.toLowerCase().includes(query),
+            )) &&
+          (targetProvisioningFilter === "ALL" ||
+            target.provisioning_state === targetProvisioningFilter),
+      )
+      .sort((left, right) => {
+        const idOrder = left.id - right.id;
+        switch (targetSort) {
+          case "PERIOD_DESC":
+            return (
+              (right.period_key ?? "").localeCompare(left.period_key ?? "") ||
+              right.id - left.id
+            );
+          case "UPDATED_DESC":
+            return (
+              right.updated_at.localeCompare(left.updated_at) ||
+              right.id - left.id
+            );
+          case "STATUS_ASC":
+            return (
+              left.provisioning_state.localeCompare(
+                right.provisioning_state,
+              ) ||
+              left.target_name.localeCompare(right.target_name) ||
+              idOrder
+            );
+          default:
+            return left.target_name.localeCompare(right.target_name) || idOrder;
+        }
+      });
+  }, [data.targets, targetProvisioningFilter, targetSearch, targetSort]);
+
+  const indexerPageCount = Math.max(
+    1,
+    Math.ceil(filteredIndexers.length / indexerPageSize),
+  );
+  const currentIndexerPage = Math.min(indexerPage, indexerPageCount);
+  const pagedIndexers = filteredIndexers.slice(
+    (currentIndexerPage - 1) * indexerPageSize,
+    currentIndexerPage * indexerPageSize,
+  );
+  const targetPageCount = Math.max(
+    1,
+    Math.ceil(filteredTargets.length / targetPageSize),
+  );
+  const currentTargetPage = Math.min(targetPage, targetPageCount);
+  const pagedTargets = filteredTargets.slice(
+    (currentTargetPage - 1) * targetPageSize,
+    currentTargetPage * targetPageSize,
+  );
+  const indexerFiltersActive =
+    indexerSearch !== "" ||
+    indexerRuntimeFilter !== "ALL" ||
+    indexerPublicationFilter !== "ALL";
+  const targetFiltersActive =
+    targetSearch !== "" || targetProvisioningFilter !== "ALL";
+
+  useEffect(() => {
+    if (
+      data.services.indexers.state !== "checking" &&
+      indexerPage !== currentIndexerPage
+    ) {
+      setIndexerPage(currentIndexerPage);
+    }
+  }, [currentIndexerPage, data.services.indexers.state, indexerPage]);
+
+  useEffect(() => {
+    if (
+      data.services.targets.state !== "checking" &&
+      targetPage !== currentTargetPage
+    ) {
+      setTargetPage(currentTargetPage);
+    }
+  }, [currentTargetPage, data.services.targets.state, targetPage]);
 
   const selectedTarget =
     selectedTargetId === null
@@ -916,7 +1104,10 @@ export default function App() {
                 <label className="filter-field filter-field--search">
                   <span>Search</span>
                   <input
-                    onChange={(event) => setIndexerSearch(event.target.value)}
+                    onChange={(event) => {
+                      setIndexerSearch(event.target.value);
+                      setIndexerPage(1);
+                    }}
                     placeholder="Name, target, or UID"
                     type="search"
                     value={indexerSearch}
@@ -925,11 +1116,12 @@ export default function App() {
                 <label className="filter-field">
                   <span>Runtime</span>
                   <select
-                    onChange={(event) =>
+                    onChange={(event) => {
                       setIndexerRuntimeFilter(
                         event.target.value as IndexerRuntimeFilter,
-                      )
-                    }
+                      );
+                      setIndexerPage(1);
+                    }}
                     value={indexerRuntimeFilter}
                   >
                     <option value="ALL">All</option>
@@ -940,11 +1132,12 @@ export default function App() {
                 <label className="filter-field">
                   <span>Publication</span>
                   <select
-                    onChange={(event) =>
+                    onChange={(event) => {
                       setIndexerPublicationFilter(
                         event.target.value as IndexerPublicationFilter,
-                      )
-                    }
+                      );
+                      setIndexerPage(1);
+                    }}
                     value={indexerPublicationFilter}
                   >
                     <option value="ALL">All</option>
@@ -955,59 +1148,117 @@ export default function App() {
                 </label>
               </div>
 
+              <div
+                className="catalog-controls"
+                aria-label="Indexer catalog controls"
+              >
+                <label>
+                  <span>Sort</span>
+                  <select
+                    onChange={(event) => {
+                      setIndexerSort(event.target.value as IndexerSort);
+                      setIndexerPage(1);
+                    }}
+                    value={indexerSort}
+                  >
+                    <option value="NAME_ASC">Name A–Z</option>
+                    <option value="TARGET_ASC">Target A–Z</option>
+                    <option value="UPDATED_DESC">Recently updated</option>
+                    <option value="VERSION_DESC">Highest version</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Rows</span>
+                  <select
+                    onChange={(event) => {
+                      setIndexerPageSize(
+                        Number(event.target.value) as CatalogPageSize,
+                      );
+                      setIndexerPage(1);
+                    }}
+                    value={indexerPageSize}
+                  >
+                    {CATALOG_PAGE_SIZES.map((size) => (
+                      <option key={size} value={size}>
+                        {size}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  disabled={!indexerFiltersActive}
+                  onClick={() => {
+                    setIndexerSearch("");
+                    setIndexerRuntimeFilter("ALL");
+                    setIndexerPublicationFilter("ALL");
+                    setIndexerPage(1);
+                  }}
+                  type="button"
+                >
+                  Clear filters
+                </button>
+              </div>
+
               {filteredIndexers.length > 0 ? (
-                <div className="table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Indexer</th>
-                        <th>Target</th>
-                        <th>Runtime</th>
-                        <th>Publication</th>
-                        <th>Version</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredIndexers.map((indexer) => (
-                        <tr key={indexer.id}>
-                          <td>
-                            <button
-                              className="entity-link"
-                              onClick={() => {
-                                setSelectedTargetId(null);
-                                setSelectedIndexerId(indexer.id);
-                              }}
-                              type="button"
-                            >
-                              <strong>{indexer.index_name}</strong>
-                              <small>
-                                #{indexer.id} · {indexer.role}
-                              </small>
-                            </button>
-                          </td>
-                          <td>{indexer.target_name}</td>
-                          <td>
-                            <div className="runtime-state-cell">
-                              <StatusPill value={indexer.runtime_state} />
-                              {runtimeDriftByIndexer.has(indexer.id) && (
-                                <span className="drift-label">
-                                  {runtimeDriftByIndexer.get(indexer.id)
-                                    ?.kind === "MISSING_ATTACHMENT"
-                                    ? "not attached"
-                                    : "unexpected attachment"}
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td>
-                            <StatusPill value={indexer.publication_state} />
-                          </td>
-                          <td className="mono">v{indexer.version}</td>
+                <>
+                  <div className="table-wrap">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Indexer</th>
+                          <th>Target</th>
+                          <th>Runtime</th>
+                          <th>Publication</th>
+                          <th>Version</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {pagedIndexers.map((indexer) => (
+                          <tr key={indexer.id}>
+                            <td>
+                              <button
+                                className="entity-link"
+                                onClick={() => {
+                                  setSelectedTargetId(null);
+                                  setSelectedIndexerId(indexer.id);
+                                }}
+                                type="button"
+                              >
+                                <strong>{indexer.index_name}</strong>
+                                <small>
+                                  #{indexer.id} · {indexer.role}
+                                </small>
+                              </button>
+                            </td>
+                            <td>{indexer.target_name}</td>
+                            <td>
+                              <div className="runtime-state-cell">
+                                <StatusPill value={indexer.runtime_state} />
+                                {runtimeDriftByIndexer.has(indexer.id) && (
+                                  <span className="drift-label">
+                                    {runtimeDriftByIndexer.get(indexer.id)
+                                      ?.kind === "MISSING_ATTACHMENT"
+                                      ? "not attached"
+                                      : "unexpected attachment"}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td>
+                              <StatusPill value={indexer.publication_state} />
+                            </td>
+                            <td className="mono">v{indexer.version}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <Pagination
+                    onPageChange={setIndexerPage}
+                    page={currentIndexerPage}
+                    pageCount={indexerPageCount}
+                  />
+                </>
               ) : (
                 <div className="empty-state">
                   <span aria-hidden="true">◇</span>
@@ -1113,7 +1364,10 @@ export default function App() {
                 <label className="filter-field filter-field--search">
                   <span>Search</span>
                   <input
-                    onChange={(event) => setTargetSearch(event.target.value)}
+                    onChange={(event) => {
+                      setTargetSearch(event.target.value);
+                      setTargetPage(1);
+                    }}
                     placeholder="Name, period, or UID"
                     type="search"
                     value={targetSearch}
@@ -1122,11 +1376,12 @@ export default function App() {
                 <label className="filter-field">
                   <span>Provisioning</span>
                   <select
-                    onChange={(event) =>
+                    onChange={(event) => {
                       setTargetProvisioningFilter(
                         event.target.value as TargetProvisioningFilter,
-                      )
-                    }
+                      );
+                      setTargetPage(1);
+                    }}
                     value={targetProvisioningFilter}
                   >
                     <option value="ALL">All</option>
@@ -1137,8 +1392,58 @@ export default function App() {
                 </label>
               </div>
 
+              <div
+                className="catalog-controls"
+                aria-label="Target catalog controls"
+              >
+                <label>
+                  <span>Sort</span>
+                  <select
+                    onChange={(event) => {
+                      setTargetSort(event.target.value as TargetSort);
+                      setTargetPage(1);
+                    }}
+                    value={targetSort}
+                  >
+                    <option value="NAME_ASC">Name A–Z</option>
+                    <option value="PERIOD_DESC">Newest period</option>
+                    <option value="UPDATED_DESC">Recently updated</option>
+                    <option value="STATUS_ASC">Provisioning state</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Rows</span>
+                  <select
+                    onChange={(event) => {
+                      setTargetPageSize(
+                        Number(event.target.value) as CatalogPageSize,
+                      );
+                      setTargetPage(1);
+                    }}
+                    value={targetPageSize}
+                  >
+                    {CATALOG_PAGE_SIZES.map((size) => (
+                      <option key={size} value={size}>
+                        {size}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  disabled={!targetFiltersActive}
+                  onClick={() => {
+                    setTargetSearch("");
+                    setTargetProvisioningFilter("ALL");
+                    setTargetPage(1);
+                  }}
+                  type="button"
+                >
+                  Clear filters
+                </button>
+              </div>
+
               <div className="target-list">
-                {filteredTargets.map((target) => (
+                {pagedTargets.map((target) => (
                   <button
                     className="target-card"
                     key={target.id}
@@ -1176,6 +1481,11 @@ export default function App() {
                   </div>
                 )}
               </div>
+              <Pagination
+                onPageChange={setTargetPage}
+                page={currentTargetPage}
+                pageCount={targetPageCount}
+              />
             </section>
           </div>
 

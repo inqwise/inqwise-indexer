@@ -86,6 +86,31 @@ test("provides catalog filters and accessible entity details", async () => {
   assert.match(details, /event\.key === "Escape"/);
 });
 
+test("provides sortable paged catalogs with URL-persisted navigation", async () => {
+  const app = await readFile(
+    new URL("../src/App.tsx", import.meta.url),
+    "utf8",
+  );
+  const styles = await readFile(
+    new URL("../src/globals.css", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(app, /aria-label="Indexer catalog controls"/);
+  assert.match(app, /aria-label="Target catalog controls"/);
+  assert.match(app, /Recently updated/);
+  assert.match(app, /Clear filters/);
+  assert.match(app, /CATALOG_PAGE_SIZES/);
+  assert.match(app, /<Pagination/);
+  assert.match(app, /setOptional\("isort"/);
+  assert.match(app, /setOptional\("ipage"/);
+  assert.match(app, /setOptional\("tsort"/);
+  assert.match(app, /setOptional\("tpage"/);
+  assert.match(app, /services\.indexers\.state !== "checking"/);
+  assert.match(styles, /width: min\(1520px, 100%\)/);
+  assert.match(styles, /@media \(min-width: 1380px\)/);
+});
+
 test("provides visibility-aware live monitoring and URL-persisted view state", async () => {
   const app = await readFile(
     new URL("../src/App.tsx", import.meta.url),

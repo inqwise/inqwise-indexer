@@ -1,0 +1,35 @@
+services:
+  indexer-node:
+    command:
+      - com.inqwise.indexer.node.application.IndexerNodeApplicationVerticle
+      - --cluster
+      - --cluster-host
+      - ${INDEXER_CLUSTER_HOST:-0.0.0.0}
+      - --cluster-port
+      - ${INDEXER_CLUSTER_PORT:-15701}
+      - --cluster-public-host
+      - ${INDEXER_CLUSTER_PUBLIC_HOST:-127.0.0.1}
+      - --cluster-public-port
+      - ${INDEXER_CLUSTER_PUBLIC_PORT:-15701}
+      - --options
+      - /config/vertx-options.json
+      - --conf
+      - /config/indexer-node.json
+    environment:
+      JAVA_TOOL_OPTIONS: >-
+        --add-modules=java.se
+        --add-exports=java.base/jdk.internal.ref=ALL-UNNAMED
+        --add-opens=java.base/java.lang=ALL-UNNAMED
+        --add-opens=java.base/sun.nio.ch=ALL-UNNAMED
+        --add-opens=java.management/sun.management=ALL-UNNAMED
+        --add-opens=jdk.management/com.sun.management.internal=ALL-UNNAMED
+        -Dvertx.hazelcast.config=/config/hazelcast.xml
+        -Dindexer.cluster.name=${INDEXER_CLUSTER_NAME:-inqwise-indexer-local}
+        -Dindexer.cluster.members=${INDEXER_CLUSTER_MEMBERS:-indexer-node:5701}
+        -Dhazelcast.local.localAddress=${INDEXER_HAZELCAST_HOST:-0.0.0.0}
+        -Dhazelcast.local.publicAddress=${INDEXER_HAZELCAST_PUBLIC_ADDRESS:-127.0.0.1:5701}
+    ports:
+      - "${INDEXER_HAZELCAST_FORWARD_HOST:-127.0.0.1}:${INDEXER_HAZELCAST_FORWARD_PORT:-5701}:5701"
+      - "${INDEXER_CLUSTER_FORWARD_HOST:-127.0.0.1}:${INDEXER_CLUSTER_FORWARD_PORT:-15701}:${INDEXER_CLUSTER_PORT:-15701}"
+    volumes:
+      - ./deployment/local/hazelcast.xml:/config/hazelcast.xml:ro

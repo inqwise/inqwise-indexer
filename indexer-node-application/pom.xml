@@ -27,6 +27,14 @@
 			<artifactId>vertx-launcher-application</artifactId>
 		</dependency>
 		<dependency>
+			<groupId>io.vertx</groupId>
+			<artifactId>vertx-micrometer-metrics</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>io.micrometer</groupId>
+			<artifactId>micrometer-registry-prometheus</artifactId>
+		</dependency>
+		<dependency>
 			<groupId>org.apache.logging.log4j</groupId>
 			<artifactId>log4j-core</artifactId>
 			<scope>runtime</scope>
@@ -40,6 +48,11 @@
 			<groupId>io.vertx</groupId>
 			<artifactId>vertx-junit5</artifactId>
 			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>io.vertx</groupId>
+			<artifactId>vertx-hazelcast</artifactId>
+			<scope>runtime</scope>
 		</dependency>
 	</dependencies>
 
@@ -66,6 +79,8 @@
 						<mainClass>io.vertx.launcher.application.VertxApplication</mainClass>
 						<args>
 							<arg>com.inqwise.indexer.node.application.IndexerNodeApplicationVerticle</arg>
+							<arg>--options</arg>
+							<arg>/config/vertx-options.json</arg>
 							<arg>--conf</arg>
 							<arg>/config/indexer-node.json</arg>
 						</args>
@@ -75,6 +90,8 @@
 							<port>8081</port>
 							<port>8083</port>
 							<port>8084</port>
+							<port>8087</port>
+							<port>9090</port>
 						</ports>
 						<user>10001:10001</user>
 					</container>

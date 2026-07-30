@@ -10,16 +10,58 @@ Vert.x 5.x indexing library with this Maven reactor layout:
 - `indexer`: command handlers/orchestration, action-routing implementations, hot-routing implementations, catalog implementations, provisioning orchestration, runtime implementations, service communication, node wiring, REST/gateway APIs, and default local adapters. It depends on `indexer-core`.
 - `indexer-web`: internal React operator console plus its Vert.x static-delivery and same-origin API-proxy boundary. Maven builds the SPA into the module classpath without depending on Indexer domain/runtime code or Gateway.
 - `indexer-node-application`: deployable node boundary. It composes the Indexer node and web verticles, and owns the Vert.x application launcher, runtime logging implementation, Jib image definition, and container process arguments without adding a project-specific `main()` method or shaded application JAR.
+- `indexer-example-hacker-news`: first concrete data-source project. It owns Hacker News change polling, current-item projection, source-side deduplication, and target-action batching. It runs as a separate clustered Vert.x application and submits to an Indexer node through the Target Action EventBus service.
 - `indexer-load`: load/reload orchestration, provider/runtime integration, durable workflow commands, and load-specific metadata around the core indexer primitives.
 - Root `inqwise-indexer`: local aggregator POM only.
 
-The approved provider-neutral scope is complete. Remaining implementation starts only after selecting a concrete external contract or requirement: production persistence/resource adapters, deployment identity and audit sinks, distributed coordination, a document-query API, historical/live blend tracking, partitioned catch-up lanes, strict distributed queue-reset fencing, or classified and observable automatic runtime recovery. Repository splitting remains deferred until module contracts and release cadence are stable. The public gateway remains intentionally read-only; administration mutations, action submission, and runtime recovery stay internal.
+The approved provider-neutral scope includes an internal document-query slice. Remaining implementation starts only after selecting a concrete external contract or requirement: production persistence/resource and search adapters, deployment identity and audit sinks, distributed coordination, historical/live blend tracking, partitioned catch-up lanes, strict distributed queue-reset fencing, or classified and observable automatic runtime recovery. Repository splitting remains deferred until module contracts and release cadence are stable. The public gateway remains intentionally read-only; administration mutations, action submission, document querying, and runtime recovery stay internal.
+
+## Hacker News Example
+
+`indexer-example-hacker-news` is the first concrete source application over the provider-neutral indexing runtime. It follows the official [Hacker News Firebase API](https://github.com/HackerNews/API): every poll reads `/v0/updates`, coalesces duplicate changed item ids, fetches the current `/v0/item/{id}` representation with bounded concurrency, and submits only projections whose content changed since their last accepted submission. It performs no historical backfill and stores no archive.
+
+HN item ids are stable document uids. Live items produce idempotent PUT actions containing the current structured item fields; items marked `dead` or `deleted` produce idempotent REMOVE actions. The source application does not construct or start `IndexerNode`. It obtains `TargetActionService` from `TargetActionServices.proxy(vertx)` and sends batches to the cluster-visible `indexer.service.target-action` address. The separately deployed Indexer node owns target resolution, auto-provisioning, routing, queue transport, runtime processing, and document storage.
+
+Both processes are started by the Vert.x 5 application launcher; neither module creates Vert.x in a project-specific `main()` method. The two launchers must use the same cluster manager and discovery configuration. Both launcher modules include the Hazelcast cluster manager on their runtime classpaths, while launcher arguments and deployment configuration decide whether each process actually starts clustered.
+
+Install the reactor artifacts first:
+
+```sh
+mvn -pl indexer-node-application,indexer-example-hacker-news -am install -DskipTests
+```
+
+Start the Indexer node with the clustered container deployment described under Local Deployment. When the container advertises Hazelcast at `${INDEXER_NODE_HOST}:5702`, start the HN source application on the Docker host with the same cluster name, the shared TCP discovery configuration, and that advertised endpoint as its seed:
+
+```sh
+./run-hacker-news-local.sh
+```
+
+The script defaults to node host `192.168.6.171`, Hazelcast public port `5702`, and cluster name `inqwise-indexer-local`. Override them with `INDEXER_NODE_HOST`, `INDEXER_HAZELCAST_PUBLIC_PORT`, and `INDEXER_CLUSTER_NAME`. The host-side example binds its Hazelcast member to `${INDEXER_NODE_HOST}:5701`; the container member remains reachable at `${INDEXER_NODE_HOST}:${INDEXER_HAZELCAST_PUBLIC_PORT}`. Do not use the nonexistent `local-cluster` Maven profile or omit the Hazelcast system properties: either starts an isolated default cluster. A source warning containing `No handlers for address indexer.service.target-action` means the HN launcher cannot see the clustered Indexer node; verify that both Hazelcast member logs report a cluster size of two.
+
+`deployment/local/indexer-node.json` defines the non-periodic `hacker-news` target with auto-provision-on-write. The HN source configuration lives separately under `hacker_news`: `base_uri`, `poll_interval_ms`, `max_changes_per_poll`, `request_concurrency`, `request_idle_timeout_ms`, and `action_batch_size`. Defaults are a five-second poll, at most 100 changed ids, eight concurrent item requests with a ten-second idle timeout, and 100 actions per submission. One poll is allowed in flight; a timer tick during a slow poll is skipped rather than creating unbounded work. Fingerprints are retained only for the selected update window, so source-side deduplication memory stays bounded.
+
+This remains a development example. Its fingerprint memory is process-local and is lost on restart. Restarting may replay the current update window, which is safe because document mutations use stable ids. The source has no direct access to the node's document adapter; queries go through the node-owned provider-neutral query service. Production evolution requires source leadership, a durable deduplication/checkpoint store, durable command/queue and document providers, retry/backoff plus API observability, and a production search adapter. LLM-derived product-pain enrichment is the next consumer layer, not part of source ingestion or Indexer runtime state.
+
+## Document Query
+
+Document querying is a separate read-side boundary. `DocumentQueryEngine` resolves the published physical indexes for a logical target and optional time interval through `PublishedIndexResolver`, delegates physical search to `IndexerDocumentQueryProvider`, and merges provider results into one deterministic page. Physical index names remain internal; each returned hit carries only `target_id`, `indexer_id`, `uid`, `score`, and the stored document. A target with no published index returns an empty page.
+
+The first query contract supports a required target name, optional free text, optional `from` inclusive and `to` exclusive timestamps, and bounded offset/limit pagination. An omitted or blank `q` matches all documents in the selected published indexes. The local in-memory adapter performs case-insensitive all-term matching over the uid and encoded document and is intended only for development. Production providers own their search syntax and scoring implementation while preserving the provider-neutral result contract. Cross-provider score normalization, stable cursor pagination, structured filters, facets, highlighting, and public authorization are deferred until a concrete production search use case requires them.
+
+The node deploys the generated EventBus service at `indexer.service.document-query` by default. The local deployment also enables the internal REST adapter on port `8087`:
+
+```sh
+curl -sS \
+	'http://127.0.0.1:8087/documents/search?target_name=hacker-news&q=vertx&offset=0&limit=20'
+```
+
+The query service and REST adapter belong to the data plane, so they are unavailable while the node is in recovery-only mode. They are not exposed through the public Gateway or the internal web console.
 
 ## Internal Web Console
 
 `indexer-web` is the internal operator interface for the local Indexer deployment. It is a separate logical Maven module containing a static React SPA and a narrow Vert.x delivery wrapper. It depends only on Vert.x Web/HTTP Proxy and the existing internal HTTP envelopes; it does not depend on Java domain packages, Vert.x EventBus services, or the public Gateway. `indexer-node-application` packages and deploys it beside the Indexer node in the same Vert.x JVM and container.
 
-The console displays node readiness, runtime attachment, targets, indexers, provisioning state, and publication state. Target and indexer catalogs support local search/status filters and accessible entity detail drawers without introducing additional read API calls. Live monitoring offers paused, 15-second, 30-second, and 60-second refresh intervals; requests are serialized, polling pauses while the tab is hidden, stale data is identified from the last successful update, and desired-runtime/local-attachment drift is highlighted. Readiness, target catalog, indexer catalog, and runtime requests report independent health and last-success age; a failed envelope retains its last good data without hiding successful results from the others. Filters, polling preference, selected entity, and active section persist in the URL. Bounded operations expose indexer activate/deactivate, failed target-provisioning recovery, manual local-runtime reconciliation, explicitly confirmed single-indexer queue reset, and typed-name-confirmed single-indexer deletion from their detail drawers. Catalog mutations send the selected catalog `version` as `expected_version`; reconciliation only asks the current node to reload durable state and converge its local runtime. Queue reset advances future writes to a new versioned queue and schedules asynchronous cleanup of the retired queue; it does not claim synchronous fencing of old in-flight items. Deletion returns after fencing the indexer and accepting durable cleanup, not after physical cleanup completes. Every operation disables conflicting submission while pending, reports controlled errors, and reloads durable catalog/runtime state after success or failure. Bulk destructive operations remain outside the frontend. In development, Vite provides hot reload and forwards the same paths that the Vert.x wrapper owns in packaged/runtime use:
+The console displays node readiness, runtime attachment, targets, indexers, provisioning state, and publication state. Target and indexer catalogs support local search/status filters and accessible entity detail drawers without introducing additional read API calls. Live monitoring offers paused, 15-second, 30-second, and 60-second refresh intervals; requests are serialized, polling pauses while the tab is hidden, stale data is identified from the last successful update, and desired-runtime/local-attachment drift is highlighted. Readiness, target catalog, indexer catalog, and runtime requests report independent health and last-success age; a failed envelope retains its last good data without hiding successful results from the others. Catalog navigation uses deterministic sorting, 10/25/50-row limits, pagination, and clear-filter controls; sort, limit, page, filters, polling preference, selected entity, and active section persist in the URL. Bounded operations expose indexer activate/deactivate, failed target-provisioning recovery, manual local-runtime reconciliation, explicitly confirmed single-indexer queue reset, and typed-name-confirmed single-indexer deletion from their detail drawers. Catalog mutations send the selected catalog `version` as `expected_version`; reconciliation only asks the current node to reload durable state and converge its local runtime. Queue reset advances future writes to a new versioned queue and schedules asynchronous cleanup of the retired queue; it does not claim synchronous fencing of old in-flight items. Deletion returns after fencing the indexer and accepting durable cleanup, not after physical cleanup completes. Every operation disables conflicting submission while pending, reports controlled errors, and reloads durable catalog/runtime state after success or failure. Bulk destructive operations remain outside the frontend. In development, Vite provides hot reload and forwards the same paths that the Vert.x wrapper owns in packaged/runtime use:
 
 - `/api/admin` proxies the Admin REST service on port `8080`.
 - `/api/actions` proxies the Target Action REST service on port `8081`.
@@ -48,15 +90,52 @@ The console is an internal development and operations surface. Excluding Gateway
 
 ## Local Deployment
 
-The first runnable deployment uses the existing `IndexerNode` composition with in-memory metadata, queue, and document-store adapters. It enables the internal Admin, Target Action, and Runtime REST envelopes, keeps the public Gateway disabled, and loads one local `customers` target definition with monthly periods and cold-write auto-provisioning from `deployment/local/indexer-node.json`. This profile is for inspection and development only; all state is discarded when the process stops.
+The first runnable deployment uses the existing `IndexerNode` composition with in-memory metadata, queue, and document-store adapters. It enables the internal Admin, Target Action, Runtime, and Document Query REST envelopes, keeps the public Gateway disabled, and loads local `customers` and `hacker-news` target definitions with cold-write auto-provisioning from `deployment/local/indexer-node.json`. This profile is for inspection and development only; all state is discarded when the process stops.
 
-Prerequisites are Java 21 or newer, Maven, a running Docker-compatible daemon with Compose support, and free loopback ports `3000`, `8080`, `8081`, `8083`, and `8084`. Build the layered image with Jib and start it from the repository root:
+Prerequisites are Java 21 or newer, Maven, a running Docker-compatible daemon with Compose support, and free loopback ports `3000`, `8080`, `8081`, `8083`, `8084`, `8087`, and `9090`. Build the layered image with Jib and start it from the repository root:
 
 ```sh
 ./run-local.sh
 ```
 
 The script installs the dependent reactor modules, builds `inqwise/indexer-node:0.1.0-SNAPSHOT` into the local Docker daemon with Jib, and starts `compose.yaml`. Jib launches `IndexerNodeApplicationVerticle` through `io.vertx.launcher.application.VertxApplication`; that application verticle starts the Indexer node first and then deploys `IndexerWebVerticle` in the same JVM. The project has no deployment-specific `main()` method and does not build an uber JAR. The Java 21 base image is pinned to an approved multi-platform OCI digest; dependency maintenance must update that digest explicitly. Compose mounts the combined node configuration read-only and checks Indexer readiness on port `8084`; the console is exposed from the same container on port `3000`.
+
+The same image supports an opt-in clustered launch:
+
+```sh
+INDEXER_CLUSTERED=true ./run-local.sh
+```
+
+Clustered mode adds `compose.cluster.yaml`. It starts the Vert.x launcher with `--cluster`, fixes the EventBus cluster port, and mounts `deployment/local/hazelcast.xml`. Hazelcast multicast and automatic discovery are disabled; TCP discovery uses members supplied through deployment configuration. The default forms a one-member cluster over the Compose network and does not start or package the Hacker News application. A git-ignored root `.env` can persist `INDEXER_CLUSTERED`, `COMPOSE_FILE`, and the machine-specific cluster addresses for every agent working in the same checkout, so both `./run-local.sh` and plain `docker compose up` preserve the local clustered deployment. Explicit shell variables still take precedence; `INDEXER_CLUSTERED=false ./run-local.sh` explicitly selects standalone `compose.yaml`.
+
+Cluster settings are deployment variables:
+
+- `INDEXER_CLUSTER_NAME` identifies the Hazelcast cluster.
+- `INDEXER_CLUSTER_MEMBERS` supplies comma-separated Hazelcast TCP discovery members and defaults to `indexer-node:5701`.
+- `INDEXER_CLUSTER_HOST` and `INDEXER_CLUSTER_PORT` select the EventBus bind address and port.
+- `INDEXER_CLUSTER_PUBLIC_HOST` and `INDEXER_CLUSTER_PUBLIC_PORT` select the EventBus address advertised to peers.
+- `INDEXER_CLUSTER_FORWARD_HOST` and `INDEXER_CLUSTER_FORWARD_PORT` select the Docker host endpoint forwarded to the EventBus bind port.
+- `INDEXER_HAZELCAST_HOST` selects the Hazelcast member bind address inside the container.
+- `INDEXER_HAZELCAST_PUBLIC_ADDRESS` maps directly to `-Dhazelcast.local.publicAddress` and selects the complete `host:port` member address advertised to peers.
+- `INDEXER_HAZELCAST_FORWARD_HOST` and `INDEXER_HAZELCAST_FORWARD_PORT` select the Docker host endpoint forwarded to container port `5701`.
+
+Local defaults publish Hazelcast on `127.0.0.1:5701` and the clustered EventBus on `127.0.0.1:15701`, with those same loopback addresses advertised to a peer running on the Docker host. A peer must use the same cluster name and seed Hazelcast with `127.0.0.1:5701`; Hazelcast discovery then supplies the EventBus public address.
+
+Deployments that cross a Docker host or network boundary must set both forwarding hosts to a reachable host interface, set both public hosts to the externally reachable address, provide explicit discovery members, and secure the published ports. Cluster mode does not make the local repository, queue, document store, or command engine durable, so this profile must not be treated as approval for multiple state-owning Indexer replicas.
+
+## Monitoring
+
+The node application includes `vertx-micrometer-metrics` with the Prometheus registry backend. Metrics are enabled when the Vert.x application launcher creates the runtime, before `IndexerNodeApplicationVerticle` is deployed. `Indexer`, command orchestration, persistence, queue adapters, and distributed workflow state do not own or initialize the metrics backend.
+
+The launcher reads `deployment/local/vertx-options.json` through `--options`. Its Micrometer provider starts a dedicated embedded HTTP server on container port `9090` and exposes Prometheus data at `/metrics`. Local Compose publishes that port only on `127.0.0.1`, so the development endpoint is:
+
+```text
+http://127.0.0.1:9090/metrics
+```
+
+The endpoint currently exposes Vert.x infrastructure metrics. Application-specific counters, timers, and gauges should be added later through application-composed adapters around existing runtime, command, routing, and lifecycle boundaries. They must use bounded labels such as operation, outcome, role, or classified failure kind. Document ids, request ids, physical queue/index names, concrete target ids, raw EventBus addresses, and exception messages must not become labels because their cardinality is unbounded or deployment-specific.
+
+Production deployment must decide how Prometheus reaches the endpoint and apply network policy or an authenticated monitoring proxy. The embedded endpoint has no application-level authentication and must not be exposed as a public Gateway route.
 
 To build or publish the application image separately after installing reactor dependencies:
 
@@ -73,6 +152,7 @@ curl -i http://127.0.0.1:8084/health/live
 curl -i http://127.0.0.1:8084/health/ready
 curl -sS http://127.0.0.1:8080/admin/targets
 curl -sS http://127.0.0.1:8083/runtime/status
+curl -sS 'http://127.0.0.1:8087/documents/search?target_name=hacker-news&q=vertx'
 ```
 
 Both health requests return `204` after successful startup. Liveness remains `204` while the node is running, including recovery-only mode. Readiness returns `503` during startup, shutdown, or recovery-only mode and returns `204` only when the full data plane is available.

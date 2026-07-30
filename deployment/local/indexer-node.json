@@ -6,6 +6,9 @@
 		"targetActionRest": {
 			"enabled": true
 		},
+		"documentQueryRest": {
+			"enabled": true
+		},
 		"runtimeRest": {
 			"enabled": true
 		},
@@ -23,6 +26,10 @@
 	"target_action_rest": {
 		"host": "0.0.0.0",
 		"port": 8081
+	},
+	"document_query_rest": {
+		"host": "0.0.0.0",
+		"port": 8087
 	},
 	"runtime_rest": {
 		"host": "0.0.0.0",
@@ -48,6 +55,11 @@
 		{
 			"target_name": "customers",
 			"period_strategy": "MONTHLY",
+			"auto_provision_on_write": true
+		},
+		{
+			"target_name": "hacker-news",
+			"period_strategy": "NONE",
 			"auto_provision_on_write": true
 		}
 	]

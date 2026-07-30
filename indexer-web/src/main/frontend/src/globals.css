@@ -304,7 +304,7 @@ a {
 }
 
 .content {
-  width: min(1220px, 100%);
+  width: min(1520px, 100%);
   margin: 0 auto;
   padding: 38px clamp(24px, 4vw, 58px) 25px;
 }
@@ -525,7 +525,7 @@ a {
 
 .dashboard-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.65fr) minmax(260px, 0.85fr);
+  grid-template-columns: minmax(0, 2fr) minmax(270px, 0.72fr);
   gap: 14px;
 }
 
@@ -675,6 +675,74 @@ a {
 
 .filter-field select {
   cursor: pointer;
+}
+
+.catalog-controls {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: -6px 0 14px;
+}
+
+.catalog-controls label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #697185;
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.catalog-controls select,
+.catalog-controls button,
+.pagination button {
+  min-height: 31px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  outline: none;
+  background: rgba(7, 9, 17, 0.48);
+  color: #9da5b7;
+  padding: 0 9px;
+  font-size: 9px;
+}
+
+.catalog-controls select {
+  cursor: pointer;
+}
+
+.catalog-controls button,
+.pagination button {
+  cursor: pointer;
+  transition: 160ms ease;
+}
+
+.catalog-controls button:hover:not(:disabled),
+.catalog-controls button:focus-visible,
+.pagination button:hover:not(:disabled),
+.pagination button:focus-visible {
+  border-color: rgba(77, 228, 218, 0.3);
+  color: white;
+}
+
+.catalog-controls button:disabled,
+.pagination button:disabled {
+  cursor: default;
+  opacity: 0.42;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+  color: #646d80;
+  font-size: 9px;
+}
+
+.pagination strong {
+  color: #aeb5c5;
 }
 
 .table-wrap {
@@ -1373,6 +1441,12 @@ footer {
   font-size: 9px;
 }
 
+@media (min-width: 1380px) {
+  .target-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 980px) {
   .app-shell {
     grid-template-columns: 78px minmax(0, 1fr);
@@ -1493,6 +1567,12 @@ footer {
 
   .filters {
     grid-template-columns: 1fr;
+  }
+
+  .catalog-controls {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    margin-top: 0;
   }
 
   .detail-drawer {

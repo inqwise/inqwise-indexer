@@ -11,6 +11,7 @@
 
 	<properties>
 		<vertx.version>5.1.1</vertx.version>
+		<micrometer.version>1.16.5</micrometer.version>
 		<junit.version>5.10.2</junit.version>
 		<inqwise.errors.version>2.1.1</inqwise.errors.version>
 		<log4j.version>2.25.4</log4j.version>
@@ -24,6 +25,11 @@
 				<version>${vertx.version}</version>
 				<type>pom</type>
 				<scope>import</scope>
+			</dependency>
+			<dependency>
+				<groupId>io.micrometer</groupId>
+				<artifactId>micrometer-registry-prometheus</artifactId>
+				<version>${micrometer.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>com.inqwise</groupId>

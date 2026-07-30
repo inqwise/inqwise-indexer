@@ -25,6 +25,12 @@ tracked independently. A failed envelope keeps its last successful data visible
 and reports its own degraded state and last-success age without hiding fresh
 results from the other services.
 
+Catalog browsing uses the available desktop width and adds deterministic sort
+orders, 10/25/50-row limits, pagination, and clear-filter controls for targets
+and indexers. Sort, limit, and page state are persisted alongside the existing
+filters in the URL. These remain client-side projections over the loaded Admin
+catalog responses and do not add another API boundary.
+
 The React/Vite workspace is located at `src/main/frontend`; the Java delivery
 wrapper uses the standard Maven `src/main/java` layout.
 

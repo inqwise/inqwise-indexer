@@ -135,6 +135,47 @@ class DeploymentPackageDependencyDirectionTest {
 	}
 
 	@Test
+	void documentQueryContractsAndEnvelopesStayProviderNeutral() throws IOException {
+		List<String> violations = new ArrayList<>();
+		try (Stream<Path> files = Files.walk(CORE_MAIN_PACKAGE.resolve("documents"))) {
+			files
+				.filter(path -> path.toString().endsWith(".java"))
+				.forEach(path -> inspectImports(
+					path,
+					Set.of("metadata", "adapters", "node", "rest", "service"),
+					"Document Query contract must remain provider and deployment neutral",
+					violations
+				));
+		}
+
+		for (Path envelopePackage : List.of(
+			MAIN_PACKAGE.resolve("service/document"),
+			MAIN_PACKAGE.resolve("rest/document")
+		)) {
+			try (Stream<Path> files = Files.walk(envelopePackage)) {
+				files
+					.filter(path -> path.toString().endsWith(".java"))
+					.forEach(path -> {
+						inspectImports(
+							path,
+							Set.of("metadata", "adapters"),
+							"Document Query envelope must use provider-neutral contracts",
+							violations
+						);
+						inspectText(
+							path,
+							"com.inqwise.indexer.service.admin",
+							"Document Query envelope must not reuse the admin facade",
+							violations
+						);
+					});
+			}
+		}
+
+		assertTrue(violations.isEmpty(), () -> String.join(System.lineSeparator(), violations));
+	}
+
+	@Test
 	void targetCatalogContractsDoNotExposeMetadataPersistence() throws IOException {
 		List<String> violations = new ArrayList<>();
 		try (Stream<Path> files = Files.walk(CORE_MAIN_PACKAGE.resolve("catalog/targets"))) {

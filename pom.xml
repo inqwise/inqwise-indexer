@@ -18,6 +18,7 @@
 		<module>indexer</module>
 		<module>indexer-web</module>
 		<module>indexer-node-application</module>
+		<module>indexer-example-hacker-news</module>
 		<module>indexer-load</module>
 	</modules>
 </project>

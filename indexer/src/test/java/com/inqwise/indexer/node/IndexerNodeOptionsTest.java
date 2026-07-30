@@ -18,6 +18,7 @@ import com.inqwise.indexer.gateway.GatewayRestOptions;
 import com.inqwise.indexer.rest.action.TargetActionRestOptions;
 import com.inqwise.indexer.rest.admin.AdminRestOptions;
 import com.inqwise.indexer.rest.runtime.RuntimeRestOptions;
+import com.inqwise.indexer.rest.document.DocumentQueryRestOptions;
 
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -33,6 +34,13 @@ class IndexerNodeOptionsTest {
 		assertEquals(1, options.targetAction().getInstances());
 		assertFalse(options.targetActionRest().isEnabled());
 		assertEquals(1, options.targetActionRest().getInstances());
+		assertEquals(1, options.documentQuery().getInstances());
+		assertFalse(options.documentQueryRest().isEnabled());
+		assertEquals(1, options.documentQueryRest().getInstances());
+		assertEquals(
+			DocumentQueryRestOptions.DEFAULT_PORT,
+			options.getDocumentQueryRestOptions().getPort()
+		);
 		assertEquals(1, options.runtime().getInstances());
 		assertFalse(options.gateway().isEnabled());
 		assertEquals(1, options.gateway().getInstances());
@@ -100,6 +108,9 @@ class IndexerNodeOptionsTest {
 			.withTargetActionRestOptions(
 				TargetActionRestOptions.builder().withPort(9002).build()
 			)
+			.withDocumentQueryRestOptions(
+				DocumentQueryRestOptions.builder().withPort(9007).build()
+			)
 			.withRuntimeRestOptions(RuntimeRestOptions.builder().withPort(9003).build())
 			.withHealthRestOptions(NodeHealthRestOptions.builder().withPort(9005).build())
 			.withRuntimeReconcilerOptions(
@@ -135,6 +146,7 @@ class IndexerNodeOptionsTest {
 
 		assertEquals(9001, options.getAdminRestOptions().getPort());
 		assertEquals(9002, options.getTargetActionRestOptions().getPort());
+		assertEquals(9007, options.getDocumentQueryRestOptions().getPort());
 		assertEquals(9003, options.getRuntimeRestOptions().getPort());
 		assertEquals(9005, options.getHealthRestOptions().getPort());
 		assertEquals(25, options.getRuntimeReconcilerOptions().getMaxDirtyIndexers());
@@ -331,6 +343,22 @@ class IndexerNodeOptionsTest {
 
 		assertEquals(
 			"Target action REST service must be deployed with exactly one instance",
+			error.getMessage()
+		);
+	}
+
+	@Test
+	void rejectsMultipleDocumentQueryRestInstancesWhenEnabled() {
+		IllegalArgumentException error = assertThrows(
+			IllegalArgumentException.class,
+			() -> new IndexerNodeOptions(new JsonObject()
+				.put(IndexerNodeOptions.Keys.SERVICES, new JsonObject()
+					.put(IndexerNodeOptions.Services.DOCUMENT_QUERY_REST, new JsonObject()
+						.put(IndexerServiceDeploymentOptions.Keys.INSTANCES, 2))))
+		);
+
+		assertEquals(
+			"Document Query REST service must be deployed with exactly one instance",
 			error.getMessage()
 		);
 	}
