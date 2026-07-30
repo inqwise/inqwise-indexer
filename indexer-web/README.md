@@ -31,6 +31,16 @@ and indexers. Sort, limit, and page state are persisted alongside the existing
 filters in the URL. These remain client-side projections over the loaded Admin
 catalog responses and do not add another API boundary.
 
+The compact Operational Metrics section reads only a bounded projection of the
+node's project-logic metrics: accepted/rejected action intake, indexing
+outcomes, desired-versus-attached runtime convergence, and lifecycle operation
+pending/succeeded/failed/retrying totals.
+The Vert.x wrapper forwards `/api/metrics/metrics` to the deployment-configured
+metrics endpoint. It does not expose arbitrary metric selection, raw series, or
+high-cardinality labels in the rendered UI; the internal proxy still forwards
+the deployment-owned Prometheus scrape unchanged. Exported labels are limited
+to bounded action type, outcome, runtime state, operation, and role values.
+
 The React/Vite workspace is located at `src/main/frontend`; the Java delivery
 wrapper uses the standard Maven `src/main/java` layout.
 
@@ -44,6 +54,8 @@ The module follows the Vert.x React SPA pattern:
 - `IndexerWebVerticle` serves that webroot in packaged/runtime use.
 - Both development and runtime expose the same `/api/{service}` browser paths.
 - The Vert.x wrapper forwards those paths to the existing internal REST ports.
+- The wrapper also forwards the read-only Prometheus scrape used by the compact
+  metrics view.
 
 The wrapper is a delivery adapter. It does not depend on Indexer domain/runtime
 classes, EventBus services, or Gateway.

@@ -22,14 +22,21 @@ public final class IndexerNodeApplicationVerticle extends AbstractVerticle {
 	@Override
 	public void start(Promise<Void> startPromise) {
 		JsonObject applicationConfig = config();
-		IndexerEventPublisher eventPublisher = MicrometerIndexerEventPublisher.create(
-			BackendRegistries.getDefaultNow()
-		);
+		MicrometerIndexerEventPublisher operationalMetrics = null;
+		if (BackendRegistries.getDefaultNow() != null) {
+			operationalMetrics = new MicrometerIndexerEventPublisher(
+				BackendRegistries.getDefaultNow()
+			);
+		}
+		IndexerEventPublisher eventPublisher = operationalMetrics == null
+			? IndexerEventPublisher.NOOP
+			: operationalMetrics;
 		node = IndexerNode.create(
 			vertx,
 			new IndexerNodeOptions(applicationConfig),
 			null,
-			eventPublisher
+			eventPublisher,
+			operationalMetrics
 		);
 		web = new IndexerWebVerticle(IndexerWebOptions.from(
 			applicationConfig.getJsonObject(WEB_CONFIG, new JsonObject())

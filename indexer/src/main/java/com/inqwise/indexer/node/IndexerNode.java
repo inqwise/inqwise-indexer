@@ -24,6 +24,7 @@ import com.inqwise.indexer.service.invalidation.TargetInvalidationRegistryServic
 import com.inqwise.indexer.service.invalidation.TargetInvalidationRegistryServices;
 import com.inqwise.indexer.rest.document.DocumentQueryRestVerticle;
 import com.inqwise.indexer.runtime.IndexerEventPublisher;
+import com.inqwise.indexer.monitoring.IndexerOperationalMonitor;
 import com.inqwise.indexer.service.document.DocumentQueryServiceVerticle;
 
 import io.vertx.core.DeploymentOptions;
@@ -39,6 +40,7 @@ public class IndexerNode {
 	private final IndexerNodeOptions options;
 	private final IndexerNodeComponents components;
 	private final GatewayRequestHooks gatewayRequestHooks;
+	private final IndexerOperationalMonitor operationalMonitor;
 	private final List<String> deploymentIds = new ArrayList<>();
 	private final List<String> dataPlaneDeploymentIds = new ArrayList<>();
 	private final List<String> infrastructureDeploymentIds = new ArrayList<>();
@@ -52,7 +54,13 @@ public class IndexerNode {
 		IndexerNodeOptions options,
 		IndexerNodeComponents components
 	) {
-		this(vertx, options, components, null);
+		this(
+			vertx,
+			options,
+			components,
+			null,
+			IndexerOperationalMonitor.NOOP
+		);
 	}
 
 	public IndexerNode(
@@ -61,12 +69,31 @@ public class IndexerNode {
 		IndexerNodeComponents components,
 		GatewayRequestHooks gatewayRequestHooks
 	) {
+		this(
+			vertx,
+			options,
+			components,
+			gatewayRequestHooks,
+			IndexerOperationalMonitor.NOOP
+		);
+	}
+
+	public IndexerNode(
+		Vertx vertx,
+		IndexerNodeOptions options,
+		IndexerNodeComponents components,
+		GatewayRequestHooks gatewayRequestHooks,
+		IndexerOperationalMonitor operationalMonitor
+	) {
 		this.vertx = Objects.requireNonNull(vertx, "vertx");
 		this.options = (
 			options == null ? IndexerNodeOptions.builder().build() : options
 		).validate();
 		this.components = Objects.requireNonNull(components, "components");
 		this.gatewayRequestHooks = gatewayRequestHooks;
+		this.operationalMonitor = operationalMonitor == null
+			? IndexerOperationalMonitor.NOOP
+			: operationalMonitor;
 		this.components.runtimeReconciler().onFailure(this::enterRecoveryOnly);
 	}
 
@@ -83,7 +110,8 @@ public class IndexerNode {
 			vertx,
 			options,
 			gatewayRequestHooks,
-			IndexerEventPublisher.NOOP
+			IndexerEventPublisher.NOOP,
+			IndexerOperationalMonitor.NOOP
 		);
 	}
 
@@ -93,6 +121,22 @@ public class IndexerNode {
 		GatewayRequestHooks gatewayRequestHooks,
 		IndexerEventPublisher eventPublisher
 	) {
+		return create(
+			vertx,
+			options,
+			gatewayRequestHooks,
+			eventPublisher,
+			IndexerOperationalMonitor.NOOP
+		);
+	}
+
+	public static IndexerNode create(
+		Vertx vertx,
+		IndexerNodeOptions options,
+		GatewayRequestHooks gatewayRequestHooks,
+		IndexerEventPublisher eventPublisher,
+		IndexerOperationalMonitor operationalMonitor
+	) {
 		IndexerNodeOptions resolved = options == null
 			? IndexerNodeOptions.builder().build()
 			: options;
@@ -100,8 +144,14 @@ public class IndexerNode {
 		return new IndexerNode(
 			vertx,
 			resolved,
-			DEFAULT_COMPONENTS_FACTORY.create(vertx, resolved, eventPublisher),
-			gatewayRequestHooks
+			DEFAULT_COMPONENTS_FACTORY.create(
+				vertx,
+				resolved,
+				eventPublisher,
+				operationalMonitor
+			),
+			gatewayRequestHooks,
+			operationalMonitor
 		);
 	}
 
@@ -336,7 +386,8 @@ public class IndexerNode {
 					components.indexerDefinitionProvider(),
 					components.documentIndexResources(),
 					components.commandEngine(),
-					components.indexerOperations()
+					components.indexerOperations(),
+					operationalMonitor
 				),
 				new DeploymentOptions()
 			).onSuccess(this::trackControlPlaneDeployment).mapEmpty());
@@ -369,7 +420,10 @@ public class IndexerNode {
 		Future<Void> deployed = Future.succeededFuture();
 		for (int i = 0; i < deployment.getInstances(); i++) {
 			deployed = deployed.compose(ignored -> vertx.deployVerticle(
-				new TargetActionServiceVerticle(components.hotIndexActionsService()),
+				new TargetActionServiceVerticle(
+					components.hotIndexActionsService(),
+					operationalMonitor
+				),
 				new DeploymentOptions()
 			).onSuccess(this::trackDataPlaneDeployment).mapEmpty());
 		}

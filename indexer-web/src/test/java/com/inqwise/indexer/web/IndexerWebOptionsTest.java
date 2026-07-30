@@ -21,12 +21,16 @@ class IndexerWebOptionsTest {
 			.withRuntimePort(9003)
 			.withHealthHost("health.internal")
 			.withHealthPort(9004)
+			.withMetricsHost("metrics.internal")
+			.withMetricsPort(9091)
 			.build();
 
 		assertEquals("0.0.0.0", options.host());
 		assertEquals(3100, options.port());
 		assertEquals("admin.internal", options.adminHost());
 		assertEquals(9000, options.adminPort());
+		assertEquals("metrics.internal", options.metricsHost());
+		assertEquals(9091, options.metricsPort());
 		assertEquals(options.toJson().encode(), IndexerWebOptions.from(
 			options.toJson()
 		).toJson().encode());
@@ -45,6 +49,7 @@ class IndexerWebOptionsTest {
 		);
 		assertEquals(IndexerWebOptions.DEFAULT_RUNTIME_PORT, options.runtimePort());
 		assertEquals(IndexerWebOptions.DEFAULT_HEALTH_PORT, options.healthPort());
+		assertEquals(IndexerWebOptions.DEFAULT_METRICS_PORT, options.metricsPort());
 	}
 
 	@Test

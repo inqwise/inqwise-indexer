@@ -25,6 +25,7 @@ import com.inqwise.indexer.catalog.indexers.IndexerProvisioningState;
 import com.inqwise.indexer.metadata.IndexerRecord;
 import com.inqwise.indexer.catalog.indexers.IndexerStatus;
 import com.inqwise.indexer.catalog.indexers.MutationState;
+import com.inqwise.indexer.monitoring.IndexerOperationalMonitor;
 
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
@@ -39,6 +40,7 @@ public final class IndexerRuntimeReconciler {
 	private final Vertx vertx;
 	private final int maxDirtyIndexers;
 	private final long safetySyncIntervalMs;
+	private final IndexerOperationalMonitor operationalMonitor;
 	private final Map<Integer, Long> dirtyVersions = new HashMap<>();
 	private IndexerLifecycleSubscription indexerSubscription;
 	private IndexerLifecycleSubscription providerSignalSubscription;
@@ -63,7 +65,8 @@ public final class IndexerRuntimeReconciler {
 			repository,
 			eventBus,
 			runtime,
-			IndexerRuntimeReconcilerOptions.builder().build()
+			IndexerRuntimeReconcilerOptions.builder().build(),
+			IndexerOperationalMonitor.NOOP
 		);
 	}
 
@@ -74,10 +77,31 @@ public final class IndexerRuntimeReconciler {
 		IndexerRuntime runtime,
 		IndexerRuntimeReconcilerOptions options
 	) {
+		this(
+			vertx,
+			repository,
+			eventBus,
+			runtime,
+			options,
+			IndexerOperationalMonitor.NOOP
+		);
+	}
+
+	public IndexerRuntimeReconciler(
+		Vertx vertx,
+		DocumentStoreMetadataRepository repository,
+		IndexerLifecycleEventBus eventBus,
+		IndexerRuntime runtime,
+		IndexerRuntimeReconcilerOptions options,
+		IndexerOperationalMonitor operationalMonitor
+	) {
 		this.vertx = Objects.requireNonNull(vertx, "vertx");
 		this.repository = Objects.requireNonNull(repository, "repository");
 		this.eventBus = Objects.requireNonNull(eventBus, "eventBus");
 		this.runtime = Objects.requireNonNull(runtime, "runtime");
+		this.operationalMonitor = operationalMonitor == null
+			? IndexerOperationalMonitor.NOOP
+			: operationalMonitor;
 		IndexerRuntimeReconcilerOptions validated = Objects.requireNonNull(options, "options")
 			.validate();
 		this.maxDirtyIndexers = validated.getMaxDirtyIndexers();
@@ -158,9 +182,26 @@ public final class IndexerRuntimeReconciler {
 						ignored -> runtime.close(indexerId)
 					);
 				}
-				return synchronization;
+				return synchronization.onComplete(ignored ->
+					reportConvergence(desiredIds)
+				);
 			})
 			.onComplete(ignored -> clearFullSynchronizationRunning());
+	}
+
+	private void reportConvergence(Set<Integer> desiredIds) {
+		Set<Integer> attachedIds = runtime.indexerIds();
+		Set<Integer> driftIds = new HashSet<>(desiredIds);
+		for (Integer attachedId : attachedIds) {
+			if (!driftIds.add(attachedId)) {
+				driftIds.remove(attachedId);
+			}
+		}
+		operationalMonitor.runtimeConvergence(
+			desiredIds.size(),
+			attachedIds.size(),
+			driftIds.size()
+		);
 	}
 
 	public Future<Void> stop() {

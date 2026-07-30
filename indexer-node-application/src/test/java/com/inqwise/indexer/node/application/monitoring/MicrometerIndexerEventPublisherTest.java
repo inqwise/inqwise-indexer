@@ -13,6 +13,7 @@ import com.inqwise.indexer.catalog.indexers.IndexerModel;
 import com.inqwise.indexer.catalog.indexers.IndexerRole;
 import com.inqwise.indexer.runtime.IndexerEvent;
 import com.inqwise.indexer.runtime.IndexerEventType;
+import com.inqwise.indexer.monitoring.IndexerOperationalMonitor.LifecycleOperation;
 
 import io.micrometer.core.instrument.MockClock;
 import io.micrometer.core.instrument.simple.SimpleConfig;
@@ -91,8 +92,8 @@ class MicrometerIndexerEventPublisherTest {
 			25,
 			registry.get(MicrometerIndexerEventPublisher.ACTION_PROCESSING)
 				.tags(
-					"action", "put_document",
-					"outcome", "completed",
+					"action_type", "put_document",
+					"outcome", "succeeded",
 					"role", "load_writer"
 				)
 				.timer()
@@ -102,12 +103,68 @@ class MicrometerIndexerEventPublisherTest {
 			40,
 			registry.get(MicrometerIndexerEventPublisher.ACTION_PROCESSING)
 				.tags(
-					"action", "put_document",
+					"action_type", "put_document",
 					"outcome", "failed",
 					"role", "load_writer"
 				)
 				.timer()
 				.totalTime(TimeUnit.MILLISECONDS)
+		);
+	}
+
+	@Test
+	void recordsIntakeConvergenceAndLifecycleMetrics() {
+		SimpleMeterRegistry registry = new SimpleMeterRegistry();
+		MicrometerIndexerEventPublisher publisher =
+			new MicrometerIndexerEventPublisher(registry);
+
+		publisher.actionIntake(action("accepted").getActionType(), true);
+		publisher.actionIntake(action("rejected").getActionType(), false);
+		publisher.runtimeConvergence(4, 3, 1);
+		publisher.lifecycleStarted(LifecycleOperation.RESET_QUEUE);
+		assertEquals(
+			1,
+			registry.get(MicrometerIndexerEventPublisher.LIFECYCLE_PENDING)
+				.tag("operation", "reset_queue")
+				.gauge()
+				.value()
+		);
+		publisher.lifecycleCompleted(LifecycleOperation.RESET_QUEUE, false);
+
+		assertEquals(
+			1,
+			registry.get(MicrometerIndexerEventPublisher.ACTION_INTAKE)
+				.tags("action_type", "put_document", "outcome", "accepted")
+				.counter()
+				.count()
+		);
+		assertEquals(
+			1,
+			registry.get(MicrometerIndexerEventPublisher.ACTION_INTAKE)
+				.tags("action_type", "put_document", "outcome", "rejected")
+				.counter()
+				.count()
+		);
+		assertEquals(
+			1,
+			registry.get(MicrometerIndexerEventPublisher.RUNTIME_CONVERGENCE)
+				.tag("state", "drift")
+				.gauge()
+				.value()
+		);
+		assertEquals(
+			0,
+			registry.get(MicrometerIndexerEventPublisher.LIFECYCLE_PENDING)
+				.tag("operation", "reset_queue")
+				.gauge()
+				.value()
+		);
+		assertEquals(
+			1,
+			registry.get(MicrometerIndexerEventPublisher.LIFECYCLE_OPERATIONS)
+				.tags("operation", "reset_queue", "outcome", "failed")
+				.counter()
+				.count()
 		);
 	}
 

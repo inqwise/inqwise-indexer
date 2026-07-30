@@ -30,6 +30,7 @@ test("keeps the browser API surface same-origin and Gateway-independent", async 
   assert.match(source, /GET\("\/runtime\/status"/);
   assert.match(source, /"\/api\/health\/health\/ready"/);
   assert.match(source, /return response\.ok/);
+  assert.match(source, /"\/api\/metrics\/metrics"/);
   assert.doesNotMatch(source, /\/gateway\//);
 });
 
@@ -158,6 +159,34 @@ test("keeps last-good data while reporting internal services independently", asy
   assert.match(app, /Degraded · last success/);
   assert.match(app, /!runtimeComparisonAvailable/);
   assert.match(app, /Diagnostics degraded/);
+});
+
+test("shows a bounded compact view of project-logic metrics", async () => {
+  const app = await readFile(
+    new URL("../src/App.tsx", import.meta.url),
+    "utf8",
+  );
+  const api = await readFile(
+    new URL("../src/api/indexer-api.ts", import.meta.url),
+    "utf8",
+  );
+  const vite = await readFile(
+    new URL("../vite.config.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(app, /aria-label="Operational metrics"/);
+  assert.match(app, /Action intake/);
+  assert.match(app, /Indexing outcomes/);
+  assert.match(app, /Runtime convergence/);
+  assert.match(app, /Lifecycle operations/);
+  assert.match(api, /parseOperationalMetrics/);
+  assert.match(api, /inqwise_indexer_action_intake_total/);
+  assert.match(api, /inqwise_indexer_action_processing_seconds_count/);
+  assert.match(api, /inqwise_indexer_runtime_convergence/);
+  assert.match(api, /inqwise_indexer_lifecycle_operations_total/);
+  assert.match(vite, /"\/api\/metrics"/);
+  assert.doesNotMatch(app, /document id|request id|queue name/i);
 });
 
 test("limits mutations to bounded and explicitly confirmed operator changes", async () => {

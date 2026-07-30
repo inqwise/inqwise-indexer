@@ -3,6 +3,7 @@ package com.inqwise.indexer.service.action;
 import java.util.Objects;
 
 import com.inqwise.indexer.hot.HotIndexActionsService;
+import com.inqwise.indexer.monitoring.IndexerOperationalMonitor;
 import com.inqwise.indexer.service.ServiceProxyVerticle;
 
 import io.vertx.serviceproxy.ProxyHandler;
@@ -11,7 +12,17 @@ public class TargetActionServiceVerticle extends ServiceProxyVerticle<TargetActi
 	private final TargetActionService service;
 
 	public TargetActionServiceVerticle(HotIndexActionsService hotActions) {
-		this.service = new TargetActionServiceImpl(Objects.requireNonNull(hotActions, "hotActions"));
+		this(hotActions, IndexerOperationalMonitor.NOOP);
+	}
+
+	public TargetActionServiceVerticle(
+		HotIndexActionsService hotActions,
+		IndexerOperationalMonitor monitor
+	) {
+		this.service = new MonitoredTargetActionService(
+			new TargetActionServiceImpl(Objects.requireNonNull(hotActions, "hotActions")),
+			Objects.requireNonNull(monitor, "monitor")
+		);
 	}
 
 	@Override

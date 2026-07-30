@@ -16,6 +16,7 @@ public final class IndexerWebVerticle extends AbstractVerticle {
 	private static final String TARGET_ACTION_PREFIX = "/api/actions";
 	private static final String RUNTIME_PREFIX = "/api/runtime";
 	private static final String HEALTH_PREFIX = "/api/health";
+	private static final String METRICS_PREFIX = "/api/metrics";
 
 	private final IndexerWebOptions configuredOptions;
 	private HttpClient proxyClient;
@@ -61,6 +62,12 @@ public final class IndexerWebVerticle extends AbstractVerticle {
 			HEALTH_PREFIX,
 			options.healthHost(),
 			options.healthPort()
+		);
+		mountProxy(
+			router,
+			METRICS_PREFIX,
+			options.metricsHost(),
+			options.metricsPort()
 		);
 
 		router.route("/api").handler(IndexerWebVerticle::rejectUnknownApiRoute);

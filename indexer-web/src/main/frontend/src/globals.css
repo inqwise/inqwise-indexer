@@ -460,6 +460,115 @@ a {
   margin: 14px 0;
 }
 
+.operational-metrics {
+  margin-bottom: 14px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--ink-850);
+  padding: 16px 18px;
+}
+
+.operational-metrics__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 13px;
+}
+
+.operational-metrics__header h3 {
+  margin: 4px 0 0;
+  font-size: 14px;
+  letter-spacing: -0.02em;
+}
+
+.metrics-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #737c90;
+  font-size: 9px;
+}
+
+.metrics-state i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #737b8e;
+}
+
+.metrics-state--online i {
+  background: var(--cyan);
+  box-shadow: 0 0 0 4px rgba(77, 228, 218, 0.06);
+}
+
+.metrics-state--degraded {
+  color: #d5a75f;
+}
+
+.metrics-state--degraded i {
+  background: var(--amber);
+}
+
+.compact-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.compact-metric {
+  min-width: 0;
+  border-left: 2px solid rgba(77, 228, 218, 0.45);
+  border-radius: 6px;
+  background: rgba(7, 9, 17, 0.34);
+  padding: 10px 12px;
+}
+
+.compact-metric--warn {
+  border-left-color: var(--amber);
+}
+
+.compact-metric span,
+.compact-metric strong,
+.compact-metric small {
+  display: block;
+}
+
+.compact-metric span {
+  color: #697286;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.compact-metric strong {
+  overflow: hidden;
+  margin-top: 6px;
+  color: #dce0e9;
+  font-size: 17px;
+  font-weight: 580;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compact-metric small {
+  overflow: hidden;
+  margin-top: 4px;
+  color: #60697d;
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.operational-metrics__error {
+  margin: 11px 0 0;
+  border-top: 1px solid rgba(247, 191, 103, 0.12);
+  padding-top: 9px;
+  color: #b68c50;
+  font-size: 9px;
+}
+
 .metric {
   position: relative;
   overflow: hidden;
@@ -599,6 +708,7 @@ a {
 
 #overview,
 #indexers,
+#metrics,
 #runtime,
 #targets {
   scroll-margin-top: 110px;
@@ -1559,6 +1669,10 @@ footer {
   .metrics,
   .target-list {
     grid-template-columns: 1fr;
+  }
+
+  .compact-metrics-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .service-diagnostics {

@@ -16,6 +16,8 @@ public final class IndexerWebOptions {
 		public static final String RUNTIME_PORT = "runtime_port";
 		public static final String HEALTH_HOST = "health_host";
 		public static final String HEALTH_PORT = "health_port";
+		public static final String METRICS_HOST = "metrics_host";
+		public static final String METRICS_PORT = "metrics_port";
 
 		private Keys() {
 		}
@@ -28,6 +30,7 @@ public final class IndexerWebOptions {
 	public static final int DEFAULT_TARGET_ACTION_PORT = 8081;
 	public static final int DEFAULT_RUNTIME_PORT = 8083;
 	public static final int DEFAULT_HEALTH_PORT = 8084;
+	public static final int DEFAULT_METRICS_PORT = 9090;
 
 	private final String host;
 	private final int port;
@@ -39,6 +42,8 @@ public final class IndexerWebOptions {
 	private final int runtimePort;
 	private final String healthHost;
 	private final int healthPort;
+	private final String metricsHost;
+	private final int metricsPort;
 
 	private IndexerWebOptions(Builder builder) {
 		host = builder.host;
@@ -51,6 +56,8 @@ public final class IndexerWebOptions {
 		runtimePort = builder.runtimePort;
 		healthHost = builder.healthHost;
 		healthPort = builder.healthPort;
+		metricsHost = builder.metricsHost;
+		metricsPort = builder.metricsPort;
 	}
 
 	public static Builder builder() {
@@ -76,6 +83,8 @@ public final class IndexerWebOptions {
 			.withRuntimePort(source.getInteger(Keys.RUNTIME_PORT, DEFAULT_RUNTIME_PORT))
 			.withHealthHost(source.getString(Keys.HEALTH_HOST, DEFAULT_UPSTREAM_HOST))
 			.withHealthPort(source.getInteger(Keys.HEALTH_PORT, DEFAULT_HEALTH_PORT))
+			.withMetricsHost(source.getString(Keys.METRICS_HOST, DEFAULT_UPSTREAM_HOST))
+			.withMetricsPort(source.getInteger(Keys.METRICS_PORT, DEFAULT_METRICS_PORT))
 			.build();
 	}
 
@@ -90,7 +99,9 @@ public final class IndexerWebOptions {
 			.put(Keys.RUNTIME_HOST, runtimeHost)
 			.put(Keys.RUNTIME_PORT, runtimePort)
 			.put(Keys.HEALTH_HOST, healthHost)
-			.put(Keys.HEALTH_PORT, healthPort);
+			.put(Keys.HEALTH_PORT, healthPort)
+			.put(Keys.METRICS_HOST, metricsHost)
+			.put(Keys.METRICS_PORT, metricsPort);
 	}
 
 	public String host() {
@@ -133,6 +144,14 @@ public final class IndexerWebOptions {
 		return healthPort;
 	}
 
+	public String metricsHost() {
+		return metricsHost;
+	}
+
+	public int metricsPort() {
+		return metricsPort;
+	}
+
 	public static final class Builder {
 		private String host = DEFAULT_HOST;
 		private int port = DEFAULT_PORT;
@@ -144,6 +163,8 @@ public final class IndexerWebOptions {
 		private int runtimePort = DEFAULT_RUNTIME_PORT;
 		private String healthHost = DEFAULT_UPSTREAM_HOST;
 		private int healthPort = DEFAULT_HEALTH_PORT;
+		private String metricsHost = DEFAULT_UPSTREAM_HOST;
+		private int metricsPort = DEFAULT_METRICS_PORT;
 
 		private Builder() {
 		}
@@ -198,6 +219,16 @@ public final class IndexerWebOptions {
 			return this;
 		}
 
+		public Builder withMetricsHost(String value) {
+			metricsHost = value;
+			return this;
+		}
+
+		public Builder withMetricsPort(int value) {
+			metricsPort = value;
+			return this;
+		}
+
 		public IndexerWebOptions build() {
 			requireText(host, "host");
 			validatePort(port, "port", true);
@@ -209,6 +240,8 @@ public final class IndexerWebOptions {
 			validatePort(runtimePort, "runtimePort", false);
 			requireText(healthHost, "healthHost");
 			validatePort(healthPort, "healthPort", false);
+			requireText(metricsHost, "metricsHost");
+			validatePort(metricsPort, "metricsPort", false);
 			return new IndexerWebOptions(this);
 		}
 	}

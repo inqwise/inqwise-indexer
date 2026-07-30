@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Objects;
 
 import com.inqwise.indexer.runtime.IndexerEventPublisher;
+import com.inqwise.indexer.monitoring.IndexerOperationalMonitor;
 import com.inqwise.indexer.lifecycle.IndexerLifecycleEventBus;
 import com.inqwise.indexer.runtime.IndexerOptions;
 import com.inqwise.indexer.runtime.IndexerRuntime;
@@ -60,7 +61,12 @@ public final class DefaultIndexerNodeComponentsFactory {
 		Vertx vertx,
 		IndexerNodeOptions nodeOptions
 	) {
-		return create(vertx, nodeOptions, IndexerEventPublisher.NOOP);
+		return create(
+			vertx,
+			nodeOptions,
+			IndexerEventPublisher.NOOP,
+			IndexerOperationalMonitor.NOOP
+		);
 	}
 
 	public IndexerNodeComponents create(
@@ -68,11 +74,29 @@ public final class DefaultIndexerNodeComponentsFactory {
 		IndexerNodeOptions nodeOptions,
 		IndexerEventPublisher eventPublisher
 	) {
+		return create(
+			vertx,
+			nodeOptions,
+			eventPublisher,
+			IndexerOperationalMonitor.NOOP
+		);
+	}
+
+	public IndexerNodeComponents create(
+		Vertx vertx,
+		IndexerNodeOptions nodeOptions,
+		IndexerEventPublisher eventPublisher,
+		IndexerOperationalMonitor operationalMonitor
+	) {
 		Objects.requireNonNull(vertx, "vertx");
 		Objects.requireNonNull(nodeOptions, "nodeOptions").validate();
 		IndexerEventPublisher resolvedEventPublisher = eventPublisher == null
 			? IndexerEventPublisher.NOOP
 			: eventPublisher;
+		IndexerOperationalMonitor resolvedOperationalMonitor =
+			operationalMonitor == null
+				? IndexerOperationalMonitor.NOOP
+				: operationalMonitor;
 
 		DocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
@@ -206,7 +230,8 @@ public final class DefaultIndexerNodeComponentsFactory {
 			repository,
 			lifecycleEventBus,
 			runtime,
-			nodeOptions.getRuntimeReconcilerOptions()
+			nodeOptions.getRuntimeReconcilerOptions(),
+			resolvedOperationalMonitor
 		);
 		DocumentQueryEngine documentQueryEngine = new DefaultDocumentQueryEngine(
 			new RepositoryPublishedIndexResolver(repository),

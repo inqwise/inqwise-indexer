@@ -31,6 +31,8 @@ import com.inqwise.indexer.provisioning.MetadataIndexerProvisioningService;
 import com.inqwise.indexer.publication.IndexPublicationService;
 import com.inqwise.indexer.publication.MetadataIndexPublicationService;
 import com.inqwise.indexer.catalog.targets.TargetManagementService;
+import com.inqwise.indexer.monitoring.IndexerOperationalMonitor;
+import com.inqwise.indexer.publication.MonitoredIndexPublicationService;
 
 import io.vertx.core.Future;
 
@@ -53,6 +55,30 @@ public class AdminServiceImpl implements AdminService {
 		IndexerDocumentIndexResourceManager documentIndexResources,
 		CommandService commandService,
 		IndexerOperations indexerOperations
+	) {
+		this(
+			repository,
+			metadataChangeNotifier,
+			queueResources,
+			targetDefinitionProvider,
+			indexerDefinitionProvider,
+			documentIndexResources,
+			commandService,
+			indexerOperations,
+			IndexerOperationalMonitor.NOOP
+		);
+	}
+
+	public AdminServiceImpl(
+		DocumentStoreMetadataRepository repository,
+		MetadataChangeNotifier metadataChangeNotifier,
+		IndexerQueueResourceManager queueResources,
+		TargetDefinitionProvider targetDefinitionProvider,
+		IndexerDefinitionProvider indexerDefinitionProvider,
+		IndexerDocumentIndexResourceManager documentIndexResources,
+		CommandService commandService,
+		IndexerOperations indexerOperations,
+		IndexerOperationalMonitor monitor
 	) {
 		this.repository = Objects.requireNonNull(repository, "repository");
 		this.metadataChangeNotifier = Objects.requireNonNull(
@@ -79,11 +105,15 @@ public class AdminServiceImpl implements AdminService {
 			documentIndexResources,
 			queueResources
 		);
-		IndexPublicationService indexPublicationService = new MetadataIndexPublicationService(
-			repository,
-			indexerDefinitionProvider,
-			documentIndexResources,
-			queueResources
+		IndexPublicationService indexPublicationService =
+			new MonitoredIndexPublicationService(
+				new MetadataIndexPublicationService(
+					repository,
+					indexerDefinitionProvider,
+					documentIndexResources,
+					queueResources
+				),
+				Objects.requireNonNull(monitor, "monitor")
 		);
 		this.targetManagementService = new MetadataTargetManagementService(
 			repository,

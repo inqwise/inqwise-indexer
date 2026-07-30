@@ -61,7 +61,7 @@ The query service and REST adapter belong to the data plane, so they are unavail
 
 `indexer-web` is the internal operator interface for the local Indexer deployment. It is a separate logical Maven module containing a static React SPA and a narrow Vert.x delivery wrapper. It depends only on Vert.x Web/HTTP Proxy and the existing internal HTTP envelopes; it does not depend on Java domain packages, Vert.x EventBus services, or the public Gateway. `indexer-node-application` packages and deploys it beside the Indexer node in the same Vert.x JVM and container.
 
-The console displays node readiness, runtime attachment, targets, indexers, provisioning state, and publication state. Target and indexer catalogs support local search/status filters and accessible entity detail drawers without introducing additional read API calls. Live monitoring offers paused, 15-second, 30-second, and 60-second refresh intervals; requests are serialized, polling pauses while the tab is hidden, stale data is identified from the last successful update, and desired-runtime/local-attachment drift is highlighted. Readiness, target catalog, indexer catalog, and runtime requests report independent health and last-success age; a failed envelope retains its last good data without hiding successful results from the others. Catalog navigation uses deterministic sorting, 10/25/50-row limits, pagination, and clear-filter controls; sort, limit, page, filters, polling preference, selected entity, and active section persist in the URL. Bounded operations expose indexer activate/deactivate, failed target-provisioning recovery, manual local-runtime reconciliation, explicitly confirmed single-indexer queue reset, and typed-name-confirmed single-indexer deletion from their detail drawers. Catalog mutations send the selected catalog `version` as `expected_version`; reconciliation only asks the current node to reload durable state and converge its local runtime. Queue reset advances future writes to a new versioned queue and schedules asynchronous cleanup of the retired queue; it does not claim synchronous fencing of old in-flight items. Deletion returns after fencing the indexer and accepting durable cleanup, not after physical cleanup completes. Every operation disables conflicting submission while pending, reports controlled errors, and reloads durable catalog/runtime state after success or failure. Bulk destructive operations remain outside the frontend. In development, Vite provides hot reload and forwards the same paths that the Vert.x wrapper owns in packaged/runtime use:
+The console displays node readiness, runtime attachment, targets, indexers, provisioning state, and publication state. Target and indexer catalogs support local search/status filters and accessible entity detail drawers without introducing additional read API calls. Live monitoring offers paused, 15-second, 30-second, and 60-second refresh intervals; requests are serialized, polling pauses while the tab is hidden, stale data is identified from the last successful update, and desired-runtime/local-attachment drift is highlighted. Readiness, target catalog, indexer catalog, and runtime requests report independent health and last-success age; a failed envelope retains its last good data without hiding successful results from the others. Catalog navigation uses deterministic sorting, 10/25/50-row limits, pagination, and clear-filter controls; sort, limit, page, filters, polling preference, selected entity, and active section persist in the URL. A compact metrics view projects bounded action intake, indexing outcomes, runtime convergence, and lifecycle-operation signals from the same-origin Prometheus proxy; raw series and arbitrary labels stay outside the UI. Bounded operations expose indexer activate/deactivate, failed target-provisioning recovery, manual local-runtime reconciliation, explicitly confirmed single-indexer queue reset, and typed-name-confirmed single-indexer deletion from their detail drawers. Catalog mutations send the selected catalog `version` as `expected_version`; reconciliation only asks the current node to reload durable state and converge its local runtime. Queue reset advances future writes to a new versioned queue and schedules asynchronous cleanup of the retired queue; it does not claim synchronous fencing of old in-flight items. Deletion returns after fencing the indexer and accepting durable cleanup, not after physical cleanup completes. Every operation disables conflicting submission while pending, reports controlled errors, and reloads durable catalog/runtime state after success or failure. Bulk destructive operations remain outside the frontend. In development, Vite provides hot reload and forwards the same paths that the Vert.x wrapper owns in packaged/runtime use:
 
 - `/api/admin` proxies the Admin REST service on port `8080`.
 - `/api/actions` proxies the Target Action REST service on port `8081`.
@@ -133,15 +133,37 @@ The launcher reads `deployment/local/vertx-options.json` through `--options`. It
 http://127.0.0.1:9090/metrics
 ```
 
-The endpoint exposes Vert.x infrastructure metrics plus the first application-owned runtime meters:
+The endpoint exposes Vert.x infrastructure metrics plus application-owned,
+bounded project-logic meters:
 
 - `inqwise_indexer_runtime_events_total`: runtime event count labeled by the bounded `event` and indexer `role` enums.
 - `inqwise_indexer_runtime_active`: node-local active runtime gauge labeled by indexer `role`.
-- `inqwise_indexer_action_processing_seconds`: action-item processing timer labeled by bounded action type, `completed` or `failed` processing outcome, and indexer `role`.
+- `inqwise_indexer_action_intake_total`: accepted or rejected target actions labeled by bounded action type and outcome.
+- `inqwise_indexer_action_processing_seconds`: action-item processing timer labeled by bounded action type, `succeeded` or `failed` processing outcome, and indexer `role`.
+- `inqwise_indexer_runtime_convergence`: desired, attached, and drift gauges updated after full runtime synchronization.
+- `inqwise_indexer_lifecycle_pending`: in-flight lifecycle operation gauges.
+- `inqwise_indexer_lifecycle_operations_total`: completed lifecycle outcomes for provision, publish, reconcile, reset-queue, and delete operations.
 
-`MicrometerIndexerEventPublisher` is composed by `indexer-node-application` over the existing provider-neutral `IndexerEventPublisher` port. The default node component factory accepts that port without depending on Micrometer, and applications without an active registry retain the no-op publisher. Metrics recording never fails runtime processing. Processing samples use object identity only for node-local in-flight correlation; indexer identity, action uid, target, queue, and index name are not exported as tags. A processing timer stops at `ACTION_ITEM_PROCESSING_COMPLETED`, before queue commit; a later commit/resume failure increments the failed runtime-event counter but does not rewrite the already completed processing duration.
+`MicrometerIndexerEventPublisher` is composed by `indexer-node-application`
+over the existing provider-neutral `IndexerEventPublisher` port and the neutral
+`IndexerOperationalMonitor` reporting contract. Service decorators own action
+intake and lifecycle observation, while the runtime reconciler reports
+convergence after a successful full synchronization. The default node
+composition accepts these ports without depending on Micrometer, and
+applications without an active registry retain no-op implementations. Metrics
+recording never replaces service or runtime outcomes. Processing samples use
+object identity only for node-local in-flight correlation; indexer identity,
+action uid, target, queue, and index name are not exported as tags. A processing
+timer stops at `ACTION_ITEM_PROCESSING_COMPLETED`, before queue commit; a later
+commit/resume failure increments the failed runtime-event counter but does not
+rewrite the already completed processing duration.
 
-Further command, routing, reconciliation, and invalidation meters should use application-composed adapters around their existing boundaries. They must use bounded labels such as operation, outcome, role, or classified failure kind. Document ids, request ids, physical queue/index names, concrete target ids, raw EventBus addresses, and exception messages must not become labels because their cardinality is unbounded or deployment-specific.
+Further command, routing, and invalidation meters should use
+application-composed adapters around their existing boundaries. They must use
+bounded labels such as operation, outcome, role, or classified failure kind.
+Document ids, request ids, physical queue/index names, concrete target ids, raw
+EventBus addresses, and exception messages must not become labels because their
+cardinality is unbounded or deployment-specific.
 
 Production deployment must decide how Prometheus reaches the endpoint and apply network policy or an authenticated monitoring proxy. The embedded endpoint has no application-level authentication and must not be exposed as a public Gateway route.
 

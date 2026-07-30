@@ -13,6 +13,26 @@ export type Target = AdminComponents["schemas"]["AdminTargetView"];
 export type Indexer = AdminComponents["schemas"]["AdminIndexerView"];
 export type RuntimeIndexer =
   RuntimeComponents["schemas"]["RuntimeIndexerStatus"];
+export type OperationalMetrics = {
+  acceptedPutActions: number;
+  acceptedRemoveActions: number;
+  rejectedActions: number;
+  processedSucceeded: number;
+  processedFailed: number;
+  runtimeDesired: number;
+  runtimeAttached: number;
+  runtimeDrift: number;
+  lifecyclePending: number;
+  lifecycleSucceeded: number;
+  lifecycleFailed: number;
+  lifecycleRetrying: number;
+};
+
+type PrometheusSample = {
+  name: string;
+  labels: Record<string, string>;
+  value: number;
+};
 
 const adminClient = createClient<AdminPaths>({
   baseUrl: "/api/admin",
@@ -26,6 +46,19 @@ const runtimeClient = createClient<RuntimePaths>({
 export async function isReady(signal: AbortSignal): Promise<boolean> {
   const response = await fetch("/api/health/health/ready", { signal });
   return response.ok;
+}
+
+export async function operationalMetrics(
+  signal: AbortSignal,
+): Promise<OperationalMetrics> {
+  const response = await fetch("/api/metrics/metrics", {
+    headers: { accept: "text/plain" },
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`Metrics request failed with status ${response.status}`);
+  }
+  return parseOperationalMetrics(await response.text());
 }
 
 export async function listTargets(signal: AbortSignal): Promise<Target[]> {
@@ -167,6 +200,86 @@ export async function reconcileIndexer(indexerId: number): Promise<void> {
   if (!data) {
     throw requestError(response.status, error);
   }
+}
+
+function parseOperationalMetrics(source: string): OperationalMetrics {
+  const samples = source
+    .split("\n")
+    .filter((line) => line && !line.startsWith("#"))
+    .flatMap(parsePrometheusSample);
+  const sum = (
+    name: string,
+    predicate: (sample: PrometheusSample) => boolean = () => true,
+  ) =>
+    samples
+      .filter((sample) => sample.name === name && predicate(sample))
+      .reduce((total, sample) => total + sample.value, 0);
+  const labeled = (label: string, value: string) =>
+    (sample: PrometheusSample) => sample.labels[label] === value;
+  const intake = (actionType: string, outcome: string) =>
+    sum(
+      "inqwise_indexer_action_intake_total",
+      (sample) =>
+        sample.labels.action_type === actionType &&
+        sample.labels.outcome === outcome,
+    );
+  const processing = (outcome: string) =>
+    sum(
+      "inqwise_indexer_action_processing_seconds_count",
+      labeled("outcome", outcome),
+    );
+  const lifecycle = (outcome: string) =>
+    sum(
+      "inqwise_indexer_lifecycle_operations_total",
+      labeled("outcome", outcome),
+    );
+
+  return {
+    acceptedPutActions: intake("put_document", "accepted"),
+    acceptedRemoveActions: intake("remove_document", "accepted"),
+    rejectedActions: sum(
+      "inqwise_indexer_action_intake_total",
+      labeled("outcome", "rejected"),
+    ),
+    processedSucceeded: processing("succeeded"),
+    processedFailed: processing("failed"),
+    runtimeDesired: sum(
+      "inqwise_indexer_runtime_convergence",
+      labeled("state", "desired"),
+    ),
+    runtimeAttached: sum(
+      "inqwise_indexer_runtime_convergence",
+      labeled("state", "attached"),
+    ),
+    runtimeDrift: sum(
+      "inqwise_indexer_runtime_convergence",
+      labeled("state", "drift"),
+    ),
+    lifecyclePending: sum("inqwise_indexer_lifecycle_pending"),
+    lifecycleSucceeded: lifecycle("succeeded"),
+    lifecycleFailed: lifecycle("failed"),
+    lifecycleRetrying: lifecycle("retrying"),
+  };
+}
+
+function parsePrometheusSample(line: string): PrometheusSample[] {
+  const match = line.match(
+    /^([a-zA-Z_:][a-zA-Z0-9_:]*)(?:\{([^}]*)\})?\s+([^\s]+)(?:\s+\d+)?$/,
+  );
+  if (!match) {
+    return [];
+  }
+  const value = Number(match[3]);
+  if (!Number.isFinite(value)) {
+    return [];
+  }
+  const labels: Record<string, string> = {};
+  for (const label of (match[2] ?? "").matchAll(
+    /([a-zA-Z_][a-zA-Z0-9_]*)="((?:\\.|[^"])*)"/g,
+  )) {
+    labels[label[1]] = label[2];
+  }
+  return [{ name: match[1], labels, value }];
 }
 
 function requestError(status: number, body: unknown): Error {

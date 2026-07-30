@@ -7,6 +7,7 @@ import {
   isReady,
   listIndexers,
   listTargets,
+  operationalMetrics,
   reconcileIndexer,
   recoverTargetProvisioning,
   resetIndexerQueue,
@@ -14,6 +15,7 @@ import {
 } from "./api/indexer-api";
 import type {
   Indexer,
+  OperationalMetrics,
   RuntimeIndexer,
   Target,
 } from "./api/indexer-api";
@@ -24,7 +26,12 @@ type IndexerRuntimeFilter = Indexer["runtime_state"] | "ALL";
 type IndexerPublicationFilter = Indexer["publication_state"] | "ALL";
 type TargetProvisioningFilter = Target["provisioning_state"] | "ALL";
 type PollInterval = 0 | 15_000 | 30_000 | 60_000;
-type DashboardSection = "overview" | "targets" | "indexers" | "runtime";
+type DashboardSection =
+  | "overview"
+  | "targets"
+  | "indexers"
+  | "runtime"
+  | "metrics";
 type CatalogPageSize = 10 | 25 | 50;
 type IndexerSort =
   | "NAME_ASC"
@@ -51,6 +58,9 @@ type DashboardData = {
   targets: Target[];
   indexers: Indexer[];
   runtimeIndexers: RuntimeIndexer[];
+  metrics: OperationalMetrics | null;
+  metricsIntakePerMinute: number | null;
+  metricsDiagnostic: ServiceDiagnostic;
   services: Record<ServiceName, ServiceDiagnostic>;
 };
 
@@ -64,6 +74,9 @@ const INITIAL_DATA: DashboardData = {
   targets: [],
   indexers: [],
   runtimeIndexers: [],
+  metrics: null,
+  metricsIntakePerMinute: null,
+  metricsDiagnostic: INITIAL_SERVICE,
   services: {
     readiness: INITIAL_SERVICE,
     targets: INITIAL_SERVICE,
@@ -85,6 +98,7 @@ const DASHBOARD_SECTIONS: readonly DashboardSection[] = [
   "targets",
   "indexers",
   "runtime",
+  "metrics",
 ];
 
 function statusTone(status: string): "good" | "warn" | "neutral" {
@@ -125,6 +139,26 @@ function Metric({
       </div>
       <strong>{value}</strong>
       <p>{detail}</p>
+    </article>
+  );
+}
+
+function CompactMetric({
+  label,
+  value,
+  detail,
+  warn = false,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  warn?: boolean;
+}) {
+  return (
+    <article className={`compact-metric${warn ? " compact-metric--warn" : ""}`}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <small>{detail}</small>
     </article>
   );
 }
@@ -232,6 +266,39 @@ function ageLabel(ageMs: number): string {
   return `${Math.floor(seconds / 60)}m ago`;
 }
 
+function compactNumber(value: number): string {
+  return new Intl.NumberFormat("en", {
+    maximumFractionDigits: 1,
+    notation: "compact",
+  }).format(value);
+}
+
+function successRate(succeeded: number, failed: number): string {
+  const total = succeeded + failed;
+  return total === 0 ? "—" : `${((succeeded / total) * 100).toFixed(1)}%`;
+}
+
+function intakePerMinute(
+  previous: OperationalMetrics | null,
+  current: OperationalMetrics,
+  previousAt: Date | null,
+  currentAt: Date,
+): number | null {
+  if (!previous || !previousAt) {
+    return null;
+  }
+  const elapsedMs = currentAt.getTime() - previousAt.getTime();
+  const previousAccepted =
+    previous.acceptedPutActions + previous.acceptedRemoveActions;
+  const currentAccepted =
+    current.acceptedPutActions + current.acceptedRemoveActions;
+  const delta = currentAccepted - previousAccepted;
+  if (elapsedMs <= 0 || delta < 0) {
+    return null;
+  }
+  return (delta * 60_000) / elapsedMs;
+}
+
 function failureMessage(reason: unknown): string {
   return reason instanceof Error ? reason.message : "Request failed";
 }
@@ -335,12 +402,19 @@ export default function App() {
   const performLoad = useCallback(async (signal: AbortSignal) => {
     setRefreshing(true);
     try {
-      const [healthResult, targetResult, indexerResult, runtimeResult] =
+      const [
+        healthResult,
+        targetResult,
+        indexerResult,
+        runtimeResult,
+        metricsResult,
+      ] =
         await Promise.allSettled([
           isReady(signal),
           listTargets(signal),
           listIndexers(signal),
           runtimeStatus(signal),
+          operationalMetrics(signal),
         ]);
 
       if (signal.aborted) {
@@ -365,6 +439,24 @@ export default function App() {
           runtimeResult.status === "fulfilled"
             ? runtimeResult.value
             : current.runtimeIndexers,
+        metrics:
+          metricsResult.status === "fulfilled"
+            ? metricsResult.value
+            : current.metrics,
+        metricsIntakePerMinute:
+          metricsResult.status === "fulfilled"
+            ? intakePerMinute(
+                current.metrics,
+                metricsResult.value,
+                current.metricsDiagnostic.lastSuccess,
+                completedAt,
+              )
+            : current.metricsIntakePerMinute,
+        metricsDiagnostic: serviceDiagnostic(
+          metricsResult,
+          current.metricsDiagnostic,
+          completedAt,
+        ),
         services: {
           readiness: serviceDiagnostic(
             healthResult,
@@ -407,6 +499,11 @@ export default function App() {
       setData((current) => ({
         ...current,
         health: "offline",
+        metricsDiagnostic: {
+          ...current.metricsDiagnostic,
+          state: "degraded",
+          error: failureMessage(error),
+        },
         services: Object.fromEntries(
           Object.entries(current.services).map(([name, service]) => [
             name,
@@ -915,6 +1012,13 @@ export default function App() {
             <span aria-hidden="true">↯</span>
             Runtime
           </a>
+          <a
+            className={`nav__item${activeSection === "metrics" ? " nav__item--active" : ""}`}
+            href="#metrics"
+          >
+            <span aria-hidden="true">∿</span>
+            Metrics
+          </a>
         </nav>
 
         <div className="sidebar__foot">
@@ -1086,6 +1190,90 @@ export default function App() {
               }
               accent="amber"
             />
+          </section>
+
+          <section
+            className="operational-metrics"
+            id="metrics"
+            aria-label="Operational metrics"
+          >
+            <div className="operational-metrics__header">
+              <div>
+                <span className="eyebrow">Indexer flow</span>
+                <h3>Operational metrics</h3>
+              </div>
+              <span
+                className={`metrics-state metrics-state--${data.metricsDiagnostic.state}`}
+              >
+                <i aria-hidden="true" />
+                {data.metricsDiagnostic.state === "checking"
+                  ? "Loading"
+                  : data.metricsDiagnostic.state === "online"
+                    ? `Live · ${ageLabel(
+                        Math.max(
+                          0,
+                          clock -
+                            (data.metricsDiagnostic.lastSuccess?.getTime() ??
+                              clock),
+                        ),
+                      )}`
+                    : "Unavailable"}
+              </span>
+            </div>
+            <div className="compact-metrics-grid">
+              <CompactMetric
+                detail={`PUT ${compactNumber(data.metrics?.acceptedPutActions ?? 0)} · REMOVE ${compactNumber(data.metrics?.acceptedRemoveActions ?? 0)} · ${compactNumber(data.metrics?.rejectedActions ?? 0)} rejected`}
+                label="Action intake"
+                value={
+                  data.metrics && data.metricsIntakePerMinute !== null
+                    ? `${compactNumber(data.metricsIntakePerMinute)}/min`
+                    : "—"
+                }
+                warn={(data.metrics?.rejectedActions ?? 0) > 0}
+              />
+              <CompactMetric
+                detail={`${compactNumber(data.metrics?.processedSucceeded ?? 0)} succeeded · ${compactNumber(data.metrics?.processedFailed ?? 0)} failed`}
+                label="Indexing outcomes"
+                value={
+                  data.metrics
+                    ? successRate(
+                        data.metrics.processedSucceeded,
+                        data.metrics.processedFailed,
+                      )
+                    : "—"
+                }
+                warn={(data.metrics?.processedFailed ?? 0) > 0}
+              />
+              <CompactMetric
+                detail={`Desired ${compactNumber(data.metrics?.runtimeDesired ?? 0)} · attached ${compactNumber(data.metrics?.runtimeAttached ?? 0)}`}
+                label="Runtime convergence"
+                value={
+                  data.metrics
+                    ? `${compactNumber(data.metrics.runtimeDrift)} drift`
+                    : "—"
+                }
+                warn={(data.metrics?.runtimeDrift ?? 0) > 0}
+              />
+              <CompactMetric
+                detail={`${compactNumber(data.metrics?.lifecycleSucceeded ?? 0)} succeeded · ${compactNumber(data.metrics?.lifecycleFailed ?? 0)} failed · ${compactNumber(data.metrics?.lifecycleRetrying ?? 0)} retrying`}
+                label="Lifecycle operations"
+                value={
+                  data.metrics
+                    ? `${compactNumber(data.metrics.lifecyclePending)} pending`
+                    : "—"
+                }
+                warn={
+                  (data.metrics?.lifecyclePending ?? 0) > 0 ||
+                  (data.metrics?.lifecycleFailed ?? 0) > 0
+                }
+              />
+            </div>
+            {data.metricsDiagnostic.state === "degraded" && (
+              <p className="operational-metrics__error" role="status">
+                Metrics retained from the last successful scrape.{" "}
+                {data.metricsDiagnostic.error}
+              </p>
+            )}
           </section>
 
           <div className="dashboard-grid">

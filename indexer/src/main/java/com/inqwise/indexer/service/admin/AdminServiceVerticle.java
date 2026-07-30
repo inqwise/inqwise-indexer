@@ -10,6 +10,7 @@ import com.inqwise.indexer.catalog.targets.TargetDefinitionProvider;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.catalog.indexers.IndexerOperations;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
+import com.inqwise.indexer.monitoring.IndexerOperationalMonitor;
 import com.inqwise.indexer.service.ServiceProxyVerticle;
 
 import io.vertx.serviceproxy.ProxyHandler;
@@ -27,7 +28,31 @@ public class AdminServiceVerticle extends ServiceProxyVerticle<AdminService> {
 		CommandService commandService,
 		IndexerOperations indexerOperations
 	) {
-		this.service = new AdminServiceImpl(
+		this(
+			repository,
+			metadataChangeNotifier,
+			queueResources,
+			targetDefinitionProvider,
+			indexerDefinitionProvider,
+			documentIndexResources,
+			commandService,
+			indexerOperations,
+			IndexerOperationalMonitor.NOOP
+		);
+	}
+
+	public AdminServiceVerticle(
+		DocumentStoreMetadataRepository repository,
+		MetadataChangeNotifier metadataChangeNotifier,
+		IndexerQueueResourceManager queueResources,
+		TargetDefinitionProvider targetDefinitionProvider,
+		IndexerDefinitionProvider indexerDefinitionProvider,
+		IndexerDocumentIndexResourceManager documentIndexResources,
+		CommandService commandService,
+		IndexerOperations indexerOperations,
+		IndexerOperationalMonitor monitor
+	) {
+		AdminService delegate = new AdminServiceImpl(
 			Objects.requireNonNull(repository, "repository"),
 			Objects.requireNonNull(metadataChangeNotifier, "metadataChangeNotifier"),
 			Objects.requireNonNull(queueResources, "queueResources"),
@@ -35,7 +60,12 @@ public class AdminServiceVerticle extends ServiceProxyVerticle<AdminService> {
 			Objects.requireNonNull(indexerDefinitionProvider, "indexerDefinitionProvider"),
 			Objects.requireNonNull(documentIndexResources, "documentIndexResources"),
 			Objects.requireNonNull(commandService, "commandService"),
-			Objects.requireNonNull(indexerOperations, "indexerOperations")
+			Objects.requireNonNull(indexerOperations, "indexerOperations"),
+			Objects.requireNonNull(monitor, "monitor")
+		);
+		this.service = new MonitoredAdminService(
+			delegate,
+			monitor
 		);
 	}
 
