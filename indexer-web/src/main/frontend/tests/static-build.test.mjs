@@ -86,6 +86,35 @@ test("provides catalog filters and accessible entity details", async () => {
   assert.match(details, /event\.key === "Escape"/);
 });
 
+test("provides visibility-aware live monitoring and URL-persisted view state", async () => {
+  const app = await readFile(
+    new URL("../src/App.tsx", import.meta.url),
+    "utf8",
+  );
+  const styles = await readFile(
+    new URL("../src/globals.css", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(app, /aria-label="Auto-refresh interval"/);
+  assert.match(app, /queryInterval === null/);
+  assert.match(app, /document\.visibilityState === "visible"/);
+  assert.match(app, /visibilitychange/);
+  assert.match(app, /activeLoadRef/);
+  assert.match(app, /refreshAfterActive/);
+  assert.match(app, /window\.history\.replaceState/);
+  assert.match(app, /queryValue\("iq"\)/);
+  assert.match(app, /queryId\("indexer"\)/);
+  assert.match(app, /currentSection/);
+  assert.match(app, /scrollIntoView/);
+  assert.match(app, /MISSING_ATTACHMENT/);
+  assert.match(app, /UNEXPECTED_ATTACHMENT/);
+  assert.match(app, /Data stale/);
+  assert.match(app, /Last successful update/);
+  assert.match(styles, /\.topbar\s*\{[^}]*position: sticky/s);
+  assert.match(styles, /#runtime,[^}]*scroll-margin-top: 110px/s);
+});
+
 test("limits mutations to bounded and explicitly confirmed operator changes", async () => {
   const details = await readFile(
     new URL("../src/components/CatalogDetailPanel.tsx", import.meta.url),

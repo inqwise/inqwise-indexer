@@ -15,6 +15,12 @@ requires typing the exact indexer name and explains that acceptance fences the
 indexer before durable physical cleanup completes. Bulk destructive operations
 are not exposed.
 
+Live monitoring supports paused, 15-second, 30-second, and 60-second refresh
+intervals. Polling is serialized, pauses while the browser tab is hidden, and
+surfaces stale-data age plus desired-runtime/local-attachment drift. Search,
+state filters, refresh interval, selected entity, and active section remain in
+the URL so an operator view can be refreshed or shared without losing context.
+
 The React/Vite workspace is located at `src/main/frontend`; the Java delivery
 wrapper uses the standard Maven `src/main/java` layout.
 

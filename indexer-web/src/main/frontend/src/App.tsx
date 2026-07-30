@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   activateIndexer,
@@ -23,6 +23,14 @@ type HealthState = "checking" | "online" | "offline";
 type IndexerRuntimeFilter = Indexer["runtime_state"] | "ALL";
 type IndexerPublicationFilter = Indexer["publication_state"] | "ALL";
 type TargetProvisioningFilter = Target["provisioning_state"] | "ALL";
+type PollInterval = 0 | 15_000 | 30_000 | 60_000;
+type DashboardSection = "overview" | "targets" | "indexers" | "runtime";
+type RuntimeDrift = {
+  indexerId: number;
+  indexName: string;
+  targetName: string;
+  kind: "MISSING_ATTACHMENT" | "UNEXPECTED_ATTACHMENT";
+};
 
 type DashboardData = {
   health: HealthState;
@@ -39,6 +47,14 @@ const INITIAL_DATA: DashboardData = {
   runtimeIndexers: [],
   error: null,
 };
+const DEFAULT_POLL_INTERVAL: PollInterval = 15_000;
+const POLL_INTERVALS: readonly PollInterval[] = [0, 15_000, 30_000, 60_000];
+const DASHBOARD_SECTIONS: readonly DashboardSection[] = [
+  "overview",
+  "targets",
+  "indexers",
+  "runtime",
+];
 
 function statusTone(status: string): "good" | "warn" | "neutral" {
   if (["ACTIVE", "READY", "PUBLISHED", "COMPLETED"].includes(status)) {
@@ -82,24 +98,103 @@ function Metric({
   );
 }
 
+function queryValue(name: string): string | null {
+  return new URLSearchParams(window.location.search).get(name);
+}
+
+function queryEnum<T extends string>(
+  name: string,
+  values: readonly T[],
+  fallback: T,
+): T {
+  const value = queryValue(name);
+  return value && values.includes(value as T) ? (value as T) : fallback;
+}
+
+function queryId(name: string): number | null {
+  const value = queryValue(name);
+  if (!value) {
+    return null;
+  }
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function initialPollInterval(): PollInterval {
+  const queryInterval = queryValue("poll");
+  if (queryInterval === null) {
+    return DEFAULT_POLL_INTERVAL;
+  }
+  const seconds = Number(queryInterval);
+  const interval = seconds * 1_000;
+  return POLL_INTERVALS.includes(interval as PollInterval)
+    ? (interval as PollInterval)
+    : DEFAULT_POLL_INTERVAL;
+}
+
+function currentSection(): DashboardSection {
+  const section = window.location.hash.slice(1);
+  return DASHBOARD_SECTIONS.includes(section as DashboardSection)
+    ? (section as DashboardSection)
+    : "overview";
+}
+
+function ageLabel(ageMs: number): string {
+  const seconds = Math.max(0, Math.floor(ageMs / 1_000));
+  if (seconds < 5) {
+    return "just now";
+  }
+  if (seconds < 60) {
+    return `${seconds}s ago`;
+  }
+  return `${Math.floor(seconds / 60)}m ago`;
+}
+
 export default function App() {
   const [data, setData] = useState<DashboardData>(INITIAL_DATA);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [indexerSearch, setIndexerSearch] = useState("");
-  const [indexerRuntimeFilter, setIndexerRuntimeFilter] =
-    useState<IndexerRuntimeFilter>("ALL");
-  const [indexerPublicationFilter, setIndexerPublicationFilter] =
-    useState<IndexerPublicationFilter>("ALL");
-  const [targetSearch, setTargetSearch] = useState("");
-  const [targetProvisioningFilter, setTargetProvisioningFilter] =
-    useState<TargetProvisioningFilter>("ALL");
-  const [selectedTargetId, setSelectedTargetId] = useState<number | null>(null);
-  const [selectedIndexerId, setSelectedIndexerId] = useState<number | null>(
-    null,
+  const [clock, setClock] = useState(Date.now());
+  const [documentVisible, setDocumentVisible] = useState(
+    () => document.visibilityState === "visible",
   );
+  const [pollInterval, setPollInterval] = useState<PollInterval>(
+    initialPollInterval,
+  );
+  const [activeSection, setActiveSection] =
+    useState<DashboardSection>(currentSection);
+  const [indexerSearch, setIndexerSearch] = useState(
+    () => queryValue("iq") ?? "",
+  );
+  const [indexerRuntimeFilter, setIndexerRuntimeFilter] =
+    useState<IndexerRuntimeFilter>(() =>
+      queryEnum("ir", ["ALL", "ACTIVE", "NON_ACTIVE"], "ALL"),
+    );
+  const [indexerPublicationFilter, setIndexerPublicationFilter] =
+    useState<IndexerPublicationFilter>(() =>
+      queryEnum(
+        "ip",
+        ["ALL", "PUBLISHED", "UNPUBLISHED", "RETIRED"],
+        "ALL",
+      ),
+    );
+  const [targetSearch, setTargetSearch] = useState(
+    () => queryValue("tq") ?? "",
+  );
+  const [targetProvisioningFilter, setTargetProvisioningFilter] =
+    useState<TargetProvisioningFilter>(() =>
+      queryEnum("tp", ["ALL", "READY", "PROVISIONING", "FAILED"], "ALL"),
+    );
+  const [selectedTargetId, setSelectedTargetId] = useState<number | null>(() =>
+    queryId("indexer") === null ? queryId("target") : null,
+  );
+  const [selectedIndexerId, setSelectedIndexerId] = useState<number | null>(
+    () => queryId("indexer"),
+  );
+  const activeLoadRef = useRef<Promise<void> | null>(null);
 
-  const load = useCallback(async (signal: AbortSignal) => {
+  const performLoad = useCallback(async (signal: AbortSignal) => {
+    setRefreshing(true);
     try {
       const [health, targetResult, indexerResult, runtimeResult] =
         await Promise.all([
@@ -118,7 +213,10 @@ export default function App() {
       });
       setLastUpdated(new Date());
     } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") {
+      if (
+        signal.aborted ||
+        (error instanceof DOMException && error.name === "AbortError")
+      ) {
         return;
       }
       setData((current) => ({
@@ -132,21 +230,118 @@ export default function App() {
     }
   }, []);
 
+  const load = useCallback(
+    async (signal: AbortSignal, refreshAfterActive = false) => {
+      const activeLoad = activeLoadRef.current;
+      if (activeLoad) {
+        await activeLoad;
+        if (!refreshAfterActive || signal.aborted) {
+          return;
+        }
+      }
+      if (signal.aborted) {
+        return;
+      }
+
+      const nextLoad = performLoad(signal);
+      activeLoadRef.current = nextLoad;
+      try {
+        await nextLoad;
+      } finally {
+        if (activeLoadRef.current === nextLoad) {
+          activeLoadRef.current = null;
+        }
+      }
+    },
+    [performLoad],
+  );
+
+  useEffect(() => {
+    const updateVisibility = () =>
+      setDocumentVisible(document.visibilityState === "visible");
+    document.addEventListener("visibilitychange", updateVisibility);
+    return () =>
+      document.removeEventListener("visibilitychange", updateVisibility);
+  }, []);
+
+  useEffect(() => {
+    const updateSection = () => setActiveSection(currentSection());
+    window.addEventListener("hashchange", updateSection);
+    return () => window.removeEventListener("hashchange", updateSection);
+  }, []);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(activeSection)?.scrollIntoView({
+        block: "start",
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeSection]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setClock(Date.now()), 5_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const setOptional = (name: string, value: string, fallback = "") => {
+      if (value === fallback) {
+        url.searchParams.delete(name);
+      } else {
+        url.searchParams.set(name, value);
+      }
+    };
+    setOptional("iq", indexerSearch);
+    setOptional("ir", indexerRuntimeFilter, "ALL");
+    setOptional("ip", indexerPublicationFilter, "ALL");
+    setOptional("tq", targetSearch);
+    setOptional("tp", targetProvisioningFilter, "ALL");
+    setOptional(
+      "poll",
+      String(pollInterval / 1_000),
+      String(DEFAULT_POLL_INTERVAL / 1_000),
+    );
+    setOptional(
+      "target",
+      selectedTargetId === null ? "" : String(selectedTargetId),
+    );
+    setOptional(
+      "indexer",
+      selectedIndexerId === null ? "" : String(selectedIndexerId),
+    );
+    window.history.replaceState(null, "", url);
+  }, [
+    indexerPublicationFilter,
+    indexerRuntimeFilter,
+    indexerSearch,
+    pollInterval,
+    selectedIndexerId,
+    selectedTargetId,
+    targetProvisioningFilter,
+    targetSearch,
+  ]);
+
   useEffect(() => {
     const controller = new AbortController();
-    const initial = window.setTimeout(() => {
-      void load(controller.signal);
-    }, 0);
+    if (!documentVisible) {
+      return () => controller.abort();
+    }
+
+    void load(controller.signal, true);
+    if (pollInterval === 0) {
+      return () => controller.abort();
+    }
     const interval = window.setInterval(() => {
       void load(controller.signal);
-    }, 15_000);
+    }, pollInterval);
 
     return () => {
       controller.abort();
-      window.clearTimeout(initial);
       window.clearInterval(interval);
     };
-  }, [load]);
+  }, [documentVisible, load, pollInterval]);
 
   const activeIndexers = useMemo(
     () =>
@@ -172,6 +367,55 @@ export default function App() {
       ).length,
     [data.indexers, data.targets],
   );
+
+  const runtimeDrifts = useMemo<RuntimeDrift[]>(() => {
+    const attachedIds = new Set(
+      data.runtimeIndexers.map((indexer) => indexer.indexer_id),
+    );
+    return data.indexers.flatMap((indexer) => {
+      const shouldBeAttached =
+        indexer.runtime_state === "ACTIVE" &&
+        indexer.provisioning_state === "READY" &&
+        indexer.mutation_state !== "DELETING";
+      const attached = attachedIds.has(indexer.id);
+      if (shouldBeAttached === attached) {
+        return [];
+      }
+      return [
+        {
+          indexerId: indexer.id,
+          indexName: indexer.index_name,
+          targetName: indexer.target_name,
+          kind: shouldBeAttached
+            ? "MISSING_ATTACHMENT"
+            : "UNEXPECTED_ATTACHMENT",
+        },
+      ];
+    });
+  }, [data.indexers, data.runtimeIndexers]);
+
+  const runtimeDriftByIndexer = useMemo(
+    () =>
+      new Map(runtimeDrifts.map((drift) => [drift.indexerId, drift] as const)),
+    [runtimeDrifts],
+  );
+
+  const staleAfterMs =
+    pollInterval === 0 ? 60_000 : Math.max(30_000, pollInterval * 2);
+  const dataAgeMs =
+    lastUpdated === null ? null : Math.max(0, clock - lastUpdated.getTime());
+  const dataStale =
+    dataAgeMs !== null && (data.error !== null || dataAgeMs > staleAfterMs);
+  const updateStatus = !documentVisible
+    ? "Paused while tab is hidden"
+    : pollInterval === 0
+      ? "Auto-refresh paused"
+      : dataStale
+        ? `Data stale · last success ${ageLabel(dataAgeMs ?? 0)}`
+        : refreshing
+          ? "Refreshing live data"
+          : `Live · every ${pollInterval / 1_000}s`;
+  const operationalIssues = provisioningIssues + runtimeDrifts.length;
 
   const filteredIndexers = useMemo(() => {
     const query = indexerSearch.trim().toLowerCase();
@@ -236,8 +480,7 @@ export default function App() {
       }
 
       const controller = new AbortController();
-      setRefreshing(true);
-      await load(controller.signal);
+      await load(controller.signal, true);
       if (mutationFailure) {
         throw mutationFailure;
       }
@@ -255,8 +498,7 @@ export default function App() {
       }
 
       const controller = new AbortController();
-      setRefreshing(true);
-      await load(controller.signal);
+      await load(controller.signal, true);
       if (mutationFailure) {
         throw mutationFailure;
       }
@@ -274,8 +516,7 @@ export default function App() {
       }
 
       const controller = new AbortController();
-      setRefreshing(true);
-      await load(controller.signal);
+      await load(controller.signal, true);
       if (mutationFailure) {
         throw mutationFailure;
       }
@@ -293,8 +534,7 @@ export default function App() {
       }
 
       const controller = new AbortController();
-      setRefreshing(true);
-      await load(controller.signal);
+      await load(controller.signal, true);
       if (mutationFailure) {
         throw mutationFailure;
       }
@@ -312,8 +552,7 @@ export default function App() {
       }
 
       const controller = new AbortController();
-      setRefreshing(true);
-      await load(controller.signal);
+      await load(controller.signal, true);
       if (mutationFailure) {
         throw mutationFailure;
       }
@@ -333,19 +572,31 @@ export default function App() {
         </a>
 
         <nav className="nav" aria-label="Primary navigation">
-          <a className="nav__item nav__item--active" href="#overview">
+          <a
+            className={`nav__item${activeSection === "overview" ? " nav__item--active" : ""}`}
+            href="#overview"
+          >
             <span aria-hidden="true">⌁</span>
             Overview
           </a>
-          <a className="nav__item" href="#targets">
+          <a
+            className={`nav__item${activeSection === "targets" ? " nav__item--active" : ""}`}
+            href="#targets"
+          >
             <span aria-hidden="true">◎</span>
             Targets
           </a>
-          <a className="nav__item" href="#indexers">
+          <a
+            className={`nav__item${activeSection === "indexers" ? " nav__item--active" : ""}`}
+            href="#indexers"
+          >
             <span aria-hidden="true">◇</span>
             Indexers
           </a>
-          <a className="nav__item" href="#runtime">
+          <a
+            className={`nav__item${activeSection === "runtime" ? " nav__item--active" : ""}`}
+            href="#runtime"
+          >
             <span aria-hidden="true">↯</span>
             Runtime
           </a>
@@ -368,9 +619,35 @@ export default function App() {
             <h1>Indexer overview</h1>
           </div>
           <div className="topbar__actions">
+            <div
+              aria-live="polite"
+              className={`monitor-state${dataStale ? " monitor-state--stale" : ""}`}
+            >
+              <span aria-hidden="true" />
+              {updateStatus}
+            </div>
+            <label className="poll-control">
+              <span>Auto-refresh</span>
+              <select
+                aria-label="Auto-refresh interval"
+                onChange={(event) =>
+                  setPollInterval(Number(event.target.value) as PollInterval)
+                }
+                value={pollInterval}
+              >
+                <option value={0}>Paused</option>
+                <option value={15_000}>15 seconds</option>
+                <option value={30_000}>30 seconds</option>
+                <option value={60_000}>60 seconds</option>
+              </select>
+            </label>
             <div className={`node-state node-state--${data.health}`}>
               <span aria-hidden="true" />
-              {data.health === "online" ? "Node ready" : "Node offline"}
+              {data.health === "online"
+                ? "Node ready"
+                : data.health === "checking"
+                  ? "Checking node"
+                  : "Node offline"}
             </div>
             <button
               className="refresh-button"
@@ -378,7 +655,6 @@ export default function App() {
               disabled={refreshing}
               onClick={() => {
                 const controller = new AbortController();
-                setRefreshing(true);
                 void load(controller.signal);
               }}
             >
@@ -442,9 +718,9 @@ export default function App() {
               label="Published"
               value={publishedIndexers}
               detail={
-                provisioningIssues === 0
-                  ? "No provisioning issues"
-                  : `${provisioningIssues} need attention`
+                operationalIssues === 0
+                  ? "No operational issues"
+                  : `${operationalIssues} need attention`
               }
               accent="amber"
             />
@@ -537,7 +813,17 @@ export default function App() {
                           </td>
                           <td>{indexer.target_name}</td>
                           <td>
-                            <StatusPill value={indexer.runtime_state} />
+                            <div className="runtime-state-cell">
+                              <StatusPill value={indexer.runtime_state} />
+                              {runtimeDriftByIndexer.has(indexer.id) && (
+                                <span className="drift-label">
+                                  {runtimeDriftByIndexer.get(indexer.id)
+                                    ?.kind === "MISSING_ATTACHMENT"
+                                    ? "not attached"
+                                    : "unexpected attachment"}
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td>
                             <StatusPill value={indexer.publication_state} />
@@ -582,9 +868,13 @@ export default function App() {
                 <div>
                   <p>Reconciler state</p>
                   <strong>
-                    {data.health === "online" ? "Converged" : "Unavailable"}
+                    {data.health !== "online"
+                      ? "Unavailable"
+                      : runtimeDrifts.length === 0
+                        ? "Converged"
+                        : `${runtimeDrifts.length} drift${runtimeDrifts.length === 1 ? "" : "s"}`}
                   </strong>
-                  <small>Polled every 15 seconds</small>
+                  <small>{updateStatus}</small>
                 </div>
               </div>
 
@@ -605,6 +895,31 @@ export default function App() {
                   </p>
                 )}
               </div>
+              {runtimeDrifts.length > 0 && (
+                <div className="runtime-drift" role="status">
+                  <span className="eyebrow">Needs convergence</span>
+                  {runtimeDrifts.slice(0, 4).map((drift) => (
+                    <button
+                      key={drift.indexerId}
+                      onClick={() => {
+                        setSelectedTargetId(null);
+                        setSelectedIndexerId(drift.indexerId);
+                      }}
+                      type="button"
+                    >
+                      <span>
+                        <strong>{drift.indexName}</strong>
+                        <small>{drift.targetName}</small>
+                      </span>
+                      <em>
+                        {drift.kind === "MISSING_ATTACHMENT"
+                          ? "Not attached"
+                          : "Unexpected attachment"}
+                      </em>
+                    </button>
+                  ))}
+                </div>
+              )}
             </section>
 
             <section className="panel panel--targets" id="targets">
@@ -690,13 +1005,13 @@ export default function App() {
 
           <footer>
             <span>
-              Last updated{" "}
+              Last successful update{" "}
               {lastUpdated
-                ? lastUpdated.toLocaleTimeString([], {
+                ? `${lastUpdated.toLocaleTimeString([], {
                     hour: "2-digit",
                     minute: "2-digit",
                     second: "2-digit",
-                  })
+                  })} · ${ageLabel(dataAgeMs ?? 0)}${dataStale ? " · stale" : ""}`
                 : "—"}
             </span>
             <span>Internal operator console · v0.1</span>
