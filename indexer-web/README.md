@@ -20,6 +20,10 @@ intervals. Polling is serialized, pauses while the browser tab is hidden, and
 surfaces stale-data age plus desired-runtime/local-attachment drift. Search,
 state filters, refresh interval, selected entity, and active section remain in
 the URL so an operator view can be refreshed or shared without losing context.
+Readiness, target catalog, indexer catalog, and local runtime requests are
+tracked independently. A failed envelope keeps its last successful data visible
+and reports its own degraded state and last-success age without hiding fresh
+results from the other services.
 
 The React/Vite workspace is located at `src/main/frontend`; the Java delivery
 wrapper uses the standard Maven `src/main/java` layout.

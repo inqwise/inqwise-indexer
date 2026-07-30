@@ -604,6 +604,65 @@ a {
   scroll-margin-top: 110px;
 }
 
+.service-diagnostics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.service-diagnostic {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(10, 13, 22, 0.62);
+  padding: 10px 12px;
+}
+
+.service-diagnostic__dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #737b8e;
+}
+
+.service-diagnostic--online .service-diagnostic__dot {
+  background: var(--cyan);
+  box-shadow: 0 0 0 4px rgba(77, 228, 218, 0.06);
+}
+
+.service-diagnostic--degraded {
+  border-color: rgba(241, 121, 121, 0.2);
+}
+
+.service-diagnostic--degraded .service-diagnostic__dot {
+  background: #f17979;
+  box-shadow: 0 0 0 4px rgba(241, 121, 121, 0.06);
+}
+
+.service-diagnostic strong,
+.service-diagnostic small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.service-diagnostic strong {
+  color: #bbc1cf;
+  font-size: 10px;
+}
+
+.service-diagnostic small {
+  margin-top: 3px;
+  color: #636c80;
+  font-size: 8px;
+}
+
 .filter-field input::placeholder {
   color: #555d70;
 }
@@ -1426,6 +1485,10 @@ footer {
   .metrics,
   .target-list {
     grid-template-columns: 1fr;
+  }
+
+  .service-diagnostics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .filters {

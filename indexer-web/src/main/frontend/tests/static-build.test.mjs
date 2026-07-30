@@ -115,6 +115,25 @@ test("provides visibility-aware live monitoring and URL-persisted view state", a
   assert.match(styles, /#runtime,[^}]*scroll-margin-top: 110px/s);
 });
 
+test("keeps last-good data while reporting internal services independently", async () => {
+  const app = await readFile(
+    new URL("../src/App.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(app, /Promise\.allSettled/);
+  assert.match(app, /current\.targets/);
+  assert.match(app, /current\.indexers/);
+  assert.match(app, /current\.runtimeIndexers/);
+  assert.match(app, /aria-label="Internal service diagnostics"/);
+  assert.match(app, /Target catalog/);
+  assert.match(app, /Indexer catalog/);
+  assert.match(app, /Local runtime/);
+  assert.match(app, /Degraded · last success/);
+  assert.match(app, /!runtimeComparisonAvailable/);
+  assert.match(app, /Diagnostics degraded/);
+});
+
 test("limits mutations to bounded and explicitly confirmed operator changes", async () => {
   const details = await readFile(
     new URL("../src/components/CatalogDetailPanel.tsx", import.meta.url),

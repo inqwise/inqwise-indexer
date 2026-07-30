@@ -25,6 +25,13 @@ type IndexerPublicationFilter = Indexer["publication_state"] | "ALL";
 type TargetProvisioningFilter = Target["provisioning_state"] | "ALL";
 type PollInterval = 0 | 15_000 | 30_000 | 60_000;
 type DashboardSection = "overview" | "targets" | "indexers" | "runtime";
+type ServiceName = "readiness" | "targets" | "indexers" | "runtime";
+type ServiceState = "checking" | "online" | "degraded";
+type ServiceDiagnostic = {
+  state: ServiceState;
+  lastSuccess: Date | null;
+  error: string | null;
+};
 type RuntimeDrift = {
   indexerId: number;
   indexName: string;
@@ -37,15 +44,31 @@ type DashboardData = {
   targets: Target[];
   indexers: Indexer[];
   runtimeIndexers: RuntimeIndexer[];
-  error: string | null;
+  services: Record<ServiceName, ServiceDiagnostic>;
 };
 
+const INITIAL_SERVICE: ServiceDiagnostic = {
+  state: "checking",
+  lastSuccess: null,
+  error: null,
+};
 const INITIAL_DATA: DashboardData = {
   health: "checking",
   targets: [],
   indexers: [],
   runtimeIndexers: [],
-  error: null,
+  services: {
+    readiness: INITIAL_SERVICE,
+    targets: INITIAL_SERVICE,
+    indexers: INITIAL_SERVICE,
+    runtime: INITIAL_SERVICE,
+  },
+};
+const SERVICE_LABELS: Record<ServiceName, string> = {
+  readiness: "Readiness",
+  targets: "Target catalog",
+  indexers: "Indexer catalog",
+  runtime: "Local runtime",
 };
 const DEFAULT_POLL_INTERVAL: PollInterval = 15_000;
 const POLL_INTERVALS: readonly PollInterval[] = [0, 15_000, 30_000, 60_000];
@@ -150,6 +173,37 @@ function ageLabel(ageMs: number): string {
   return `${Math.floor(seconds / 60)}m ago`;
 }
 
+function failureMessage(reason: unknown): string {
+  return reason instanceof Error ? reason.message : "Request failed";
+}
+
+function serviceDiagnostic(
+  result: PromiseSettledResult<unknown>,
+  current: ServiceDiagnostic,
+  completedAt: Date,
+  unavailableMessage?: string,
+): ServiceDiagnostic {
+  if (result.status === "rejected") {
+    return {
+      ...current,
+      state: "degraded",
+      error: failureMessage(result.reason),
+    };
+  }
+  if (unavailableMessage && result.value === false) {
+    return {
+      ...current,
+      state: "degraded",
+      error: unavailableMessage,
+    };
+  }
+  return {
+    state: "online",
+    lastSuccess: completedAt,
+    error: null,
+  };
+}
+
 export default function App() {
   const [data, setData] = useState<DashboardData>(INITIAL_DATA);
   const [refreshing, setRefreshing] = useState(false);
@@ -196,22 +250,68 @@ export default function App() {
   const performLoad = useCallback(async (signal: AbortSignal) => {
     setRefreshing(true);
     try {
-      const [health, targetResult, indexerResult, runtimeResult] =
-        await Promise.all([
+      const [healthResult, targetResult, indexerResult, runtimeResult] =
+        await Promise.allSettled([
           isReady(signal),
           listTargets(signal),
           listIndexers(signal),
           runtimeStatus(signal),
         ]);
 
-      setData({
-        health: health ? "online" : "offline",
-        targets: targetResult,
-        indexers: indexerResult,
-        runtimeIndexers: runtimeResult,
-        error: null,
-      });
-      setLastUpdated(new Date());
+      if (signal.aborted) {
+        return;
+      }
+
+      const completedAt = new Date();
+      setData((current) => ({
+        health:
+          healthResult.status === "fulfilled" && healthResult.value
+            ? "online"
+            : "offline",
+        targets:
+          targetResult.status === "fulfilled"
+            ? targetResult.value
+            : current.targets,
+        indexers:
+          indexerResult.status === "fulfilled"
+            ? indexerResult.value
+            : current.indexers,
+        runtimeIndexers:
+          runtimeResult.status === "fulfilled"
+            ? runtimeResult.value
+            : current.runtimeIndexers,
+        services: {
+          readiness: serviceDiagnostic(
+            healthResult,
+            current.services.readiness,
+            completedAt,
+            "The node is not ready.",
+          ),
+          targets: serviceDiagnostic(
+            targetResult,
+            current.services.targets,
+            completedAt,
+          ),
+          indexers: serviceDiagnostic(
+            indexerResult,
+            current.services.indexers,
+            completedAt,
+          ),
+          runtime: serviceDiagnostic(
+            runtimeResult,
+            current.services.runtime,
+            completedAt,
+          ),
+        },
+      }));
+      if (
+        healthResult.status === "fulfilled" &&
+        targetResult.status === "fulfilled" &&
+        indexerResult.status === "fulfilled" &&
+        runtimeResult.status === "fulfilled"
+      ) {
+        setLastUpdated(completedAt);
+      }
     } catch (error) {
       if (
         signal.aborted ||
@@ -222,8 +322,16 @@ export default function App() {
       setData((current) => ({
         ...current,
         health: "offline",
-        error:
-          "The local indexer node is unavailable. Start the local deployment to see live operational data.",
+        services: Object.fromEntries(
+          Object.entries(current.services).map(([name, service]) => [
+            name,
+            {
+              ...service,
+              state: "degraded",
+              error: failureMessage(error),
+            },
+          ]),
+        ) as DashboardData["services"],
       }));
     } finally {
       setRefreshing(false);
@@ -368,7 +476,13 @@ export default function App() {
     [data.indexers, data.targets],
   );
 
+  const runtimeComparisonAvailable =
+    data.services.indexers.state === "online" &&
+    data.services.runtime.state === "online";
   const runtimeDrifts = useMemo<RuntimeDrift[]>(() => {
+    if (!runtimeComparisonAvailable) {
+      return [];
+    }
     const attachedIds = new Set(
       data.runtimeIndexers.map((indexer) => indexer.indexer_id),
     );
@@ -392,7 +506,7 @@ export default function App() {
         },
       ];
     });
-  }, [data.indexers, data.runtimeIndexers]);
+  }, [data.indexers, data.runtimeIndexers, runtimeComparisonAvailable]);
 
   const runtimeDriftByIndexer = useMemo(
     () =>
@@ -404,18 +518,31 @@ export default function App() {
     pollInterval === 0 ? 60_000 : Math.max(30_000, pollInterval * 2);
   const dataAgeMs =
     lastUpdated === null ? null : Math.max(0, clock - lastUpdated.getTime());
+  const hasDegradedService = Object.values(data.services).some(
+    (service) => service.state === "degraded",
+  );
   const dataStale =
-    dataAgeMs !== null && (data.error !== null || dataAgeMs > staleAfterMs);
+    hasDegradedService ||
+    (dataAgeMs !== null && dataAgeMs > staleAfterMs);
   const updateStatus = !documentVisible
     ? "Paused while tab is hidden"
     : pollInterval === 0
       ? "Auto-refresh paused"
       : dataStale
-        ? `Data stale · last success ${ageLabel(dataAgeMs ?? 0)}`
+        ? dataAgeMs === null
+          ? "Service data unavailable"
+          : `Data stale · last success ${ageLabel(dataAgeMs)}`
         : refreshing
           ? "Refreshing live data"
           : `Live · every ${pollInterval / 1_000}s`;
-  const operationalIssues = provisioningIssues + runtimeDrifts.length;
+  const degradedServices = (
+    Object.entries(data.services) as [
+      ServiceName,
+      ServiceDiagnostic,
+    ][]
+  ).filter(([, service]) => service.state === "degraded");
+  const operationalIssues =
+    provisioningIssues + runtimeDrifts.length + degradedServices.length;
 
   const filteredIndexers = useMemo(() => {
     const query = indexerSearch.trim().toLowerCase();
@@ -667,18 +794,65 @@ export default function App() {
         </header>
 
         <div className="content" id="overview">
-          {data.error && (
+          {degradedServices.length > 0 && (
             <div className="notice" role="status">
               <span className="notice__icon" aria-hidden="true">
                 !
               </span>
               <div>
-                <strong>Waiting for the indexer node</strong>
-                <p>{data.error}</p>
+                <strong>Internal services need attention</strong>
+                <p>
+                  {degradedServices
+                    .map(
+                      ([name, service]) =>
+                        `${SERVICE_LABELS[name]}: ${service.error ?? "Unavailable"}`,
+                    )
+                    .join(" · ")}
+                </p>
               </div>
-              <code>./run-local.sh</code>
+              {data.health === "offline" && <code>./run-local.sh</code>}
             </div>
           )}
+
+          <section
+            aria-label="Internal service diagnostics"
+            className="service-diagnostics"
+          >
+            {(Object.keys(SERVICE_LABELS) as ServiceName[]).map((name) => {
+              const service = data.services[name];
+              return (
+                <article
+                  className={`service-diagnostic service-diagnostic--${service.state}`}
+                  key={name}
+                >
+                  <span aria-hidden="true" className="service-diagnostic__dot" />
+                  <div>
+                    <strong>{SERVICE_LABELS[name]}</strong>
+                    <small>
+                      {service.state === "checking"
+                        ? "Checking"
+                        : service.state === "online"
+                          ? `Healthy · ${ageLabel(
+                              Math.max(
+                                0,
+                                clock -
+                                  (service.lastSuccess?.getTime() ?? clock),
+                              ),
+                            )}`
+                          : service.lastSuccess
+                            ? `Degraded · last success ${ageLabel(
+                                Math.max(
+                                  0,
+                                  clock - service.lastSuccess.getTime(),
+                                ),
+                              )}`
+                            : "Unavailable"}
+                    </small>
+                  </div>
+                </article>
+              );
+            })}
+          </section>
 
           <section className="hero">
             <div>
@@ -870,9 +1044,11 @@ export default function App() {
                   <strong>
                     {data.health !== "online"
                       ? "Unavailable"
-                      : runtimeDrifts.length === 0
-                        ? "Converged"
-                        : `${runtimeDrifts.length} drift${runtimeDrifts.length === 1 ? "" : "s"}`}
+                      : !runtimeComparisonAvailable
+                        ? "Diagnostics degraded"
+                        : runtimeDrifts.length === 0
+                          ? "Converged"
+                          : `${runtimeDrifts.length} drift${runtimeDrifts.length === 1 ? "" : "s"}`}
                   </strong>
                   <small>{updateStatus}</small>
                 </div>
