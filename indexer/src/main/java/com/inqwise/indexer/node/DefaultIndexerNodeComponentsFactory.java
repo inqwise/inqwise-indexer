@@ -60,8 +60,19 @@ public final class DefaultIndexerNodeComponentsFactory {
 		Vertx vertx,
 		IndexerNodeOptions nodeOptions
 	) {
+		return create(vertx, nodeOptions, IndexerEventPublisher.NOOP);
+	}
+
+	public IndexerNodeComponents create(
+		Vertx vertx,
+		IndexerNodeOptions nodeOptions,
+		IndexerEventPublisher eventPublisher
+	) {
 		Objects.requireNonNull(vertx, "vertx");
 		Objects.requireNonNull(nodeOptions, "nodeOptions").validate();
+		IndexerEventPublisher resolvedEventPublisher = eventPublisher == null
+			? IndexerEventPublisher.NOOP
+			: eventPublisher;
 
 		DocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
@@ -188,7 +199,7 @@ public final class DefaultIndexerNodeComponentsFactory {
 			queue,
 			documentStore,
 			IndexerOptions.builder().build(),
-			IndexerEventPublisher.NOOP
+			resolvedEventPublisher
 		);
 		IndexerRuntimeReconciler runtimeReconciler = new IndexerRuntimeReconciler(
 			vertx,

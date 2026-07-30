@@ -23,6 +23,7 @@ import com.inqwise.indexer.service.runtime.RuntimeServiceVerticle;
 import com.inqwise.indexer.service.invalidation.TargetInvalidationRegistryServiceVerticle;
 import com.inqwise.indexer.service.invalidation.TargetInvalidationRegistryServices;
 import com.inqwise.indexer.rest.document.DocumentQueryRestVerticle;
+import com.inqwise.indexer.runtime.IndexerEventPublisher;
 import com.inqwise.indexer.service.document.DocumentQueryServiceVerticle;
 
 import io.vertx.core.DeploymentOptions;
@@ -78,6 +79,20 @@ public class IndexerNode {
 		IndexerNodeOptions options,
 		GatewayRequestHooks gatewayRequestHooks
 	) {
+		return create(
+			vertx,
+			options,
+			gatewayRequestHooks,
+			IndexerEventPublisher.NOOP
+		);
+	}
+
+	public static IndexerNode create(
+		Vertx vertx,
+		IndexerNodeOptions options,
+		GatewayRequestHooks gatewayRequestHooks,
+		IndexerEventPublisher eventPublisher
+	) {
 		IndexerNodeOptions resolved = options == null
 			? IndexerNodeOptions.builder().build()
 			: options;
@@ -85,7 +100,7 @@ public class IndexerNode {
 		return new IndexerNode(
 			vertx,
 			resolved,
-			DEFAULT_COMPONENTS_FACTORY.create(vertx, resolved),
+			DEFAULT_COMPONENTS_FACTORY.create(vertx, resolved, eventPublisher),
 			gatewayRequestHooks
 		);
 	}

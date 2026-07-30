@@ -2,6 +2,8 @@ package com.inqwise.indexer.node.application;
 
 import com.inqwise.indexer.node.IndexerNode;
 import com.inqwise.indexer.node.IndexerNodeOptions;
+import com.inqwise.indexer.node.application.monitoring.MicrometerIndexerEventPublisher;
+import com.inqwise.indexer.runtime.IndexerEventPublisher;
 import com.inqwise.indexer.web.IndexerWebOptions;
 import com.inqwise.indexer.web.IndexerWebVerticle;
 
@@ -9,6 +11,7 @@ import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.json.JsonObject;
+import io.vertx.micrometer.backends.BackendRegistries;
 
 public final class IndexerNodeApplicationVerticle extends AbstractVerticle {
 	public static final String WEB_CONFIG = "web";
@@ -19,7 +22,15 @@ public final class IndexerNodeApplicationVerticle extends AbstractVerticle {
 	@Override
 	public void start(Promise<Void> startPromise) {
 		JsonObject applicationConfig = config();
-		node = IndexerNode.create(vertx, new IndexerNodeOptions(applicationConfig));
+		IndexerEventPublisher eventPublisher = MicrometerIndexerEventPublisher.create(
+			BackendRegistries.getDefaultNow()
+		);
+		node = IndexerNode.create(
+			vertx,
+			new IndexerNodeOptions(applicationConfig),
+			null,
+			eventPublisher
+		);
 		web = new IndexerWebVerticle(IndexerWebOptions.from(
 			applicationConfig.getJsonObject(WEB_CONFIG, new JsonObject())
 		));

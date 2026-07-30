@@ -8,7 +8,9 @@ import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.Instant;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,11 +18,23 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import com.inqwise.indexer.adapters.local.InMemoryIndexerDocumentStore;
 import com.inqwise.indexer.adapters.local.InMemoryIndexerQueue;
 import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepository;
+import com.inqwise.indexer.catalog.indexers.IndexResourceOwnership;
+import com.inqwise.indexer.catalog.indexers.IndexerProvisioningState;
+import com.inqwise.indexer.catalog.indexers.IndexerRole;
+import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
+import com.inqwise.indexer.catalog.indexers.IndexerStatus;
+import com.inqwise.indexer.catalog.indexers.IndexerType;
+import com.inqwise.indexer.catalog.indexers.MutationState;
 import com.inqwise.indexer.catalog.targets.TargetDefinition;
 import com.inqwise.indexer.catalog.targets.TargetPeriodStrategy;
+import com.inqwise.indexer.metadata.IndexerRecord;
+import com.inqwise.indexer.publication.PublicationState;
+import com.inqwise.indexer.runtime.IndexerEventType;
 
+import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.junit5.VertxExtension;
+import io.vertx.junit5.VertxTestContext;
 
 @ExtendWith(VertxExtension.class)
 class DefaultIndexerNodeComponentsFactoryTest {
@@ -104,5 +118,48 @@ class DefaultIndexerNodeComponentsFactoryTest {
 		assertTrue(definition.isPresent());
 		assertEquals(TargetPeriodStrategy.MONTHLY, definition.orElseThrow().periodStrategy());
 		assertTrue(definition.orElseThrow().autoProvisionOnWrite());
+	}
+
+	@Test
+	void wiresConfiguredRuntimeEventPublisher(
+		Vertx vertx,
+		VertxTestContext testContext
+	) {
+		AtomicInteger starts = new AtomicInteger();
+		IndexerNodeComponents components = new DefaultIndexerNodeComponentsFactory()
+			.create(vertx, new IndexerNodeOptions(), event -> {
+				if (event.getType() == IndexerEventType.INDEXER_STARTED) {
+					starts.incrementAndGet();
+				}
+				return Future.succeededFuture();
+			});
+		Instant now = Instant.now();
+		IndexerRecord record = IndexerRecord.builder()
+			.withId(1)
+			.withPrefix("idx")
+			.withTargetId(1)
+			.withTargetName("customers")
+			.withIndexName("customers_1")
+			.withQueueName("queue-customers-1")
+			.withType(IndexerType.INDEX)
+			.withRole(IndexerRole.LIVE_WRITER)
+			.withIndexOwnership(IndexResourceOwnership.OWNER)
+			.withStatus(IndexerStatus.AVAILABLE)
+			.withProvisioningState(IndexerProvisioningState.READY)
+			.withRuntimeState(IndexerRuntimeState.ACTIVE)
+			.withPublicationState(PublicationState.UNPUBLISHED)
+			.withMutationState(MutationState.WRITABLE)
+			.withCreatedAt(now)
+			.withUpdatedAt(now)
+			.withVersion(0)
+			.build();
+
+		components.runtime()
+			.reconcile(record)
+			.compose(ignored -> components.runtime().close(record.id()))
+			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
+				assertEquals(1, starts.get());
+				testContext.completeNow();
+			})));
 	}
 }

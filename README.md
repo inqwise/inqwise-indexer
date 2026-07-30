@@ -133,7 +133,15 @@ The launcher reads `deployment/local/vertx-options.json` through `--options`. It
 http://127.0.0.1:9090/metrics
 ```
 
-The endpoint currently exposes Vert.x infrastructure metrics. Application-specific counters, timers, and gauges should be added later through application-composed adapters around existing runtime, command, routing, and lifecycle boundaries. They must use bounded labels such as operation, outcome, role, or classified failure kind. Document ids, request ids, physical queue/index names, concrete target ids, raw EventBus addresses, and exception messages must not become labels because their cardinality is unbounded or deployment-specific.
+The endpoint exposes Vert.x infrastructure metrics plus the first application-owned runtime meters:
+
+- `inqwise_indexer_runtime_events_total`: runtime event count labeled by the bounded `event` and indexer `role` enums.
+- `inqwise_indexer_runtime_active`: node-local active runtime gauge labeled by indexer `role`.
+- `inqwise_indexer_action_processing_seconds`: action-item processing timer labeled by bounded action type, `completed` or `failed` processing outcome, and indexer `role`.
+
+`MicrometerIndexerEventPublisher` is composed by `indexer-node-application` over the existing provider-neutral `IndexerEventPublisher` port. The default node component factory accepts that port without depending on Micrometer, and applications without an active registry retain the no-op publisher. Metrics recording never fails runtime processing. Processing samples use object identity only for node-local in-flight correlation; indexer identity, action uid, target, queue, and index name are not exported as tags. A processing timer stops at `ACTION_ITEM_PROCESSING_COMPLETED`, before queue commit; a later commit/resume failure increments the failed runtime-event counter but does not rewrite the already completed processing duration.
+
+Further command, routing, reconciliation, and invalidation meters should use application-composed adapters around their existing boundaries. They must use bounded labels such as operation, outcome, role, or classified failure kind. Document ids, request ids, physical queue/index names, concrete target ids, raw EventBus addresses, and exception messages must not become labels because their cardinality is unbounded or deployment-specific.
 
 Production deployment must decide how Prometheus reaches the endpoint and apply network policy or an authenticated monitoring proxy. The embedded endpoint has no application-level authentication and must not be exposed as a public Gateway route.
 
