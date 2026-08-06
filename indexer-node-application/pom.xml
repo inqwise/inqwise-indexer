@@ -90,7 +90,6 @@
 							<port>8081</port>
 							<port>8083</port>
 							<port>8084</port>
-							<port>8087</port>
 							<port>9090</port>
 						</ports>
 						<user>10001:10001</user>

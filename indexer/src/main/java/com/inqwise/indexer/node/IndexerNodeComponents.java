@@ -18,7 +18,6 @@ import com.inqwise.indexer.lifecycle.TargetInvalidationRegistry;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.catalog.indexers.IndexerOperations;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
-import com.inqwise.indexer.documents.DocumentQueryEngine;
 
 public record IndexerNodeComponents(
 	HotIndexActionsService hotIndexActionsService,
@@ -32,7 +31,6 @@ public record IndexerNodeComponents(
 	TargetDefinitionProvider targetDefinitionProvider,
 	IndexerDefinitionProvider indexerDefinitionProvider,
 	IndexerDocumentIndexResourceManager documentIndexResources,
-	DocumentQueryEngine documentQueryEngine,
 	InvalidRouteCache invalidRouteCache,
 	InvalidRouteMetadataChangeListener invalidRouteMetadataChangeListener,
 	TargetInvalidationRegistry targetInvalidationRegistryBackend,
@@ -56,7 +54,6 @@ public record IndexerNodeComponents(
 		private TargetDefinitionProvider targetDefinitionProvider;
 		private IndexerDefinitionProvider indexerDefinitionProvider;
 		private IndexerDocumentIndexResourceManager documentIndexResources;
-		private DocumentQueryEngine documentQueryEngine;
 		private InvalidRouteCache invalidRouteCache;
 		private InvalidRouteMetadataChangeListener invalidRouteMetadataChangeListener;
 		private TargetInvalidationRegistry targetInvalidationRegistryBackend;
@@ -124,11 +121,6 @@ public record IndexerNodeComponents(
 			return this;
 		}
 
-		public Builder withDocumentQueryEngine(DocumentQueryEngine value) {
-			documentQueryEngine = value;
-			return this;
-		}
-
 		public Builder withInvalidRouteCache(InvalidRouteCache value) {
 			invalidRouteCache = value;
 			return this;
@@ -178,7 +170,6 @@ public record IndexerNodeComponents(
 				Objects.requireNonNull(targetDefinitionProvider, "targetDefinitionProvider"),
 				Objects.requireNonNull(indexerDefinitionProvider, "indexerDefinitionProvider"),
 				Objects.requireNonNull(documentIndexResources, "documentIndexResources"),
-				Objects.requireNonNull(documentQueryEngine, "documentQueryEngine"),
 				Objects.requireNonNull(invalidRouteCache, "invalidRouteCache"),
 				Objects.requireNonNull(
 					invalidRouteMetadataChangeListener,

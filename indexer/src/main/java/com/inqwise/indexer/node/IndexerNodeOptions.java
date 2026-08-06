@@ -18,7 +18,6 @@ import com.inqwise.indexer.gateway.GatewayRestOptions;
 import com.inqwise.indexer.rest.action.TargetActionRestOptions;
 import com.inqwise.indexer.rest.admin.AdminRestOptions;
 import com.inqwise.indexer.rest.runtime.RuntimeRestOptions;
-import com.inqwise.indexer.rest.document.DocumentQueryRestOptions;
 
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonArray;
@@ -30,7 +29,6 @@ public class IndexerNodeOptions {
 		public static final String SERVICES = "services";
 		public static final String ADMIN_REST = "admin_rest";
 		public static final String TARGET_ACTION_REST = "target_action_rest";
-		public static final String DOCUMENT_QUERY_REST = "document_query_rest";
 		public static final String RUNTIME_REST = "runtime_rest";
 		public static final String HEALTH_REST = "health_rest";
 		public static final String RUNTIME_RECONCILER = "runtime_reconciler";
@@ -66,8 +64,6 @@ public class IndexerNodeOptions {
 		public static final String ADMIN_REST = "adminRest";
 		public static final String TARGET_ACTION = "targetAction";
 		public static final String TARGET_ACTION_REST = "targetActionRest";
-		public static final String DOCUMENT_QUERY = "documentQuery";
-		public static final String DOCUMENT_QUERY_REST = "documentQueryRest";
 		public static final String RUNTIME = "runtime";
 		public static final String RUNTIME_REST = "runtimeRest";
 		public static final String HEALTH_REST = "healthRest";
@@ -79,8 +75,6 @@ public class IndexerNodeOptions {
 			ADMIN_REST,
 			TARGET_ACTION,
 			TARGET_ACTION_REST,
-			DOCUMENT_QUERY,
-			DOCUMENT_QUERY_REST,
 			RUNTIME,
 			RUNTIME_REST,
 			HEALTH_REST,
@@ -96,8 +90,6 @@ public class IndexerNodeOptions {
 	private AdminRestOptions adminRestOptions = AdminRestOptions.builder().build();
 	private TargetActionRestOptions targetActionRestOptions =
 		TargetActionRestOptions.builder().build();
-	private DocumentQueryRestOptions documentQueryRestOptions =
-		DocumentQueryRestOptions.builder().build();
 	private RuntimeRestOptions runtimeRestOptions = RuntimeRestOptions.builder().build();
 	private NodeHealthRestOptions healthRestOptions = NodeHealthRestOptions.builder().build();
 	private IndexerRuntimeReconcilerOptions runtimeReconcilerOptions =
@@ -132,9 +124,6 @@ public class IndexerNodeOptions {
 		);
 		this.targetActionRestOptions = new TargetActionRestOptions(
 			json.getJsonObject(Keys.TARGET_ACTION_REST, new JsonObject())
-		);
-		this.documentQueryRestOptions = new DocumentQueryRestOptions(
-			json.getJsonObject(Keys.DOCUMENT_QUERY_REST, new JsonObject())
 		);
 		this.runtimeRestOptions = new RuntimeRestOptions(
 			json.getJsonObject(Keys.RUNTIME_REST, new JsonObject())
@@ -197,7 +186,6 @@ public class IndexerNodeOptions {
 			.put(Keys.SERVICES, serviceJson)
 			.put(Keys.ADMIN_REST, adminRestOptions.toJson())
 			.put(Keys.TARGET_ACTION_REST, targetActionRestOptions.toJson())
-			.put(Keys.DOCUMENT_QUERY_REST, documentQueryRestOptions.toJson())
 			.put(Keys.RUNTIME_REST, runtimeRestOptions.toJson())
 			.put(Keys.HEALTH_REST, healthRestOptions.toJson())
 			.put(Keys.RUNTIME_RECONCILER, runtimeReconcilerOptions.toJson())
@@ -224,14 +212,6 @@ public class IndexerNodeOptions {
 
 	public IndexerServiceDeploymentOptions targetActionRest() {
 		return service(Services.TARGET_ACTION_REST);
-	}
-
-	public IndexerServiceDeploymentOptions documentQuery() {
-		return service(Services.DOCUMENT_QUERY);
-	}
-
-	public IndexerServiceDeploymentOptions documentQueryRest() {
-		return service(Services.DOCUMENT_QUERY_REST);
 	}
 
 	public IndexerServiceDeploymentOptions admin() {
@@ -285,19 +265,6 @@ public class IndexerNodeOptions {
 		this.targetActionRestOptions = targetActionRestOptions == null
 			? TargetActionRestOptions.builder().build()
 			: targetActionRestOptions;
-		return this;
-	}
-
-	public DocumentQueryRestOptions getDocumentQueryRestOptions() {
-		return documentQueryRestOptions;
-	}
-
-	public IndexerNodeOptions setDocumentQueryRestOptions(
-		DocumentQueryRestOptions documentQueryRestOptions
-	) {
-		this.documentQueryRestOptions = documentQueryRestOptions == null
-			? DocumentQueryRestOptions.builder().build()
-			: documentQueryRestOptions;
 		return this;
 	}
 
@@ -437,13 +404,6 @@ public class IndexerNodeOptions {
 			);
 		}
 
-		IndexerServiceDeploymentOptions documentQueryRest = documentQueryRest();
-		if (documentQueryRest.isEnabled() && documentQueryRest.getInstances() != 1) {
-			throw new IllegalArgumentException(
-				"Document Query REST service must be deployed with exactly one instance"
-			);
-		}
-
 		IndexerServiceDeploymentOptions runtimeRest = runtimeRest();
 		if (runtimeRest.isEnabled() && runtimeRest.getInstances() != 1) {
 			throw new IllegalArgumentException("Runtime REST service must be deployed with exactly one instance");
@@ -477,7 +437,6 @@ public class IndexerNodeOptions {
 			new LinkedHashMap<>();
 		private AdminRestOptions adminRestOptions;
 		private TargetActionRestOptions targetActionRestOptions;
-		private DocumentQueryRestOptions documentQueryRestOptions;
 		private RuntimeRestOptions runtimeRestOptions;
 		private NodeHealthRestOptions healthRestOptions;
 		private IndexerRuntimeReconcilerOptions runtimeReconcilerOptions;
@@ -503,11 +462,6 @@ public class IndexerNodeOptions {
 
 		public Builder withTargetActionRestOptions(TargetActionRestOptions value) {
 			targetActionRestOptions = copy(Objects.requireNonNull(value, "value"));
-			return this;
-		}
-
-		public Builder withDocumentQueryRestOptions(DocumentQueryRestOptions value) {
-			documentQueryRestOptions = copy(Objects.requireNonNull(value, "value"));
 			return this;
 		}
 
@@ -565,9 +519,6 @@ public class IndexerNodeOptions {
 			}
 			if (targetActionRestOptions != null) {
 				options.targetActionRestOptions = copy(targetActionRestOptions);
-			}
-			if (documentQueryRestOptions != null) {
-				options.documentQueryRestOptions = copy(documentQueryRestOptions);
 			}
 			if (runtimeRestOptions != null) {
 				options.runtimeRestOptions = copy(runtimeRestOptions);
@@ -680,15 +631,6 @@ public class IndexerNodeOptions {
 			.build();
 	}
 
-	private static DocumentQueryRestOptions copy(DocumentQueryRestOptions value) {
-		return DocumentQueryRestOptions.builder()
-			.withHost(value.getHost())
-			.withPort(value.getPort())
-			.withOpenApiPath(value.getOpenApiPath())
-			.withServiceAddress(value.getServiceAddress())
-			.build();
-	}
-
 	private static RuntimeRestOptions copy(RuntimeRestOptions value) {
 		return RuntimeRestOptions.builder()
 			.withHost(value.getHost())
@@ -757,11 +699,6 @@ public class IndexerNodeOptions {
 		services.put(Services.TARGET_ACTION, IndexerServiceDeploymentOptions.builder().build());
 		services.put(
 			Services.TARGET_ACTION_REST,
-			IndexerServiceDeploymentOptions.builder().withEnabled(false).build()
-		);
-		services.put(Services.DOCUMENT_QUERY, IndexerServiceDeploymentOptions.builder().build());
-		services.put(
-			Services.DOCUMENT_QUERY_REST,
 			IndexerServiceDeploymentOptions.builder().withEnabled(false).build()
 		);
 		services.put(Services.RUNTIME, IndexerServiceDeploymentOptions.builder().build());

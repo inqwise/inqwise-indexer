@@ -49,9 +49,6 @@ import com.inqwise.indexer.publication.MetadataIndexPublicationService;
 import com.inqwise.indexer.routing.RoutedIndexActionPublisher;
 import com.inqwise.indexer.routing.SubmitIndexActionsCommandHandler;
 import com.inqwise.indexer.service.invalidation.TargetInvalidationRegistryServices;
-import com.inqwise.indexer.documents.DefaultDocumentQueryEngine;
-import com.inqwise.indexer.documents.DocumentQueryEngine;
-import com.inqwise.indexer.metadata.RepositoryPublishedIndexResolver;
 
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
@@ -233,11 +230,6 @@ public final class DefaultIndexerNodeComponentsFactory {
 			nodeOptions.getRuntimeReconcilerOptions(),
 			resolvedOperationalMonitor
 		);
-		DocumentQueryEngine documentQueryEngine = new DefaultDocumentQueryEngine(
-			new RepositoryPublishedIndexResolver(repository),
-			documentStore
-		);
-
 		return IndexerNodeComponents.builder()
 			.withHotIndexActionsService(hotIndexActionsService)
 			.withRuntime(runtime)
@@ -250,7 +242,6 @@ public final class DefaultIndexerNodeComponentsFactory {
 			.withTargetDefinitionProvider(targetDefinitionProvider)
 			.withIndexerDefinitionProvider(indexerDefinitionProvider)
 			.withDocumentIndexResources(documentStore)
-			.withDocumentQueryEngine(documentQueryEngine)
 			.withInvalidRouteCache(invalidRouteCache)
 			.withInvalidRouteMetadataChangeListener(invalidRouteMetadataChangeListener)
 			.withTargetInvalidationRegistryBackend(targetInvalidationRegistryBackend)

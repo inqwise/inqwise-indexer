@@ -22,10 +22,8 @@ import com.inqwise.indexer.service.action.TargetActionServiceVerticle;
 import com.inqwise.indexer.service.runtime.RuntimeServiceVerticle;
 import com.inqwise.indexer.service.invalidation.TargetInvalidationRegistryServiceVerticle;
 import com.inqwise.indexer.service.invalidation.TargetInvalidationRegistryServices;
-import com.inqwise.indexer.rest.document.DocumentQueryRestVerticle;
 import com.inqwise.indexer.runtime.IndexerEventPublisher;
 import com.inqwise.indexer.monitoring.IndexerOperationalMonitor;
-import com.inqwise.indexer.service.document.DocumentQueryServiceVerticle;
 
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Future;
@@ -183,8 +181,6 @@ public class IndexerNode {
 	private Future<Void> deployDataPlane() {
 		return deployTargetAction()
 			.compose(ignored -> deployTargetActionRest())
-			.compose(ignored -> deployDocumentQuery())
-			.compose(ignored -> deployDocumentQueryRest())
 			.compose(ignored -> deployRuntime())
 			.compose(ignored -> deployRuntimeRest())
 			.compose(ignored -> deployGateway());
@@ -439,34 +435,6 @@ public class IndexerNode {
 
 		return vertx.deployVerticle(
 			new TargetActionRestVerticle(options.getTargetActionRestOptions()),
-			new DeploymentOptions()
-		).onSuccess(this::trackDataPlaneDeployment).mapEmpty();
-	}
-
-	private Future<Void> deployDocumentQuery() {
-		IndexerServiceDeploymentOptions deployment = options.documentQuery();
-		if (!deployment.isEnabled()) {
-			return Future.succeededFuture();
-		}
-
-		Future<Void> deployed = Future.succeededFuture();
-		for (int i = 0; i < deployment.getInstances(); i++) {
-			deployed = deployed.compose(ignored -> vertx.deployVerticle(
-				new DocumentQueryServiceVerticle(components.documentQueryEngine()),
-				new DeploymentOptions()
-			).onSuccess(this::trackDataPlaneDeployment).mapEmpty());
-		}
-		return deployed;
-	}
-
-	private Future<Void> deployDocumentQueryRest() {
-		IndexerServiceDeploymentOptions deployment = options.documentQueryRest();
-		if (!deployment.isEnabled()) {
-			return Future.succeededFuture();
-		}
-
-		return vertx.deployVerticle(
-			new DocumentQueryRestVerticle(options.getDocumentQueryRestOptions()),
 			new DeploymentOptions()
 		).onSuccess(this::trackDataPlaneDeployment).mapEmpty();
 	}

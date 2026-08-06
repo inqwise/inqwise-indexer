@@ -61,7 +61,6 @@ class DefaultIndexerNodeComponentsFactoryTest {
 				InMemoryIndexerDocumentStore.class,
 				components.documentIndexResources()
 			),
-			() -> assertNotNull(components.documentQueryEngine()),
 			() -> assertNotNull(components.invalidRouteCache()),
 			() -> assertNotNull(components.invalidRouteMetadataChangeListener()),
 			() -> assertNotNull(components.targetInvalidationRegistryBackend()),

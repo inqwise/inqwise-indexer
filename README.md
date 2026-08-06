@@ -14,7 +14,7 @@ Vert.x 5.x indexing library with this Maven reactor layout:
 - `indexer-load`: load/reload orchestration, provider/runtime integration, durable workflow commands, and load-specific metadata around the core indexer primitives.
 - Root `inqwise-indexer`: local aggregator POM only.
 
-The approved provider-neutral scope includes an internal document-query slice. Remaining implementation starts only after selecting a concrete external contract or requirement: production persistence/resource and search adapters, deployment identity and audit sinks, distributed coordination, historical/live blend tracking, partitioned catch-up lanes, strict distributed queue-reset fencing, or classified and observable automatic runtime recovery. Repository splitting remains deferred until module contracts and release cadence are stable. The public gateway remains intentionally read-only; administration mutations, action submission, document querying, and runtime recovery stay internal.
+The approved provider-neutral scope is complete. Remaining implementation starts only after selecting a concrete external contract or requirement: production persistence/resource adapters, deployment identity and audit sinks, distributed coordination, a document-query API, historical/live blend tracking, partitioned catch-up lanes, strict distributed queue-reset fencing, or classified and observable automatic runtime recovery. Repository splitting remains deferred until module contracts and release cadence are stable. The public gateway remains intentionally read-only; administration mutations, action submission, and runtime recovery stay internal.
 
 ## Hacker News Example
 
@@ -40,22 +40,7 @@ The script defaults to node host `192.168.6.171`, Hazelcast public port `5702`, 
 
 `deployment/local/indexer-node.json` defines the non-periodic `hacker-news` target with auto-provision-on-write. The HN source configuration lives separately under `hacker_news`: `base_uri`, `poll_interval_ms`, `max_changes_per_poll`, `request_concurrency`, `request_idle_timeout_ms`, and `action_batch_size`. Defaults are a five-second poll, at most 100 changed ids, eight concurrent item requests with a ten-second idle timeout, and 100 actions per submission. One poll is allowed in flight; a timer tick during a slow poll is skipped rather than creating unbounded work. Fingerprints are retained only for the selected update window, so source-side deduplication memory stays bounded.
 
-This remains a development example. Its fingerprint memory is process-local and is lost on restart. Restarting may replay the current update window, which is safe because document mutations use stable ids. The source has no direct access to the node's document adapter; queries go through the node-owned provider-neutral query service. Production evolution requires source leadership, a durable deduplication/checkpoint store, durable command/queue and document providers, retry/backoff plus API observability, and a production search adapter. LLM-derived product-pain enrichment is the next consumer layer, not part of source ingestion or Indexer runtime state.
-
-## Document Query
-
-Document querying is a separate read-side boundary. `DocumentQueryEngine` resolves the published physical indexes for a logical target and optional time interval through `PublishedIndexResolver`, delegates physical search to `IndexerDocumentQueryProvider`, and merges provider results into one deterministic page. Physical index names remain internal; each returned hit carries only `target_id`, `indexer_id`, `uid`, `score`, and the stored document. A target with no published index returns an empty page.
-
-The first query contract supports a required target name, optional free text, optional `from` inclusive and `to` exclusive timestamps, and bounded offset/limit pagination. An omitted or blank `q` matches all documents in the selected published indexes. The local in-memory adapter performs case-insensitive all-term matching over the uid and encoded document and is intended only for development. Production providers own their search syntax and scoring implementation while preserving the provider-neutral result contract. Cross-provider score normalization, stable cursor pagination, structured filters, facets, highlighting, and public authorization are deferred until a concrete production search use case requires them.
-
-The node deploys the generated EventBus service at `indexer.service.document-query` by default. The local deployment also enables the internal REST adapter on port `8087`:
-
-```sh
-curl -sS \
-	'http://127.0.0.1:8087/documents/search?target_name=hacker-news&q=vertx&offset=0&limit=20'
-```
-
-The query service and REST adapter belong to the data plane, so they are unavailable while the node is in recovery-only mode. They are not exposed through the public Gateway or the internal web console.
+This remains a development example. Its fingerprint memory is process-local and is lost on restart. Restarting may replay the current update window, which is safe because document mutations use stable ids. The source exposes no document query API and has no access to the node's document adapter; a provider-neutral query contract remains separate work. Production evolution requires source leadership, a durable deduplication/checkpoint store, durable command/queue and document providers, retry/backoff plus API observability, and an approved query adapter. LLM-derived product-pain enrichment is the next consumer layer, not part of source ingestion or Indexer runtime state.
 
 ## Internal Web Console
 
@@ -90,9 +75,9 @@ The console is an internal development and operations surface. Excluding Gateway
 
 ## Local Deployment
 
-The first runnable deployment uses the existing `IndexerNode` composition with in-memory metadata, queue, and document-store adapters. It enables the internal Admin, Target Action, Runtime, and Document Query REST envelopes, keeps the public Gateway disabled, and loads local `customers` and `hacker-news` target definitions with cold-write auto-provisioning from `deployment/local/indexer-node.json`. This profile is for inspection and development only; all state is discarded when the process stops.
+The first runnable deployment uses the existing `IndexerNode` composition with in-memory metadata, queue, and document-store adapters. It enables the internal Admin, Target Action, and Runtime REST envelopes, keeps the public Gateway disabled, and loads local `customers` and `hacker-news` target definitions with cold-write auto-provisioning from `deployment/local/indexer-node.json`. This profile is for inspection and development only; all state is discarded when the process stops.
 
-Prerequisites are Java 21 or newer, Maven, a running Docker-compatible daemon with Compose support, and free loopback ports `3000`, `8080`, `8081`, `8083`, `8084`, `8087`, and `9090`. Build the layered image with Jib and start it from the repository root:
+Prerequisites are Java 21 or newer, Maven, a running Docker-compatible daemon with Compose support, and free loopback ports `3000`, `8080`, `8081`, `8083`, `8084`, and `9090`. Build the layered image with Jib and start it from the repository root:
 
 ```sh
 ./run-local.sh
@@ -182,7 +167,6 @@ curl -i http://127.0.0.1:8084/health/live
 curl -i http://127.0.0.1:8084/health/ready
 curl -sS http://127.0.0.1:8080/admin/targets
 curl -sS http://127.0.0.1:8083/runtime/status
-curl -sS 'http://127.0.0.1:8087/documents/search?target_name=hacker-news&q=vertx'
 ```
 
 Health checks use Vert.x Health Check response semantics. Liveness returns `204` while the node is running, including recovery-only mode. Readiness returns `503` with a JSON health report during startup, shutdown, or recovery-only mode and returns `200` with an `UP` report only when the full data plane is available.
