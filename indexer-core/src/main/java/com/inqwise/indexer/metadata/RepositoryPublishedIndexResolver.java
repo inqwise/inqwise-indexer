@@ -1,6 +1,7 @@
 package com.inqwise.indexer.metadata;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -73,12 +74,9 @@ public class RepositoryPublishedIndexResolver implements PublishedIndexResolver 
 				.sorted(Comparator
 					.comparingInt((IndexerRecord indexer) -> targetOrder.get(indexer.targetId()))
 					.thenComparing(IndexerRecord::id))
-				.map(indexer -> PublishedIndex.builder()
-					.withIndexerId(indexer.id())
-					.withTargetId(indexer.targetId())
-					.withIndexName(indexer.indexName())
-					.build())
-				.collect(Collectors.collectingAndThen(
+				.toList())
+			.compose(this::resolveSchemas)
+			.map(indexes -> indexes.stream().collect(Collectors.collectingAndThen(
 					Collectors.toMap(
 						PublishedIndex::indexName,
 						Function.identity(),
@@ -87,6 +85,29 @@ public class RepositoryPublishedIndexResolver implements PublishedIndexResolver 
 					),
 					indexesByName -> List.copyOf(indexesByName.values())
 				)));
+	}
+
+	private Future<List<PublishedIndex>> resolveSchemas(List<IndexerRecord> indexers) {
+		Future<List<PublishedIndex>> resolved = Future.succeededFuture(new ArrayList<>());
+		for (IndexerRecord indexer : indexers) {
+			resolved = resolved.compose(indexes -> repository
+				.getActiveManifestByIndexerId(indexer.id())
+				.compose(found -> found
+					.map(manifest -> {
+						indexes.add(PublishedIndex.builder()
+							.withIndexerId(indexer.id())
+							.withTargetId(indexer.targetId())
+							.withIndexName(indexer.indexName())
+							.withSchemaName(manifest.schemaName())
+							.withSchemaVersion(manifest.schemaVersion())
+							.build());
+						return Future.succeededFuture(indexes);
+					})
+					.orElseGet(() -> Future.failedFuture(
+						"Published indexer has no active manifest: " + indexer.id()
+					))));
+		}
+		return resolved.map(List::copyOf);
 	}
 
 	private boolean overlaps(TargetRecord target, PublishedIndexQuery query) {

@@ -1,5 +1,6 @@
 package com.inqwise.indexer.adapters.local;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -59,5 +60,18 @@ public class InMemoryIndexerDocumentStore
 		Map<String, JsonObject> index = indexes.get(indexName);
 		JsonObject document = index == null ? null : index.get(uid);
 		return document == null ? null : document.copy();
+	}
+
+	public Map<String, JsonObject> documents(String indexName) {
+		DocumentIndexNameValidator.requireConcrete(indexName);
+		Map<String, JsonObject> index = indexes.get(indexName);
+		if (index == null || index.isEmpty()) {
+			return Map.of();
+		}
+		Map<String, JsonObject> snapshot = new LinkedHashMap<>();
+		index.entrySet().stream()
+			.sorted(Map.Entry.comparingByKey())
+			.forEach(entry -> snapshot.put(entry.getKey(), entry.getValue().copy()));
+		return Map.copyOf(snapshot);
 	}
 }

@@ -16,6 +16,10 @@
 	<dependencies>
 		<dependency>
 			<groupId>com.inqwise.indexer</groupId>
+			<artifactId>indexer-example-hacker-news-model</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>com.inqwise.indexer</groupId>
 			<artifactId>indexer</artifactId>
 		</dependency>
 		<dependency>

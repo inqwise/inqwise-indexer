@@ -8,6 +8,7 @@ public interface IndexerProcessorFactory {
 		IndexerModel model,
 		IndexerOptions options,
 		ActionItemProcessHandler processHandler,
+		ActionItemAfterCommitObserver afterCommitObserver,
 		IndexerEventPublisher eventPublisher
 	);
 }

@@ -67,7 +67,7 @@ public final class HackerNewsIngestionService {
 		timerId = vertx.setPeriodic(options.pollInterval().toMillis(), ignored -> runScheduledPoll());
 		logger.info(
 			"Hacker News ingestion started: target={}, poll_interval_ms={}, max_changes_per_poll={}",
-			HackerNewsOptions.TARGET_NAME,
+			HackerNewsConsumer.TARGET_NAME,
 			options.pollInterval().toMillis(),
 			options.maxChangesPerPoll()
 		);
@@ -228,7 +228,7 @@ public final class HackerNewsIngestionService {
 		String submissionId = "hn-" + batch.get(0).itemId() + "-" + batch.get(batch.size() - 1).itemId();
 		return targetActions.submit(TargetActionSubmitRequest.builder()
 			.withSubmissionId(submissionId)
-			.withTargetName(HackerNewsOptions.TARGET_NAME)
+			.withTargetName(HackerNewsConsumer.TARGET_NAME)
 			.withActions(actions)
 			.build()).<Void>mapEmpty().onSuccess(ignored -> {
 				synchronized (this) {

@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 
+import com.inqwise.indexer.runtime.DocumentActionRuntimeHooks;
 import com.inqwise.indexer.runtime.IndexerEventPublisher;
 import com.inqwise.indexer.monitoring.IndexerOperationalMonitor;
 import com.inqwise.indexer.lifecycle.IndexerLifecycleEventBus;
@@ -41,6 +42,7 @@ import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepositor
 import com.inqwise.indexer.catalog.indexers.IndexerOperations;
 import com.inqwise.indexer.catalog.indexers.MetadataIndexerOperations;
 import com.inqwise.indexer.providers.IndexerProviders;
+import com.inqwise.indexer.providers.IndexerPlugins;
 import com.inqwise.indexer.providers.MetadataIndexerProvider;
 import com.inqwise.indexer.provisioning.IndexerProvisioningService;
 import com.inqwise.indexer.provisioning.MetadataIndexerProvisioningService;
@@ -85,6 +87,22 @@ public final class DefaultIndexerNodeComponentsFactory {
 		IndexerEventPublisher eventPublisher,
 		IndexerOperationalMonitor operationalMonitor
 	) {
+		return create(
+			vertx,
+			nodeOptions,
+			eventPublisher,
+			operationalMonitor,
+			DocumentActionRuntimeHooks.NONE
+		);
+	}
+
+	public IndexerNodeComponents create(
+		Vertx vertx,
+		IndexerNodeOptions nodeOptions,
+		IndexerEventPublisher eventPublisher,
+		IndexerOperationalMonitor operationalMonitor,
+		DocumentActionRuntimeHooks runtimeHooks
+	) {
 		Objects.requireNonNull(vertx, "vertx");
 		Objects.requireNonNull(nodeOptions, "nodeOptions").validate();
 		IndexerEventPublisher resolvedEventPublisher = eventPublisher == null
@@ -94,6 +112,9 @@ public final class DefaultIndexerNodeComponentsFactory {
 			operationalMonitor == null
 				? IndexerOperationalMonitor.NOOP
 				: operationalMonitor;
+		DocumentActionRuntimeHooks resolvedRuntimeHooks = runtimeHooks == null
+			? DocumentActionRuntimeHooks.NONE
+			: runtimeHooks;
 
 		DocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();
@@ -220,7 +241,9 @@ public final class DefaultIndexerNodeComponentsFactory {
 			queue,
 			documentStore,
 			IndexerOptions.builder().build(),
-			resolvedEventPublisher
+			resolvedEventPublisher,
+			IndexerPlugins.empty(),
+			resolvedRuntimeHooks
 		);
 		IndexerRuntimeReconciler runtimeReconciler = new IndexerRuntimeReconciler(
 			vertx,

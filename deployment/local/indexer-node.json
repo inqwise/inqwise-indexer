@@ -32,6 +32,21 @@
 		"host": "0.0.0.0",
 		"port": 8084
 	},
+	"hacker_news_reports": {
+		"enabled": true,
+		"instances": 1,
+		"address": "indexer.query.reports"
+	},
+	"hacker_news_actions": {
+		"enabled": true,
+		"target_name": "hacker-news"
+	},
+	"hacker_news_reports_rest": {
+		"enabled": true,
+		"host": "0.0.0.0",
+		"port": 8085,
+		"reports_address": "indexer.query.reports"
+	},
 	"web": {
 		"host": "0.0.0.0",
 		"port": 3000,

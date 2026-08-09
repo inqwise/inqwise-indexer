@@ -44,7 +44,8 @@ public class IndexerRuntime {
 			documentStore,
 			options,
 			eventPublisher,
-			IndexerPlugins.empty()
+			IndexerPlugins.empty(),
+			DocumentActionRuntimeHooks.NONE
 		);
 	}
 
@@ -56,6 +57,26 @@ public class IndexerRuntime {
 		IndexerEventPublisher eventPublisher,
 		IndexerPlugins plugins
 	) {
+		this(
+			vertx,
+			queue,
+			documentStore,
+			options,
+			eventPublisher,
+			plugins,
+			DocumentActionRuntimeHooks.NONE
+		);
+	}
+
+	public IndexerRuntime(
+		Vertx vertx,
+		IndexerQueueClient queue,
+		IndexerDocumentStore documentStore,
+		IndexerOptions options,
+		IndexerEventPublisher eventPublisher,
+		IndexerPlugins plugins,
+		DocumentActionRuntimeHooks runtimeHooks
+	) {
 		this(indexer -> createVerticleBackedIndexer(
 				vertx,
 				toModel(indexer),
@@ -63,7 +84,8 @@ public class IndexerRuntime {
 				documentStore,
 				options,
 				eventPublisher,
-				markerHandler(plugins, indexer)
+				markerHandler(plugins, indexer),
+				runtimeHooks
 			)
 		);
 	}
@@ -167,7 +189,8 @@ public class IndexerRuntime {
 		IndexerDocumentStore documentStore,
 		IndexerOptions options,
 		IndexerEventPublisher eventPublisher,
-		IndexerMarkerHandler markerHandler
+		IndexerMarkerHandler markerHandler,
+		DocumentActionRuntimeHooks runtimeHooks
 	) {
 		IndexerOptions resolvedOptions = options == null
 			? IndexerOptions.builder().build()
@@ -183,7 +206,13 @@ public class IndexerRuntime {
 			documentStore,
 			resolvedOptions,
 			resolvedPublisher,
-			(processorModel, processorOptions, processHandler, processorEventPublisher) ->
+			(
+				processorModel,
+				processorOptions,
+				processHandler,
+				afterCommitObserver,
+				processorEventPublisher
+			) ->
 				new VerticleIndexerProcessor(
 					vertx,
 					() -> new IndexerProcessorVerticle(
@@ -191,10 +220,12 @@ public class IndexerRuntime {
 						processorOptions,
 						queue,
 						processHandler,
+						afterCommitObserver,
 						processorEventPublisher
 					)
 				),
-			markerHandler
+			markerHandler,
+			runtimeHooks
 		);
 	}
 

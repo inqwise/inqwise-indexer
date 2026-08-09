@@ -23,6 +23,18 @@
 			<artifactId>indexer-web</artifactId>
 		</dependency>
 		<dependency>
+			<groupId>com.inqwise.indexer</groupId>
+			<artifactId>indexer-query</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>com.inqwise.indexer</groupId>
+			<artifactId>indexer-example-hacker-news-actions</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>com.inqwise.indexer</groupId>
+			<artifactId>indexer-example-hacker-news-reports</artifactId>
+		</dependency>
+		<dependency>
 			<groupId>io.vertx</groupId>
 			<artifactId>vertx-launcher-application</artifactId>
 		</dependency>
@@ -90,6 +102,7 @@
 							<port>8081</port>
 							<port>8083</port>
 							<port>8084</port>
+							<port>8085</port>
 							<port>9090</port>
 						</ports>
 						<user>10001:10001</user>

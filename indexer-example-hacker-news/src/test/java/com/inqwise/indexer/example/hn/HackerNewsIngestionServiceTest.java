@@ -106,6 +106,7 @@ class HackerNewsIngestionServiceTest {
 		return HackerNewsItem.builder()
 			.withId(id)
 			.withType("story")
+			.withTime(1_700_000_000L + id)
 			.withTitle("Story " + id)
 			.withScore(score)
 			.build();

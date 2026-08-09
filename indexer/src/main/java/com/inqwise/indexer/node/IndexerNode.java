@@ -19,6 +19,7 @@ import com.inqwise.indexer.rest.runtime.RuntimeRestVerticle;
 import com.inqwise.indexer.service.admin.AdminCreateRequestResolver;
 import com.inqwise.indexer.service.admin.AdminServiceVerticle;
 import com.inqwise.indexer.service.action.TargetActionServiceVerticle;
+import com.inqwise.indexer.service.action.TargetActionPreparationRegistry;
 import com.inqwise.indexer.service.runtime.RuntimeServiceVerticle;
 import com.inqwise.indexer.service.invalidation.TargetInvalidationRegistryServiceVerticle;
 import com.inqwise.indexer.service.invalidation.TargetInvalidationRegistryServices;
@@ -39,6 +40,7 @@ public class IndexerNode {
 	private final IndexerNodeComponents components;
 	private final GatewayRequestHooks gatewayRequestHooks;
 	private final IndexerOperationalMonitor operationalMonitor;
+	private final TargetActionPreparationRegistry targetActionPreparations;
 	private final List<String> deploymentIds = new ArrayList<>();
 	private final List<String> dataPlaneDeploymentIds = new ArrayList<>();
 	private final List<String> infrastructureDeploymentIds = new ArrayList<>();
@@ -83,6 +85,24 @@ public class IndexerNode {
 		GatewayRequestHooks gatewayRequestHooks,
 		IndexerOperationalMonitor operationalMonitor
 	) {
+		this(
+			vertx,
+			options,
+			components,
+			gatewayRequestHooks,
+			operationalMonitor,
+			TargetActionPreparationRegistry.NONE
+		);
+	}
+
+	public IndexerNode(
+		Vertx vertx,
+		IndexerNodeOptions options,
+		IndexerNodeComponents components,
+		GatewayRequestHooks gatewayRequestHooks,
+		IndexerOperationalMonitor operationalMonitor,
+		TargetActionPreparationRegistry targetActionPreparations
+	) {
 		this.vertx = Objects.requireNonNull(vertx, "vertx");
 		this.options = (
 			options == null ? IndexerNodeOptions.builder().build() : options
@@ -92,6 +112,10 @@ public class IndexerNode {
 		this.operationalMonitor = operationalMonitor == null
 			? IndexerOperationalMonitor.NOOP
 			: operationalMonitor;
+		this.targetActionPreparations = Objects.requireNonNull(
+			targetActionPreparations,
+			"targetActionPreparations"
+		);
 		this.components.runtimeReconciler().onFailure(this::enterRecoveryOnly);
 	}
 
@@ -135,6 +159,24 @@ public class IndexerNode {
 		IndexerEventPublisher eventPublisher,
 		IndexerOperationalMonitor operationalMonitor
 	) {
+		return create(
+			vertx,
+			options,
+			gatewayRequestHooks,
+			eventPublisher,
+			operationalMonitor,
+			TargetActionPreparationRegistry.NONE
+		);
+	}
+
+	public static IndexerNode create(
+		Vertx vertx,
+		IndexerNodeOptions options,
+		GatewayRequestHooks gatewayRequestHooks,
+		IndexerEventPublisher eventPublisher,
+		IndexerOperationalMonitor operationalMonitor,
+		TargetActionPreparationRegistry targetActionPreparations
+	) {
 		IndexerNodeOptions resolved = options == null
 			? IndexerNodeOptions.builder().build()
 			: options;
@@ -149,7 +191,8 @@ public class IndexerNode {
 				operationalMonitor
 			),
 			gatewayRequestHooks,
-			operationalMonitor
+			operationalMonitor,
+			targetActionPreparations
 		);
 	}
 
@@ -418,7 +461,8 @@ public class IndexerNode {
 			deployed = deployed.compose(ignored -> vertx.deployVerticle(
 				new TargetActionServiceVerticle(
 					components.hotIndexActionsService(),
-					operationalMonitor
+					operationalMonitor,
+					targetActionPreparations
 				),
 				new DeploymentOptions()
 			).onSuccess(this::trackDataPlaneDeployment).mapEmpty());

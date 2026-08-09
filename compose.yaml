@@ -7,6 +7,7 @@ services:
       - "8081:8081"
       - "8083:8083"
       - "8084:8084"
+      - "127.0.0.1:8085:8085"
       - "127.0.0.1:9090:9090"
     volumes:
       - ./deployment/local/indexer-node.json:/config/indexer-node.json:ro

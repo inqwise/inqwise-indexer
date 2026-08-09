@@ -1,6 +1,9 @@
 package com.inqwise.indexer.adapters.local;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -47,6 +50,24 @@ class InMemoryResourceManagerTest {
 			.compose(ignored -> store.delete("customers"))
 			.compose(ignored -> store.ensure("customers", indexDefinition("v2")))
 			.onComplete(testContext.succeeding(ignored -> testContext.completeNow()));
+	}
+
+	@Test
+	void documentSnapshotIsImmutableAndDefensive(VertxTestContext testContext) {
+		InMemoryIndexerDocumentStore store = new InMemoryIndexerDocumentStore();
+		JsonObject document = new JsonObject().put("title", "Original");
+
+		store.put("customers", "42", document)
+			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
+				Map<String, JsonObject> snapshot = store.documents("customers");
+				snapshot.get("42").put("title", "Changed");
+				assertEquals("Original", store.get("customers", "42").getString("title"));
+				assertThrows(
+					UnsupportedOperationException.class,
+					() -> snapshot.put("43", new JsonObject())
+				);
+				testContext.completeNow();
+			})));
 	}
 
 	@Test

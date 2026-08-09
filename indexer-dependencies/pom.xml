@@ -68,12 +68,32 @@
 			</dependency>
 			<dependency>
 				<groupId>com.inqwise.indexer</groupId>
+				<artifactId>indexer-query</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>com.inqwise.indexer</groupId>
 				<artifactId>indexer</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>com.inqwise.indexer</groupId>
 				<artifactId>indexer-web</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>com.inqwise.indexer</groupId>
+				<artifactId>indexer-example-hacker-news-model</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>com.inqwise.indexer</groupId>
+				<artifactId>indexer-example-hacker-news-actions</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>com.inqwise.indexer</groupId>
+				<artifactId>indexer-example-hacker-news-reports</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 		</dependencies>

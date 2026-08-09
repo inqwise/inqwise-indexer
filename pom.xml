@@ -15,7 +15,11 @@
 		<module>indexer-core</module>
 		<module>indexer-events</module>
 		<module>indexer-coordination</module>
+		<module>indexer-query</module>
 		<module>indexer</module>
+		<module>indexer-example-hacker-news-model</module>
+		<module>indexer-example-hacker-news-actions</module>
+		<module>indexer-example-hacker-news-reports</module>
 		<module>indexer-web</module>
 		<module>indexer-node-application</module>
 		<module>indexer-example-hacker-news</module>

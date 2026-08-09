@@ -10,6 +10,7 @@ import com.inqwise.indexer.catalog.indexers.MutationState;
 import com.inqwise.indexer.publication.PublicationState;
 import com.inqwise.indexer.publication.PublishedIndex;
 import com.inqwise.indexer.publication.PublishedIndexQuery;
+import com.inqwise.indexer.provisioning.ManifestStatus;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -38,6 +39,8 @@ class RepositoryPublishedIndexResolverTest {
 	private static final Instant FEBRUARY = Instant.parse("2026-02-01T00:00:00Z");
 	private static final Instant MARCH = Instant.parse("2026-03-01T00:00:00Z");
 	private static final Instant APRIL = Instant.parse("2026-04-01T00:00:00Z");
+	private static final String SCHEMA_NAME = "customer";
+	private static final String SCHEMA_VERSION = "v1";
 
 	@Test
 	void resolvesSparsePeriodsInPeriodOrder(VertxTestContext testContext) {
@@ -54,8 +57,20 @@ class RepositoryPublishedIndexResolverTest {
 						new PublishedIndexQuery("customers", JANUARY, APRIL)
 					).map(indexes -> {
 						assertEquals(List.of(
-							new PublishedIndex(januaryIndexer, januaryTarget, "customers_2026_01"),
-							new PublishedIndex(march[1], march[0], "customers_2026_03")
+							new PublishedIndex(
+								januaryIndexer,
+								januaryTarget,
+								"customers_2026_01",
+								SCHEMA_NAME,
+								SCHEMA_VERSION
+							),
+							new PublishedIndex(
+								march[1],
+								march[0],
+								"customers_2026_03",
+								SCHEMA_NAME,
+								SCHEMA_VERSION
+							)
 						), indexes);
 						return null;
 					}))))
@@ -74,7 +89,13 @@ class RepositoryPublishedIndexResolverTest {
 					new PublishedIndexQuery("customers", JANUARY, FEBRUARY)
 				).map(indexes -> {
 					assertEquals(List.of(
-						new PublishedIndex(indexerId, targetId, "customers_all")
+						new PublishedIndex(
+							indexerId,
+							targetId,
+							"customers_all",
+							SCHEMA_NAME,
+							SCHEMA_VERSION
+						)
 					), indexes);
 					return null;
 				})))
@@ -119,6 +140,37 @@ class RepositoryPublishedIndexResolverTest {
 			))
 			.onComplete(testContext.succeeding(indexes -> testContext.verify(() -> {
 				assertTrue(indexes.isEmpty());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void rejectsPublishedIndexerWithoutActiveManifest(VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		RepositoryPublishedIndexResolver resolver = new RepositoryPublishedIndexResolver(repository);
+
+		insertTarget(repository, "2026-01", JANUARY, FEBRUARY)
+			.compose(targetId -> repository.insertIndexer(indexerRecord(
+				"test",
+				targetId,
+				"customers",
+				"customers_2026_01",
+				"queue-customers_2026_01",
+				IndexerType.INDEX,
+				IndexerRole.LIVE_WRITER,
+				IndexResourceOwnership.OWNER,
+				IndexerStatus.AVAILABLE,
+				IndexerProvisioningState.READY,
+				IndexerRuntimeState.ACTIVE,
+				PublicationState.PUBLISHED,
+				MutationState.WRITABLE
+			)))
+			.compose(ignored -> resolver.resolvePublishedIndexes(
+				new PublishedIndexQuery("customers", JANUARY, FEBRUARY)
+			))
+			.onComplete(testContext.failing(error -> testContext.verify(() -> {
+				assertTrue(error.getMessage().contains("no active manifest"));
 				testContext.completeNow();
 			})));
 	}
@@ -197,6 +249,15 @@ class RepositoryPublishedIndexResolverTest {
 			IndexerRuntimeState.ACTIVE,
 			publicationState,
 			mutationState
-		));
+		)).compose(indexerId -> repository.insertManifest(InsertManifest.builder()
+			.withPrefix("test")
+			.withTargetId(targetId)
+			.withIndexerId(indexerId)
+			.withTargetName("customers")
+			.withIndexName(indexName)
+			.withSchemaName(SCHEMA_NAME)
+			.withSchemaVersion(SCHEMA_VERSION)
+			.withStatus(ManifestStatus.ACTIVE)
+			.build()).map(indexerId));
 	}
 }

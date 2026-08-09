@@ -13,6 +13,7 @@ import com.inqwise.indexer.catalog.indexers.IndexerModel;
 import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
 import com.inqwise.indexer.lifecycle.IndexerMetadataChanged;
 import com.inqwise.indexer.provisioning.IndexerQueueResourceManager;
+import com.inqwise.indexer.providers.IndexerPlugins;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -164,6 +165,59 @@ class IndexerRuntimeTest {
 				assertEquals("Ada", documentStore.get("customers_1", "42").getString("name"));
 				testContext.completeNow();
 			})));
+	}
+
+	@Test
+	void verticleBackedRuntimeInvokesAfterCommitHook(
+		Vertx vertx,
+		VertxTestContext testContext
+	) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
+		InMemoryIndexerDocumentStore documentStore = new InMemoryIndexerDocumentStore();
+		AtomicReference<DocumentActionExecutionContext> committed = new AtomicReference<>();
+		DocumentActionRuntimeHooks hooks = new DocumentActionRuntimeHooks() {
+			@Override
+			public Future<Void> afterCommit(DocumentActionExecutionContext context) {
+				committed.set(context);
+				return Future.succeededFuture();
+			}
+		};
+		IndexerRuntime runtime = new IndexerRuntime(
+			vertx,
+			queue,
+			documentStore,
+			new IndexerOptions(),
+			event -> {
+				if (event.getType() == IndexerEventType.CONSUMER_RESUMED
+					&& event.getItem() != null) {
+					testContext.verify(() -> {
+						assertEquals("42", committed.get().documentUid());
+						assertEquals(
+							"Ada",
+							documentStore.get("customers_1", "42").getString("name")
+						);
+						testContext.completeNow();
+					});
+				}
+				return Future.succeededFuture();
+			},
+			IndexerPlugins.empty(),
+			hooks
+		);
+
+		insertIndexer(repository, IndexerRuntimeState.ACTIVE, MutationState.WRITABLE)
+			.compose(id -> reconcile(runtime, repository, id))
+			.compose(ignored -> queue.publisher("queue-customers-1"))
+			.compose(publisher -> publisher.publish(IndexerActionItems.concretePutDocument(
+				1,
+				1,
+				"customers_1",
+				"42",
+				new io.vertx.core.json.JsonObject().put("name", "Ada")
+			)).eventually(publisher::close))
+			.onFailure(testContext::failNow);
 	}
 
 	@Test

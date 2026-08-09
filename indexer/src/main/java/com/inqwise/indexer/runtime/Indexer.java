@@ -35,6 +35,7 @@ public class Indexer {
 	protected final IndexerQueueClient queue;
 	protected final IndexerEventPublisher eventPublisher;
 	protected final IndexerMarkerHandler markerHandler;
+	protected final DocumentActionRuntimeHooks runtimeHooks;
 	protected IndexerProcessor processor;
 
 	private MessageConsumer<JsonObject> queueConsumer;
@@ -60,7 +61,8 @@ public class Indexer {
 			null,
 			IndexerEventPublisher.NOOP,
 			null,
-			IndexerMarkerHandler.FAILING
+			IndexerMarkerHandler.FAILING,
+			DocumentActionRuntimeHooks.NONE
 		);
 	}
 
@@ -80,7 +82,30 @@ public class Indexer {
 			queue,
 			eventPublisher,
 			null,
-			IndexerMarkerHandler.FAILING
+			IndexerMarkerHandler.FAILING,
+			DocumentActionRuntimeHooks.NONE
+		);
+	}
+
+	public Indexer(
+		Vertx vertx,
+		IndexerModel model,
+		IndexerQueueClient queue,
+		IndexerDocumentStore documentStore,
+		IndexerOptions options,
+		IndexerEventPublisher eventPublisher,
+		DocumentActionRuntimeHooks runtimeHooks
+	) {
+		this(
+			vertx,
+			model,
+			documentStore,
+			options,
+			queue,
+			eventPublisher,
+			null,
+			IndexerMarkerHandler.FAILING,
+			runtimeHooks
 		);
 	}
 
@@ -101,7 +126,8 @@ public class Indexer {
 			queue,
 			eventPublisher,
 			processor,
-			IndexerMarkerHandler.FAILING
+			IndexerMarkerHandler.FAILING,
+			DocumentActionRuntimeHooks.NONE
 		);
 	}
 
@@ -122,7 +148,8 @@ public class Indexer {
 			options,
 			eventPublisher,
 			processorFactory,
-			IndexerMarkerHandler.FAILING
+			IndexerMarkerHandler.FAILING,
+			DocumentActionRuntimeHooks.NONE
 		);
 	}
 
@@ -139,16 +166,47 @@ public class Indexer {
 		this(
 			vertx,
 			model,
+			queue,
+			documentStore,
+			options,
+			eventPublisher,
+			processorFactory,
+			markerHandler,
+			DocumentActionRuntimeHooks.NONE
+		);
+	}
+
+	public Indexer(
+		Vertx vertx,
+		IndexerModel model,
+		IndexerQueueClient queue,
+		IndexerDocumentStore documentStore,
+		IndexerOptions options,
+		IndexerEventPublisher eventPublisher,
+		IndexerProcessorFactory processorFactory,
+		IndexerMarkerHandler markerHandler,
+		DocumentActionRuntimeHooks runtimeHooks
+	) {
+		this(
+			vertx,
+			model,
 			documentStore,
 			options,
 			queue,
 			eventPublisher,
 			null,
-			markerHandler
+			markerHandler,
+			runtimeHooks
 		);
 
 		this.processor = Objects.requireNonNull(processorFactory, "processorFactory")
-			.create(this.model, this.options, this::processActionItem, this.eventPublisher);
+			.create(
+				this.model,
+				this.options,
+				this::processActionItem,
+				this::afterCommit,
+				this.eventPublisher
+			);
 	}
 
 	public Indexer(
@@ -168,7 +226,8 @@ public class Indexer {
 			queue,
 			eventPublisher,
 			null,
-			markerHandler
+			markerHandler,
+			DocumentActionRuntimeHooks.NONE
 		);
 	}
 
@@ -180,7 +239,8 @@ public class Indexer {
 		IndexerQueueClient queue,
 		IndexerEventPublisher eventPublisher,
 		IndexerProcessor processor,
-		IndexerMarkerHandler markerHandler
+		IndexerMarkerHandler markerHandler,
+		DocumentActionRuntimeHooks runtimeHooks
 	) {
 		this.vertx = Objects.requireNonNull(vertx, "vertx");
 		this.model = Objects.requireNonNull(model, "model");
@@ -190,6 +250,9 @@ public class Indexer {
 		this.eventPublisher = eventPublisher == null ? IndexerEventPublisher.NOOP : eventPublisher;
 		this.processor = processor;
 		this.markerHandler = markerHandler == null ? IndexerMarkerHandler.FAILING : markerHandler;
+		this.runtimeHooks = runtimeHooks == null
+			? DocumentActionRuntimeHooks.NONE
+			: runtimeHooks;
 	}
 
 	public synchronized Future<Void> activate() {
@@ -259,10 +322,19 @@ public class Indexer {
 	}
 
 	protected void onQueueItem(Message<JsonObject> message) {
-		Future<Void> result = indexAction(IndexerActionItem.fromJson(message.body()));
+		IndexerActionItem item = IndexerActionItem.fromJson(message.body());
+		Future<Void> result = processActionItem(item);
 
 		result
-			.onSuccess(ignored -> message.reply(new JsonObject()))
+			.onSuccess(ignored -> {
+				message.reply(new JsonObject());
+				ActionItemCommitContinuation.observeAfterCommit(
+					model,
+					item,
+					eventPublisher,
+					this::afterCommit
+				);
+			})
 			.onFailure(error -> message.fail(1, error.getMessage()));
 	}
 
@@ -274,9 +346,13 @@ public class Indexer {
 			.compose(ignored -> processActionItem(item))
 			.compose(ignored -> emitEvent(IndexerEventType.ACTION_ITEM_PROCESSING_COMPLETED, item, null))
 			.compose(ignored -> actionConsumer.commit())
-			.compose(ignored -> emitEvent(IndexerEventType.ACTION_ITEM_COMMITTED, item, null))
-			.compose(ignored -> actionConsumer.resume())
-			.compose(ignored -> emitEvent(IndexerEventType.CONSUMER_RESUMED, item, null))
+			.onSuccess(ignored -> ActionItemCommitContinuation.run(
+				model,
+				item,
+				actionConsumer,
+				eventPublisher,
+				this::afterCommit
+			))
 			.onFailure(error -> emitEvent(IndexerEventType.ACTION_ITEM_FAILED, item, error));
 	}
 
@@ -294,9 +370,54 @@ public class Indexer {
 			return processCatchUpBarrierAction((CatchUpBarrierActionItem) item);
 		}
 
-		return Actions.getProvider(item.getActionType())
-			.action()
-			.process(model, documentStore, item);
+		DocumentActionExecutionContext context = documentContext(item);
+		return Future.<Void>succeededFuture()
+			.compose(ignored -> runtimeHooks.beforeAction(context))
+			.compose(ignored -> Actions.getProvider(item.getActionType())
+				.action()
+				.process(model, documentStore, item))
+			.compose(ignored -> runtimeHooks.afterWriteBeforeCommit(context));
+	}
+
+	private Future<Void> afterCommit(IndexerActionItem item) {
+		if (!isDocumentMutation(item)) {
+			return Future.succeededFuture();
+		}
+		return runtimeHooks.afterCommit(documentContext(item));
+	}
+
+	private boolean isDocumentMutation(IndexerActionItem item) {
+		return item.getActionType() == IndexerActionType.PUT_DOCUMENT
+			|| item.getActionType() == IndexerActionType.REMOVE_DOCUMENT;
+	}
+
+	private DocumentActionExecutionContext documentContext(IndexerActionItem item) {
+		return switch (item.getActionType()) {
+			case PUT_DOCUMENT -> {
+				PutDocumentActionItem put = (PutDocumentActionItem) item;
+				yield DocumentActionExecutionContext.builder()
+					.withTargetId(put.getTargetId())
+					.withIndexerId(put.getIndexerId())
+					.withIndexName(put.getIndexName())
+					.withDocumentUid(put.getUid())
+					.withActionType(put.getActionType())
+					.withDocument(put.getDocument())
+					.build();
+			}
+			case REMOVE_DOCUMENT -> {
+				RemoveDocumentActionItem remove = (RemoveDocumentActionItem) item;
+				yield DocumentActionExecutionContext.builder()
+					.withTargetId(remove.getTargetId())
+					.withIndexerId(remove.getIndexerId())
+					.withIndexName(remove.getIndexName())
+					.withDocumentUid(remove.getUid())
+					.withActionType(remove.getActionType())
+					.build();
+			}
+			default -> throw new IllegalArgumentException(
+				"Document action context requires a document mutation action"
+			);
+		};
 	}
 
 	protected Future<Void> emitEvent(IndexerEventType type, IndexerActionItem item, Throwable error) {
@@ -306,26 +427,6 @@ public class Indexer {
 			.withItem(item)
 			.withError(error)
 			.build());
-	}
-
-	protected Future<Void> indexAction(IndexerActionItem item) {
-		String validationError = validateActionIdentity(item);
-		if (validationError != null) {
-			return Future.failedFuture(validationError);
-		}
-
-		return switch (item.getActionType()) {
-			case PUT_DOCUMENT -> {
-				PutDocumentActionItem put = (PutDocumentActionItem) item;
-				yield documentStore.put(put.getIndexName(), put.getUid(), put.getDocument());
-			}
-			case REMOVE_DOCUMENT -> {
-				RemoveDocumentActionItem remove = (RemoveDocumentActionItem) item;
-				yield documentStore.remove(remove.getIndexName(), remove.getUid());
-			}
-			case COMPLETE -> processCompleteIndexAction((CompleteIndexActionItem) item);
-			case CATCH_UP_BARRIER -> processCatchUpBarrierAction((CatchUpBarrierActionItem) item);
-		};
 	}
 
 	private Future<Void> processCompleteIndexAction(CompleteIndexActionItem item) {

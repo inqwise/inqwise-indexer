@@ -13,6 +13,7 @@ public class IndexerProcessorVerticle extends VerticleBase {
 	private final IndexerOptions options;
 	private final IndexerQueueClient queue;
 	private final ActionItemProcessHandler processHandler;
+	private final ActionItemAfterCommitObserver afterCommitObserver;
 	private final IndexerEventPublisher eventPublisher;
 	private IndexerQueueConsumer consumer;
 
@@ -21,12 +22,16 @@ public class IndexerProcessorVerticle extends VerticleBase {
 		IndexerOptions options,
 		IndexerQueueClient queue,
 		ActionItemProcessHandler processHandler,
+		ActionItemAfterCommitObserver afterCommitObserver,
 		IndexerEventPublisher eventPublisher
 	) {
 		this.model = Objects.requireNonNull(model, "model");
 		this.options = options == null ? IndexerOptions.builder().build() : options;
 		this.queue = Objects.requireNonNull(queue, "queue");
 		this.processHandler = Objects.requireNonNull(processHandler, "processHandler");
+		this.afterCommitObserver = afterCommitObserver == null
+			? ActionItemAfterCommitObserver.NONE
+			: afterCommitObserver;
 		this.eventPublisher = eventPublisher == null ? IndexerEventPublisher.NOOP : eventPublisher;
 	}
 
@@ -61,9 +66,13 @@ public class IndexerProcessorVerticle extends VerticleBase {
 			.compose(ignored -> processHandler.process(item))
 			.compose(ignored -> emitEvent(IndexerEventType.ACTION_ITEM_PROCESSING_COMPLETED, item, null))
 			.compose(ignored -> consumer.commit())
-			.compose(ignored -> emitEvent(IndexerEventType.ACTION_ITEM_COMMITTED, item, null))
-			.compose(ignored -> consumer.resume())
-			.compose(ignored -> emitEvent(IndexerEventType.CONSUMER_RESUMED, item, null))
+			.onSuccess(ignored -> ActionItemCommitContinuation.run(
+				model,
+				item,
+				consumer,
+				eventPublisher,
+				afterCommitObserver
+			))
 			.onFailure(error -> emitEvent(IndexerEventType.ACTION_ITEM_FAILED, item, error));
 	}
 

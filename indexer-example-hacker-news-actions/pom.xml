@@ -1,0 +1,31 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<parent>
+		<groupId>com.inqwise.indexer</groupId>
+		<artifactId>indexer-parent</artifactId>
+		<version>0.1.0-SNAPSHOT</version>
+		<relativePath>../indexer-parent/pom.xml</relativePath>
+	</parent>
+
+	<artifactId>indexer-example-hacker-news-actions</artifactId>
+	<name>inqwise-indexer-example-hacker-news-actions</name>
+
+	<dependencies>
+		<dependency>
+			<groupId>com.inqwise.indexer</groupId>
+			<artifactId>indexer-example-hacker-news-model</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>com.inqwise.indexer</groupId>
+			<artifactId>indexer</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter</artifactId>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+</project>

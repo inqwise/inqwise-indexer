@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 import com.inqwise.errors.ErrorTicket;
 import com.inqwise.indexer.actions.IndexerActionItems;
+import com.inqwise.indexer.actions.PutDocumentActionItem;
 import com.inqwise.indexer.runtime.IndexerQueueClient;
 import com.inqwise.indexer.runtime.IndexerQueueConsumer;
 import com.inqwise.indexer.runtime.IndexerQueueConsumerOptions;
@@ -83,6 +85,61 @@ class TargetActionServiceVerticleTest {
 				assertEquals(TargetActionSubmitState.ACCEPTED, result.getState());
 				assertEquals("customers", hotActions.request.get().targetName());
 				assertEquals(1, hotActions.request.get().actions().size());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void preparesActionsBeforeHotRouting(VertxTestContext testContext) {
+		RecordingHotIndexActionsService hotActions = new RecordingHotIndexActionsService();
+		TargetActionPreparationRegistry preparations = new TargetActionPreparationRegistry(
+			Map.of("customers", actions -> Future.succeededFuture(List.of(
+				IndexerActionItems.putDocument(
+					((PutDocumentActionItem) actions.getFirst()).getUid(),
+					new JsonObject().put("name", "Ada").put("prepared", true)
+				)
+			)))
+		);
+		TargetActionService service = new TargetActionServiceImpl(hotActions, preparations);
+
+		service.submit(TargetActionSubmitRequest.builder()
+			.withTargetName("customers")
+			.withActions(List.of(IndexerActionItems.putDocument(
+				"42",
+				new JsonObject().put("name", "Ada")
+			)))
+			.build())
+			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
+				PutDocumentActionItem prepared = (PutDocumentActionItem)
+					hotActions.request.get().actions().getFirst();
+				assertEquals(true, prepared.getDocument().getBoolean("prepared"));
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void mapsConsumerPreparationRejectionToInvalidRequest(
+		VertxTestContext testContext
+	) {
+		RecordingHotIndexActionsService hotActions = new RecordingHotIndexActionsService();
+		TargetActionPreparationRegistry preparations = new TargetActionPreparationRegistry(
+			Map.of("customers", actions -> Future.failedFuture(
+				new InvalidTargetActionPreparationException("invalid consumer document")
+			))
+		);
+		TargetActionService service = new TargetActionServiceImpl(hotActions, preparations);
+
+		service.submit(TargetActionSubmitRequest.builder()
+			.withTargetName("customers")
+			.withActions(List.of(IndexerActionItems.putDocument(
+				"42",
+				new JsonObject().put("name", "Ada")
+			)))
+			.build())
+			.onComplete(testContext.failing(error -> testContext.verify(() -> {
+				ErrorTicket ticket = assertInstanceOf(ErrorTicket.class, error);
+				assertEquals(IndexerErrorCodes.InvalidRequest, ticket.getError());
+				assertNull(hotActions.request.get());
 				testContext.completeNow();
 			})));
 	}

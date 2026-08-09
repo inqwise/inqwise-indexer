@@ -16,8 +16,6 @@ public record HackerNewsOptions(
 ) {
 	public static final String CONFIG_KEY = "hacker_news";
 	public static final String DEFAULT_BASE_URI = "https://hacker-news.firebaseio.com/v0";
-	public static final String TARGET_NAME = "hacker-news";
-
 	public HackerNewsOptions {
 		Objects.requireNonNull(baseUri, "baseUri");
 		Objects.requireNonNull(pollInterval, "pollInterval");

@@ -19,8 +19,19 @@ public class TargetActionServiceVerticle extends ServiceProxyVerticle<TargetActi
 		HotIndexActionsService hotActions,
 		IndexerOperationalMonitor monitor
 	) {
+		this(hotActions, monitor, TargetActionPreparationRegistry.NONE);
+	}
+
+	public TargetActionServiceVerticle(
+		HotIndexActionsService hotActions,
+		IndexerOperationalMonitor monitor,
+		TargetActionPreparationRegistry preparations
+	) {
 		this.service = new MonitoredTargetActionService(
-			new TargetActionServiceImpl(Objects.requireNonNull(hotActions, "hotActions")),
+			new TargetActionServiceImpl(
+				Objects.requireNonNull(hotActions, "hotActions"),
+				Objects.requireNonNull(preparations, "preparations")
+			),
 			Objects.requireNonNull(monitor, "monitor")
 		);
 	}

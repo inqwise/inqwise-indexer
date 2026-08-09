@@ -28,6 +28,219 @@ import io.vertx.junit5.VertxTestContext;
 @ExtendWith(VertxExtension.class)
 class IndexerQueueFlowTest {
 	@Test
+	void preActionHookFailurePreventsWrite(
+		Vertx vertx,
+		VertxTestContext testContext
+	) {
+		InMemoryIndexerDocumentStore store = new InMemoryIndexerDocumentStore();
+		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
+		IndexerModel model = documentModel();
+		PutDocumentActionItem item = documentItem("42", "Ada");
+		AtomicReference<DocumentActionExecutionContext> observed = new AtomicReference<>();
+		DocumentActionRuntimeHooks hooks = new DocumentActionRuntimeHooks() {
+			@Override
+			public Future<Void> beforeAction(DocumentActionExecutionContext context) {
+				observed.set(context);
+				context.document().put("name", "mutated copy");
+				return Future.failedFuture("pre-action rejected");
+			}
+		};
+		Indexer indexer = new Indexer(
+			vertx,
+			model,
+			queue,
+			store,
+			new IndexerOptions(),
+			event -> {
+				if (event.getType() == IndexerEventType.ACTION_ITEM_FAILED) {
+					testContext.verify(() -> {
+						assertEquals("pre-action rejected", event.getError().getMessage());
+						assertNull(store.get("customers_1", "42"));
+						assertEquals(10, observed.get().targetId());
+						assertEquals(20, observed.get().indexerId());
+						assertEquals("Ada", observed.get().document().getString("name"));
+						testContext.completeNow();
+					});
+				}
+				return Future.succeededFuture();
+			},
+			hooks
+		);
+
+		indexer.activate()
+			.compose(ignored -> queue.publisher("customers_1"))
+			.compose(publisher -> publisher.publish(item).eventually(publisher::close))
+			.onFailure(testContext::failNow);
+	}
+
+	@Test
+	void postWriteHookFailureLeavesItemForRedelivery(
+		Vertx vertx,
+		VertxTestContext testContext
+	) {
+		InMemoryIndexerDocumentStore store = new InMemoryIndexerDocumentStore();
+		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
+		IndexerModel model = documentModel();
+		PutDocumentActionItem item = documentItem("42", "Ada");
+		AtomicInteger attempts = new AtomicInteger();
+		AtomicInteger received = new AtomicInteger();
+		AtomicReference<Indexer> first = new AtomicReference<>();
+		DocumentActionRuntimeHooks hooks = new DocumentActionRuntimeHooks() {
+			@Override
+			public Future<Void> afterWriteBeforeCommit(
+				DocumentActionExecutionContext context
+			) {
+				return attempts.incrementAndGet() == 1
+					? Future.failedFuture("post-write rejected")
+					: Future.succeededFuture();
+			}
+		};
+		IndexerEventPublisher firstEvents = event -> {
+			if (event.getType() == IndexerEventType.ACTION_ITEM_RECEIVED) {
+				received.incrementAndGet();
+			}
+			if (event.getType() == IndexerEventType.ACTION_ITEM_FAILED) {
+				testContext.verify(() -> {
+					assertEquals("post-write rejected", event.getError().getMessage());
+					assertEquals("Ada", store.get("customers_1", "42").getString("name"));
+				});
+				first.get().close().compose(ignored -> {
+					Indexer recovered = new Indexer(
+						vertx,
+						model,
+						queue,
+						store,
+						new IndexerOptions(),
+						recoveredEvent -> {
+							if (recoveredEvent.getType()
+								== IndexerEventType.ACTION_ITEM_RECEIVED) {
+								received.incrementAndGet();
+							}
+							if (recoveredEvent.getType()
+								== IndexerEventType.CONSUMER_RESUMED
+								&& recoveredEvent.getItem() != null) {
+								testContext.verify(() -> {
+									assertEquals(2, received.get());
+									assertEquals(2, attempts.get());
+									assertEquals(
+										"Ada",
+										store.get("customers_1", "42").getString("name")
+									);
+									testContext.completeNow();
+								});
+							}
+							return Future.succeededFuture();
+						},
+						hooks
+					);
+					return recovered.activate();
+				}).onFailure(testContext::failNow);
+			}
+			return Future.succeededFuture();
+		};
+		Indexer indexer = new Indexer(
+			vertx,
+			model,
+			queue,
+			store,
+			new IndexerOptions(),
+			firstEvents,
+			hooks
+		);
+		first.set(indexer);
+
+		indexer.activate()
+			.compose(ignored -> queue.publisher("customers_1"))
+			.compose(publisher -> publisher.publish(item).eventually(publisher::close))
+			.onFailure(testContext::failNow);
+	}
+
+	@Test
+	void afterCommitObserverFailureDoesNotBlockNextItem(
+		Vertx vertx,
+		VertxTestContext testContext
+	) {
+		InMemoryIndexerDocumentStore store = new InMemoryIndexerDocumentStore();
+		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
+		IndexerModel model = documentModel();
+		AtomicInteger firstReceived = new AtomicInteger();
+		AtomicInteger observerFailures = new AtomicInteger();
+		AtomicInteger actionFailures = new AtomicInteger();
+		DocumentActionRuntimeHooks hooks = new DocumentActionRuntimeHooks() {
+			@Override
+			public Future<Void> afterCommit(DocumentActionExecutionContext context) {
+				return "41".equals(context.documentUid())
+					? Future.failedFuture("observer unavailable")
+					: Future.succeededFuture();
+			}
+		};
+		Indexer indexer = new Indexer(
+			vertx,
+			model,
+			queue,
+			store,
+			new IndexerOptions(),
+				event -> {
+				if (event.getType() == IndexerEventType.ACTION_ITEM_FAILED) {
+					actionFailures.incrementAndGet();
+				}
+				if (event.getType() == IndexerEventType.ACTION_ITEM_RECEIVED
+					&& "41".equals(((PutDocumentActionItem) event.getItem()).getUid())) {
+					firstReceived.incrementAndGet();
+				}
+				if (event.getType()
+					== IndexerEventType.ACTION_ITEM_AFTER_COMMIT_OBSERVER_FAILED) {
+					observerFailures.incrementAndGet();
+					testContext.verify(() -> {
+						assertEquals("observer unavailable", event.getError().getMessage());
+						assertEquals("First", store.get("customers_1", "41").getString("name"));
+					});
+				}
+				if (event.getType() == IndexerEventType.CONSUMER_RESUMED
+					&& event.getItem() instanceof PutDocumentActionItem put
+					&& "42".equals(put.getUid())) {
+					testContext.verify(() -> {
+						assertEquals(1, firstReceived.get());
+						assertEquals(1, observerFailures.get());
+						assertEquals(0, actionFailures.get());
+						assertEquals("Second", store.get("customers_1", "42").getString("name"));
+						testContext.completeNow();
+					});
+				}
+				return Future.succeededFuture();
+			},
+			hooks
+		);
+
+		indexer.activate()
+			.compose(ignored -> queue.publisher("customers_1"))
+			.compose(publisher -> publisher.publish(documentItem("41", "First"))
+				.compose(ignored -> publisher.publish(documentItem("42", "Second")))
+				.eventually(publisher::close))
+			.onFailure(testContext::failNow);
+	}
+
+	private IndexerModel documentModel() {
+		return IndexerModel.builder()
+			.withId(20)
+			.withTargetId(10)
+			.withTargetName("customers")
+			.withIndexName("customers_1")
+			.withQueueName("customers_1")
+			.build();
+	}
+
+	private PutDocumentActionItem documentItem(String uid, String name) {
+		return IndexerActionItems.concretePutDocument(
+			10,
+			20,
+			"customers_1",
+			uid,
+			new JsonObject().put("name", name)
+		);
+	}
+
+	@Test
 	void activateStartsIndexerOnce(Vertx vertx, VertxTestContext testContext) {
 		AtomicInteger startedEvents = new AtomicInteger();
 		IndexerModel model = IndexerModel.builder()

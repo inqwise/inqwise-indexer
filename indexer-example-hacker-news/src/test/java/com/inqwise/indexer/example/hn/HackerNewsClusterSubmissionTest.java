@@ -51,7 +51,7 @@ class HackerNewsClusterSubmissionTest {
 			.map(ignored -> testContext.verify(() -> {
 				assertEquals(1, targetActions.requests.size());
 				TargetActionSubmitRequest request = targetActions.requests.getFirst();
-				assertEquals(HackerNewsOptions.TARGET_NAME, request.getTargetName());
+				assertEquals(HackerNewsConsumer.TARGET_NAME, request.getTargetName());
 				PutDocumentActionItem action =
 					(PutDocumentActionItem) request.getActions().getFirst();
 				assertEquals("42", action.getUid());
@@ -74,6 +74,7 @@ class HackerNewsClusterSubmissionTest {
 			return Future.succeededFuture(Optional.of(HackerNewsItem.builder()
 				.withId(id)
 				.withType("story")
+				.withTime(1_700_000_000L)
 				.withTitle("Sent across EventBus")
 				.build()));
 		}

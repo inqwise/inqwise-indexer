@@ -1,0 +1,205 @@
+openapi: 3.0.3
+info:
+  title: Hacker News reports API
+  version: 0.1.0
+paths:
+  /reports/hacker-news/stories:
+    post:
+      operationId: queryHackerNewsStories
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HackerNewsStoriesRequest'
+      responses:
+        '200':
+          description: Matching Hacker News stories.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HackerNewsStoriesResult'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+  /reports/hacker-news/story-authors:
+    post:
+      operationId: queryHackerNewsStoryAuthors
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HackerNewsAuthorSummaryRequest'
+      responses:
+        '200':
+          description: Hacker News story-author aggregates.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HackerNewsAuthorSummaryResult'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+components:
+  responses:
+    ErrorResponse:
+      description: Structured request or service failure.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+  schemas:
+    HackerNewsStoriesRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - from_inclusive
+        - to_exclusive
+      properties:
+        from_inclusive:
+          type: string
+          format: date-time
+        to_exclusive:
+          type: string
+          format: date-time
+        minimum_score:
+          type: integer
+          minimum: 0
+          default: 0
+        limit:
+          type: integer
+          minimum: 1
+          default: 25
+        cursor:
+          type: string
+          maxLength: 2048
+          description: Opaque cursor returned by the preceding compatible request.
+    HackerNewsStoriesResult:
+      type: object
+      required:
+        - stories
+      properties:
+        stories:
+          type: array
+          items:
+            $ref: '#/components/schemas/HackerNewsStory'
+        next_cursor:
+          type: string
+          description: Opaque cursor for the next page; absent when the result is exhausted.
+    HackerNewsAuthorSummaryRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - from_inclusive
+        - to_exclusive
+      properties:
+        from_inclusive:
+          type: string
+          format: date-time
+        to_exclusive:
+          type: string
+          format: date-time
+        minimum_score:
+          type: integer
+          minimum: 0
+          default: 0
+        limit:
+          type: integer
+          minimum: 1
+          default: 25
+        order_by:
+          type: string
+          enum:
+            - total_score
+            - story_count
+            - max_score
+            - latest_story
+          default: total_score
+    HackerNewsAuthorSummaryResult:
+      type: object
+      required:
+        - authors
+      properties:
+        authors:
+          type: array
+          items:
+            $ref: '#/components/schemas/HackerNewsAuthorSummary'
+    HackerNewsAuthorSummary:
+      type: object
+      required:
+        - author
+        - story_count
+        - total_score
+        - max_score
+        - latest_story_time
+      properties:
+        author:
+          type: string
+        story_count:
+          type: integer
+          format: int64
+          minimum: 1
+        total_score:
+          type: integer
+          format: int64
+          minimum: 0
+        max_score:
+          type: integer
+          minimum: 0
+        latest_story_time:
+          type: string
+          format: date-time
+    HackerNewsStory:
+      type: object
+      required:
+        - id
+        - title
+        - time
+        - score
+        - descendants
+      properties:
+        id:
+          type: integer
+          format: int64
+        author:
+          type: string
+          nullable: true
+        title:
+          type: string
+        url:
+          type: string
+          format: uri
+          nullable: true
+        time:
+          type: string
+          format: date-time
+        score:
+          type: integer
+        descendants:
+          type: integer
+    ErrorBody:
+      oneOf:
+        - $ref: '#/components/schemas/ErrorTicket'
+        - $ref: '#/components/schemas/HttpError'
+    ErrorTicket:
+      type: object
+      additionalProperties: true
+      properties:
+        code:
+          type: string
+        group:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+    HttpError:
+      type: object
+      required:
+        - status
+        - message
+      properties:
+        status:
+          type: integer
+        message:
+          type: string
+          nullable: true
