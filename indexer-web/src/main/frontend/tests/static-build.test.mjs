@@ -238,6 +238,28 @@ test("renders reports only through the neutral bounded schema contract", async (
   assert.match(vite, /"\/api\/reports"/);
 });
 
+test("derives a bounded operational attention queue from project state", async () => {
+  const app = await readFile(
+    new URL("../src/App.tsx", import.meta.url),
+    "utf8",
+  );
+  const issues = await readFile(
+    new URL("../src/components/OperationalIssuesView.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(app, /href="#issues"/);
+  assert.match(app, /<OperationalIssuesView/);
+  assert.match(issues, /MAX_VISIBLE_ACTIVE_ISSUES = 12/);
+  assert.match(issues, /provisioning_state === "FAILED"/);
+  assert.match(issues, /MISSING_ATTACHMENT/);
+  assert.match(issues, /lifecyclePending/);
+  assert.match(issues, /Cumulative counters are signals, not necessarily active incidents/);
+  assert.match(issues, /onSelectTarget/);
+  assert.match(issues, /onSelectIndexer/);
+  assert.doesNotMatch(issues, /hacker.news/i);
+});
+
 test("limits mutations to bounded and explicitly confirmed operator changes", async () => {
   const details = await readFile(
     new URL("../src/components/CatalogDetailPanel.tsx", import.meta.url),

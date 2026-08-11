@@ -20,6 +20,7 @@ import type {
   Target,
 } from "./api/indexer-api";
 import CatalogDetailPanel from "./components/CatalogDetailPanel";
+import OperationalIssuesView from "./components/OperationalIssuesView";
 import ReportsView from "./components/ReportsView";
 
 type HealthState = "checking" | "online" | "offline";
@@ -33,6 +34,7 @@ type DashboardSection =
   | "indexers"
   | "runtime"
   | "metrics"
+  | "issues"
   | "reports";
 type CatalogPageSize = 10 | 25 | 50;
 type IndexerSort =
@@ -101,6 +103,7 @@ const DASHBOARD_SECTIONS: readonly DashboardSection[] = [
   "indexers",
   "runtime",
   "metrics",
+  "issues",
   "reports",
 ];
 
@@ -739,7 +742,14 @@ export default function App() {
     ][]
   ).filter(([, service]) => service.state === "degraded");
   const operationalIssues =
-    provisioningIssues + runtimeDrifts.length + degradedServices.length;
+    provisioningIssues +
+    runtimeDrifts.length +
+    degradedServices.length +
+    (data.metricsDiagnostic.state === "degraded" ? 1 : 0) +
+    ((data.metrics?.lifecyclePending ?? 0) > 0 ? 1 : 0) +
+    (!runtimeComparisonAvailable && (data.metrics?.runtimeDrift ?? 0) > 0
+      ? 1
+      : 0);
 
   const filteredIndexers = useMemo(() => {
     const query = indexerSearch.trim().toLowerCase();
@@ -1023,6 +1033,13 @@ export default function App() {
             Metrics
           </a>
           <a
+            className={`nav__item${activeSection === "issues" ? " nav__item--active" : ""}`}
+            href="#issues"
+          >
+            <span aria-hidden="true">!</span>
+            Issues
+          </a>
+          <a
             className={`nav__item${activeSection === "reports" ? " nav__item--active" : ""}`}
             href="#reports"
           >
@@ -1285,6 +1302,37 @@ export default function App() {
               </p>
             )}
           </section>
+
+          <OperationalIssuesView
+            indexers={data.indexers}
+            metrics={data.metrics}
+            onSelectIndexer={(id) => {
+              setSelectedTargetId(null);
+              setSelectedIndexerId(id);
+            }}
+            onSelectTarget={(id) => {
+              setSelectedIndexerId(null);
+              setSelectedTargetId(id);
+            }}
+            runtimeComparisonAvailable={runtimeComparisonAvailable}
+            runtimeDrifts={runtimeDrifts}
+            services={[
+              ...(Object.entries(data.services) as [ServiceName, ServiceDiagnostic][])
+                .map(([name, diagnostic]) => ({
+                  name,
+                  label: SERVICE_LABELS[name],
+                  state: diagnostic.state,
+                  error: diagnostic.error,
+                })),
+              {
+                name: "metrics",
+                label: "Operational metrics",
+                state: data.metricsDiagnostic.state,
+                error: data.metricsDiagnostic.error,
+              },
+            ]}
+            targets={data.targets}
+          />
 
           <ReportsView />
 

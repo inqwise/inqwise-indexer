@@ -41,6 +41,15 @@ high-cardinality labels in the rendered UI; the internal proxy still forwards
 the deployment-owned Prometheus scrape unchanged. Exported labels are limited
 to bounded action type, outcome, runtime state, operation, and role values.
 
+The Operational Issues section is a bounded read-only attention queue derived
+from the same loaded service, catalog, runtime, and metrics state. Active
+conditions include degraded internal services, failed target/indexer
+provisioning, desired-versus-attached runtime drift, and pending lifecycle
+work. Inspect actions navigate to the relevant entity or runtime view without
+mutating state. Rejected actions and failed/retrying outcomes are displayed
+separately as cumulative observations since process start, not mislabeled as
+active incidents. At most twelve active issue cards are rendered.
+
 The Reports section discovers consumer-neutral parameter/result schemas through
 the generic Reports REST adapter. It renders only closed object schemas with
 flat scalar inputs and bounded scalar/table results. Unknown keywords, remote
