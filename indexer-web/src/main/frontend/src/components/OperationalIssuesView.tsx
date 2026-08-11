@@ -3,6 +3,7 @@ import type {
   OperationalMetrics,
   Target,
 } from "../api/indexer-api";
+import EntityLink from "./EntityLink";
 
 const MAX_VISIBLE_ACTIVE_ISSUES = 12;
 
@@ -113,12 +114,22 @@ export default function OperationalIssuesView({
                 <strong>{issue.title}</strong>
                 <p>{issue.detail}</p>
               </div>
-              <a
-                href={`#${issue.destination.section}`}
-                onClick={() => select(issue.destination)}
-              >
-                Inspect
-              </a>
+              {issue.destination.section === "targets" ||
+              issue.destination.section === "indexers" ? (
+                <EntityLink
+                  destination={{
+                    kind: issue.destination.section === "targets"
+                      ? "target"
+                      : "indexer",
+                    id: issue.destination.id,
+                  }}
+                  onNavigate={() => select(issue.destination)}
+                >
+                  Inspect
+                </EntityLink>
+              ) : (
+                <a href={`#${issue.destination.section}`}>Inspect</a>
+              )}
             </article>
           ))}
           {activeIssues.length > visibleIssues.length && (
@@ -212,7 +223,7 @@ function buildActiveIssues({
         ? `${drift.indexName} is not attached`
         : `${drift.indexName} is unexpectedly attached`,
       detail: `${drift.targetName} differs from the desired catalog runtime state.`,
-      destination: { section: "runtime" },
+      destination: { section: "indexers", id: drift.indexerId },
     });
   }
   if ((metrics?.lifecyclePending ?? 0) > 0) {

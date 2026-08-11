@@ -1,19 +1,25 @@
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 
 import type {
   Indexer,
   RuntimeIndexer,
   Target,
 } from "../api/indexer-api";
+import EntityLink from "./EntityLink";
 
 type CatalogDetailPanelProps = {
   target: Target | null;
   indexer: Indexer | null;
+  indexerTarget: Target | null;
+  relatedIndexers: Indexer[];
   runtimeIndexer: RuntimeIndexer | null;
   onClose: () => void;
   onIndexerDelete: (indexer: Indexer) => Promise<void>;
+  onIndexerSelect: (id: number) => void;
   onQueueReset: (indexer: Indexer) => Promise<void>;
   onTargetRecovery: (target: Target) => Promise<void>;
+  onTargetSelect: (id: number) => void;
   onRuntimeReconcile: (indexer: Indexer) => Promise<void>;
   onRuntimeStateChange: (
     indexer: Indexer,
@@ -24,11 +30,15 @@ type CatalogDetailPanelProps = {
 export default function CatalogDetailPanel({
   target,
   indexer,
+  indexerTarget,
+  relatedIndexers,
   runtimeIndexer,
   onClose,
   onIndexerDelete,
+  onIndexerSelect,
   onQueueReset,
   onTargetRecovery,
+  onTargetSelect,
   onRuntimeReconcile,
   onRuntimeStateChange,
 }: CatalogDetailPanelProps) {
@@ -132,7 +142,9 @@ export default function CatalogDetailPanel({
             }
           }}
           pending={targetRecoveryPending}
+          relatedIndexers={relatedIndexers}
           target={target}
+          onIndexerSelect={onIndexerSelect}
         />
       ) : (
         indexer && (
@@ -142,6 +154,7 @@ export default function CatalogDetailPanel({
             deleteError={deleteError}
             deletePending={deletePending}
             indexer={indexer}
+            indexerTarget={indexerTarget}
             mutationError={mutationError}
             onDelete={async () => {
               setDeletePending(true);
@@ -205,6 +218,7 @@ export default function CatalogDetailPanel({
                 setPendingRuntimeState(null);
               }
             }}
+            onTargetSelect={onTargetSelect}
             pendingRuntimeState={pendingRuntimeState}
             queueResetConfirming={queueResetConfirming}
             queueResetError={queueResetError}
@@ -226,13 +240,17 @@ export default function CatalogDetailPanel({
 
 function TargetDetails({
   target,
+  relatedIndexers,
   pending,
   mutationError,
+  onIndexerSelect,
   onRecover,
 }: {
   target: Target;
+  relatedIndexers: Indexer[];
   pending: boolean;
   mutationError: string | null;
+  onIndexerSelect: (id: number) => void;
   onRecover: () => Promise<void>;
 }) {
   return (
@@ -267,6 +285,37 @@ function TargetDetails({
         <Detail label="Created" value={formatDateTime(target.created_at)} />
         <Detail label="Updated" value={formatDateTime(target.updated_at)} />
       </div>
+      <section className="related-entities" aria-labelledby="related-indexers-title">
+        <div className="related-entities__header">
+          <div>
+            <span className="eyebrow">Relationships</span>
+            <h3 id="related-indexers-title">Related indexers</h3>
+          </div>
+          <span>{relatedIndexers.length}</span>
+        </div>
+        {relatedIndexers.length === 0 ? (
+          <p>No indexers reference this target.</p>
+        ) : (
+          <div className="related-entities__list">
+            {relatedIndexers.slice(0, 8).map((indexer) => (
+              <EntityLink
+                destination={{ kind: "indexer", id: indexer.id }}
+                key={indexer.id}
+                onNavigate={() => onIndexerSelect(indexer.id)}
+              >
+                <span>
+                  <strong>{indexer.index_name}</strong>
+                  <small>#{indexer.id} · {humanize(indexer.runtime_state)}</small>
+                </span>
+                <span aria-hidden="true">→</span>
+              </EntityLink>
+            ))}
+            {relatedIndexers.length > 8 && (
+              <small>{relatedIndexers.length - 8} additional indexers</small>
+            )}
+          </div>
+        )}
+      </section>
       {target.provisioning_state === "FAILED" && (
         <section
           className="lifecycle-control lifecycle-control--recovery"
@@ -306,6 +355,7 @@ function IndexerDetails({
   deletePending,
   deleteError,
   indexer,
+  indexerTarget,
   runtimeIndexer,
   pendingRuntimeState,
   mutationError,
@@ -323,12 +373,14 @@ function IndexerDetails({
   onQueueReset,
   onRuntimeReconcile,
   onRuntimeStateChange,
+  onTargetSelect,
 }: {
   deleteConfirmationText: string;
   deleteConfirming: boolean;
   deletePending: boolean;
   deleteError: string | null;
   indexer: Indexer;
+  indexerTarget: Target | null;
   runtimeIndexer: RuntimeIndexer | null;
   pendingRuntimeState: Indexer["runtime_state"] | null;
   mutationError: string | null;
@@ -348,6 +400,7 @@ function IndexerDetails({
   onRuntimeStateChange: (
     desiredState: Indexer["runtime_state"],
   ) => Promise<void>;
+  onTargetSelect: (id: number) => void;
 }) {
   const desiredState =
     indexer.runtime_state === "ACTIVE" ? "NON_ACTIVE" : "ACTIVE";
@@ -376,7 +429,18 @@ function IndexerDetails({
         <Detail label="UID" value={indexer.uid} mono />
         <Detail
           label="Target"
-          value={`${indexer.target_name} (#${indexer.target_id})`}
+          value={indexerTarget ? (
+            <EntityLink
+              destination={{ kind: "target", id: indexer.target_id }}
+              onNavigate={() => onTargetSelect(indexer.target_id)}
+            >
+              {indexer.target_name} (#{indexer.target_id})
+            </EntityLink>
+          ) : (
+            <span className="entity-reference-missing">
+              Missing target #{indexer.target_id}
+            </span>
+          )}
         />
         <Detail label="Queue" value={indexer.queue_name ?? "Not assigned"} mono />
         <Detail label="Type" value={humanize(indexer.type)} />
@@ -662,7 +726,7 @@ function Detail({
   mono = false,
 }: {
   label: string;
-  value: string;
+  value: ReactNode;
   mono?: boolean;
 }) {
   return (

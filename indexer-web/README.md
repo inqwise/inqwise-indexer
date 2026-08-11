@@ -31,6 +31,17 @@ and indexers. Sort, limit, and page state are persisted alongside the existing
 filters in the URL. These remain client-side projections over the loaded Admin
 catalog responses and do not add another API boundary.
 
+Entity navigation uses only explicit catalog relationships and stable numeric
+identifiers. Indexers link to their `target_id`, targets list their related
+indexers, attached runtime entries link to both catalog entities, and detailed
+runtime-drift issues open the affected indexer. Links preserve the current URL
+filters while replacing the mutually exclusive `target`/`indexer` selection,
+so `?target=42#targets` and `?indexer=73#indexers` remain refreshable and
+shareable. Lookup maps are built from already-loaded catalogs; navigation does
+not add per-entity requests. Missing references are shown explicitly rather
+than hidden. Physical index/queue names and arbitrary report-result fields are
+never inferred as navigation identities.
+
 The compact Operational Metrics section reads only a bounded projection of the
 node's project-logic metrics: accepted/rejected action intake, indexing
 outcomes, desired-versus-attached runtime convergence, and lifecycle operation

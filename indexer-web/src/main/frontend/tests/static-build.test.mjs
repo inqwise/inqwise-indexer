@@ -88,6 +88,43 @@ test("provides catalog filters and accessible entity details", async () => {
   assert.match(details, /event\.key === "Escape"/);
 });
 
+test("links catalog entities through explicit stable identifiers", async () => {
+  const app = await readFile(
+    new URL("../src/App.tsx", import.meta.url),
+    "utf8",
+  );
+  const details = await readFile(
+    new URL("../src/components/CatalogDetailPanel.tsx", import.meta.url),
+    "utf8",
+  );
+  const link = await readFile(
+    new URL("../src/components/EntityLink.tsx", import.meta.url),
+    "utf8",
+  );
+  const navigation = await readFile(
+    new URL("../src/entity-navigation.ts", import.meta.url),
+    "utf8",
+  );
+  const issues = await readFile(
+    new URL("../src/components/OperationalIssuesView.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(navigation, /kind: "target"; id: number/);
+  assert.match(navigation, /kind: "indexer"; id: number/);
+  assert.match(navigation, /searchParams\.delete\("indexer"\)/);
+  assert.match(navigation, /searchParams\.delete\("target"\)/);
+  assert.match(link, /history\.pushState/);
+  assert.match(details, /Related indexers/);
+  assert.match(details, /Missing target #/);
+  assert.match(details, /destination=\{\{ kind: "target", id: indexer\.target_id \}\}/);
+  assert.match(app, /targetsById/);
+  assert.match(app, /indexersById/);
+  assert.match(app, /destination=\{\{ kind: "indexer", id: indexer\.indexer_id \}\}/);
+  assert.match(issues, /destination: \{ section: "indexers", id: drift\.indexerId \}/);
+  assert.doesNotMatch(navigation, /index_name|queue_name|physical/i);
+});
+
 test("provides sortable paged catalogs with URL-persisted navigation", async () => {
   const app = await readFile(
     new URL("../src/App.tsx", import.meta.url),

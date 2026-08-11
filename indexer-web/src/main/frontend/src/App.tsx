@@ -20,6 +20,7 @@ import type {
   Target,
 } from "./api/indexer-api";
 import CatalogDetailPanel from "./components/CatalogDetailPanel";
+import EntityLink from "./components/EntityLink";
 import OperationalIssuesView from "./components/OperationalIssuesView";
 import ReportsView from "./components/ReportsView";
 
@@ -875,15 +876,35 @@ export default function App() {
     }
   }, [currentTargetPage, data.services.targets.state, targetPage]);
 
+  const targetsById = useMemo(
+    () => new Map(data.targets.map((target) => [target.id, target] as const)),
+    [data.targets],
+  );
+  const indexersById = useMemo(
+    () => new Map(data.indexers.map((indexer) => [indexer.id, indexer] as const)),
+    [data.indexers],
+  );
   const selectedTarget =
     selectedTargetId === null
       ? null
-      : (data.targets.find((target) => target.id === selectedTargetId) ?? null);
+      : (targetsById.get(selectedTargetId) ?? null);
   const selectedIndexer =
     selectedIndexerId === null
       ? null
-      : (data.indexers.find((indexer) => indexer.id === selectedIndexerId) ??
-        null);
+      : (indexersById.get(selectedIndexerId) ?? null);
+  const selectedIndexerTarget = selectedIndexer
+    ? (targetsById.get(selectedIndexer.target_id) ?? null)
+    : null;
+  const selectedTargetIndexers = useMemo(
+    () => selectedTargetId === null
+      ? []
+      : data.indexers
+          .filter((indexer) => indexer.target_id === selectedTargetId)
+          .sort((left, right) =>
+            left.index_name.localeCompare(right.index_name) || left.id - right.id
+          ),
+    [data.indexers, selectedTargetId],
+  );
   const selectedRuntimeIndexer =
     selectedIndexerId === null
       ? null
@@ -1558,8 +1579,37 @@ export default function App() {
                   <div key={indexer.indexer_id}>
                     <span className="runtime-list__icon">↯</span>
                     <span>
-                      <strong>{indexer.index_name}</strong>
-                      <small>{indexer.target_name}</small>
+                      {indexersById.has(indexer.indexer_id) ? (
+                        <EntityLink
+                          destination={{ kind: "indexer", id: indexer.indexer_id }}
+                          onNavigate={() => {
+                            setSelectedTargetId(null);
+                            setSelectedIndexerId(indexer.indexer_id);
+                          }}
+                        >
+                          <strong>{indexer.index_name}</strong>
+                        </EntityLink>
+                      ) : (
+                        <strong className="entity-reference-missing">
+                          Missing indexer #{indexer.indexer_id}
+                        </strong>
+                      )}
+                      {targetsById.has(indexer.target_id) ? (
+                        <EntityLink
+                          className="entity-link--secondary"
+                          destination={{ kind: "target", id: indexer.target_id }}
+                          onNavigate={() => {
+                            setSelectedIndexerId(null);
+                            setSelectedTargetId(indexer.target_id);
+                          }}
+                        >
+                          <small>{indexer.target_name}</small>
+                        </EntityLink>
+                      ) : (
+                        <small className="entity-reference-missing">
+                          Missing target #{indexer.target_id}
+                        </small>
+                      )}
                     </span>
                     <StatusPill value={indexer.runtime_state} />
                   </div>
@@ -1574,13 +1624,13 @@ export default function App() {
                 <div className="runtime-drift" role="status">
                   <span className="eyebrow">Needs convergence</span>
                   {runtimeDrifts.slice(0, 4).map((drift) => (
-                    <button
+                    <EntityLink
+                      destination={{ kind: "indexer", id: drift.indexerId }}
                       key={drift.indexerId}
-                      onClick={() => {
+                      onNavigate={() => {
                         setSelectedTargetId(null);
                         setSelectedIndexerId(drift.indexerId);
                       }}
-                      type="button"
                     >
                       <span>
                         <strong>{drift.indexName}</strong>
@@ -1591,7 +1641,7 @@ export default function App() {
                           ? "Not attached"
                           : "Unexpected attachment"}
                       </em>
-                    </button>
+                    </EntityLink>
                   ))}
                 </div>
               )}
@@ -1754,15 +1804,25 @@ export default function App() {
       </section>
       <CatalogDetailPanel
         indexer={selectedIndexer}
+        indexerTarget={selectedIndexerTarget}
         onClose={() => {
           setSelectedIndexerId(null);
           setSelectedTargetId(null);
         }}
         onIndexerDelete={deleteSelectedIndexer}
+        onIndexerSelect={(id) => {
+          setSelectedTargetId(null);
+          setSelectedIndexerId(id);
+        }}
         onQueueReset={resetQueue}
         onRuntimeReconcile={reconcileRuntime}
         onRuntimeStateChange={changeIndexerRuntimeState}
         onTargetRecovery={recoverTarget}
+        onTargetSelect={(id) => {
+          setSelectedIndexerId(null);
+          setSelectedTargetId(id);
+        }}
+        relatedIndexers={selectedTargetIndexers}
         runtimeIndexer={selectedRuntimeIndexer}
         target={selectedTarget}
       />
