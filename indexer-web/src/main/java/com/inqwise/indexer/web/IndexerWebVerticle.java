@@ -79,7 +79,13 @@ public final class IndexerWebVerticle extends AbstractVerticle {
 
 		router.route("/api").handler(IndexerWebVerticle::rejectUnknownApiRoute);
 		router.route("/api/*").handler(IndexerWebVerticle::rejectUnknownApiRoute);
-		router.route().handler(StaticHandler.create().setIndexPage("index.html"));
+		router.route().handler(context -> {
+			context.response().putHeader("cache-control", "no-cache");
+			context.next();
+		});
+		router.route().handler(StaticHandler.create()
+			.setIndexPage("index.html")
+			.setCachingEnabled(false));
 		router.get().handler(IndexerWebVerticle::serveSpaEntry);
 		router.route().handler(context -> context.response().setStatusCode(404).end());
 

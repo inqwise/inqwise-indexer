@@ -4,23 +4,32 @@ import {
   activateIndexer,
   deactivateIndexer,
   deleteIndexer,
+  infrastructureStatus,
+  invalidRoutes,
   isReady,
   listIndexers,
   listTargets,
+  nodeStatus,
   operationalMetrics,
   reconcileIndexer,
   recoverTargetProvisioning,
   resetIndexerQueue,
   runtimeStatus,
+  targetInvalidations,
 } from "./api/indexer-api";
 import type {
+  InfrastructureStatus,
   Indexer,
+  InvalidRouteList,
+  NodeStatus,
   OperationalMetrics,
   RuntimeIndexer,
   Target,
+  TargetInvalidationList,
 } from "./api/indexer-api";
 import CatalogDetailPanel from "./components/CatalogDetailPanel";
 import EntityLink from "./components/EntityLink";
+import NodeDiagnosticsView from "./components/NodeDiagnosticsView";
 import OperationalIssuesView from "./components/OperationalIssuesView";
 import ReportsView from "./components/ReportsView";
 
@@ -36,6 +45,7 @@ type DashboardSection =
   | "runtime"
   | "metrics"
   | "issues"
+  | "diagnostics"
   | "reports";
 type CatalogPageSize = 10 | 25 | 50;
 type IndexerSort =
@@ -45,6 +55,11 @@ type IndexerSort =
   | "VERSION_DESC";
 type TargetSort = "NAME_ASC" | "PERIOD_DESC" | "UPDATED_DESC" | "STATUS_ASC";
 type ServiceName = "readiness" | "targets" | "indexers" | "runtime";
+type DiagnosticServiceName =
+  | "node"
+  | "infrastructure"
+  | "invalidRoutes"
+  | "targetInvalidations";
 type ServiceState = "checking" | "online" | "degraded";
 type ServiceDiagnostic = {
   state: ServiceState;
@@ -67,6 +82,13 @@ type DashboardData = {
   metricsIntakePerMinute: number | null;
   metricsDiagnostic: ServiceDiagnostic;
   services: Record<ServiceName, ServiceDiagnostic>;
+  diagnostics: {
+    node: NodeStatus | null;
+    infrastructure: InfrastructureStatus | null;
+    invalidRoutes: InvalidRouteList | null;
+    targetInvalidations: TargetInvalidationList | null;
+    services: Record<DiagnosticServiceName, ServiceDiagnostic>;
+  };
 };
 
 const INITIAL_SERVICE: ServiceDiagnostic = {
@@ -88,12 +110,30 @@ const INITIAL_DATA: DashboardData = {
     indexers: INITIAL_SERVICE,
     runtime: INITIAL_SERVICE,
   },
+  diagnostics: {
+    node: null,
+    infrastructure: null,
+    invalidRoutes: null,
+    targetInvalidations: null,
+    services: {
+      node: INITIAL_SERVICE,
+      infrastructure: INITIAL_SERVICE,
+      invalidRoutes: INITIAL_SERVICE,
+      targetInvalidations: INITIAL_SERVICE,
+    },
+  },
 };
 const SERVICE_LABELS: Record<ServiceName, string> = {
   readiness: "Readiness",
   targets: "Target catalog",
   indexers: "Indexer catalog",
   runtime: "Local runtime",
+};
+const DIAGNOSTIC_SERVICE_LABELS: Record<DiagnosticServiceName, string> = {
+  node: "Node status",
+  infrastructure: "Infrastructure",
+  invalidRoutes: "Invalid routes",
+  targetInvalidations: "Target invalidations",
 };
 const DEFAULT_POLL_INTERVAL: PollInterval = 15_000;
 const POLL_INTERVALS: readonly PollInterval[] = [0, 15_000, 30_000, 60_000];
@@ -105,6 +145,7 @@ const DASHBOARD_SECTIONS: readonly DashboardSection[] = [
   "runtime",
   "metrics",
   "issues",
+  "diagnostics",
   "reports",
 ];
 
@@ -415,6 +456,10 @@ export default function App() {
         indexerResult,
         runtimeResult,
         metricsResult,
+        nodeStatusResult,
+        infrastructureResult,
+        invalidRoutesResult,
+        targetInvalidationsResult,
       ] =
         await Promise.allSettled([
           isReady(signal),
@@ -422,6 +467,10 @@ export default function App() {
           listIndexers(signal),
           runtimeStatus(signal),
           operationalMetrics(signal),
+          nodeStatus(signal),
+          infrastructureStatus(signal),
+          invalidRoutes(signal),
+          targetInvalidations(signal),
         ]);
 
       if (signal.aborted) {
@@ -487,6 +536,46 @@ export default function App() {
             completedAt,
           ),
         },
+        diagnostics: {
+          node:
+            nodeStatusResult.status === "fulfilled"
+              ? nodeStatusResult.value
+              : current.diagnostics.node,
+          infrastructure:
+            infrastructureResult.status === "fulfilled"
+              ? infrastructureResult.value
+              : current.diagnostics.infrastructure,
+          invalidRoutes:
+            invalidRoutesResult.status === "fulfilled"
+              ? invalidRoutesResult.value
+              : current.diagnostics.invalidRoutes,
+          targetInvalidations:
+            targetInvalidationsResult.status === "fulfilled"
+              ? targetInvalidationsResult.value
+              : current.diagnostics.targetInvalidations,
+          services: {
+            node: serviceDiagnostic(
+              nodeStatusResult,
+              current.diagnostics.services.node,
+              completedAt,
+            ),
+            infrastructure: serviceDiagnostic(
+              infrastructureResult,
+              current.diagnostics.services.infrastructure,
+              completedAt,
+            ),
+            invalidRoutes: serviceDiagnostic(
+              invalidRoutesResult,
+              current.diagnostics.services.invalidRoutes,
+              completedAt,
+            ),
+            targetInvalidations: serviceDiagnostic(
+              targetInvalidationsResult,
+              current.diagnostics.services.targetInvalidations,
+              completedAt,
+            ),
+          },
+        },
       }));
       if (
         healthResult.status === "fulfilled" &&
@@ -521,6 +610,21 @@ export default function App() {
             },
           ]),
         ) as DashboardData["services"],
+        diagnostics: {
+          ...current.diagnostics,
+          services: Object.fromEntries(
+            Object.entries(current.diagnostics.services).map(
+              ([name, service]) => [
+                name,
+                {
+                  ...service,
+                  state: "degraded",
+                  error: failureMessage(error),
+                },
+              ],
+            ),
+          ) as DashboardData["diagnostics"]["services"],
+        },
       }));
     } finally {
       setRefreshing(false);
@@ -742,10 +846,17 @@ export default function App() {
       ServiceDiagnostic,
     ][]
   ).filter(([, service]) => service.state === "degraded");
+  const degradedDiagnosticServices = (
+    Object.entries(data.diagnostics.services) as [
+      DiagnosticServiceName,
+      ServiceDiagnostic,
+    ][]
+  ).filter(([, service]) => service.state === "degraded");
   const operationalIssues =
     provisioningIssues +
     runtimeDrifts.length +
     degradedServices.length +
+    degradedDiagnosticServices.length +
     (data.metricsDiagnostic.state === "degraded" ? 1 : 0) +
     ((data.metrics?.lifecyclePending ?? 0) > 0 ? 1 : 0) +
     (!runtimeComparisonAvailable && (data.metrics?.runtimeDrift ?? 0) > 0
@@ -1061,6 +1172,13 @@ export default function App() {
             Issues
           </a>
           <a
+            className={`nav__item${activeSection === "diagnostics" ? " nav__item--active" : ""}`}
+            href="#diagnostics"
+          >
+            <span aria-hidden="true">◫</span>
+            Diagnostics
+          </a>
+          <a
             className={`nav__item${activeSection === "reports" ? " nav__item--active" : ""}`}
             href="#reports"
           >
@@ -1351,7 +1469,42 @@ export default function App() {
                 state: data.metricsDiagnostic.state,
                 error: data.metricsDiagnostic.error,
               },
+              ...(Object.entries(data.diagnostics.services) as [
+                DiagnosticServiceName,
+                ServiceDiagnostic,
+              ][]).map(([name, diagnostic]) => ({
+                name: `diagnostics-${name}`,
+                label: DIAGNOSTIC_SERVICE_LABELS[name],
+                state: diagnostic.state,
+                error: diagnostic.error,
+              })),
             ]}
+            targets={data.targets}
+          />
+
+          <NodeDiagnosticsView
+            indexers={data.indexers}
+            infrastructure={data.diagnostics.infrastructure}
+            invalidRoutes={data.diagnostics.invalidRoutes}
+            node={data.diagnostics.node}
+            onSelectIndexer={(id) => {
+              setSelectedTargetId(null);
+              setSelectedIndexerId(id);
+            }}
+            onSelectTarget={(id) => {
+              setSelectedIndexerId(null);
+              setSelectedTargetId(id);
+            }}
+            services={(Object.entries(data.diagnostics.services) as [
+              DiagnosticServiceName,
+              ServiceDiagnostic,
+            ][]).map(([name, diagnostic]) => ({
+              name,
+              label: DIAGNOSTIC_SERVICE_LABELS[name],
+              state: diagnostic.state,
+              error: diagnostic.error,
+            }))}
+            targetInvalidations={data.diagnostics.targetInvalidations}
             targets={data.targets}
           />
 

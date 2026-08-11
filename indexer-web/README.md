@@ -61,6 +61,17 @@ mutating state. Rejected actions and failed/retrying outcomes are displayed
 separately as cumulative observations since process start, not mislabeled as
 active incidents. At most twelve active issue cards are rendered.
 
+The Node Diagnostics section composes the existing read-only Admin node,
+infrastructure, invalid-route, and target-invalidation contracts. It bounds
+node services, routing rows, infrastructure items, detail fields, and text;
+retains last-good results independently for each diagnostic envelope; and
+omits detail keys that look credential-bearing. Invalid-route references use
+Indexer/Target ids first and resolve a target name plus optional period only
+when exactly one loaded catalog record matches. Missing or ambiguous
+references remain visible instead of becoming guessed links. The view does not
+probe health, mutate runtime state, accept arbitrary diagnostic selectors, or
+render nested infrastructure configuration.
+
 The Reports section discovers consumer-neutral parameter/result schemas through
 the generic Reports REST adapter. It renders only closed object schemas with
 flat scalar inputs and bounded scalar/table results. Unknown keywords, remote
@@ -78,6 +89,7 @@ The module follows the Vert.x React SPA pattern:
   contracts from their owning OpenAPI source files.
 - `openapi-fetch` provides typed same-origin Admin, Runtime, and Reports clients.
 - `IndexerWebVerticle` serves that webroot in packaged/runtime use.
+- Static console assets are served without browser caching so a redeployed node cannot retain an older SPA shell.
 - Both development and runtime expose the same `/api/{service}` browser paths.
 - The Vert.x wrapper forwards those paths to the existing internal REST ports.
 - The wrapper also forwards the read-only Prometheus scrape used by the compact

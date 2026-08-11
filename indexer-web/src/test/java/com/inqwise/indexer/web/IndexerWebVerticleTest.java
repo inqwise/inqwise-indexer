@@ -44,6 +44,7 @@ class IndexerWebVerticleTest {
 			.compose(web -> get(vertx, web.actualPort(), "/")
 				.compose(response -> response.body().map(body -> {
 					assertEquals(200, response.statusCode());
+					assertEquals("no-cache", response.getHeader("cache-control"));
 					assertTrue(body.toString().contains("Inqwise Indexer Console"));
 					return null;
 				}))

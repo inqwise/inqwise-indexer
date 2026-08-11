@@ -13,6 +13,13 @@ export type Target = AdminComponents["schemas"]["AdminTargetView"];
 export type Indexer = AdminComponents["schemas"]["AdminIndexerView"];
 export type RuntimeIndexer =
   RuntimeComponents["schemas"]["RuntimeIndexerStatus"];
+export type NodeStatus = AdminComponents["schemas"]["AdminNodeStatus"];
+export type InfrastructureStatus =
+  AdminComponents["schemas"]["AdminInfrastructureStatus"];
+export type InvalidRouteList =
+  AdminComponents["schemas"]["AdminInvalidRouteList"];
+export type TargetInvalidationList =
+  AdminComponents["schemas"]["AdminTargetInvalidationList"];
 export type OperationalMetrics = {
   acceptedPutActions: number;
   acceptedRemoveActions: number;
@@ -98,6 +105,61 @@ export async function listIndexers(signal: AbortSignal): Promise<Indexer[]> {
     throw requestError(response.status, error);
   }
   return data.indexers;
+}
+
+export async function nodeStatus(signal: AbortSignal): Promise<NodeStatus> {
+  const { data, error, response } = await adminClient.GET("/admin/node/status", {
+    signal,
+  });
+  if (!data) {
+    throw requestError(response.status, error);
+  }
+  return data;
+}
+
+export async function infrastructureStatus(
+  signal: AbortSignal,
+): Promise<InfrastructureStatus> {
+  const { data, error, response } = await adminClient.GET(
+    "/admin/infrastructure/status",
+    { signal },
+  );
+  if (!data) {
+    throw requestError(response.status, error);
+  }
+  return data;
+}
+
+export async function invalidRoutes(
+  signal: AbortSignal,
+): Promise<InvalidRouteList> {
+  const { data, error, response } = await adminClient.GET(
+    "/admin/routing/invalid-routes",
+    {
+      params: { query: { max: 50 } },
+      signal,
+    },
+  );
+  if (!data) {
+    throw requestError(response.status, error);
+  }
+  return data;
+}
+
+export async function targetInvalidations(
+  signal: AbortSignal,
+): Promise<TargetInvalidationList> {
+  const { data, error, response } = await adminClient.GET(
+    "/admin/routing/target-invalidations",
+    {
+      params: { query: { max: 50 } },
+      signal,
+    },
+  );
+  if (!data) {
+    throw requestError(response.status, error);
+  }
+  return data;
 }
 
 export async function activateIndexer(

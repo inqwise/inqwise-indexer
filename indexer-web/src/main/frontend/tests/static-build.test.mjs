@@ -28,6 +28,10 @@ test("keeps the browser API surface same-origin and Gateway-independent", async 
   assert.match(source, /GET\("\/admin\/indexers"/);
   assert.match(source, /baseUrl: "\/api\/runtime"/);
   assert.match(source, /GET\("\/runtime\/status"/);
+  assert.match(source, /GET\("\/admin\/node\/status"/);
+  assert.match(source, /"\/admin\/infrastructure\/status"/);
+  assert.match(source, /"\/admin\/routing\/invalid-routes"/);
+  assert.match(source, /"\/admin\/routing\/target-invalidations"/);
   assert.match(source, /"\/api\/health\/health\/ready"/);
   assert.match(source, /return response\.ok/);
   assert.match(source, /"\/api\/metrics\/metrics"/);
@@ -295,6 +299,33 @@ test("derives a bounded operational attention queue from project state", async (
   assert.match(issues, /onSelectTarget/);
   assert.match(issues, /onSelectIndexer/);
   assert.doesNotMatch(issues, /hacker.news/i);
+});
+
+test("renders bounded read-only node diagnostics with explicit entity resolution", async () => {
+  const app = await readFile(
+    new URL("../src/App.tsx", import.meta.url),
+    "utf8",
+  );
+  const diagnostics = await readFile(
+    new URL("../src/components/NodeDiagnosticsView.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(app, /href="#diagnostics"/);
+  assert.match(app, /<NodeDiagnosticsView/);
+  assert.match(diagnostics, /MAX_NODE_SERVICES = 32/);
+  assert.match(diagnostics, /MAX_ROUTING_ITEMS = 12/);
+  assert.match(diagnostics, /MAX_INFRASTRUCTURE_ITEMS = 40/);
+  assert.match(diagnostics, /MAX_DETAILS_PER_ITEM = 8/);
+  assert.match(diagnostics, /SENSITIVE_DETAIL/);
+  assert.match(diagnostics, /matches\.length === 1/);
+  assert.match(diagnostics, /Ambiguous target/);
+  assert.match(diagnostics, /Missing indexer #/);
+  assert.match(diagnostics, /Missing target #/);
+  assert.match(diagnostics, /<EntityLink/);
+  assert.doesNotMatch(diagnostics, /dangerouslySetInnerHTML/);
+  assert.doesNotMatch(diagnostics, /POST\(|DELETE\(|PUT\(/);
+  assert.doesNotMatch(diagnostics, /hacker.news/i);
 });
 
 test("limits mutations to bounded and explicitly confirmed operator changes", async () => {
