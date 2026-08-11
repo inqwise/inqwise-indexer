@@ -31,6 +31,46 @@ final class MonitoredAdminService implements AdminService {
 	}
 
 	@Override
+	public Future<AdminTargetDefinitionListResult> listTargetDefinitions() {
+		return delegate.listTargetDefinitions();
+	}
+
+	@Override
+	public Future<AdminTargetDefinitionResult> getTargetDefinition(String targetName) {
+		return delegate.getTargetDefinition(targetName);
+	}
+
+	@Override
+	public Future<AdminIndexerDefinitionListResult> listIndexerDefinitions() {
+		return delegate.listIndexerDefinitions();
+	}
+
+	@Override
+	public Future<AdminIndexerDefinitionResult> getIndexerDefinition(String name) {
+		return delegate.getIndexerDefinition(name);
+	}
+
+	@Override
+	public Future<AdminInvalidRouteListResult> listInvalidRoutes(int maxRoutes) {
+		return delegate.listInvalidRoutes(maxRoutes);
+	}
+
+	@Override
+	public Future<AdminTargetInvalidationListResult> listTargetInvalidations(int maxTargets) {
+		return delegate.listTargetInvalidations(maxTargets);
+	}
+
+	@Override
+	public Future<AdminNodeStatusResult> nodeStatus() {
+		return delegate.nodeStatus();
+	}
+
+	@Override
+	public Future<AdminInfrastructureStatusResult> infrastructureStatus() {
+		return delegate.infrastructureStatus();
+	}
+
+	@Override
 	public Future<AdminTargetResult> getTarget(AdminTargetGetRequest request) {
 		return delegate.getTarget(request);
 	}

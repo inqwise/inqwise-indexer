@@ -19,6 +19,22 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/LoadResult'
+  /admin/loads:
+    post:
+      operationId: adminCreateLoad
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLoadRequest'
+      responses:
+        '201':
+          description: Load composition created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoadResult'
   /loads/{id}/start:
     post:
       operationId: startLoad
@@ -32,9 +48,35 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/LoadResult'
+  /admin/loads/{id}/start:
+    post:
+      operationId: adminStartLoad
+      parameters:
+        - $ref: '#/components/parameters/LoadId'
+        - $ref: '#/components/parameters/ExpectedVersion'
+      responses:
+        '200':
+          description: Load provider started.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoadResult'
   /loads/{id}/recover-created:
     post:
       operationId: recoverCreatedLoad
+      parameters:
+        - $ref: '#/components/parameters/LoadId'
+        - $ref: '#/components/parameters/ExpectedVersion'
+      responses:
+        '200':
+          description: Created load start recovered.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoadResult'
+  /admin/loads/{id}/recover-created:
+    post:
+      operationId: adminRecoverCreatedLoad
       parameters:
         - $ref: '#/components/parameters/LoadId'
         - $ref: '#/components/parameters/ExpectedVersion'
@@ -64,9 +106,49 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/LoadResult'
+  /admin/loads/{id}/approve-publication:
+    post:
+      operationId: adminApproveLoadPublication
+      parameters:
+        - $ref: '#/components/parameters/LoadId'
+        - $ref: '#/components/parameters/ExpectedVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApproveLoadRequest'
+      responses:
+        '200':
+          description: Load publication approved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoadResult'
   /loads/{id}:
     delete:
       operationId: cancelLoad
+      parameters:
+        - $ref: '#/components/parameters/LoadId'
+        - $ref: '#/components/parameters/ExpectedVersion'
+        - name: reason
+          in: query
+          schema:
+            type: string
+      responses:
+        '202':
+          description: Load cancellation and durable cleanup accepted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+  /admin/loads/{id}:
+    delete:
+      operationId: adminCancelLoad
       parameters:
         - $ref: '#/components/parameters/LoadId'
         - $ref: '#/components/parameters/ExpectedVersion'

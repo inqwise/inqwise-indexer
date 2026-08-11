@@ -86,6 +86,75 @@ class IndexerNodeTest {
 	}
 
 	@Test
+	void reportsNodeStatusFromAdminService(Vertx vertx, VertxTestContext testContext) {
+		IndexerNodeOptions options = disabledServices()
+			.setService(
+				IndexerNodeOptions.Services.ADMIN,
+				IndexerServiceDeploymentOptions.builder().build()
+			)
+			.setService(
+				IndexerNodeOptions.Services.RUNTIME,
+				IndexerServiceDeploymentOptions.builder().build()
+			);
+		IndexerNode node = IndexerNode.create(vertx, options);
+
+		node.start()
+			.compose(ignored -> AdminServices.proxy(vertx).nodeStatus())
+			.compose(status -> {
+				JsonObject json = status.toJson();
+				assertEquals(true, json.getBoolean("started"));
+				assertEquals(true, json.getBoolean("ready"));
+				assertEquals(3, json.getInteger("deployment_count"));
+				assertEquals(1, json.getInteger("control_plane_deployments"));
+				assertEquals(1, json.getInteger("data_plane_deployments"));
+				assertEquals(1, json.getInteger("infrastructure_deployments"));
+				JsonObject admin = service(json, IndexerNodeOptions.Services.ADMIN);
+				JsonObject runtime = service(json, IndexerNodeOptions.Services.RUNTIME);
+				assertEquals(1, admin.getInteger("deployed_instances"));
+				assertEquals(1, runtime.getInteger("deployed_instances"));
+				return node.stop();
+			})
+			.onComplete(testContext.succeeding(ignored -> testContext.completeNow()));
+	}
+
+	@Test
+	void reportsInfrastructureStatusFromAdminService(
+		Vertx vertx,
+		VertxTestContext testContext
+	) {
+		IndexerNodeOptions options = disabledServices()
+			.setService(
+				IndexerNodeOptions.Services.ADMIN,
+				IndexerServiceDeploymentOptions.builder().build()
+			);
+		IndexerNode node = IndexerNode.create(vertx, options);
+
+		node.start()
+			.compose(ignored -> AdminServices.proxy(vertx).infrastructureStatus())
+			.compose(status -> {
+				JsonObject json = status.toJson();
+				JsonObject commandEngine = infrastructureItem(json, "command-engine");
+				JsonObject invalidations = infrastructureItem(
+					json,
+					"target-invalidation-registry"
+				);
+				assertEquals("command", commandEngine.getString("category"));
+				assertEquals(
+					InMemoryCommandEngine.class.getName(),
+					commandEngine.getString("implementation")
+				);
+				assertEquals(true, commandEngine.getJsonObject("details").getBoolean("started"));
+				assertEquals("invalidation", invalidations.getString("category"));
+				assertEquals(
+					"local",
+					invalidations.getJsonObject("details").getString("namespace")
+				);
+				return node.stop();
+			})
+			.onComplete(testContext.succeeding(ignored -> testContext.completeNow()));
+	}
+
+	@Test
 	void deploysTargetInvalidationServiceBeforeProxyClientUse(
 		Vertx vertx,
 		VertxTestContext testContext
@@ -472,6 +541,22 @@ class IndexerNodeTest {
 			.request(HttpMethod.GET, port, "127.0.0.1", path)
 			.compose(request -> request.send())
 			.map(response -> response.statusCode());
+	}
+
+	private static JsonObject service(JsonObject status, String name) {
+		return status.getJsonArray("services").stream()
+			.map(JsonObject.class::cast)
+			.filter(service -> name.equals(service.getString("name")))
+			.findFirst()
+			.orElseThrow();
+	}
+
+	private static JsonObject infrastructureItem(JsonObject status, String name) {
+		return status.getJsonArray("items").stream()
+			.map(JsonObject.class::cast)
+			.filter(item -> name.equals(item.getString("name")))
+			.findFirst()
+			.orElseThrow();
 	}
 
 	private static IndexerNodeOptions disabledServices() {

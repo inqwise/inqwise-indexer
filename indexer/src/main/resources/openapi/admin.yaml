@@ -103,6 +103,106 @@ paths:
                 $ref: '#/components/schemas/AdminTargetResult'
         default:
           $ref: '#/components/responses/ErrorResponse'
+  /admin/catalog/targets:
+    get:
+      operationId: catalogListTargets
+      parameters:
+        - $ref: '#/components/parameters/IdQuery'
+        - name: target_name
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+        - name: status
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+        - name: provisioning_state
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+      responses:
+        '200':
+          description: Target list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminTargetList'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+    post:
+      operationId: catalogCreateTarget
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - target_name
+                - date
+              properties:
+                target_name:
+                  type: string
+                date:
+                  type: string
+                  format: date
+                create_indexer:
+                  type: object
+                  required:
+                    - initial_publication_mode
+                  properties:
+                    initial_publication_mode:
+                      type: string
+      responses:
+        '201':
+          description: Created target.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminTargetResult'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+  /admin/catalog/targets/{id}:
+    get:
+      operationId: catalogGetTarget
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Target.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminTargetResult'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+  /admin/catalog/targets/{id}/recover-provisioning:
+    post:
+      operationId: catalogRecoverTargetProvisioning
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/ExpectedVersionQuery'
+      responses:
+        '200':
+          description: Recovered target.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminTargetResult'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
   /admin/indexers:
     get:
       operationId: listIndexers
@@ -276,6 +376,301 @@ paths:
                 $ref: '#/components/schemas/AdminIndexerResult'
         default:
           $ref: '#/components/responses/ErrorResponse'
+  /admin/catalog/indexers:
+    get:
+      operationId: catalogListIndexers
+      parameters:
+        - $ref: '#/components/parameters/IdQuery'
+        - name: target_id
+          in: query
+          schema:
+            type: array
+            items:
+              type: integer
+          style: form
+          explode: true
+        - name: type
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+        - name: role
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+        - name: status
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+        - name: provisioning_state
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+        - name: runtime_state
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+        - name: publication_state
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+        - name: mutation_state
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+      responses:
+        '200':
+          description: Indexer list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminIndexerList'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+    post:
+      operationId: catalogCreateIndexer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - target_id
+              properties:
+                target_id:
+                  type: integer
+      responses:
+        '201':
+          description: Created indexer.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminIndexerResult'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+  /admin/catalog/indexers/{id}:
+    get:
+      operationId: catalogGetIndexer
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Indexer.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminIndexerResult'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+    delete:
+      operationId: catalogDeleteIndexer
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/ExpectedVersionQuery'
+      responses:
+        '202':
+          description: Indexer deletion accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminIndexerResult'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+  /admin/catalog/indexers/{id}/activate:
+    post:
+      operationId: catalogActivateIndexer
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/ExpectedVersionQuery'
+      responses:
+        '200':
+          description: Activated indexer.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminIndexerResult'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+  /admin/catalog/indexers/{id}/deactivate:
+    post:
+      operationId: catalogDeactivateIndexer
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/ExpectedVersionQuery'
+      responses:
+        '200':
+          description: Deactivated indexer.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminIndexerResult'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+  /admin/catalog/indexers/{id}/reset-queue:
+    post:
+      operationId: catalogResetIndexerQueue
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/ExpectedVersionQuery'
+      responses:
+        '200':
+          description: Indexer with reset queue name.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminIndexerResult'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+  /admin/definitions/targets:
+    get:
+      operationId: listTargetDefinitions
+      responses:
+        '200':
+          description: Loaded target definitions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminTargetDefinitionList'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+  /admin/definitions/targets/{target_name}:
+    get:
+      operationId: getTargetDefinition
+      parameters:
+        - name: target_name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Loaded target definition.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminTargetDefinitionResult'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+  /admin/definitions/indexers:
+    get:
+      operationId: listIndexerDefinitions
+      responses:
+        '200':
+          description: Loaded indexer definitions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminIndexerDefinitionList'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+  /admin/definitions/indexers/{name}:
+    get:
+      operationId: getIndexerDefinition
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Loaded indexer definition.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminIndexerDefinitionResult'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+  /admin/routing/invalid-routes:
+    get:
+      operationId: listInvalidRoutes
+      parameters:
+        - name: max
+          in: query
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+      responses:
+        '200':
+          description: Cached invalid routes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminInvalidRouteList'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+  /admin/routing/target-invalidations:
+    get:
+      operationId: listTargetInvalidations
+      parameters:
+        - name: max
+          in: query
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+      responses:
+        '200':
+          description: Pending target invalidations.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminTargetInvalidationList'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+  /admin/node/status:
+    get:
+      operationId: nodeStatus
+      responses:
+        '200':
+          description: Node-local status and composition facts.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminNodeStatus'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+  /admin/infrastructure/status:
+    get:
+      operationId: infrastructureStatus
+      responses:
+        '200':
+          description: Node-local infrastructure implementation and configuration facts.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminInfrastructureStatus'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
 components:
   responses:
     ErrorResponse:
@@ -385,6 +780,273 @@ components:
       properties:
         indexer:
           $ref: '#/components/schemas/AdminIndexerView'
+    AdminTargetDefinitionList:
+      type: object
+      required:
+        - target_definitions
+      properties:
+        target_definitions:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminTargetDefinitionView'
+    AdminTargetDefinitionResult:
+      type: object
+      required:
+        - target_definition
+      properties:
+        target_definition:
+          $ref: '#/components/schemas/AdminTargetDefinitionView'
+    AdminTargetDefinitionView:
+      type: object
+      required:
+        - target_name
+        - period_strategy
+        - auto_provision_on_write
+        - auto_publish_on_write
+      properties:
+        target_name:
+          type: string
+        period_strategy:
+          $ref: '#/components/schemas/TargetPeriodStrategy'
+        auto_provision_on_write:
+          type: boolean
+        auto_publish_on_write:
+          type: boolean
+    AdminIndexerDefinitionList:
+      type: object
+      required:
+        - indexer_definitions
+      properties:
+        indexer_definitions:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminIndexerDefinitionView'
+    AdminIndexerDefinitionResult:
+      type: object
+      required:
+        - indexer_definition
+      properties:
+        indexer_definition:
+          $ref: '#/components/schemas/AdminIndexerDefinitionView'
+    AdminIndexerDefinitionView:
+      type: object
+      required:
+        - name
+        - index
+        - queue
+      properties:
+        name:
+          type: string
+        index:
+          $ref: '#/components/schemas/AdminIndexDefinitionView'
+        queue:
+          $ref: '#/components/schemas/AdminQueueDefinitionView'
+    AdminIndexDefinitionView:
+      type: object
+      required:
+        - schema_name
+        - schema_version
+        - settings
+        - mappings
+      properties:
+        schema_name:
+          type: string
+        schema_version:
+          type: string
+        settings:
+          type: object
+          additionalProperties: true
+        mappings:
+          type: object
+          additionalProperties: true
+    AdminQueueDefinitionView:
+      type: object
+      required:
+        - settings
+      properties:
+        settings:
+          type: object
+          additionalProperties: true
+    AdminInvalidRouteList:
+      type: object
+      required:
+        - invalid_routes
+        - truncated
+      properties:
+        invalid_routes:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminInvalidRouteView'
+        truncated:
+          type: boolean
+    AdminInvalidRouteView:
+      type: object
+      required:
+        - signature
+        - reason
+        - first_seen_at
+        - last_seen_at
+        - expires_at
+        - count
+      properties:
+        signature:
+          $ref: '#/components/schemas/AdminInvalidRouteSignature'
+        reason:
+          type: string
+        first_seen_at:
+          type: string
+          format: date-time
+        last_seen_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+        count:
+          type: integer
+          format: int64
+    AdminInvalidRouteSignature:
+      type: object
+      required:
+        - action_type
+      properties:
+        target_name:
+          type: string
+          nullable: true
+        period_key:
+          type: string
+          nullable: true
+        target_id:
+          type: integer
+          nullable: true
+        indexer_id:
+          type: integer
+          nullable: true
+        index_name:
+          type: string
+          nullable: true
+        action_type:
+          $ref: '#/components/schemas/IndexerActionType'
+    AdminTargetInvalidationList:
+      type: object
+      required:
+        - target_invalidations
+        - truncated
+      properties:
+        target_invalidations:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminTargetInvalidationView'
+        truncated:
+          type: boolean
+    AdminTargetInvalidationView:
+      type: object
+      required:
+        - target_id
+        - version
+        - expires_at
+      properties:
+        target_id:
+          type: integer
+        version:
+          type: integer
+          format: int64
+        expires_at:
+          type: string
+          format: date-time
+    AdminNodeStatus:
+      type: object
+      required:
+        - started
+        - ready
+        - recovery_only
+        - stopping
+        - clustered
+        - deployment_count
+        - control_plane_deployments
+        - data_plane_deployments
+        - infrastructure_deployments
+        - lifecycle_event_namespace
+        - target_invalidation_provider
+        - target_invalidation_namespace
+        - target_invalidation_max_targets
+        - services
+      properties:
+        started:
+          type: boolean
+        ready:
+          type: boolean
+        recovery_only:
+          type: boolean
+        stopping:
+          type: boolean
+        clustered:
+          type: boolean
+        deployment_count:
+          type: integer
+        control_plane_deployments:
+          type: integer
+        data_plane_deployments:
+          type: integer
+        infrastructure_deployments:
+          type: integer
+        lifecycle_event_namespace:
+          type: string
+        target_invalidation_provider:
+          type: string
+        target_invalidation_namespace:
+          type: string
+        target_invalidation_max_targets:
+          type: integer
+        services:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminNodeServiceView'
+    AdminNodeServiceView:
+      type: object
+      required:
+        - name
+        - group
+        - enabled
+        - configured_instances
+        - deployed_instances
+      properties:
+        name:
+          type: string
+        group:
+          type: string
+        enabled:
+          type: boolean
+        configured_instances:
+          type: integer
+        deployed_instances:
+          type: integer
+    AdminInfrastructureStatus:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminInfrastructureItem'
+    AdminInfrastructureItem:
+      type: object
+      required:
+        - name
+        - category
+        - implementation
+        - details
+      properties:
+        name:
+          type: string
+        category:
+          type: string
+        implementation:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
     AdminIndexerView:
       type: object
       required:
@@ -456,10 +1118,24 @@ components:
         - READY
         - PROVISIONING
         - FAILED
+    TargetPeriodStrategy:
+      type: string
+      enum:
+        - NONE
+        - MONTHLY
+        - HALF_YEARLY
+        - YEARLY
     IndexerType:
       type: string
       enum:
         - INDEX
+    IndexerActionType:
+      type: string
+      enum:
+        - PUT_DOCUMENT
+        - REMOVE_DOCUMENT
+        - COMPLETE
+        - CATCH_UP_BARRIER
     IndexerRole:
       type: string
       enum:

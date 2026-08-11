@@ -11,6 +11,22 @@ public interface AdminService {
 
 	Future<AdminIndexerListResult> listIndexers(AdminIndexerQuery query);
 
+	Future<AdminTargetDefinitionListResult> listTargetDefinitions();
+
+	Future<AdminTargetDefinitionResult> getTargetDefinition(String targetName);
+
+	Future<AdminIndexerDefinitionListResult> listIndexerDefinitions();
+
+	Future<AdminIndexerDefinitionResult> getIndexerDefinition(String name);
+
+	Future<AdminInvalidRouteListResult> listInvalidRoutes(int maxRoutes);
+
+	Future<AdminTargetInvalidationListResult> listTargetInvalidations(int maxTargets);
+
+	Future<AdminNodeStatusResult> nodeStatus();
+
+	Future<AdminInfrastructureStatusResult> infrastructureStatus();
+
 	Future<AdminTargetResult> getTarget(AdminTargetGetRequest request);
 
 	Future<AdminIndexerResult> getIndexer(AdminIndexerGetRequest request);

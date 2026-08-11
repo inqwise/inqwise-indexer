@@ -1,5 +1,6 @@
 package com.inqwise.indexer.service.admin;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -33,6 +34,12 @@ import com.inqwise.indexer.publication.MetadataIndexPublicationService;
 import com.inqwise.indexer.catalog.targets.TargetManagementService;
 import com.inqwise.indexer.monitoring.IndexerOperationalMonitor;
 import com.inqwise.indexer.publication.MonitoredIndexPublicationService;
+import com.inqwise.indexer.routing.InvalidRouteCache;
+import com.inqwise.indexer.routing.InvalidRouteInvalidation;
+import com.inqwise.indexer.routing.InvalidRouteRecord;
+import com.inqwise.indexer.routing.InvalidRouteSignature;
+import com.inqwise.indexer.lifecycle.TargetInvalidationEntries;
+import com.inqwise.indexer.lifecycle.TargetInvalidationRegistry;
 
 import io.vertx.core.Future;
 
@@ -45,6 +52,12 @@ public class AdminServiceImpl implements AdminService {
 	private final IndexerQueueManagementService queueManagementService;
 	private final TargetManagementService targetManagementService;
 	private final IndexerProvisioningService indexerProvisioning;
+	private final TargetDefinitionProvider targetDefinitionProvider;
+	private final IndexerDefinitionProvider indexerDefinitionProvider;
+	private final InvalidRouteCache invalidRouteCache;
+	private final TargetInvalidationRegistry targetInvalidationRegistry;
+	private final AdminNodeStatusSource nodeStatusSource;
+	private final AdminInfrastructureStatusSource infrastructureStatusSource;
 
 	public AdminServiceImpl(
 		DocumentStoreMetadataRepository repository,
@@ -80,13 +93,125 @@ public class AdminServiceImpl implements AdminService {
 		IndexerOperations indexerOperations,
 		IndexerOperationalMonitor monitor
 	) {
+		this(
+			repository,
+			metadataChangeNotifier,
+			queueResources,
+			targetDefinitionProvider,
+			indexerDefinitionProvider,
+			documentIndexResources,
+			commandService,
+			indexerOperations,
+			monitor,
+			EmptyInvalidRouteCache.INSTANCE,
+			EmptyTargetInvalidationRegistry.INSTANCE,
+			EmptyNodeStatusSource.INSTANCE,
+			EmptyInfrastructureStatusSource.INSTANCE
+		);
+	}
+
+	public AdminServiceImpl(
+		DocumentStoreMetadataRepository repository,
+		MetadataChangeNotifier metadataChangeNotifier,
+		IndexerQueueResourceManager queueResources,
+		TargetDefinitionProvider targetDefinitionProvider,
+		IndexerDefinitionProvider indexerDefinitionProvider,
+		IndexerDocumentIndexResourceManager documentIndexResources,
+		CommandService commandService,
+		IndexerOperations indexerOperations,
+		IndexerOperationalMonitor monitor,
+		InvalidRouteCache invalidRouteCache,
+		TargetInvalidationRegistry targetInvalidationRegistry
+	) {
+		this(
+			repository,
+			metadataChangeNotifier,
+			queueResources,
+			targetDefinitionProvider,
+			indexerDefinitionProvider,
+			documentIndexResources,
+			commandService,
+			indexerOperations,
+			monitor,
+			invalidRouteCache,
+			targetInvalidationRegistry,
+			EmptyNodeStatusSource.INSTANCE,
+			EmptyInfrastructureStatusSource.INSTANCE
+		);
+	}
+
+	public AdminServiceImpl(
+		DocumentStoreMetadataRepository repository,
+		MetadataChangeNotifier metadataChangeNotifier,
+		IndexerQueueResourceManager queueResources,
+		TargetDefinitionProvider targetDefinitionProvider,
+		IndexerDefinitionProvider indexerDefinitionProvider,
+		IndexerDocumentIndexResourceManager documentIndexResources,
+		CommandService commandService,
+		IndexerOperations indexerOperations,
+		IndexerOperationalMonitor monitor,
+		InvalidRouteCache invalidRouteCache,
+		TargetInvalidationRegistry targetInvalidationRegistry,
+		AdminNodeStatusSource nodeStatusSource
+	) {
+		this(
+			repository,
+			metadataChangeNotifier,
+			queueResources,
+			targetDefinitionProvider,
+			indexerDefinitionProvider,
+			documentIndexResources,
+			commandService,
+			indexerOperations,
+			monitor,
+			invalidRouteCache,
+			targetInvalidationRegistry,
+			nodeStatusSource,
+			EmptyInfrastructureStatusSource.INSTANCE
+		);
+	}
+
+	public AdminServiceImpl(
+		DocumentStoreMetadataRepository repository,
+		MetadataChangeNotifier metadataChangeNotifier,
+		IndexerQueueResourceManager queueResources,
+		TargetDefinitionProvider targetDefinitionProvider,
+		IndexerDefinitionProvider indexerDefinitionProvider,
+		IndexerDocumentIndexResourceManager documentIndexResources,
+		CommandService commandService,
+		IndexerOperations indexerOperations,
+		IndexerOperationalMonitor monitor,
+		InvalidRouteCache invalidRouteCache,
+		TargetInvalidationRegistry targetInvalidationRegistry,
+		AdminNodeStatusSource nodeStatusSource,
+		AdminInfrastructureStatusSource infrastructureStatusSource
+	) {
 		this.repository = Objects.requireNonNull(repository, "repository");
 		this.metadataChangeNotifier = Objects.requireNonNull(
 			metadataChangeNotifier,
 			"metadataChangeNotifier"
 		);
 		Objects.requireNonNull(queueResources, "queueResources");
-		Objects.requireNonNull(targetDefinitionProvider, "targetDefinitionProvider");
+		this.targetDefinitionProvider = Objects.requireNonNull(
+			targetDefinitionProvider,
+			"targetDefinitionProvider"
+		);
+		this.indexerDefinitionProvider = Objects.requireNonNull(
+			indexerDefinitionProvider,
+			"indexerDefinitionProvider"
+		);
+		this.invalidRouteCache = invalidRouteCache == null
+			? EmptyInvalidRouteCache.INSTANCE
+			: invalidRouteCache;
+		this.targetInvalidationRegistry = targetInvalidationRegistry == null
+			? EmptyTargetInvalidationRegistry.INSTANCE
+			: targetInvalidationRegistry;
+		this.nodeStatusSource = nodeStatusSource == null
+			? EmptyNodeStatusSource.INSTANCE
+			: nodeStatusSource;
+		this.infrastructureStatusSource = infrastructureStatusSource == null
+			? EmptyInfrastructureStatusSource.INSTANCE
+			: infrastructureStatusSource;
 		this.indexerManagementService = new MetadataIndexerManagementService(
 			repository,
 			metadataChangeNotifier
@@ -101,7 +226,7 @@ public class AdminServiceImpl implements AdminService {
 		);
 		this.indexerProvisioning = new MetadataIndexerProvisioningService(
 			repository,
-			indexerDefinitionProvider,
+			this.indexerDefinitionProvider,
 			documentIndexResources,
 			queueResources
 		);
@@ -109,7 +234,7 @@ public class AdminServiceImpl implements AdminService {
 			new MonitoredIndexPublicationService(
 				new MetadataIndexPublicationService(
 					repository,
-					indexerDefinitionProvider,
+					this.indexerDefinitionProvider,
 					documentIndexResources,
 					queueResources
 				),
@@ -117,7 +242,7 @@ public class AdminServiceImpl implements AdminService {
 		);
 		this.targetManagementService = new MetadataTargetManagementService(
 			repository,
-			targetDefinitionProvider,
+			this.targetDefinitionProvider,
 			indexerProvisioning,
 			indexPublicationService,
 			metadataChangeNotifier
@@ -151,6 +276,131 @@ public class AdminServiceImpl implements AdminService {
 						.toList())
 					.build())
 				.recover(error -> Future.failedFuture(IndexerErrors.normalize(error)));
+		} catch (Throwable error) {
+			return Future.failedFuture(IndexerErrors.normalize(error));
+		}
+	}
+
+	@Override
+	public Future<AdminTargetDefinitionListResult> listTargetDefinitions() {
+		try {
+			return targetDefinitionProvider.list()
+				.map(definitions -> AdminTargetDefinitionListResult.builder()
+					.withTargetDefinitions(definitions.stream()
+						.map(AdminTargetDefinitionView::from)
+						.toList())
+					.build())
+				.recover(error -> Future.failedFuture(IndexerErrors.normalize(error)));
+		} catch (Throwable error) {
+			return Future.failedFuture(IndexerErrors.normalize(error));
+		}
+	}
+
+	@Override
+	public Future<AdminTargetDefinitionResult> getTargetDefinition(String targetName) {
+		try {
+			if (targetName == null || targetName.isBlank()) {
+				throw IndexerErrors.invalidRequest("Target name is required");
+			}
+			return targetDefinitionProvider.getByName(targetName)
+				.map(found -> found
+					.map(AdminTargetDefinitionView::from)
+					.map(view -> AdminTargetDefinitionResult.builder()
+						.withTargetDefinition(view)
+						.build())
+					.orElseThrow(() -> IndexerErrors.notFound("Target definition not found")))
+				.recover(error -> Future.failedFuture(IndexerErrors.normalize(error)));
+		} catch (Throwable error) {
+			return Future.failedFuture(IndexerErrors.normalize(error));
+		}
+	}
+
+	@Override
+	public Future<AdminIndexerDefinitionListResult> listIndexerDefinitions() {
+		try {
+			return indexerDefinitionProvider.list()
+				.map(definitions -> AdminIndexerDefinitionListResult.builder()
+					.withIndexerDefinitions(definitions.entrySet().stream()
+						.sorted(java.util.Map.Entry.comparingByKey())
+						.map(entry -> AdminIndexerDefinitionView.from(
+							entry.getKey(),
+							entry.getValue()
+						))
+						.toList())
+					.build())
+				.recover(error -> Future.failedFuture(IndexerErrors.normalize(error)));
+		} catch (Throwable error) {
+			return Future.failedFuture(IndexerErrors.normalize(error));
+		}
+	}
+
+	@Override
+	public Future<AdminIndexerDefinitionResult> getIndexerDefinition(String name) {
+		try {
+			if (name == null || name.isBlank()) {
+				throw IndexerErrors.invalidRequest("Indexer definition name is required");
+			}
+			return indexerDefinitionProvider.list()
+				.map(definitions -> Optional.ofNullable(definitions.get(name))
+					.map(definition -> AdminIndexerDefinitionView.from(name, definition))
+					.map(view -> AdminIndexerDefinitionResult.builder()
+						.withIndexerDefinition(view)
+						.build())
+					.orElseThrow(() -> IndexerErrors.notFound("Indexer definition not found")))
+				.recover(error -> Future.failedFuture(IndexerErrors.normalize(error)));
+		} catch (Throwable error) {
+			return Future.failedFuture(IndexerErrors.normalize(error));
+		}
+	}
+
+	@Override
+	public Future<AdminInvalidRouteListResult> listInvalidRoutes(int maxRoutes) {
+		try {
+			int limit = validatedMax(maxRoutes, "maxRoutes");
+			var records = invalidRouteCache.list(limit + 1);
+			boolean truncated = records.size() > limit;
+			return Future.succeededFuture(AdminInvalidRouteListResult.builder()
+				.withInvalidRoutes(records.stream()
+					.limit(limit)
+					.map(AdminInvalidRouteView::from)
+					.toList())
+				.withTruncated(truncated)
+				.build());
+		} catch (Throwable error) {
+			return Future.failedFuture(IndexerErrors.normalize(error));
+		}
+	}
+
+	@Override
+	public Future<AdminTargetInvalidationListResult> listTargetInvalidations(int maxTargets) {
+		try {
+			int limit = validatedMax(maxTargets, "maxTargets");
+			return targetInvalidationRegistry.listInvalidations(limit)
+				.map(entries -> AdminTargetInvalidationListResult.builder()
+					.withTargetInvalidations(entries.entries().stream()
+						.map(AdminTargetInvalidationView::from)
+						.toList())
+					.withTruncated(entries.truncated())
+					.build())
+				.recover(error -> Future.failedFuture(IndexerErrors.normalize(error)));
+		} catch (Throwable error) {
+			return Future.failedFuture(IndexerErrors.normalize(error));
+		}
+	}
+
+	@Override
+	public Future<AdminNodeStatusResult> nodeStatus() {
+		try {
+			return Future.succeededFuture(nodeStatusSource.status());
+		} catch (Throwable error) {
+			return Future.failedFuture(IndexerErrors.normalize(error));
+		}
+	}
+
+	@Override
+	public Future<AdminInfrastructureStatusResult> infrastructureStatus() {
+		try {
+			return Future.succeededFuture(infrastructureStatusSource.status());
 		} catch (Throwable error) {
 			return Future.failedFuture(IndexerErrors.normalize(error));
 		}
@@ -399,6 +649,87 @@ public class AdminServiceImpl implements AdminService {
 
 		if (request.getQueueName() == null || request.getQueueName().isBlank()) {
 			throw IndexerErrors.invalidRequest("Queue name is required");
+		}
+	}
+
+	private int validatedMax(int value, String name) {
+		if (value <= 0) {
+			throw IndexerErrors.invalidRequest(name + " must be positive");
+		}
+		return value;
+	}
+
+	private enum EmptyInvalidRouteCache implements InvalidRouteCache {
+		INSTANCE;
+
+		@Override
+		public Optional<InvalidRouteRecord> find(InvalidRouteSignature signature) {
+			return Optional.empty();
+		}
+
+		@Override
+		public void record(InvalidRouteSignature signature, String reason) {
+		}
+
+		@Override
+		public void invalidateMatching(InvalidRouteInvalidation invalidation) {
+		}
+
+		@Override
+		public List<InvalidRouteRecord> list(int maxRoutes) {
+			return List.of();
+		}
+	}
+
+	private enum EmptyTargetInvalidationRegistry implements TargetInvalidationRegistry {
+		INSTANCE;
+
+		@Override
+		public Future<Void> markInvalidated(Integer concreteTargetId) {
+			return Future.succeededFuture();
+		}
+
+		@Override
+		public Future<TargetInvalidationEntries> listInvalidations(int maxTargets) {
+			return Future.succeededFuture(TargetInvalidationEntries.builder()
+				.withEntries(List.of())
+				.withTruncated(false)
+				.build());
+		}
+	}
+
+	private enum EmptyNodeStatusSource implements AdminNodeStatusSource {
+		INSTANCE;
+
+		@Override
+		public AdminNodeStatusResult status() {
+			return AdminNodeStatusResult.builder()
+				.withStarted(false)
+				.withReady(false)
+				.withRecoveryOnly(false)
+				.withStopping(false)
+				.withClustered(false)
+				.withDeploymentCount(0)
+				.withControlPlaneDeployments(0)
+				.withDataPlaneDeployments(0)
+				.withInfrastructureDeployments(0)
+				.withLifecycleEventNamespace("unknown")
+				.withTargetInvalidationProvider("unknown")
+				.withTargetInvalidationNamespace("unknown")
+				.withTargetInvalidationMaxTargets(0)
+				.withServices(List.of())
+				.build();
+		}
+	}
+
+	private enum EmptyInfrastructureStatusSource implements AdminInfrastructureStatusSource {
+		INSTANCE;
+
+		@Override
+		public AdminInfrastructureStatusResult status() {
+			return AdminInfrastructureStatusResult.builder()
+				.withItems(List.of())
+				.build();
 		}
 	}
 }

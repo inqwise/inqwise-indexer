@@ -1,5 +1,6 @@
 package com.inqwise.indexer.adapters.local;
 
+import java.util.Map;
 import java.util.Objects;
 
 import com.inqwise.indexer.provisioning.definitions.IndexerDefinition;
@@ -18,5 +19,10 @@ public class StaticIndexerDefinitionProvider implements IndexerDefinitionProvide
 	@Override
 	public Future<IndexerDefinition> get(IndexerDefinitionRequest request) {
 		return Future.succeededFuture(definition);
+	}
+
+	@Override
+	public Future<Map<String, IndexerDefinition>> list() {
+		return Future.succeededFuture(Map.of("default", definition));
 	}
 }

@@ -5,6 +5,7 @@ import static com.inqwise.indexer.testing.TestMetadataRecords.readyTarget;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.time.Duration;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -19,11 +20,14 @@ import com.inqwise.indexer.catalog.indexers.IndexerType;
 import com.inqwise.indexer.cleanup.CleanupDeletingIndexerCommandHandler;
 import com.inqwise.indexer.cleanup.CleanupResetIndexerQueueCommandHandler;
 import com.inqwise.indexer.adapters.local.InMemoryCommandEngine;
+import com.inqwise.indexer.actions.IndexerActionType;
 import com.inqwise.indexer.provisioning.definitions.IndexDefinition;
 import com.inqwise.indexer.provisioning.definitions.IndexerDefinition;
 import com.inqwise.indexer.provisioning.definitions.QueueDefinition;
 import com.inqwise.indexer.adapters.local.StaticIndexerDefinitionProvider;
 import com.inqwise.indexer.adapters.local.StaticTargetDefinitionProvider;
+import com.inqwise.indexer.adapters.local.InMemoryInvalidRouteCache;
+import com.inqwise.indexer.adapters.local.InMemoryTargetInvalidationRegistry;
 import com.inqwise.indexer.catalog.targets.TargetDefinition;
 import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.InsertTarget;
@@ -35,7 +39,14 @@ import com.inqwise.indexer.catalog.targets.TargetStatus;
 import com.inqwise.indexer.catalog.indexers.IndexerOperations;
 import com.inqwise.indexer.catalog.indexers.MetadataIndexerOperations;
 import com.inqwise.indexer.service.admin.AdminCreateRequestResolver;
+import com.inqwise.indexer.service.admin.AdminInfrastructureItemView;
+import com.inqwise.indexer.service.admin.AdminInfrastructureStatusResult;
+import com.inqwise.indexer.service.admin.AdminInfrastructureStatusSource;
+import com.inqwise.indexer.service.admin.AdminNodeServiceView;
+import com.inqwise.indexer.service.admin.AdminNodeStatusResult;
+import com.inqwise.indexer.service.admin.AdminNodeStatusSource;
 import com.inqwise.indexer.service.admin.AdminServiceVerticle;
+import com.inqwise.indexer.routing.InvalidRouteSignature;
 
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
@@ -79,6 +90,256 @@ class AdminRestVerticleTest {
 				JsonObject indexer = indexerBody.toJsonObject().getJsonObject("indexer");
 				assertEquals("customers-index", indexer.getString("index_name"));
 				assertEquals("customers-queue", indexer.getString("queue_name"));
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void exposesCatalogReadAliasesOverHttp(Vertx vertx, VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
+		AdminRestVerticle restVerticle = restVerticle(repository);
+
+		repository.insertTarget(readyTarget("test", "customers"))
+			.compose(targetId -> repository.insertIndexer(indexerRecord(
+				"runtime",
+				targetId,
+				"customers",
+				"customers-index",
+				"customers-queue",
+				IndexerType.INDEX,
+				IndexerRuntimeState.ACTIVE,
+				PublicationState.PUBLISHED,
+				MutationState.WRITABLE
+			)).map(indexerId -> new CatalogFixture(targetId, indexerId)))
+			.compose(fixture -> vertx.deployVerticle(adminVerticle(repository, eventBus, queue))
+				.compose(ignored -> vertx.deployVerticle(restVerticle))
+				.compose(ignored -> get(
+					vertx,
+					restVerticle.actualPort(),
+					"/admin/catalog/targets?target_name=customers"
+				))
+				.compose(targetsBody -> {
+					JsonObject targets = targetsBody.toJsonObject();
+					assertEquals(1, targets.getJsonArray("targets").size());
+					assertEquals(
+						fixture.targetId(),
+						targets.getJsonArray("targets").getJsonObject(0).getInteger("id")
+					);
+					return get(
+						vertx,
+						restVerticle.actualPort(),
+						"/admin/catalog/indexers/" + fixture.indexerId()
+					);
+				}))
+			.onComplete(testContext.succeeding(indexerBody -> testContext.verify(() -> {
+				JsonObject indexer = indexerBody.toJsonObject().getJsonObject("indexer");
+				assertEquals("customers-index", indexer.getString("index_name"));
+				assertEquals("customers-queue", indexer.getString("queue_name"));
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void exposesLoadedDefinitionsOverHttp(Vertx vertx, VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
+		AdminRestVerticle restVerticle = restVerticle(repository);
+
+		vertx.deployVerticle(adminVerticle(repository, eventBus, queue))
+			.compose(ignored -> vertx.deployVerticle(restVerticle))
+			.compose(ignored -> get(
+				vertx,
+				restVerticle.actualPort(),
+				"/admin/definitions/targets"
+			))
+			.compose(targetsBody -> {
+				JsonObject targets = targetsBody.toJsonObject();
+				assertEquals(1, targets.getJsonArray("target_definitions").size());
+				assertEquals(
+					"customers",
+					targets.getJsonArray("target_definitions")
+						.getJsonObject(0)
+						.getString("target_name")
+				);
+				return get(
+					vertx,
+					restVerticle.actualPort(),
+					"/admin/definitions/indexers/default"
+				);
+			})
+			.onComplete(testContext.succeeding(indexerBody -> testContext.verify(() -> {
+				JsonObject indexer = indexerBody.toJsonObject()
+					.getJsonObject("indexer_definition");
+				JsonObject index = indexer.getJsonObject("index");
+				assertEquals("default", indexer.getString("name"));
+				assertEquals("customers", index.getString("schema_name"));
+				assertEquals("v1", index.getString("schema_version"));
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void exposesRoutingDiagnosticsOverHttp(Vertx vertx, VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
+		InMemoryInvalidRouteCache invalidRouteCache =
+			new InMemoryInvalidRouteCache(Duration.ofMinutes(5));
+		InMemoryTargetInvalidationRegistry targetInvalidations =
+			new InMemoryTargetInvalidationRegistry(Duration.ofMinutes(5), java.time.Clock.systemUTC());
+		AdminRestVerticle restVerticle = restVerticle(repository);
+
+		invalidRouteCache.record(InvalidRouteSignature.builder()
+			.withTargetName("customers")
+			.withPeriodKey("2026-08")
+			.withActionType(IndexerActionType.PUT_DOCUMENT)
+			.build(), "missing writable indexer");
+
+		targetInvalidations.markInvalidated(42)
+			.compose(ignored -> vertx.deployVerticle(adminVerticle(
+				repository,
+				eventBus,
+				queue,
+				invalidRouteCache,
+				targetInvalidations
+			)))
+			.compose(ignored -> vertx.deployVerticle(restVerticle))
+			.compose(ignored -> get(
+				vertx,
+				restVerticle.actualPort(),
+				"/admin/routing/invalid-routes?max=10"
+			))
+			.compose(routesBody -> {
+				JsonObject routes = routesBody.toJsonObject();
+				assertEquals(1, routes.getJsonArray("invalid_routes").size());
+				JsonObject route = routes.getJsonArray("invalid_routes").getJsonObject(0);
+				assertEquals(
+					"customers",
+					route.getJsonObject("signature").getString("target_name")
+				);
+				assertEquals("missing writable indexer", route.getString("reason"));
+				return get(
+					vertx,
+					restVerticle.actualPort(),
+					"/admin/routing/target-invalidations?max=10"
+				);
+			})
+			.onComplete(testContext.succeeding(invalidationsBody -> testContext.verify(() -> {
+				JsonObject invalidations = invalidationsBody.toJsonObject();
+				assertEquals(1, invalidations.getJsonArray("target_invalidations").size());
+				assertEquals(
+					42,
+					invalidations.getJsonArray("target_invalidations")
+						.getJsonObject(0)
+						.getInteger("target_id")
+				);
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void exposesNodeStatusOverHttp(Vertx vertx, VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
+		AdminRestVerticle restVerticle = restVerticle(repository);
+		AdminNodeStatusSource nodeStatus = () -> AdminNodeStatusResult.builder()
+			.withStarted(true)
+			.withReady(true)
+			.withRecoveryOnly(false)
+			.withStopping(false)
+			.withClustered(false)
+			.withDeploymentCount(2)
+			.withControlPlaneDeployments(1)
+			.withDataPlaneDeployments(1)
+			.withInfrastructureDeployments(0)
+			.withLifecycleEventNamespace("local")
+			.withTargetInvalidationProvider("VERTX_SHARED_DATA")
+			.withTargetInvalidationNamespace("local")
+			.withTargetInvalidationMaxTargets(100)
+			.withServices(List.of(AdminNodeServiceView.builder()
+				.withName("admin")
+				.withGroup("control-plane")
+				.withEnabled(true)
+				.withConfiguredInstances(1)
+				.withDeployedInstances(1)
+				.build()))
+			.build();
+
+		vertx.deployVerticle(adminVerticle(
+			repository,
+			eventBus,
+			queue,
+			null,
+			null,
+			nodeStatus
+		))
+			.compose(ignored -> vertx.deployVerticle(restVerticle))
+			.compose(ignored -> get(
+				vertx,
+				restVerticle.actualPort(),
+				"/admin/node/status"
+			))
+			.onComplete(testContext.succeeding(body -> testContext.verify(() -> {
+				JsonObject status = body.toJsonObject();
+				assertEquals(true, status.getBoolean("ready"));
+				assertEquals(2, status.getInteger("deployment_count"));
+				assertEquals("local", status.getString("lifecycle_event_namespace"));
+				assertEquals(1, status.getJsonArray("services").size());
+				assertEquals(
+					"admin",
+					status.getJsonArray("services").getJsonObject(0).getString("name")
+				);
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void exposesInfrastructureStatusOverHttp(Vertx vertx, VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
+		AdminRestVerticle restVerticle = restVerticle(repository);
+		AdminInfrastructureStatusSource infrastructureStatus = () ->
+			AdminInfrastructureStatusResult.builder()
+				.withItems(List.of(AdminInfrastructureItemView.builder()
+					.withName("command-engine")
+					.withCategory("command")
+					.withImplementation("com.example.CommandEngine")
+					.withDetails(new JsonObject().put("started", true))
+					.build()))
+				.build();
+
+		vertx.deployVerticle(adminVerticle(
+			repository,
+			eventBus,
+			queue,
+			null,
+			null,
+			null,
+			infrastructureStatus
+		))
+			.compose(ignored -> vertx.deployVerticle(restVerticle))
+			.compose(ignored -> get(
+				vertx,
+				restVerticle.actualPort(),
+				"/admin/infrastructure/status"
+			))
+			.onComplete(testContext.succeeding(body -> testContext.verify(() -> {
+				JsonObject status = body.toJsonObject();
+				JsonObject item = status.getJsonArray("items").getJsonObject(0);
+				assertEquals("command-engine", item.getString("name"));
+				assertEquals("command", item.getString("category"));
+				assertEquals("com.example.CommandEngine", item.getString("implementation"));
+				assertEquals(true, item.getJsonObject("details").getBoolean("started"));
 				testContext.completeNow();
 			})));
 	}
@@ -371,6 +632,63 @@ class AdminRestVerticleTest {
 		InMemoryIndexerLifecycleEventBus eventBus,
 		InMemoryIndexerQueue queue
 	) {
+		return adminVerticle(
+			repository,
+			eventBus,
+			queue,
+			null,
+			null,
+			null,
+			null
+		);
+	}
+
+	private AdminServiceVerticle adminVerticle(
+		InMemoryDocumentStoreMetadataRepository repository,
+		InMemoryIndexerLifecycleEventBus eventBus,
+		InMemoryIndexerQueue queue,
+		InMemoryInvalidRouteCache invalidRouteCache,
+		InMemoryTargetInvalidationRegistry targetInvalidations
+	) {
+		return adminVerticle(
+			repository,
+			eventBus,
+			queue,
+			invalidRouteCache,
+			targetInvalidations,
+			null,
+			null
+		);
+	}
+
+	private AdminServiceVerticle adminVerticle(
+		InMemoryDocumentStoreMetadataRepository repository,
+		InMemoryIndexerLifecycleEventBus eventBus,
+		InMemoryIndexerQueue queue,
+		InMemoryInvalidRouteCache invalidRouteCache,
+		InMemoryTargetInvalidationRegistry targetInvalidations,
+		AdminNodeStatusSource nodeStatus
+	) {
+		return adminVerticle(
+			repository,
+			eventBus,
+			queue,
+			invalidRouteCache,
+			targetInvalidations,
+			nodeStatus,
+			null
+		);
+	}
+
+	private AdminServiceVerticle adminVerticle(
+		InMemoryDocumentStoreMetadataRepository repository,
+		InMemoryIndexerLifecycleEventBus eventBus,
+		InMemoryIndexerQueue queue,
+		InMemoryInvalidRouteCache invalidRouteCache,
+		InMemoryTargetInvalidationRegistry targetInvalidations,
+		AdminNodeStatusSource nodeStatus,
+		AdminInfrastructureStatusSource infrastructureStatus
+	) {
 		InMemoryIndexerDocumentStore documentStore = new InMemoryIndexerDocumentStore();
 		IndexerOperations indexerOperations = new MetadataIndexerOperations(
 			repository,
@@ -388,15 +706,36 @@ class AdminRestVerticleTest {
 			TestMetadataChangeNotifiers.create(eventBus),
 			queue,
 			new StaticTargetDefinitionProvider(List.of(
-				new TargetDefinition("customers", TargetPeriodStrategy.MONTHLY)
+				TargetDefinition.builder()
+					.withTargetName("customers")
+					.withPeriodStrategy(TargetPeriodStrategy.MONTHLY)
+					.build()
 			)),
-			new StaticIndexerDefinitionProvider(new IndexerDefinition(
-				new IndexDefinition("customers", "v1", new JsonObject(), new JsonObject()),
-				new QueueDefinition(new JsonObject())
-			)),
+			new StaticIndexerDefinitionProvider(IndexerDefinition.builder()
+				.withIndex(IndexDefinition.builder()
+					.withSchemaName("customers")
+					.withSchemaVersion("v1")
+					.withSettings(new JsonObject())
+					.withMappings(new JsonObject())
+					.build())
+				.withQueue(QueueDefinition.builder()
+					.withSettings(new JsonObject())
+					.build())
+				.build()),
 			documentStore,
 			commandService,
-			indexerOperations
+			indexerOperations,
+			com.inqwise.indexer.monitoring.IndexerOperationalMonitor.NOOP,
+			invalidRouteCache,
+			targetInvalidations,
+			nodeStatus,
+			infrastructureStatus
 		);
+	}
+
+	private record CatalogFixture(
+		Integer targetId,
+		Integer indexerId
+	) {
 	}
 }

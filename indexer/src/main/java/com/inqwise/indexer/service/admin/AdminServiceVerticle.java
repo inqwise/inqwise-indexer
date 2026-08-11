@@ -11,6 +11,8 @@ import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.catalog.indexers.IndexerOperations;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 import com.inqwise.indexer.monitoring.IndexerOperationalMonitor;
+import com.inqwise.indexer.routing.InvalidRouteCache;
+import com.inqwise.indexer.lifecycle.TargetInvalidationRegistry;
 import com.inqwise.indexer.service.ServiceProxyVerticle;
 
 import io.vertx.serviceproxy.ProxyHandler;
@@ -52,6 +54,97 @@ public class AdminServiceVerticle extends ServiceProxyVerticle<AdminService> {
 		IndexerOperations indexerOperations,
 		IndexerOperationalMonitor monitor
 	) {
+		this(
+			repository,
+			metadataChangeNotifier,
+			queueResources,
+			targetDefinitionProvider,
+			indexerDefinitionProvider,
+			documentIndexResources,
+			commandService,
+			indexerOperations,
+			monitor,
+			null,
+			null,
+			null
+		);
+	}
+
+	public AdminServiceVerticle(
+		DocumentStoreMetadataRepository repository,
+		MetadataChangeNotifier metadataChangeNotifier,
+		IndexerQueueResourceManager queueResources,
+		TargetDefinitionProvider targetDefinitionProvider,
+		IndexerDefinitionProvider indexerDefinitionProvider,
+		IndexerDocumentIndexResourceManager documentIndexResources,
+		CommandService commandService,
+		IndexerOperations indexerOperations,
+		IndexerOperationalMonitor monitor,
+		InvalidRouteCache invalidRouteCache,
+		TargetInvalidationRegistry targetInvalidationRegistry
+	) {
+		this(
+			repository,
+			metadataChangeNotifier,
+			queueResources,
+			targetDefinitionProvider,
+			indexerDefinitionProvider,
+			documentIndexResources,
+			commandService,
+			indexerOperations,
+			monitor,
+			invalidRouteCache,
+			targetInvalidationRegistry,
+			null
+		);
+	}
+
+	public AdminServiceVerticle(
+		DocumentStoreMetadataRepository repository,
+		MetadataChangeNotifier metadataChangeNotifier,
+		IndexerQueueResourceManager queueResources,
+		TargetDefinitionProvider targetDefinitionProvider,
+		IndexerDefinitionProvider indexerDefinitionProvider,
+		IndexerDocumentIndexResourceManager documentIndexResources,
+		CommandService commandService,
+		IndexerOperations indexerOperations,
+		IndexerOperationalMonitor monitor,
+		InvalidRouteCache invalidRouteCache,
+		TargetInvalidationRegistry targetInvalidationRegistry,
+		AdminNodeStatusSource nodeStatusSource
+	) {
+		this(
+			repository,
+			metadataChangeNotifier,
+			queueResources,
+			targetDefinitionProvider,
+			indexerDefinitionProvider,
+			documentIndexResources,
+			commandService,
+			indexerOperations,
+			monitor,
+			invalidRouteCache,
+			targetInvalidationRegistry,
+			nodeStatusSource,
+			null
+		);
+	}
+
+	public AdminServiceVerticle(
+		DocumentStoreMetadataRepository repository,
+		MetadataChangeNotifier metadataChangeNotifier,
+		IndexerQueueResourceManager queueResources,
+		TargetDefinitionProvider targetDefinitionProvider,
+		IndexerDefinitionProvider indexerDefinitionProvider,
+		IndexerDocumentIndexResourceManager documentIndexResources,
+		CommandService commandService,
+		IndexerOperations indexerOperations,
+		IndexerOperationalMonitor monitor,
+		InvalidRouteCache invalidRouteCache,
+		TargetInvalidationRegistry targetInvalidationRegistry,
+		AdminNodeStatusSource nodeStatusSource,
+		AdminInfrastructureStatusSource infrastructureStatusSource
+	) {
 		AdminService delegate = new AdminServiceImpl(
 			Objects.requireNonNull(repository, "repository"),
 			Objects.requireNonNull(metadataChangeNotifier, "metadataChangeNotifier"),
@@ -61,7 +154,11 @@ public class AdminServiceVerticle extends ServiceProxyVerticle<AdminService> {
 			Objects.requireNonNull(documentIndexResources, "documentIndexResources"),
 			Objects.requireNonNull(commandService, "commandService"),
 			Objects.requireNonNull(indexerOperations, "indexerOperations"),
-			Objects.requireNonNull(monitor, "monitor")
+			Objects.requireNonNull(monitor, "monitor"),
+			invalidRouteCache,
+			targetInvalidationRegistry,
+			nodeStatusSource,
+			infrastructureStatusSource
 		);
 		this.service = new MonitoredAdminService(
 			delegate,

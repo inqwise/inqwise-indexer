@@ -3,7 +3,9 @@ package com.inqwise.indexer.adapters.local;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -85,6 +87,28 @@ public class InMemoryInvalidRouteCache implements InvalidRouteCache {
 				iterator.remove();
 			}
 		}
+	}
+
+	@Override
+	public List<InvalidRouteRecord> list(int maxRoutes) {
+		if (maxRoutes <= 0) {
+			throw new IllegalArgumentException("maxRoutes must be positive");
+		}
+
+		removeExpired();
+		return records.values().stream()
+			.sorted(Comparator
+				.comparing(InvalidRouteRecord::lastSeenAt)
+				.reversed()
+				.thenComparing(record -> record.signature().targetName(), Comparator.nullsLast(String::compareTo))
+				.thenComparing(record -> record.signature().periodKey(), Comparator.nullsLast(String::compareTo)))
+			.limit(maxRoutes)
+			.toList();
+	}
+
+	private void removeExpired() {
+		Instant now = clock.instant();
+		records.entrySet().removeIf(entry -> isExpired(entry.getValue(), now));
 	}
 
 	private boolean isExpired(InvalidRouteRecord record) {

@@ -1,7 +1,9 @@
 package com.inqwise.indexer.node;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 import org.apache.logging.log4j.LogManager;
@@ -9,6 +11,7 @@ import org.apache.logging.log4j.Logger;
 
 import com.inqwise.indexer.gateway.GatewayRequestHooks;
 import com.inqwise.indexer.gateway.GatewayRestVerticle;
+import com.inqwise.indexer.adapters.local.InMemoryCommandEngine;
 import com.inqwise.indexer.lifecycle.MetadataChangeNotifier;
 import com.inqwise.indexer.hot.InvalidRouteMetadataChangeListener;
 import com.inqwise.indexer.hot.TargetInvalidationMetadataChangeListener;
@@ -17,10 +20,17 @@ import com.inqwise.indexer.rest.action.TargetActionRestVerticle;
 import com.inqwise.indexer.rest.admin.AdminRestVerticle;
 import com.inqwise.indexer.rest.runtime.RuntimeRestVerticle;
 import com.inqwise.indexer.service.admin.AdminCreateRequestResolver;
+import com.inqwise.indexer.service.admin.AdminInfrastructureItemView;
+import com.inqwise.indexer.service.admin.AdminInfrastructureStatusResult;
+import com.inqwise.indexer.service.admin.AdminNodeServiceView;
+import com.inqwise.indexer.service.admin.AdminNodeStatusResult;
+import com.inqwise.indexer.service.admin.AdminServices;
 import com.inqwise.indexer.service.admin.AdminServiceVerticle;
 import com.inqwise.indexer.service.action.TargetActionServiceVerticle;
 import com.inqwise.indexer.service.action.TargetActionPreparationRegistry;
+import com.inqwise.indexer.service.action.TargetActionServices;
 import com.inqwise.indexer.service.runtime.RuntimeServiceVerticle;
+import com.inqwise.indexer.service.runtime.RuntimeServices;
 import com.inqwise.indexer.service.invalidation.TargetInvalidationRegistryServiceVerticle;
 import com.inqwise.indexer.service.invalidation.TargetInvalidationRegistryServices;
 import com.inqwise.indexer.runtime.IndexerEventPublisher;
@@ -29,6 +39,7 @@ import com.inqwise.indexer.monitoring.IndexerOperationalMonitor;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
+import io.vertx.core.json.JsonObject;
 
 public class IndexerNode {
 	private static final Logger logger = LogManager.getLogger(IndexerNode.class);
@@ -44,6 +55,8 @@ public class IndexerNode {
 	private final List<String> deploymentIds = new ArrayList<>();
 	private final List<String> dataPlaneDeploymentIds = new ArrayList<>();
 	private final List<String> infrastructureDeploymentIds = new ArrayList<>();
+	private final Map<String, Integer> deployedServices = new LinkedHashMap<>();
+	private final Map<String, String> serviceByDeploymentId = new LinkedHashMap<>();
 	private boolean started;
 	private boolean recoveryOnly;
 	private boolean stopping;
@@ -281,6 +294,8 @@ public class IndexerNode {
 					deploymentIds.clear();
 					dataPlaneDeploymentIds.clear();
 					infrastructureDeploymentIds.clear();
+					deployedServices.clear();
+					serviceByDeploymentId.clear();
 					started = false;
 					recoveryOnly = false;
 					recoveryFuture = null;
@@ -351,18 +366,26 @@ public class IndexerNode {
 		return undeployed;
 	}
 
-	private synchronized void trackDataPlaneDeployment(String deploymentId) {
+	private synchronized void trackDataPlaneDeployment(String serviceName, String deploymentId) {
 		deploymentIds.add(deploymentId);
 		dataPlaneDeploymentIds.add(deploymentId);
+		trackService(serviceName, deploymentId);
 	}
 
-	private synchronized void trackControlPlaneDeployment(String deploymentId) {
+	private synchronized void trackControlPlaneDeployment(String serviceName, String deploymentId) {
 		deploymentIds.add(deploymentId);
+		trackService(serviceName, deploymentId);
 	}
 
-	private synchronized void trackInfrastructureDeployment(String deploymentId) {
+	private synchronized void trackInfrastructureDeployment(String serviceName, String deploymentId) {
 		deploymentIds.add(deploymentId);
 		infrastructureDeploymentIds.add(deploymentId);
+		trackService(serviceName, deploymentId);
+	}
+
+	private void trackService(String serviceName, String deploymentId) {
+		serviceByDeploymentId.put(deploymentId, serviceName);
+		deployedServices.merge(serviceName, 1, Integer::sum);
 	}
 
 	private Future<Void> undeploy(List<String> deployments) {
@@ -378,6 +401,228 @@ public class IndexerNode {
 	private synchronized void removeDataPlaneDeployment(String deploymentId) {
 		deploymentIds.remove(deploymentId);
 		dataPlaneDeploymentIds.remove(deploymentId);
+		removeServiceDeployment(deploymentId);
+	}
+
+	private void removeServiceDeployment(String deploymentId) {
+		String serviceName = serviceByDeploymentId.remove(deploymentId);
+		if (serviceName == null) {
+			return;
+		}
+		deployedServices.computeIfPresent(serviceName, (ignored, count) ->
+			count <= 1 ? null : count - 1
+		);
+	}
+
+	private synchronized AdminNodeStatusResult nodeStatus() {
+		int dataPlaneDeployments = dataPlaneDeploymentIds.size();
+		int infrastructureDeployments = infrastructureDeploymentIds.size();
+		int controlPlaneDeployments = deploymentIds.size()
+			- dataPlaneDeployments
+			- infrastructureDeployments;
+		TargetInvalidationNodeOptions targetInvalidation =
+			options.getTargetInvalidationOptions();
+		return AdminNodeStatusResult.builder()
+			.withStarted(started)
+			.withReady(started && !stopping && !recoveryOnly)
+			.withRecoveryOnly(recoveryOnly)
+			.withStopping(stopping)
+			.withClustered(vertx.isClustered())
+			.withDeploymentCount(deploymentIds.size())
+			.withControlPlaneDeployments(controlPlaneDeployments)
+			.withDataPlaneDeployments(dataPlaneDeployments)
+			.withInfrastructureDeployments(infrastructureDeployments)
+			.withLifecycleEventNamespace(options.getLifecycleEventBusConfig().namespace())
+			.withTargetInvalidationProvider(targetInvalidation.getProvider().name())
+			.withTargetInvalidationNamespace(targetInvalidation.getNamespace())
+			.withTargetInvalidationMaxTargets(targetInvalidation.getMaxTargets())
+			.withServices(serviceViews())
+			.build();
+	}
+
+	private List<AdminNodeServiceView> serviceViews() {
+		return List.of(
+			serviceView(IndexerNodeOptions.Services.ADMIN, "control-plane"),
+			serviceView(IndexerNodeOptions.Services.ADMIN_REST, "control-plane"),
+			serviceView(IndexerNodeOptions.Services.HEALTH_REST, "control-plane"),
+			serviceView(IndexerNodeOptions.Services.TARGET_ACTION, "data-plane"),
+			serviceView(IndexerNodeOptions.Services.TARGET_ACTION_REST, "data-plane"),
+			serviceView(IndexerNodeOptions.Services.RUNTIME, "data-plane"),
+			serviceView(IndexerNodeOptions.Services.RUNTIME_REST, "data-plane"),
+			serviceView(IndexerNodeOptions.Services.GATEWAY, "data-plane"),
+			serviceView(
+				IndexerNodeOptions.Services.TARGET_INVALIDATION_REGISTRY,
+				"infrastructure"
+			)
+		);
+	}
+
+	private AdminNodeServiceView serviceView(String name, String group) {
+		IndexerServiceDeploymentOptions deployment = options.service(name);
+		return AdminNodeServiceView.builder()
+			.withName(name)
+			.withGroup(group)
+			.withEnabled(deployment.isEnabled())
+			.withConfiguredInstances(deployment.getInstances())
+			.withDeployedInstances(deployedServices.getOrDefault(name, 0))
+			.build();
+	}
+
+	private synchronized AdminInfrastructureStatusResult infrastructureStatus() {
+		TargetInvalidationNodeOptions targetInvalidation =
+			options.getTargetInvalidationOptions();
+		List<AdminInfrastructureItemView> items = new ArrayList<>();
+		items.add(infrastructureItem(
+			"command-engine",
+			"command",
+			components.commandEngine(),
+			commandEngineDetails()
+		));
+		items.add(infrastructureItem(
+			"metadata-repository",
+			"persistence",
+			components.repository(),
+			new JsonObject()
+		));
+		items.add(infrastructureItem(
+			"queue-resources",
+			"resources",
+			components.queueResources(),
+			new JsonObject()
+		));
+		items.add(infrastructureItem(
+			"document-index-resources",
+			"resources",
+			components.documentIndexResources(),
+			new JsonObject()
+		));
+		items.add(infrastructureItem(
+			"lifecycle-event-bus",
+			"events",
+			components.lifecycleEventBus(),
+			new JsonObject()
+				.put("namespace", options.getLifecycleEventBusConfig().namespace())
+				.put("clustered", vertx.isClustered())
+		));
+		items.add(infrastructureItem(
+			"target-invalidation-registry",
+			"invalidation",
+			components.targetInvalidationRegistryBackend(),
+			new JsonObject()
+				.put("provider", targetInvalidation.getProvider().name())
+				.put("namespace", targetInvalidation.getNamespace())
+				.put("max_targets", targetInvalidation.getMaxTargets())
+				.put("service_address", TargetInvalidationRegistryServices.address(
+					targetInvalidation.getNamespace()
+				))
+		));
+		items.add(infrastructureItem(
+			"target-definitions",
+			"definitions",
+			components.targetDefinitionProvider(),
+			new JsonObject()
+		));
+		items.add(infrastructureItem(
+			"indexer-definitions",
+			"definitions",
+			components.indexerDefinitionProvider(),
+			new JsonObject()
+		));
+		items.add(infrastructureItem(
+			"invalid-route-cache",
+			"routing",
+			components.invalidRouteCache(),
+			new JsonObject()
+		));
+		items.add(infrastructureItem(
+			"admin-service-proxy",
+			"service-proxy",
+			AdminServices.class,
+			new JsonObject().put("address", AdminServices.DEFAULT_ADDRESS)
+		));
+		items.add(infrastructureItem(
+			"target-action-service-proxy",
+			"service-proxy",
+			TargetActionServices.class,
+			new JsonObject().put("address", TargetActionServices.DEFAULT_ADDRESS)
+		));
+		items.add(infrastructureItem(
+			"runtime-service-proxy",
+			"service-proxy",
+			RuntimeServices.class,
+			new JsonObject().put("address", RuntimeServices.DEFAULT_ADDRESS)
+		));
+		items.add(infrastructureItem(
+			"admin-rest",
+			"rest",
+			options.getAdminRestOptions(),
+			restDetails(options.adminRest(), options.getAdminRestOptions().toJson())
+		));
+		items.add(infrastructureItem(
+			"target-action-rest",
+			"rest",
+			options.getTargetActionRestOptions(),
+			restDetails(options.targetActionRest(), options.getTargetActionRestOptions().toJson())
+		));
+		items.add(infrastructureItem(
+			"runtime-rest",
+			"rest",
+			options.getRuntimeRestOptions(),
+			restDetails(options.runtimeRest(), options.getRuntimeRestOptions().toJson())
+		));
+		items.add(infrastructureItem(
+			"health-rest",
+			"rest",
+			options.getHealthRestOptions(),
+			restDetails(options.healthRest(), options.getHealthRestOptions().toJson())
+		));
+		items.add(infrastructureItem(
+			"gateway-rest",
+			"rest",
+			options.getGatewayOptions(),
+			restDetails(options.gateway(), options.getGatewayOptions().toJson())
+		));
+		return AdminInfrastructureStatusResult.builder()
+			.withItems(items)
+			.build();
+	}
+
+	private JsonObject commandEngineDetails() {
+		JsonObject details = new JsonObject();
+		if (components.commandEngine() instanceof InMemoryCommandEngine inMemory) {
+			details.put("started", inMemory.isStarted());
+		}
+		return details;
+	}
+
+	private static JsonObject restDetails(
+		IndexerServiceDeploymentOptions deployment,
+		JsonObject config
+	) {
+		return config.copy()
+			.put("enabled", deployment.isEnabled())
+			.put("configured_instances", deployment.getInstances());
+	}
+
+	private static AdminInfrastructureItemView infrastructureItem(
+		String name,
+		String category,
+		Object implementation,
+		JsonObject details
+	) {
+		return AdminInfrastructureItemView.builder()
+			.withName(name)
+			.withCategory(category)
+			.withImplementation(implementationName(implementation))
+			.withDetails(details)
+			.build();
+	}
+
+	private static String implementationName(Object implementation) {
+		if (implementation instanceof Class<?> type) {
+			return type.getName();
+		}
+		return implementation.getClass().getName();
 	}
 
 	public IndexerNodeComponents components() {
@@ -400,7 +645,10 @@ public class IndexerNode {
 					)
 				),
 				new DeploymentOptions()
-			).onSuccess(this::trackInfrastructureDeployment).mapEmpty());
+			).onSuccess(id -> trackInfrastructureDeployment(
+				IndexerNodeOptions.Services.TARGET_INVALIDATION_REGISTRY,
+				id
+			)).mapEmpty());
 		}
 		return deployed;
 	}
@@ -426,10 +674,17 @@ public class IndexerNode {
 					components.documentIndexResources(),
 					components.commandEngine(),
 					components.indexerOperations(),
-					operationalMonitor
+					operationalMonitor,
+					components.invalidRouteCache(),
+					components.targetInvalidationRegistry(),
+					this::nodeStatus,
+					this::infrastructureStatus
 				),
 				new DeploymentOptions()
-			).onSuccess(this::trackControlPlaneDeployment).mapEmpty());
+			).onSuccess(id -> trackControlPlaneDeployment(
+				IndexerNodeOptions.Services.ADMIN,
+				id
+			)).mapEmpty());
 		}
 
 		return deployed;
@@ -447,7 +702,10 @@ public class IndexerNode {
 				new AdminCreateRequestResolver(components.repository())
 			),
 			new DeploymentOptions()
-		).onSuccess(this::trackControlPlaneDeployment).mapEmpty();
+		).onSuccess(id -> trackControlPlaneDeployment(
+			IndexerNodeOptions.Services.ADMIN_REST,
+			id
+		)).mapEmpty();
 	}
 
 	private Future<Void> deployTargetAction() {
@@ -465,7 +723,10 @@ public class IndexerNode {
 					targetActionPreparations
 				),
 				new DeploymentOptions()
-			).onSuccess(this::trackDataPlaneDeployment).mapEmpty());
+			).onSuccess(id -> trackDataPlaneDeployment(
+				IndexerNodeOptions.Services.TARGET_ACTION,
+				id
+			)).mapEmpty());
 		}
 
 		return deployed;
@@ -480,7 +741,10 @@ public class IndexerNode {
 		return vertx.deployVerticle(
 			new TargetActionRestVerticle(options.getTargetActionRestOptions()),
 			new DeploymentOptions()
-		).onSuccess(this::trackDataPlaneDeployment).mapEmpty();
+		).onSuccess(id -> trackDataPlaneDeployment(
+			IndexerNodeOptions.Services.TARGET_ACTION_REST,
+			id
+		)).mapEmpty();
 	}
 
 	private Future<Void> deployGateway() {
@@ -495,7 +759,10 @@ public class IndexerNode {
 		return vertx.deployVerticle(
 			gateway,
 			new DeploymentOptions()
-		).onSuccess(this::trackDataPlaneDeployment).mapEmpty();
+		).onSuccess(id -> trackDataPlaneDeployment(
+			IndexerNodeOptions.Services.GATEWAY,
+			id
+		)).mapEmpty();
 	}
 
 	private Future<Void> deployRuntime() {
@@ -510,7 +777,10 @@ public class IndexerNode {
 				components.runtimeReconciler()
 			),
 			new DeploymentOptions()
-		).onSuccess(this::trackDataPlaneDeployment).mapEmpty();
+		).onSuccess(id -> trackDataPlaneDeployment(
+			IndexerNodeOptions.Services.RUNTIME,
+			id
+		)).mapEmpty();
 	}
 
 	private Future<Void> deployRuntimeRest() {
@@ -522,7 +792,10 @@ public class IndexerNode {
 		return vertx.deployVerticle(
 			new RuntimeRestVerticle(options.getRuntimeRestOptions()),
 			new DeploymentOptions()
-		).onSuccess(this::trackDataPlaneDeployment).mapEmpty();
+		).onSuccess(id -> trackDataPlaneDeployment(
+			IndexerNodeOptions.Services.RUNTIME_REST,
+			id
+		)).mapEmpty();
 	}
 
 	private Future<Void> deployHealthRest() {
@@ -534,7 +807,10 @@ public class IndexerNode {
 		return vertx.deployVerticle(
 			new NodeHealthRestVerticle(options.getHealthRestOptions(), this::isReady),
 			new DeploymentOptions()
-		).onSuccess(this::trackControlPlaneDeployment).mapEmpty();
+		).onSuccess(id -> trackControlPlaneDeployment(
+			IndexerNodeOptions.Services.HEALTH_REST,
+			id
+		)).mapEmpty();
 	}
 
 }

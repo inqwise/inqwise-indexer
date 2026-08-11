@@ -21,16 +21,24 @@ import com.inqwise.indexer.service.admin.AdminCreateIndexerRequest;
 import com.inqwise.indexer.service.admin.AdminCreateRequestResolver;
 import com.inqwise.indexer.service.admin.AdminCreateTargetRequest;
 import com.inqwise.indexer.service.admin.AdminDeleteIndexerRequest;
+import com.inqwise.indexer.service.admin.AdminIndexerDefinitionListResult;
+import com.inqwise.indexer.service.admin.AdminIndexerDefinitionResult;
 import com.inqwise.indexer.service.admin.AdminIndexerGetRequest;
 import com.inqwise.indexer.service.admin.AdminIndexerLifecycleRequest;
 import com.inqwise.indexer.service.admin.AdminIndexerListResult;
 import com.inqwise.indexer.service.admin.AdminIndexerQuery;
 import com.inqwise.indexer.service.admin.AdminIndexerResult;
+import com.inqwise.indexer.service.admin.AdminInfrastructureStatusResult;
+import com.inqwise.indexer.service.admin.AdminInvalidRouteListResult;
+import com.inqwise.indexer.service.admin.AdminNodeStatusResult;
 import com.inqwise.indexer.service.admin.AdminRecoverTargetProvisioningRequest;
 import com.inqwise.indexer.service.admin.AdminResetIndexerQueueRequest;
 import com.inqwise.indexer.service.admin.AdminService;
 import com.inqwise.indexer.service.admin.AdminServices;
+import com.inqwise.indexer.service.admin.AdminTargetDefinitionListResult;
+import com.inqwise.indexer.service.admin.AdminTargetDefinitionResult;
 import com.inqwise.indexer.service.admin.AdminTargetGetRequest;
+import com.inqwise.indexer.service.admin.AdminTargetInvalidationListResult;
 import com.inqwise.indexer.service.admin.AdminTargetListResult;
 import com.inqwise.indexer.service.admin.AdminTargetQuery;
 import com.inqwise.indexer.service.admin.AdminTargetResult;
@@ -93,7 +101,20 @@ public class AdminRestVerticle extends AbstractVerticle {
 				);
 				RestOperations.bind(
 					builder,
+					"catalogListTargets",
+					context -> adminService.listTargets(targetQuery(context)),
+					AdminRestVerticle::toJson
+				);
+				RestOperations.bind(
+					builder,
 					"createTarget",
+					context -> adminService.createTarget(createTargetRequest(context, createResolver)),
+					AdminRestVerticle::toJson,
+					201
+				);
+				RestOperations.bind(
+					builder,
+					"catalogCreateTarget",
 					context -> adminService.createTarget(createTargetRequest(context, createResolver)),
 					AdminRestVerticle::toJson,
 					201
@@ -108,7 +129,21 @@ public class AdminRestVerticle extends AbstractVerticle {
 				);
 				RestOperations.bind(
 					builder,
+					"catalogGetTarget",
+					context -> adminService.getTarget(AdminTargetGetRequest.builder()
+						.withId(pathInteger(context, "id"))
+						.build()),
+					AdminRestVerticle::toJson
+				);
+				RestOperations.bind(
+					builder,
 					"recoverTargetProvisioning",
+					context -> adminService.recoverTargetProvisioning(recoverTargetProvisioningRequest(context)),
+					AdminRestVerticle::toJson
+				);
+				RestOperations.bind(
+					builder,
+					"catalogRecoverTargetProvisioning",
 					context -> adminService.recoverTargetProvisioning(recoverTargetProvisioningRequest(context)),
 					AdminRestVerticle::toJson
 				);
@@ -120,7 +155,77 @@ public class AdminRestVerticle extends AbstractVerticle {
 				);
 				RestOperations.bind(
 					builder,
+					"catalogListIndexers",
+					context -> adminService.listIndexers(indexerQuery(context)),
+					AdminRestVerticle::toJson
+				);
+				RestOperations.bind(
+					builder,
+					"listTargetDefinitions",
+					context -> adminService.listTargetDefinitions(),
+					AdminRestVerticle::toJson
+				);
+				RestOperations.bind(
+					builder,
+					"getTargetDefinition",
+					context -> adminService.getTargetDefinition(pathString(context, "target_name")),
+					AdminRestVerticle::toJson
+				);
+				RestOperations.bind(
+					builder,
+					"listIndexerDefinitions",
+					context -> adminService.listIndexerDefinitions(),
+					AdminRestVerticle::toJson
+				);
+				RestOperations.bind(
+					builder,
+					"getIndexerDefinition",
+					context -> adminService.getIndexerDefinition(pathString(context, "name")),
+					AdminRestVerticle::toJson
+				);
+				RestOperations.bind(
+					builder,
+					"listInvalidRoutes",
+					context -> adminService.listInvalidRoutes(optionalQueryInteger(
+						context,
+						"max",
+						100
+					)),
+					AdminRestVerticle::toJson
+				);
+				RestOperations.bind(
+					builder,
+					"listTargetInvalidations",
+					context -> adminService.listTargetInvalidations(optionalQueryInteger(
+						context,
+						"max",
+						100
+					)),
+					AdminRestVerticle::toJson
+				);
+				RestOperations.bind(
+					builder,
+					"nodeStatus",
+					context -> adminService.nodeStatus(),
+					AdminRestVerticle::toJson
+				);
+				RestOperations.bind(
+					builder,
+					"infrastructureStatus",
+					context -> adminService.infrastructureStatus(),
+					AdminRestVerticle::toJson
+				);
+				RestOperations.bind(
+					builder,
 					"createIndexer",
+					context -> createIndexerRequest(context, createResolver)
+						.compose(adminService::createIndexer),
+					AdminRestVerticle::toJson,
+					201
+				);
+				RestOperations.bind(
+					builder,
+					"catalogCreateIndexer",
 					context -> createIndexerRequest(context, createResolver)
 						.compose(adminService::createIndexer),
 					AdminRestVerticle::toJson,
@@ -136,7 +241,21 @@ public class AdminRestVerticle extends AbstractVerticle {
 				);
 				RestOperations.bind(
 					builder,
+					"catalogGetIndexer",
+					context -> adminService.getIndexer(AdminIndexerGetRequest.builder()
+						.withId(pathInteger(context, "id"))
+						.build()),
+					AdminRestVerticle::toJson
+				);
+				RestOperations.bind(
+					builder,
 					"activateIndexer",
+					context -> adminService.activateIndexer(indexerLifecycleRequest(context)),
+					AdminRestVerticle::toJson
+				);
+				RestOperations.bind(
+					builder,
+					"catalogActivateIndexer",
 					context -> adminService.activateIndexer(indexerLifecycleRequest(context)),
 					AdminRestVerticle::toJson
 				);
@@ -148,13 +267,32 @@ public class AdminRestVerticle extends AbstractVerticle {
 				);
 				RestOperations.bind(
 					builder,
+					"catalogDeactivateIndexer",
+					context -> adminService.deactivateIndexer(indexerLifecycleRequest(context)),
+					AdminRestVerticle::toJson
+				);
+				RestOperations.bind(
+					builder,
 					"resetIndexerQueue",
 					context -> adminService.resetIndexerQueue(resetIndexerQueueRequest(context)),
 					AdminRestVerticle::toJson
 				);
 				RestOperations.bind(
 					builder,
+					"catalogResetIndexerQueue",
+					context -> adminService.resetIndexerQueue(resetIndexerQueueRequest(context)),
+					AdminRestVerticle::toJson
+				);
+				RestOperations.bind(
+					builder,
 					"deleteIndexer",
+					context -> adminService.deleteIndexer(deleteIndexerRequest(context)),
+					AdminRestVerticle::toJson,
+					202
+				);
+				RestOperations.bind(
+					builder,
+					"catalogDeleteIndexer",
 					context -> adminService.deleteIndexer(deleteIndexerRequest(context)),
 					AdminRestVerticle::toJson,
 					202
@@ -202,6 +340,30 @@ public class AdminRestVerticle extends AbstractVerticle {
 			return value.toJson();
 		}
 		if (result instanceof AdminIndexerResult value) {
+			return value.toJson();
+		}
+		if (result instanceof AdminTargetDefinitionListResult value) {
+			return value.toJson();
+		}
+		if (result instanceof AdminTargetDefinitionResult value) {
+			return value.toJson();
+		}
+		if (result instanceof AdminIndexerDefinitionListResult value) {
+			return value.toJson();
+		}
+		if (result instanceof AdminIndexerDefinitionResult value) {
+			return value.toJson();
+		}
+		if (result instanceof AdminInvalidRouteListResult value) {
+			return value.toJson();
+		}
+		if (result instanceof AdminTargetInvalidationListResult value) {
+			return value.toJson();
+		}
+		if (result instanceof AdminNodeStatusResult value) {
+			return value.toJson();
+		}
+		if (result instanceof AdminInfrastructureStatusResult value) {
 			return value.toJson();
 		}
 		throw IndexerErrors.invalidRequest("Unsupported admin REST result type: " + result.getClass().getName());
@@ -329,10 +491,23 @@ public class AdminRestVerticle extends AbstractVerticle {
 		return integer(context.pathParam(name), name);
 	}
 
+	private static String pathString(RoutingContext context, String name) {
+		String value = context.pathParam(name);
+		if (value == null || value.isBlank()) {
+			throw IndexerErrors.invalidRequest("Missing required path parameter: " + name);
+		}
+		return value;
+	}
+
 	private static List<Integer> queryIntegers(RoutingContext context, String name) {
 		return context.queryParam(name).stream()
 			.map(value -> integer(value, name))
 			.toList();
+	}
+
+	private static int optionalQueryInteger(RoutingContext context, String name, int defaultValue) {
+		List<String> values = context.queryParam(name);
+		return values.isEmpty() ? defaultValue : integer(values.get(0), name);
 	}
 
 	private static long requiredQueryLong(RoutingContext context, String name) {

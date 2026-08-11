@@ -468,19 +468,59 @@ Target creation does not belong to `IndexPublicationService`. `TargetManagementS
 
 Service APIs use Vert.x Service Proxy over the event bus, with typed data objects rather than raw `JsonObject` in concrete contracts. REST APIs provide direct HTTP access for internal callers and tools such as Postman or Insomnia. The gateway is a separate external REST proxy layer in front of those REST APIs. Mutating admin operations will be added one use case at a time after deciding whether each operation should return a concrete result or durable command acceptance.
 
-The first admin REST contract is stored under `openapi/admin.yaml` and currently exposes:
+The first admin REST contract is stored under `openapi/admin.yaml`. New administration paths are grouped by architecture ownership. The current catalog-owned target and indexer operations are exposed under `/admin/catalog`:
 
-- `GET /admin/targets`
-- `POST /admin/targets`
-- `GET /admin/targets/{id}`
-- `POST /admin/targets/{id}/recover-provisioning`
-- `GET /admin/indexers`
-- `POST /admin/indexers`
-- `GET /admin/indexers/{id}`
-- `DELETE /admin/indexers/{id}`
-- `POST /admin/indexers/{id}/activate`
-- `POST /admin/indexers/{id}/deactivate`
-- `POST /admin/indexers/{id}/reset-queue`
+- `GET /admin/catalog/targets`
+- `POST /admin/catalog/targets`
+- `GET /admin/catalog/targets/{id}`
+- `POST /admin/catalog/targets/{id}/recover-provisioning`
+- `GET /admin/catalog/indexers`
+- `POST /admin/catalog/indexers`
+- `GET /admin/catalog/indexers/{id}`
+- `DELETE /admin/catalog/indexers/{id}`
+- `POST /admin/catalog/indexers/{id}/activate`
+- `POST /admin/catalog/indexers/{id}/deactivate`
+- `POST /admin/catalog/indexers/{id}/reset-queue`
+
+The older `/admin/targets` and `/admin/indexers` paths remain compatible aliases while callers migrate to the grouped catalog paths. Future admin groups should follow the accepted top-level ownership layout: `/admin/catalog`, `/admin/definitions`, `/admin/routing`, `/admin/node`, `/admin/loads`, and `/admin/infrastructure`.
+
+The definitions group exposes node-loaded provider snapshots and does not read repository catalog state:
+
+- `GET /admin/definitions/targets`
+- `GET /admin/definitions/targets/{target_name}`
+- `GET /admin/definitions/indexers`
+- `GET /admin/definitions/indexers/{name}`
+
+Target definitions are keyed by `target_name`. The current indexer definition provider has one effective physical index/queue definition, exposed as `default`; future provider selector keys should be designed before adding richer indexer-definition names.
+
+The routing group exposes bounded diagnostics over current node routing memory:
+
+- `GET /admin/routing/invalid-routes`
+- `GET /admin/routing/target-invalidations`
+
+Both endpoints accept optional `max`, defaulting to `100`, and return a `truncated` flag. Invalid routes are cached stable routing failures and target invalidations are pending target refresh markers. They are diagnostic views only, not durable repositories, not health checks, and not public gateway routes.
+
+The node group exposes node-local composition and lifecycle facts:
+
+- `GET /admin/node/status`
+
+This returns started/ready/recovery-only/stopping booleans, clustered mode, deployment counts by control-plane/data-plane/infrastructure group, configured service instances versus deployed instances, lifecycle-event namespace, and target-invalidation provider identity. It is diagnostic state only; health checks remain the availability contract and Runtime REST remains the local indexer-status contract.
+
+The loads group is owned by `indexer-load`, not by the core `AdminService`. `LoadRestVerticle` exposes grouped admin aliases over the existing load service proxy:
+
+- `POST /admin/loads`
+- `POST /admin/loads/{id}/start`
+- `POST /admin/loads/{id}/recover-created`
+- `POST /admin/loads/{id}/approve-publication`
+- `DELETE /admin/loads/{id}`
+
+The older `/loads` paths remain compatible internal aliases. Load creation returns `201`, start/recover/approval return `200`, and cancellation returns `202` after cancellation persistence and durable cleanup acceptance.
+
+The infrastructure group exposes node-local implementation and safe configuration facts:
+
+- `GET /admin/infrastructure/status`
+
+This returns diagnostic items with `name`, `category`, `implementation`, and bounded `details`. The current view includes command-engine identity, metadata repository identity, queue/document resource manager identity, lifecycle event-bus namespace/cluster mode, target-invalidation provider configuration, definition-provider identities, invalid-route cache identity, service-proxy addresses, and REST bind options. It is not a health check and must not be used as the readiness/liveness contract.
 
 REST handlers translate HTTP path/query parameters into existing admin data objects and normalize service-boundary failures into JSON error tickets at the HTTP boundary. Mutating endpoints are added only when the service already returns a concrete result or after the command/result contract is reviewed. Completed target and indexer creation return HTTP `201`; indexer deletion returns `202` with the marked `DELETING` snapshot because durable physical cleanup has only been accepted. Queue reset returns `200` because the requested queue-generation metadata transition is complete even though cleanup of the retired queue continues asynchronously. Operational endpoints such as queue reset must remain internal/admin-only unless deliberately exposed through a gateway policy.
 
@@ -621,7 +661,7 @@ When a lazy-live candidate loses atomic attachment or is abandoned after a stale
 
 Load-enabled applications assemble the module explicitly. The application constructs `MetadataLoadPublicationRepository` from the core metadata repository and supplies it as the `LoadPublicationRepository` and `LoadCleanupRepository` ports in `LoadCommandHandlers.Config`; `LoadCommandHandlers.register(...)` then registers publish and cleanup handlers against the shared `CommandEngine` without constructing metadata adapters. The application constructs `MetadataLoadCreationCatalog` from the metadata repository and supplies that load-owned port with the load repository, queue client, provider registry, lifecycle event bus, and command service to `DefaultLoadManagementService`. It also constructs `MetadataLazyLiveWriterCatalog` from that metadata repository and supplies the catalog with the remaining load dependencies to `LoadIndexerPlugin`; the plugin is then passed to runtime and cold-submit composition through `IndexerPlugins`. Core node JSON options and default node wiring remain load-free.
 
-Load entry-point ownership and its internal transport envelope are accepted. Create, start, recover-created, approve-publication, and cancel are caller-visible request/reply functions exposed through the load-owned generated `LoadService` EventBus proxy and `LoadServiceVerticle`. `LoadRestVerticle` owns the OpenAPI-backed internal REST adapter and calls only the configured EventBus proxy address. `POST /loads` returns `201`; start, recover-created, and approval return `200` with the resulting load view; cancellation returns `202` only after `LoadManagementService.cancel` has persisted cancellation and received durable cleanup acceptance. Service DTOs map to the domain API and return a controlled load view rather than `IndexerLoadRecord`. The REST API is internal and is not part of the public gateway allowlist. `PublishLoadCommand` and `CleanupLoadCommand` remain durable internal workflow commands.
+Load entry-point ownership and its internal transport envelope are accepted. Create, start, recover-created, approve-publication, and cancel are caller-visible request/reply functions exposed through the load-owned generated `LoadService` EventBus proxy and `LoadServiceVerticle`. `LoadRestVerticle` owns the OpenAPI-backed internal REST adapter and calls only the configured EventBus proxy address. `POST /loads` and grouped `POST /admin/loads` return `201`; start, recover-created, and approval return `200` with the resulting load view; cancellation returns `202` only after `LoadManagementService.cancel` has persisted cancellation and received durable cleanup acceptance. The grouped `/admin/loads` paths are aliases owned by the load REST contract so load state and workflow control do not move into the core `AdminService`. Service DTOs map to the domain API and return a controlled load view rather than `IndexerLoadRecord`. The REST API is internal and is not part of the public gateway allowlist. `PublishLoadCommand` and `CleanupLoadCommand` remain durable internal workflow commands.
 
 The migration also closes current retry gaps. Creation performs multiple non-atomic inserts and cannot be safely redelivered through command transport because a partial attempt can duplicate composition; request/reply creation therefore fails to the caller. The `CREATED` load is the explicit start/recovery point. `LoadManagementService.recoverCreated` requires its indexer id and exact load version, verifies that the load remains `CREATED`, and delegates to `start`; it never recreates composition. Blindly repeating creation is invalid because an active load already exists. Approval recognizes an exact retry only when the load is `APPROVED` at the requested version plus one and all approval fields match; it resubmits publication without another mutation and rejects later or conflicting versions. Cancellation recognizes an exact retry only when the load is `CANCELLED` at the requested version plus one; it does not stop the provider again and resubmits cleanup without another mutation. Cancellation reason is provider-stop context rather than persisted retry identity. Cleanup atomically replaces the active load record with a minimal `IndexerLoadCompletion` tombstone containing terminal state, terminal version, and completion time. This lets an exact cancellation retry succeed after cleanup while unknown ids and mismatched completions still fail. Tombstone retention is repository policy; the production adapter must persist finalization and tombstone insertion in one transaction. `IndexerLoadRepositoryCompletionContract` provides reusable adapter conformance tests for terminal cleanup finalization, stale-version rollback, retained completion identity, and target reuse after cleanup.
 

@@ -52,10 +52,18 @@ public final class LoadRestVerticle extends AbstractVerticle {
 				);
 				builder.rootHandler(BodyHandler.create());
 				bind(builder, "createLoad", context -> service.create(createRequest(context)), 201);
+				bind(builder, "adminCreateLoad", context -> service.create(createRequest(context)), 201);
 				bind(builder, "startLoad", context -> service.start(versionRequest(context)), 200);
+				bind(builder, "adminStartLoad", context -> service.start(versionRequest(context)), 200);
 				bind(
 					builder,
 					"recoverCreatedLoad",
+					context -> service.recoverCreated(versionRequest(context)),
+					200
+				);
+				bind(
+					builder,
+					"adminRecoverCreatedLoad",
 					context -> service.recoverCreated(versionRequest(context)),
 					200
 				);
@@ -67,7 +75,20 @@ public final class LoadRestVerticle extends AbstractVerticle {
 				);
 				bind(
 					builder,
+					"adminApproveLoadPublication",
+					context -> service.approvePublication(approvalRequest(context)),
+					200
+				);
+				bind(
+					builder,
 					"cancelLoad",
+					context -> service.cancel(cancelRequest(context))
+						.map(new JsonObject().put("status", "ACCEPTED")),
+					202
+				);
+				bind(
+					builder,
+					"adminCancelLoad",
 					context -> service.cancel(cancelRequest(context))
 						.map(new JsonObject().put("status", "ACCEPTED")),
 					202

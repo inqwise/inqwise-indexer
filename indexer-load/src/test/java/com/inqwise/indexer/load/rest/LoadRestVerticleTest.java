@@ -101,6 +101,77 @@ class LoadRestVerticleTest {
 			})));
 	}
 
+	@Test
+	void exposesAdminLoadAliasesThroughEventBusProxy(Vertx vertx, VertxTestContext testContext) {
+		RecordingLoadManagementService domain = new RecordingLoadManagementService();
+		String address = LoadServices.address("admin-rest-test");
+		LoadRestVerticle rest = new LoadRestVerticle(new LoadRestOptions()
+			.setPort(0)
+			.setServiceAddress(address));
+
+		vertx.deployVerticle(new LoadServiceVerticle(domain, address))
+			.compose(ignored -> vertx.deployVerticle(rest))
+			.compose(ignored -> request(
+				vertx,
+				rest.actualPort(),
+				HttpMethod.POST,
+				"/admin/loads",
+				new JsonObject()
+					.put("provider_id", "archive")
+					.put("target_id", 11),
+				201
+			))
+			.compose(created -> {
+				assertEquals(91, created.getJsonObject("load").getInteger("indexer_id"));
+				return request(
+					vertx,
+					rest.actualPort(),
+					HttpMethod.POST,
+					"/admin/loads/91/start?expected_version=4",
+					null,
+					200
+				);
+			})
+			.compose(started -> request(
+				vertx,
+				rest.actualPort(),
+				HttpMethod.POST,
+				"/admin/loads/91/recover-created?expected_version=4",
+				null,
+				200
+			))
+			.compose(recovered -> request(
+				vertx,
+				rest.actualPort(),
+				HttpMethod.POST,
+				"/admin/loads/91/approve-publication?expected_version=4",
+				new JsonObject()
+					.put("approved_at", "2026-01-03T00:00:00Z")
+					.put("approved_by", "operator")
+					.put("approval_reason", "verified"),
+				200
+			))
+			.compose(approved -> request(
+				vertx,
+				rest.actualPort(),
+				HttpMethod.DELETE,
+				"/admin/loads/91?expected_version=4&reason=operator",
+				null,
+				202
+			))
+			.onComplete(testContext.succeeding(cancelled -> testContext.verify(() -> {
+				assertEquals("ACCEPTED", cancelled.getString("status"));
+				assertEquals(4L, domain.started().expectedVersion());
+				assertEquals(4L, domain.recovered().expectedVersion());
+				assertEquals("operator", domain.approved().approvedBy());
+				assertEquals("verified", domain.approved().approvalReason());
+				assertEquals(91, domain.cancelled().indexerId());
+				assertEquals(4L, domain.cancelled().expectedVersion());
+				assertEquals("operator", domain.cancelled().reason());
+				testContext.completeNow();
+			})));
+	}
+
 	private io.vertx.core.Future<JsonObject> request(
 		Vertx vertx,
 		int port,

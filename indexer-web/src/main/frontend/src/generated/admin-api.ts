@@ -52,6 +52,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/catalog/targets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["catalogListTargets"];
+        put?: never;
+        post: operations["catalogCreateTarget"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/catalog/targets/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["catalogGetTarget"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/catalog/targets/{id}/recover-provisioning": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["catalogRecoverTargetProvisioning"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/indexers": {
         parameters: {
             query?: never;
@@ -132,6 +180,214 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/catalog/indexers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["catalogListIndexers"];
+        put?: never;
+        post: operations["catalogCreateIndexer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/catalog/indexers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["catalogGetIndexer"];
+        put?: never;
+        post?: never;
+        delete: operations["catalogDeleteIndexer"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/catalog/indexers/{id}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["catalogActivateIndexer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/catalog/indexers/{id}/deactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["catalogDeactivateIndexer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/catalog/indexers/{id}/reset-queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["catalogResetIndexerQueue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/definitions/targets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listTargetDefinitions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/definitions/targets/{target_name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getTargetDefinition"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/definitions/indexers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listIndexerDefinitions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/definitions/indexers/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getIndexerDefinition"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/routing/invalid-routes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listInvalidRoutes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/routing/target-invalidations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listTargetInvalidations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/node/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["nodeStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/infrastructure/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["infrastructureStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -166,6 +422,113 @@ export interface components {
         AdminIndexerResult: {
             indexer: components["schemas"]["AdminIndexerView"];
         };
+        AdminTargetDefinitionList: {
+            target_definitions: components["schemas"]["AdminTargetDefinitionView"][];
+        };
+        AdminTargetDefinitionResult: {
+            target_definition: components["schemas"]["AdminTargetDefinitionView"];
+        };
+        AdminTargetDefinitionView: {
+            target_name: string;
+            period_strategy: components["schemas"]["TargetPeriodStrategy"];
+            auto_provision_on_write: boolean;
+            auto_publish_on_write: boolean;
+        };
+        AdminIndexerDefinitionList: {
+            indexer_definitions: components["schemas"]["AdminIndexerDefinitionView"][];
+        };
+        AdminIndexerDefinitionResult: {
+            indexer_definition: components["schemas"]["AdminIndexerDefinitionView"];
+        };
+        AdminIndexerDefinitionView: {
+            name: string;
+            index: components["schemas"]["AdminIndexDefinitionView"];
+            queue: components["schemas"]["AdminQueueDefinitionView"];
+        };
+        AdminIndexDefinitionView: {
+            schema_name: string;
+            schema_version: string;
+            settings: {
+                [key: string]: unknown;
+            };
+            mappings: {
+                [key: string]: unknown;
+            };
+        };
+        AdminQueueDefinitionView: {
+            settings: {
+                [key: string]: unknown;
+            };
+        };
+        AdminInvalidRouteList: {
+            invalid_routes: components["schemas"]["AdminInvalidRouteView"][];
+            truncated: boolean;
+        };
+        AdminInvalidRouteView: {
+            signature: components["schemas"]["AdminInvalidRouteSignature"];
+            reason: string;
+            /** Format: date-time */
+            first_seen_at: string;
+            /** Format: date-time */
+            last_seen_at: string;
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: int64 */
+            count: number;
+        };
+        AdminInvalidRouteSignature: {
+            target_name?: string | null;
+            period_key?: string | null;
+            target_id?: number | null;
+            indexer_id?: number | null;
+            index_name?: string | null;
+            action_type: components["schemas"]["IndexerActionType"];
+        };
+        AdminTargetInvalidationList: {
+            target_invalidations: components["schemas"]["AdminTargetInvalidationView"][];
+            truncated: boolean;
+        };
+        AdminTargetInvalidationView: {
+            target_id: number;
+            /** Format: int64 */
+            version: number;
+            /** Format: date-time */
+            expires_at: string;
+        };
+        AdminNodeStatus: {
+            started: boolean;
+            ready: boolean;
+            recovery_only: boolean;
+            stopping: boolean;
+            clustered: boolean;
+            deployment_count: number;
+            control_plane_deployments: number;
+            data_plane_deployments: number;
+            infrastructure_deployments: number;
+            lifecycle_event_namespace: string;
+            target_invalidation_provider: string;
+            target_invalidation_namespace: string;
+            target_invalidation_max_targets: number;
+            services: components["schemas"]["AdminNodeServiceView"][];
+        };
+        AdminNodeServiceView: {
+            name: string;
+            group: string;
+            enabled: boolean;
+            configured_instances: number;
+            deployed_instances: number;
+        };
+        AdminInfrastructureStatus: {
+            items: components["schemas"]["AdminInfrastructureItem"][];
+        };
+        AdminInfrastructureItem: {
+            name: string;
+            category: string;
+            implementation: string;
+            details: {
+                [key: string]: unknown;
+            };
+        };
         AdminIndexerView: {
             id: number;
             uid: string;
@@ -193,7 +556,11 @@ export interface components {
         /** @enum {string} */
         TargetProvisioningState: "READY" | "PROVISIONING" | "FAILED";
         /** @enum {string} */
+        TargetPeriodStrategy: "NONE" | "MONTHLY" | "HALF_YEARLY" | "YEARLY";
+        /** @enum {string} */
         IndexerType: "INDEX";
+        /** @enum {string} */
+        IndexerActionType: "PUT_DOCUMENT" | "REMOVE_DOCUMENT" | "COMPLETE" | "CATCH_UP_BARRIER";
         /** @enum {string} */
         IndexerRole: "LIVE_WRITER" | "LOAD_WRITER";
         /** @enum {string} */
@@ -332,6 +699,112 @@ export interface operations {
         };
     };
     recoverTargetProvisioning: {
+        parameters: {
+            query: {
+                expected_version: components["parameters"]["ExpectedVersionQuery"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Recovered target. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTargetResult"];
+                };
+            };
+            default: components["responses"]["ErrorResponse"];
+        };
+    };
+    catalogListTargets: {
+        parameters: {
+            query?: {
+                id?: components["parameters"]["IdQuery"];
+                target_name?: string[];
+                status?: string[];
+                provisioning_state?: string[];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Target list. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTargetList"];
+                };
+            };
+            default: components["responses"]["ErrorResponse"];
+        };
+    };
+    catalogCreateTarget: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    target_name: string;
+                    /** Format: date */
+                    date: string;
+                    create_indexer?: {
+                        initial_publication_mode: string;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Created target. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTargetResult"];
+                };
+            };
+            default: components["responses"]["ErrorResponse"];
+        };
+    };
+    catalogGetTarget: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Target. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTargetResult"];
+                };
+            };
+            default: components["responses"]["ErrorResponse"];
+        };
+    };
+    catalogRecoverTargetProvisioning: {
         parameters: {
             query: {
                 expected_version: components["parameters"]["ExpectedVersionQuery"];
@@ -532,6 +1005,363 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminIndexerResult"];
+                };
+            };
+            default: components["responses"]["ErrorResponse"];
+        };
+    };
+    catalogListIndexers: {
+        parameters: {
+            query?: {
+                id?: components["parameters"]["IdQuery"];
+                target_id?: number[];
+                type?: string[];
+                role?: string[];
+                status?: string[];
+                provisioning_state?: string[];
+                runtime_state?: string[];
+                publication_state?: string[];
+                mutation_state?: string[];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Indexer list. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminIndexerList"];
+                };
+            };
+            default: components["responses"]["ErrorResponse"];
+        };
+    };
+    catalogCreateIndexer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    target_id: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Created indexer. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminIndexerResult"];
+                };
+            };
+            default: components["responses"]["ErrorResponse"];
+        };
+    };
+    catalogGetIndexer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Indexer. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminIndexerResult"];
+                };
+            };
+            default: components["responses"]["ErrorResponse"];
+        };
+    };
+    catalogDeleteIndexer: {
+        parameters: {
+            query: {
+                expected_version: components["parameters"]["ExpectedVersionQuery"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Indexer deletion accepted. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminIndexerResult"];
+                };
+            };
+            default: components["responses"]["ErrorResponse"];
+        };
+    };
+    catalogActivateIndexer: {
+        parameters: {
+            query: {
+                expected_version: components["parameters"]["ExpectedVersionQuery"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Activated indexer. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminIndexerResult"];
+                };
+            };
+            default: components["responses"]["ErrorResponse"];
+        };
+    };
+    catalogDeactivateIndexer: {
+        parameters: {
+            query: {
+                expected_version: components["parameters"]["ExpectedVersionQuery"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deactivated indexer. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminIndexerResult"];
+                };
+            };
+            default: components["responses"]["ErrorResponse"];
+        };
+    };
+    catalogResetIndexerQueue: {
+        parameters: {
+            query: {
+                expected_version: components["parameters"]["ExpectedVersionQuery"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Indexer with reset queue name. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminIndexerResult"];
+                };
+            };
+            default: components["responses"]["ErrorResponse"];
+        };
+    };
+    listTargetDefinitions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Loaded target definitions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTargetDefinitionList"];
+                };
+            };
+            default: components["responses"]["ErrorResponse"];
+        };
+    };
+    getTargetDefinition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                target_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Loaded target definition. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTargetDefinitionResult"];
+                };
+            };
+            default: components["responses"]["ErrorResponse"];
+        };
+    };
+    listIndexerDefinitions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Loaded indexer definitions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminIndexerDefinitionList"];
+                };
+            };
+            default: components["responses"]["ErrorResponse"];
+        };
+    };
+    getIndexerDefinition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Loaded indexer definition. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminIndexerDefinitionResult"];
+                };
+            };
+            default: components["responses"]["ErrorResponse"];
+        };
+    };
+    listInvalidRoutes: {
+        parameters: {
+            query?: {
+                max?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cached invalid routes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminInvalidRouteList"];
+                };
+            };
+            default: components["responses"]["ErrorResponse"];
+        };
+    };
+    listTargetInvalidations: {
+        parameters: {
+            query?: {
+                max?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Pending target invalidations. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTargetInvalidationList"];
+                };
+            };
+            default: components["responses"]["ErrorResponse"];
+        };
+    };
+    nodeStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Node-local status and composition facts. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminNodeStatus"];
+                };
+            };
+            default: components["responses"]["ErrorResponse"];
+        };
+    };
+    infrastructureStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Node-local infrastructure implementation and configuration facts. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminInfrastructureStatus"];
                 };
             };
             default: components["responses"]["ErrorResponse"];
