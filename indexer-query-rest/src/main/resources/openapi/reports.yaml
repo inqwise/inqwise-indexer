@@ -1,0 +1,114 @@
+openapi: 3.0.3
+info:
+  title: Indexer reports API
+  version: 0.1.0
+paths:
+  /reports:
+    get:
+      operationId: discoverReports
+      responses:
+        '200':
+          description: Consumer-neutral report presentations.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportDiscoveryResult'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+  /reports/{report_name}/executions:
+    post:
+      operationId: executeReport
+      parameters:
+        - name: report_name
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+            pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Encoded report result.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+components:
+  responses:
+    ErrorResponse:
+      description: Structured request or service failure.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+  schemas:
+    ReportDiscoveryResult:
+      type: object
+      additionalProperties: false
+      required:
+        - reports
+      properties:
+        reports:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReportPresentation'
+    ReportPresentation:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - title
+        - description
+        - parameters_schema
+        - result_schema
+      properties:
+        name:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        parameters_schema:
+          type: object
+          additionalProperties: true
+        result_schema:
+          type: object
+          additionalProperties: true
+    ErrorBody:
+      oneOf:
+        - $ref: '#/components/schemas/ErrorTicket'
+        - $ref: '#/components/schemas/HttpError'
+    ErrorTicket:
+      type: object
+      additionalProperties: true
+      properties:
+        code:
+          type: string
+        group:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+    HttpError:
+      type: object
+      required:
+        - status
+        - message
+      properties:
+        status:
+          type: integer
+        message:
+          type: string
+          nullable: true

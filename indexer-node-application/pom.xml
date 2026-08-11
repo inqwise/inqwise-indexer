@@ -28,6 +28,10 @@
 		</dependency>
 		<dependency>
 			<groupId>com.inqwise.indexer</groupId>
+			<artifactId>indexer-query-rest</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>com.inqwise.indexer</groupId>
 			<artifactId>indexer-example-hacker-news-actions</artifactId>
 		</dependency>
 		<dependency>
@@ -103,6 +107,7 @@
 							<port>8083</port>
 							<port>8084</port>
 							<port>8085</port>
+							<port>8086</port>
 							<port>9090</port>
 						</ports>
 						<user>10001:10001</user>

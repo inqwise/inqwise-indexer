@@ -40,6 +40,8 @@ import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.provisioning.ManifestStatus;
 import com.inqwise.indexer.publication.PublicationState;
 import com.inqwise.indexer.query.TypedReportExecutor;
+import com.inqwise.indexer.query.rest.ReportsRestOptions;
+import com.inqwise.indexer.query.service.ReportDiscoveryServices;
 import com.inqwise.indexer.query.service.ReportsServices;
 import com.inqwise.indexer.service.action.TargetActionServices;
 import com.inqwise.indexer.service.action.TargetActionSubmitRequest;
@@ -79,6 +81,7 @@ class IndexerNodeApplicationVerticleTest {
 				assertTrue(body.toString().contains("Inqwise Indexer Console"));
 				assertEquals(0, application.reportDeploymentCount());
 				assertEquals(-1, application.actualHackerNewsReportsRestPort());
+				assertEquals(-1, application.actualReportsRestPort());
 				return null;
 			}))
 			.onComplete(testContext.succeeding(ignored -> testContext.completeNow()));
@@ -90,6 +93,7 @@ class IndexerNodeApplicationVerticleTest {
 		VertxTestContext testContext
 	) {
 		String address = ReportsServices.address("application-test");
+		String discoveryAddress = ReportDiscoveryServices.address("application-test");
 		IndexerNodeApplicationVerticle application = new IndexerNodeApplicationVerticle();
 		JsonObject config = applicationConfig().put(
 			HackerNewsReportsDeploymentOptions.CONFIG_KEY,
@@ -97,6 +101,7 @@ class IndexerNodeApplicationVerticleTest {
 				.put("enabled", true)
 				.put("instances", 1)
 				.put("address", address)
+				.put("discovery_address", discoveryAddress)
 		).put(
 			HackerNewsReportsRestOptions.CONFIG_KEY,
 			new JsonObject()
@@ -104,11 +109,45 @@ class IndexerNodeApplicationVerticleTest {
 				.put("host", "127.0.0.1")
 				.put("port", 0)
 				.put("reports_address", address)
+		).put(
+			ReportsRestOptions.CONFIG_KEY,
+			new JsonObject()
+				.put("enabled", true)
+				.put("host", "127.0.0.1")
+				.put("port", 0)
+				.put("reports_address", address)
+				.put("discovery_address", discoveryAddress)
 		);
 
 		vertx.deployVerticle(application, new DeploymentOptions().setConfig(config))
 			.compose(deploymentId -> seedPublishedStory(application.node().components())
 				.map(deploymentId))
+			.compose(deploymentId -> {
+				return ReportDiscoveryServices.proxy(vertx, discoveryAddress)
+					.discover()
+					.map(discovery -> {
+						assertEquals(
+							List.of("hacker-news.stories", "hacker-news.story-authors"),
+							discovery.getReports().stream()
+								.map(report -> report.getName())
+								.toList()
+						);
+						return deploymentId;
+					});
+			})
+			.compose(deploymentId -> vertx.createHttpClient()
+				.request(
+					HttpMethod.GET,
+					application.actualReportsRestPort(),
+					"127.0.0.1",
+					"/reports"
+				)
+				.compose(request -> request.send())
+				.compose(response -> response.body().map(body -> {
+					assertEquals(200, response.statusCode());
+					assertEquals(2, body.toJsonObject().getJsonArray("reports").size());
+					return deploymentId;
+				})))
 			.compose(deploymentId -> {
 				HackerNewsReports reports = new DefaultHackerNewsReports(
 					new TypedReportExecutor(ReportsServices.proxy(vertx, address))
@@ -152,6 +191,7 @@ class IndexerNodeApplicationVerticleTest {
 			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
 				assertEquals(0, application.reportDeploymentCount());
 				assertEquals(-1, application.actualHackerNewsReportsRestPort());
+				assertEquals(-1, application.actualReportsRestPort());
 				testContext.completeNow();
 			})));
 	}
@@ -262,6 +302,10 @@ class IndexerNodeApplicationVerticleTest {
 		assertFalse(options.enabled());
 		assertEquals(1, options.instances());
 		assertEquals(ReportsServices.DEFAULT_ADDRESS, options.address());
+		assertEquals(
+			ReportDiscoveryServices.DEFAULT_ADDRESS,
+			options.discoveryAddress()
+		);
 	}
 
 	@Test

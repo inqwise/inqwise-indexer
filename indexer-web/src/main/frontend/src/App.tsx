@@ -20,6 +20,7 @@ import type {
   Target,
 } from "./api/indexer-api";
 import CatalogDetailPanel from "./components/CatalogDetailPanel";
+import ReportsView from "./components/ReportsView";
 
 type HealthState = "checking" | "online" | "offline";
 type IndexerRuntimeFilter = Indexer["runtime_state"] | "ALL";
@@ -31,7 +32,8 @@ type DashboardSection =
   | "targets"
   | "indexers"
   | "runtime"
-  | "metrics";
+  | "metrics"
+  | "reports";
 type CatalogPageSize = 10 | 25 | 50;
 type IndexerSort =
   | "NAME_ASC"
@@ -99,6 +101,7 @@ const DASHBOARD_SECTIONS: readonly DashboardSection[] = [
   "indexers",
   "runtime",
   "metrics",
+  "reports",
 ];
 
 function statusTone(status: string): "good" | "warn" | "neutral" {
@@ -1019,6 +1022,13 @@ export default function App() {
             <span aria-hidden="true">∿</span>
             Metrics
           </a>
+          <a
+            className={`nav__item${activeSection === "reports" ? " nav__item--active" : ""}`}
+            href="#reports"
+          >
+            <span aria-hidden="true">▤</span>
+            Reports
+          </a>
         </nav>
 
         <div className="sidebar__foot">
@@ -1275,6 +1285,8 @@ export default function App() {
               </p>
             )}
           </section>
+
+          <ReportsView />
 
           <div className="dashboard-grid">
             <section className="panel panel--wide" id="indexers">

@@ -41,6 +41,12 @@ high-cardinality labels in the rendered UI; the internal proxy still forwards
 the deployment-owned Prometheus scrape unchanged. Exported labels are limited
 to bounded action type, outcome, runtime state, operation, and role values.
 
+The Reports section discovers consumer-neutral parameter/result schemas through
+the generic Reports REST adapter. It renders only closed object schemas with
+flat scalar inputs and bounded scalar/table results. Unknown keywords, remote
+references, deep nesting, incompatible payloads, unsafe links, and oversized
+display values are rejected or capped. The frontend imports no consumer code.
+
 The React/Vite workspace is located at `src/main/frontend`; the Java delivery
 wrapper uses the standard Maven `src/main/java` layout.
 
@@ -48,14 +54,16 @@ The module follows the Vert.x React SPA pattern:
 
 - Vite serves the React application with hot reload during frontend development.
 - Maven builds the static SPA and copies it to the classpath `webroot`.
-- The frontend build generates Admin and Runtime TypeScript contracts from the
-  Java REST OpenAPI source files.
-- `openapi-fetch` provides typed same-origin Admin and Runtime clients.
+- The frontend build generates Admin, Runtime, and neutral Reports TypeScript
+  contracts from their owning OpenAPI source files.
+- `openapi-fetch` provides typed same-origin Admin, Runtime, and Reports clients.
 - `IndexerWebVerticle` serves that webroot in packaged/runtime use.
 - Both development and runtime expose the same `/api/{service}` browser paths.
 - The Vert.x wrapper forwards those paths to the existing internal REST ports.
 - The wrapper also forwards the read-only Prometheus scrape used by the compact
   metrics view.
+- The wrapper forwards the neutral Reports API without interpreting schemas,
+  parameters, or results.
 
 The wrapper is a delivery adapter. It does not depend on Indexer domain/runtime
 classes, EventBus services, or Gateway.

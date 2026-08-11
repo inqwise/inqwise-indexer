@@ -7,6 +7,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+import com.inqwise.indexer.query.presentation.ReportPresentation;
+
 public final class DefaultReportCatalog implements ReportCatalog {
 	private final Map<String, ReportDefinition<?, ?>> definitions;
 
@@ -27,6 +29,18 @@ public final class DefaultReportCatalog implements ReportCatalog {
 					"Duplicate report definition: " + descriptor.name()
 				);
 			}
+			if (definition instanceof PresentedReportDefinition<?, ?> presented) {
+				ReportPresentation presentation = Objects.requireNonNull(
+					presented.presentation(),
+					"definition.presentation"
+				);
+				if (!descriptor.name().equals(presentation.getName())) {
+					throw new IllegalArgumentException(
+						"Report presentation name must match definition: "
+							+ descriptor.name()
+					);
+				}
+			}
 		}
 		definitions = Map.copyOf(registered);
 	}
@@ -43,6 +57,17 @@ public final class DefaultReportCatalog implements ReportCatalog {
 	public Collection<ReportDescriptor> descriptors() {
 		return definitions.values().stream()
 			.map(ReportDefinition::descriptor)
+			.toList();
+	}
+
+	@Override
+	public Collection<ReportPresentation> presentations() {
+		return definitions.values().stream()
+			.filter(PresentedReportDefinition.class::isInstance)
+			.map(PresentedReportDefinition.class::cast)
+			.map(PresentedReportDefinition::presentation)
+			.map(ReportPresentation::toJson)
+			.map(ReportPresentation::new)
 			.toList();
 	}
 

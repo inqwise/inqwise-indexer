@@ -8,6 +8,7 @@ Vert.x 5.x indexing library with this Maven reactor layout:
 - `indexer-events`: typed cross-module event publication contracts and local publisher implementations.
 - `indexer-coordination`: keyed exclusive-flow coordination contracts and the local shared-promise implementation.
 - `indexer-query`: provider-neutral report dispatch, trusted-scope enforcement, published multi-index planning, query-provider contracts, typed report helpers, and Vert.x `ReportsService` transport.
+- `indexer-query-rest`: consumer-neutral OpenAPI delivery for report discovery and execution over the generic query services.
 - `indexer`: command handlers/orchestration, action-routing implementations, hot-routing implementations, catalog implementations, provisioning orchestration, runtime implementations, service communication, node wiring, REST/gateway APIs, and default local adapters. It depends on `indexer-core`.
 - `indexer-example-hacker-news-model`: shared consumer-owned stored-document model, schema validation, and JSON codec used by both HN ingestion and suitable reports. It has no indexing runtime, report engine, REST, or store-adapter dependency.
 - `indexer-example-hacker-news-actions`: consumer-owned pre-routing action validation and canonicalization over the shared HN model. It contains no target selection, routing, queue, document-store, or report execution logic.
@@ -23,6 +24,8 @@ The approved provider-neutral scope includes the query/report boundary described
 ## Query and Reports
 
 `indexer-query` is a provider-neutral query and report-execution module over the existing Publication-owned `PublishedIndexResolver`. Its generic `ReportsService` accepts only a report name plus user parameters, resolves an immutable typed report definition, obtains trusted execution scope from a server-injected `ReportCaller` and context resolver, intersects report, consumer, and user time/limit constraints, conjoins their filters, resolves active published physical indexes, partitions them by schema identity, invokes an injected document-query provider once per compatible group, and lets the report decode and encode its typed result. Empty effective periods or absent published indexes are successful empty executions passed to the report decoder.
+
+Optional presentation is a separate capability from execution. A `PresentedReportDefinition` supplies a validated `ReportPresentation` containing only its stable report name, operator-facing title and description, and draft 2020-12 JSON Schemas for the user parameter object and encoded result object. `DefaultReportCatalog` verifies that presentation and execution names match and returns defensive copies. The read-only `ReportDiscoveryService` publishes only these presentations, sorted by stable name, on an independently configured EventBus address; it does not expose execution descriptors, logical targets, trusted scope, provider queries, schema compatibility, or physical index identities. The local node composes one discovery service beside its configured execution service. The separate `indexer-query-rest` module exposes neutral `GET /reports` discovery and `POST /reports/{report_name}/executions` delivery without depending on a consumer, runtime, node, or Gateway package.
 
 `ReportExecutionRequest` cannot supply caller identity, trusted filters, logical targets, physical index names, or provider query objects. A deployment adapter constructs `ReportCaller` only after its own trust decision and injects it into the server-side `ReportsServiceImpl`; it is not a Vert.x data object and never crosses the generated service-proxy codec. `ConsumerReportExecutionContextResolver` maps that injected consumer identity to a server-owned maximum scope and rejects missing or unknown consumers. It does not associate consumers with targets: the report definition independently owns its logical target, static maximum scope, request codec and validation, query planning, supported schemas, result decoding, and transport encoding. Concrete typed report facades remain consumer-owned and delegate through the reusable typed report binding/executor over `ReportsService`; typed clients cannot choose caller identity. Full-document reports may reuse a consumer document codec, while projection, aggregation, and calculated reports may use specialized result codecs.
 
@@ -42,7 +45,7 @@ The `hacker-news.story-authors` report validates a materially different result s
 
 `TargetActionPreparer` is an optional consumer-side boundary invoked by `TargetActionService` after generic request validation and before hot routing. The deployment-owned `TargetActionPreparationRegistry` selects a preparer by target name; the preparer itself remains target-agnostic, and targets without a registration pass through unchanged. Preparation is batch-atomic and must preserve action count and action types. Consumer validation failures become invalid-request failures, while broken preparer contracts remain internal errors. `HackerNewsTargetActionPreparer` validates PUT and REMOVE ids, decodes PUT documents through the shared codec, requires the action uid to match the document id, and emits canonical base JSON. This protects direct Target Action producers as well as the HN ingestion application. Provider/store-specific appended fields remain downstream adapter responsibility and are intentionally removed from submitted base documents. The local node enables this registration explicitly through `hacker_news_actions`, whose deployment configuration owns `target_name`; application code keeps it disabled by default.
 
-`LocalHackerNewsQueryProvider` is the concrete adapter for the current query scope over `InMemoryIndexerDocumentStore`. It reads defensive per-index snapshots, dispatches the story-search and author-summary capabilities, translates only the known HN source/story filters, and rejects every unknown filter rather than silently weakening trusted scope. Duplicate item ids prefer the later selected index when source timestamps are equal, which is required because HN item timestamps do not advance with score/content updates. `LocalHackerNewsReports.create(...)` composes that adapter, the HN catalog, a supplied Publication resolver, a supplied trusted-context resolver, and the fixed server-side `hacker-news-reports` caller into `ReportsService`. The ingestion verticle never deploys or calls it. The node application can deploy this local service explicitly through `hacker_news_reports`; it is disabled by default in application code and enabled only by the local development configuration. The local service currently maps its fixed consumer identity to an unbounded development scope. The consumer module also owns optional OpenAPI REST adapters over its typed facade. They remain separate from `indexer-query` and Gateway and delegate caller-free requests to the configured EventBus `ReportsService` address rather than duplicating report execution. External document stores, deployment-selected authentication/context policy, and public query exposure remain outside the example.
+`LocalHackerNewsQueryProvider` is the concrete adapter for the current query scope over `InMemoryIndexerDocumentStore`. It reads defensive per-index snapshots, dispatches the story-search and author-summary capabilities, translates only the known HN source/story filters, and rejects every unknown filter rather than silently weakening trusted scope. Duplicate item ids prefer the later selected index when source timestamps are equal, which is required because HN item timestamps do not advance with score/content updates. `LocalHackerNewsReports.create(...)` composes that adapter, the HN catalog, a supplied Publication resolver, a supplied trusted-context resolver, and the fixed server-side `hacker-news-reports` caller into `ReportsService`. The ingestion verticle never deploys or calls it. The node application can deploy this local service explicitly through `hacker_news_reports`; it is disabled by default in application code and enabled only by the local development configuration. The same configuration deploys the neutral discovery service on `discovery_address`; the HN definitions contribute their user-parameter/result schemas without exposing HN classes to a discovery client. The local execution service currently maps its fixed consumer identity to an unbounded development scope. The consumer module also owns optional OpenAPI REST adapters over its typed facade. They remain separate from `indexer-query` and Gateway and delegate caller-free requests to the configured EventBus `ReportsService` address rather than duplicating report execution. External document stores, deployment-selected authentication/context policy, and public query exposure remain outside the example.
 
 HN item ids are stable document uids. Live items produce idempotent PUT actions containing the current structured item fields; items marked `dead` or `deleted` produce idempotent REMOVE actions. The source application does not construct or start `IndexerNode`. It obtains `TargetActionService` from `TargetActionServices.proxy(vertx)` and sends batches to the cluster-visible `indexer.service.target-action` address. The separately deployed Indexer node owns target resolution, auto-provisioning, routing, queue transport, runtime processing, and document storage.
 
@@ -51,7 +54,7 @@ Both processes are started by the Vert.x 5 application launcher; neither module 
 Install the reactor artifacts first:
 
 ```sh
-mvn -pl indexer-node-application,indexer-example-hacker-news -am install -DskipTests
+mvn -pl indexer-dependencies,indexer-parent,indexer-node-application,indexer-example-hacker-news -am install -DskipTests
 ```
 
 Start the Indexer node with the clustered container deployment described under Local Deployment. When the container advertises Hazelcast at `${INDEXER_NODE_HOST}:5702`, start the HN source application on the Docker host with the same cluster name, the shared TCP discovery configuration, and that advertised endpoint as its seed:
@@ -70,12 +73,24 @@ This remains a development example. Its fingerprint memory is process-local and 
 
 `indexer-web` is the internal operator interface for the local Indexer deployment. It is a separate logical Maven module containing a static React SPA and a narrow Vert.x delivery wrapper. It depends only on Vert.x Web/HTTP Proxy and the existing internal HTTP envelopes; it does not depend on Java domain packages, Vert.x EventBus services, or the public Gateway. `indexer-node-application` packages and deploys it beside the Indexer node in the same Vert.x JVM and container.
 
-The console displays node readiness, runtime attachment, targets, indexers, provisioning state, and publication state. Target and indexer catalogs support local search/status filters and accessible entity detail drawers without introducing additional read API calls. Live monitoring offers paused, 15-second, 30-second, and 60-second refresh intervals; requests are serialized, polling pauses while the tab is hidden, stale data is identified from the last successful update, and desired-runtime/local-attachment drift is highlighted. Readiness, target catalog, indexer catalog, and runtime requests report independent health and last-success age; a failed envelope retains its last good data without hiding successful results from the others. Catalog navigation uses deterministic sorting, 10/25/50-row limits, pagination, and clear-filter controls; sort, limit, page, filters, polling preference, selected entity, and active section persist in the URL. A compact metrics view projects bounded action intake, indexing outcomes, runtime convergence, and lifecycle-operation signals from the same-origin Prometheus proxy; raw series and arbitrary labels stay outside the UI. Bounded operations expose indexer activate/deactivate, failed target-provisioning recovery, manual local-runtime reconciliation, explicitly confirmed single-indexer queue reset, and typed-name-confirmed single-indexer deletion from their detail drawers. Catalog mutations send the selected catalog `version` as `expected_version`; reconciliation only asks the current node to reload durable state and converge its local runtime. Queue reset advances future writes to a new versioned queue and schedules asynchronous cleanup of the retired queue; it does not claim synchronous fencing of old in-flight items. Deletion returns after fencing the indexer and accepting durable cleanup, not after physical cleanup completes. Every operation disables conflicting submission while pending, reports controlled errors, and reloads durable catalog/runtime state after success or failure. Bulk destructive operations remain outside the frontend. In development, Vite provides hot reload and forwards the same paths that the Vert.x wrapper owns in packaged/runtime use:
+The console displays node readiness, runtime attachment, targets, indexers, provisioning state, and publication state. Target and indexer catalogs support local search/status filters and accessible entity detail drawers without introducing additional read API calls. Live monitoring offers paused, 15-second, 30-second, and 60-second refresh intervals; requests are serialized, polling pauses while the tab is hidden, stale data is identified from the last successful update, and desired-runtime/local-attachment drift is highlighted. Readiness, target catalog, indexer catalog, and runtime requests report independent health and last-success age; a failed envelope retains its last good data without hiding successful results from the others. Catalog navigation uses deterministic sorting, 10/25/50-row limits, pagination, and clear-filter controls; sort, limit, page, filters, polling preference, selected entity, and active section persist in the URL. A compact metrics view projects bounded action intake, indexing outcomes, runtime convergence, and lifecycle-operation signals from the same-origin Prometheus proxy; raw series and arbitrary labels stay outside the UI. Bounded operations expose indexer activate/deactivate, failed target-provisioning recovery, manual local-runtime reconciliation, explicitly confirmed single-indexer queue reset, and typed-name-confirmed single-indexer deletion from their detail drawers. Catalog mutations send the selected catalog `version` as `expected_version`; reconciliation only asks the current node to reload durable state and converge its local runtime. Queue reset advances future writes to a new versioned queue and schedules asynchronous cleanup of the retired queue; it does not claim synchronous fencing of old in-flight items. Deletion returns after fencing the indexer and accepting durable cleanup, not after physical cleanup completes. Every operation disables conflicting submission while pending, reports controlled errors, and reloads durable catalog/runtime state after success or failure. Bulk destructive operations remain outside the frontend.
+
+The Reports view discovers presentations and executes reports through the
+consumer-neutral API. It generates forms only for closed object schemas with
+flat scalar parameters and renders only bounded scalar or table results. Unknown
+keywords, remote references, deep structures, incompatible result payloads,
+unsafe link schemes, and results beyond the display cap are rejected or bounded.
+The frontend imports no consumer module or consumer-owned OpenAPI contract.
+
+In development, Vite provides hot reload and forwards the same paths that the
+Vert.x wrapper owns in packaged/runtime use:
 
 - `/api/admin` proxies the Admin REST service on port `8080`.
 - `/api/actions` proxies the Target Action REST service on port `8081`.
 - `/api/runtime` proxies the Runtime REST service on port `8083`.
 - `/api/health` proxies the deployment health service on port `8084`.
+- `/api/metrics` proxies the read-only Prometheus endpoint on port `9090`.
+- `/api/reports` proxies the consumer-neutral Reports REST service on port `8086`.
 
 Run the local node first, then start the hot-reload frontend:
 
@@ -93,13 +108,13 @@ To exercise the packaged delivery boundary, build and run the node application:
 ./run-local.sh
 ```
 
-The React/Vite workspace lives under `indexer-web/src/main/frontend`. Admin and Runtime response/error schemas are concrete OpenAPI contracts; the frontend build regenerates TypeScript path and component types from those source contracts and uses `openapi-fetch` for type-safe same-origin requests. The Maven lifecycle installs a pinned Node/npm toolchain, runs `npm ci`, generates the API types, creates the Vite production bundle, and copies it to the classpath `webroot` served by `IndexerWebVerticle`. The Vert.x wrapper strips the UI-only `/api/{service}` prefix and forwards requests to the corresponding internal REST port. It is a delivery adapter, not a second business API or a replacement Gateway.
+The React/Vite workspace lives under `indexer-web/src/main/frontend`. Admin, Runtime, and neutral Reports response/error schemas are concrete OpenAPI contracts; the frontend build regenerates TypeScript path and component types from those source contracts and uses `openapi-fetch` for type-safe same-origin requests. The Maven lifecycle installs a pinned Node/npm toolchain, runs `npm ci`, generates the API types, creates the Vite production bundle, and copies it to the classpath `webroot` served by `IndexerWebVerticle`. The Vert.x wrapper strips the UI-only `/api/{service}` prefix and forwards requests to the corresponding internal REST port. It is a delivery adapter, not a second business API or a replacement Gateway.
 
 The console is an internal development and operations surface. Excluding Gateway also excludes public exposure, production identity, and authorization from this scope. A deployment-owned authenticated boundary must be approved before the console is exposed outside a trusted internal environment.
 
 ## Local Deployment
 
-The first runnable deployment uses the existing `IndexerNode` composition with in-memory metadata, queue, and document-store adapters. It enables the internal Admin, Target Action, and Runtime REST envelopes, keeps the public Gateway disabled, and loads local `customers` and `hacker-news` target definitions with cold-write auto-provisioning from `deployment/local/indexer-node.json`. It explicitly registers HN action preparation for the `hacker-news` target, and enables one HN `ReportsService` instance at the cluster-visible `indexer.query.reports` EventBus address, sharing the exact metadata repository and in-memory document store created for the node. A consumer-specific REST adapter exposes `POST /reports/hacker-news/stories` and `POST /reports/hacker-news/story-authors` on container port `8085`; Compose publishes it only at host loopback `127.0.0.1:8085`. The application integration contract verifies malformed direct actions are rejected before routing and verifies the document and aggregate read paths with a published target/indexer/manifest and a stored HN document resolved and returned through both the typed EventBus facade and HTTP. Action-preparer selection, the report service, and the REST adapter are owned by the application rather than `Indexer`; report components are removed during application shutdown or startup rollback, while the read-side report service remains available during runtime recovery-only mode for already-published data. This profile is for inspection and development only: the endpoints are not Gateway routes, have no caller authentication, use unbounded trusted scope, and all state is discarded when the process stops.
+The first runnable deployment uses the existing `IndexerNode` composition with in-memory metadata, queue, and document-store adapters. It enables the internal Admin, Target Action, and Runtime REST envelopes, keeps the public Gateway disabled, and loads local `customers` and `hacker-news` target definitions with cold-write auto-provisioning from `deployment/local/indexer-node.json`. It explicitly registers HN action preparation for the `hacker-news` target, and enables one HN `ReportsService` instance at the cluster-visible `indexer.query.reports` EventBus address, sharing the exact metadata repository and in-memory document store created for the node. The neutral adapter exposes discovery/execution on port `8086` for the same-origin console proxy. A consumer-specific REST adapter remains available on loopback port `8085` for typed HN acceptance checks. The application integration contract verifies malformed direct actions are rejected before routing and verifies the document and aggregate read paths with a published target/indexer/manifest and a stored HN document resolved and returned through typed EventBus and HTTP boundaries. Action-preparer selection and report adapters are owned by the application rather than `Indexer`; report components are removed during application shutdown or startup rollback, while the read-side report service remains available during runtime recovery-only mode for already-published data. This profile is for inspection and development only: the endpoints are not Gateway routes, have no caller authentication, use unbounded trusted scope, and all state is discarded when the process stops.
 
 Prerequisites are Java 21 or newer, Maven, a running Docker-compatible daemon with Compose support, and free loopback ports `3000`, `8080`, `8081`, `8083`, `8084`, `8085`, and `9090`. Build the layered image with Jib and start it from the repository root:
 
@@ -126,6 +141,42 @@ curl --request POST http://127.0.0.1:8085/reports/hacker-news/story-authors \
 	--header 'content-type: application/json' \
 	--data '{"from_inclusive":"2026-08-01T00:00:00Z","to_exclusive":"2026-08-10T00:00:00Z","minimum_score":20,"limit":10,"order_by":"total_score"}'
 ```
+
+For the complete two-process acceptance check, start the clustered node and
+then the source in separate terminals:
+
+```sh
+INDEXER_CLUSTERED=true ./run-local.sh
+```
+
+```sh
+./run-hacker-news-local.sh
+```
+
+The Hazelcast logs in both terminals must show two members. After the source
+logs an accepted action batch, verify the catalog view owned by the node:
+
+```sh
+curl -fsS http://127.0.0.1:8084/health/ready
+curl -fsS http://127.0.0.1:8080/admin/targets
+curl -fsS http://127.0.0.1:8080/admin/indexers
+```
+
+The expected state is one active/ready `hacker-news` target and one
+available/ready/active `LIVE_WRITER` whose `publication_state` is `PUBLISHED`
+and whose `mutation_state` is `WRITABLE`. Query story search with a small
+limit, then send the returned `next_cursor` with otherwise identical criteria;
+the second response must continue after the first page without repeating its
+last story. Query `story-authors` and confirm that it returns the requested
+ordering and limit.
+
+Finally, stop only `run-hacker-news-local.sh`, start it again, and wait for a
+new accepted action batch. Re-read the target and indexer catalogs. The same
+target and physical indexer identities must remain, no second writer may be
+created, publication must remain `PUBLISHED`, and both reports must remain
+queryable. Because source fingerprints are intentionally process-local, this
+restart can replay the current update window; stable document ids make those
+PUTs idempotent.
 
 The same image supports an opt-in clustered launch:
 

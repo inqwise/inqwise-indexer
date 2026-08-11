@@ -189,6 +189,55 @@ test("shows a bounded compact view of project-logic metrics", async () => {
   assert.doesNotMatch(app, /document id|request id|queue name/i);
 });
 
+test("renders reports only through the neutral bounded schema contract", async () => {
+  const app = await readFile(
+    new URL("../src/App.tsx", import.meta.url),
+    "utf8",
+  );
+  const view = await readFile(
+    new URL("../src/components/ReportsView.tsx", import.meta.url),
+    "utf8",
+  );
+  const schema = await readFile(
+    new URL("../src/report-schema.ts", import.meta.url),
+    "utf8",
+  );
+  const api = await readFile(
+    new URL("../src/api/reports-api.ts", import.meta.url),
+    "utf8",
+  );
+  const generated = await readFile(
+    new URL("../src/generated/reports-api.ts", import.meta.url),
+    "utf8",
+  );
+  const vite = await readFile(
+    new URL("../vite.config.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(app, /href="#reports"/);
+  assert.match(app, /<ReportsView \/>/);
+  assert.match(api, /baseUrl: "\/api\/reports"/);
+  assert.match(api, /GET\("\/reports"/);
+  assert.match(api, /"\/reports\/\{report_name\}\/executions"/);
+  assert.match(generated, /ReportPresentation:/);
+  assert.match(view, /validatePresentation/);
+  assert.match(view, /validateResultPayload/);
+  assert.match(view, /MAX_RENDERED_ROWS = 100/);
+  assert.match(view, /safeHttpUrl/);
+  assert.match(view, /ReportDateTimeField/);
+  assert.match(view, /type="date"/);
+  assert.match(view, /type="time"/);
+  assert.match(view, /event\.target\.value \? `\$\{event\.target\.value\}T\$\{effectiveTime\}`/);
+  assert.doesNotMatch(view, /dangerouslySetInnerHTML/);
+  assert.doesNotMatch(view, /hacker.news/i);
+  assert.match(schema, /assertKeys/);
+  assert.match(schema, /unsupported keyword/);
+  assert.doesNotMatch(schema, /"\$ref"/);
+  assert.doesNotMatch(schema, /"pattern"/);
+  assert.match(vite, /"\/api\/reports"/);
+});
+
 test("limits mutations to bounded and explicitly confirmed operator changes", async () => {
   const details = await readFile(
     new URL("../src/components/CatalogDetailPanel.tsx", import.meta.url),

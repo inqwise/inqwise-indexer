@@ -6,6 +6,7 @@ import java.util.Map;
 
 import com.inqwise.indexer.adapters.local.InMemoryIndexerDocumentStore;
 import com.inqwise.indexer.example.hn.actions.HackerNewsTargetActionPreparer;
+import com.inqwise.indexer.example.hn.reports.HackerNewsReportCatalog;
 import com.inqwise.indexer.example.hn.reports.HackerNewsReportConstants;
 import com.inqwise.indexer.example.hn.reports.local.LocalHackerNewsReports;
 import com.inqwise.indexer.example.hn.reports.rest.HackerNewsReportsRestOptions;
@@ -16,6 +17,9 @@ import com.inqwise.indexer.node.IndexerNodeOptions;
 import com.inqwise.indexer.node.application.monitoring.MicrometerIndexerEventPublisher;
 import com.inqwise.indexer.query.ConsumerReportExecutionContextResolver;
 import com.inqwise.indexer.query.ReportExecutionContext;
+import com.inqwise.indexer.query.rest.ReportsRestOptions;
+import com.inqwise.indexer.query.rest.ReportsRestVerticle;
+import com.inqwise.indexer.query.service.ReportDiscoveryServiceVerticle;
 import com.inqwise.indexer.query.service.ReportsServiceVerticle;
 import com.inqwise.indexer.runtime.IndexerEventPublisher;
 import com.inqwise.indexer.service.action.TargetActionPreparationRegistry;
@@ -34,8 +38,11 @@ public final class IndexerNodeApplicationVerticle extends AbstractVerticle {
 	private IndexerNode node;
 	private IndexerWebVerticle web;
 	private final List<String> reportDeploymentIds = new ArrayList<>();
+	private String reportDiscoveryDeploymentId;
 	private HackerNewsReportsRestVerticle reportsRest;
 	private String reportsRestDeploymentId;
+	private ReportsRestVerticle neutralReportsRest;
+	private String neutralReportsRestDeploymentId;
 
 	@Override
 	public void start(Promise<Void> startPromise) {
@@ -66,9 +73,12 @@ public final class IndexerNodeApplicationVerticle extends AbstractVerticle {
 			HackerNewsReportsDeploymentOptions.from(applicationConfig);
 		HackerNewsReportsRestOptions reportRestOptions =
 			HackerNewsReportsRestOptions.from(applicationConfig);
+		ReportsRestOptions neutralReportRestOptions =
+			ReportsRestOptions.from(applicationConfig);
 
 		node.start()
 			.compose(ignored -> deployHackerNewsReports(reportOptions))
+			.compose(ignored -> deployReportsRest(neutralReportRestOptions))
 			.compose(ignored -> deployHackerNewsReportsRest(reportRestOptions))
 			.compose(ignored -> vertx.deployVerticle(web))
 			.map((Void) null)
@@ -105,14 +115,42 @@ public final class IndexerNodeApplicationVerticle extends AbstractVerticle {
 		return reportsRest == null ? -1 : reportsRest.actualPort();
 	}
 
+	int actualReportsRestPort() {
+		return neutralReportsRest == null ? -1 : neutralReportsRest.actualPort();
+	}
+
 	IndexerNode node() {
 		return node;
 	}
 
 	private Future<Void> stopNode() {
 		return undeployHackerNewsReportsRest()
+			.compose(ignored -> undeployReportsRest())
+			.compose(ignored -> undeployReportDiscovery())
 			.compose(ignored -> undeployHackerNewsReports())
 			.compose(ignored -> node == null ? Future.succeededFuture() : node.stop());
+	}
+
+	private Future<Void> deployReportsRest(ReportsRestOptions options) {
+		if (!options.enabled()) {
+			return Future.succeededFuture();
+		}
+		neutralReportsRest = new ReportsRestVerticle(options);
+		return vertx.deployVerticle(neutralReportsRest)
+			.onSuccess(deploymentId -> neutralReportsRestDeploymentId = deploymentId)
+			.mapEmpty();
+	}
+
+	private Future<Void> undeployReportsRest() {
+		if (neutralReportsRestDeploymentId == null) {
+			neutralReportsRest = null;
+			return Future.succeededFuture();
+		}
+		String deploymentId = neutralReportsRestDeploymentId;
+		neutralReportsRestDeploymentId = null;
+		return vertx.undeploy(deploymentId)
+			.recover(error -> Future.succeededFuture())
+			.onComplete(ignored -> neutralReportsRest = null);
 	}
 
 	private Future<Void> deployHackerNewsReportsRest(
@@ -152,7 +190,12 @@ public final class IndexerNodeApplicationVerticle extends AbstractVerticle {
 			);
 		}
 
-		Future<Void> deployed = Future.succeededFuture();
+		Future<Void> deployed = vertx.deployVerticle(
+			new ReportDiscoveryServiceVerticle(
+				HackerNewsReportCatalog.create(),
+				options.discoveryAddress()
+			)
+		).onSuccess(deploymentId -> reportDiscoveryDeploymentId = deploymentId).mapEmpty();
 		for (int index = 0; index < options.instances(); index++) {
 			deployed = deployed.compose(ignored -> vertx.deployVerticle(
 				new ReportsServiceVerticle(
@@ -169,6 +212,15 @@ public final class IndexerNodeApplicationVerticle extends AbstractVerticle {
 			).onSuccess(reportDeploymentIds::add).mapEmpty());
 		}
 		return deployed;
+	}
+
+	private Future<Void> undeployReportDiscovery() {
+		if (reportDiscoveryDeploymentId == null) {
+			return Future.succeededFuture();
+		}
+		String deploymentId = reportDiscoveryDeploymentId;
+		reportDiscoveryDeploymentId = null;
+		return vertx.undeploy(deploymentId).recover(error -> Future.succeededFuture());
 	}
 
 	private Future<Void> undeployHackerNewsReports() {

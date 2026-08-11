@@ -73,6 +73,11 @@
 			</dependency>
 			<dependency>
 				<groupId>com.inqwise.indexer</groupId>
+				<artifactId>indexer-query-rest</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>com.inqwise.indexer</groupId>
 				<artifactId>indexer</artifactId>
 				<version>${project.version}</version>
 			</dependency>

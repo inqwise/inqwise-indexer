@@ -1,0 +1,44 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<parent>
+		<groupId>com.inqwise.indexer</groupId>
+		<artifactId>indexer-parent</artifactId>
+		<version>0.1.0-SNAPSHOT</version>
+		<relativePath>../indexer-parent/pom.xml</relativePath>
+	</parent>
+
+	<artifactId>indexer-query-rest</artifactId>
+	<name>inqwise-indexer-query-rest</name>
+
+	<dependencies>
+		<dependency>
+			<groupId>com.inqwise.indexer</groupId>
+			<artifactId>indexer-query</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>io.vertx</groupId>
+			<artifactId>vertx-web-openapi-router</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>io.vertx</groupId>
+			<artifactId>vertx-openapi</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>com.inqwise</groupId>
+			<artifactId>inqwise-errors</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>io.vertx</groupId>
+			<artifactId>vertx-junit5</artifactId>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+</project>

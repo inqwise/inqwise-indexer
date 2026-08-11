@@ -35,7 +35,8 @@
 	"hacker_news_reports": {
 		"enabled": true,
 		"instances": 1,
-		"address": "indexer.query.reports"
+		"address": "indexer.query.reports",
+		"discovery_address": "indexer.query.reports.discovery"
 	},
 	"hacker_news_actions": {
 		"enabled": true,
@@ -46,6 +47,13 @@
 		"host": "0.0.0.0",
 		"port": 8085,
 		"reports_address": "indexer.query.reports"
+	},
+	"reports_rest": {
+		"enabled": true,
+		"host": "0.0.0.0",
+		"port": 8086,
+		"reports_address": "indexer.query.reports",
+		"discovery_address": "indexer.query.reports.discovery"
 	},
 	"web": {
 		"host": "0.0.0.0",
@@ -59,7 +67,9 @@
 		"health_host": "127.0.0.1",
 		"health_port": 8084,
 		"metrics_host": "127.0.0.1",
-		"metrics_port": 9090
+		"metrics_port": 9090,
+		"reports_host": "127.0.0.1",
+		"reports_port": 8086
 	},
 	"target_definitions": [
 		{

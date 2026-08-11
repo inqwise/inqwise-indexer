@@ -6,15 +6,16 @@ import java.util.Map;
 
 import com.inqwise.indexer.query.DocumentQueryGroupResult;
 import com.inqwise.indexer.query.DocumentQueryResults;
-import com.inqwise.indexer.query.ReportDefinition;
+import com.inqwise.indexer.query.PresentedReportDefinition;
 import com.inqwise.indexer.query.ReportDescriptor;
 import com.inqwise.indexer.query.ReportExecutionContext;
 import com.inqwise.indexer.query.ReportQueryPlan;
 import com.inqwise.indexer.query.ReportQueryScope;
 import com.inqwise.indexer.query.ReportRequestCodec;
 import com.inqwise.indexer.query.ReportResultCodec;
+import com.inqwise.indexer.query.presentation.ReportPresentation;
 
-public final class HackerNewsAuthorSummaryReportDefinition implements ReportDefinition<
+public final class HackerNewsAuthorSummaryReportDefinition implements PresentedReportDefinition<
 	HackerNewsAuthorSummaryRequest,
 	HackerNewsAuthorSummaryResult
 > {
@@ -35,10 +36,17 @@ public final class HackerNewsAuthorSummaryReportDefinition implements ReportDefi
 			.build())
 		.withSupportedSchemas(java.util.Set.of(HackerNewsStoriesReportDefinition.SCHEMA))
 		.build();
+	private final ReportPresentation presentation =
+		HackerNewsReportPresentations.authorSummary();
 
 	@Override
 	public ReportDescriptor descriptor() {
 		return descriptor;
+	}
+
+	@Override
+	public ReportPresentation presentation() {
+		return new ReportPresentation(presentation.toJson());
 	}
 
 	@Override
