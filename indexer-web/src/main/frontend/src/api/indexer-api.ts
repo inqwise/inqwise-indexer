@@ -20,6 +20,10 @@ export type InvalidRouteList =
   AdminComponents["schemas"]["AdminInvalidRouteList"];
 export type TargetInvalidationList =
   AdminComponents["schemas"]["AdminTargetInvalidationList"];
+export type TargetDefinition =
+  AdminComponents["schemas"]["AdminTargetDefinitionView"];
+export type IndexerDefinition =
+  AdminComponents["schemas"]["AdminIndexerDefinitionView"];
 export type OperationalMetrics = {
   acceptedPutActions: number;
   acceptedRemoveActions: number;
@@ -105,6 +109,32 @@ export async function listIndexers(signal: AbortSignal): Promise<Indexer[]> {
     throw requestError(response.status, error);
   }
   return data.indexers;
+}
+
+export async function listTargetDefinitions(
+  signal: AbortSignal,
+): Promise<TargetDefinition[]> {
+  const { data, error, response } = await adminClient.GET(
+    "/admin/definitions/targets",
+    { signal },
+  );
+  if (!data) {
+    throw requestError(response.status, error);
+  }
+  return data.target_definitions;
+}
+
+export async function listIndexerDefinitions(
+  signal: AbortSignal,
+): Promise<IndexerDefinition[]> {
+  const { data, error, response } = await adminClient.GET(
+    "/admin/definitions/indexers",
+    { signal },
+  );
+  if (!data) {
+    throw requestError(response.status, error);
+  }
+  return data.indexer_definitions;
 }
 
 export async function nodeStatus(signal: AbortSignal): Promise<NodeStatus> {

@@ -72,6 +72,16 @@ references remain visible instead of becoming guessed links. The view does not
 probe health, mutate runtime state, accept arbitrary diagnostic selectors, or
 render nested infrastructure configuration.
 
+The Definitions & Capabilities section reads the two node-loaded definition
+snapshots independently. Target definitions expose period and automatic-write
+behavior; indexer definitions expose their logical name, schema identity, and
+bounded top-level index/mapping/queue configuration keys without rendering
+arbitrary nested values or credential-like keys. A target definition links to
+a catalog target only when exactly one currently loaded target has that name.
+Multiple periodic targets remain an explicit count, and the console never
+infers an indexer-definition relationship from schema or physical names. The
+view is read-only and keeps provider configuration separate from catalog state.
+
 The Reports section discovers consumer-neutral parameter/result schemas through
 the generic Reports REST adapter. It renders only closed object schemas with
 flat scalar inputs and bounded scalar/table results. Unknown keywords, remote

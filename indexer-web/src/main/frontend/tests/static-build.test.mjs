@@ -32,6 +32,8 @@ test("keeps the browser API surface same-origin and Gateway-independent", async 
   assert.match(source, /"\/admin\/infrastructure\/status"/);
   assert.match(source, /"\/admin\/routing\/invalid-routes"/);
   assert.match(source, /"\/admin\/routing\/target-invalidations"/);
+  assert.match(source, /"\/admin\/definitions\/targets"/);
+  assert.match(source, /"\/admin\/definitions\/indexers"/);
   assert.match(source, /"\/api\/health\/health\/ready"/);
   assert.match(source, /return response\.ok/);
   assert.match(source, /"\/api\/metrics\/metrics"/);
@@ -326,6 +328,30 @@ test("renders bounded read-only node diagnostics with explicit entity resolution
   assert.doesNotMatch(diagnostics, /dangerouslySetInnerHTML/);
   assert.doesNotMatch(diagnostics, /POST\(|DELETE\(|PUT\(/);
   assert.doesNotMatch(diagnostics, /hacker.news/i);
+});
+
+test("renders bounded read-only definitions without inferred catalog identity", async () => {
+  const app = await readFile(
+    new URL("../src/App.tsx", import.meta.url),
+    "utf8",
+  );
+  const definitions = await readFile(
+    new URL("../src/components/DefinitionsView.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(app, /href="#definitions"/);
+  assert.match(app, /<DefinitionsView/);
+  assert.match(definitions, /MAX_DEFINITIONS = 24/);
+  assert.match(definitions, /MAX_CONFIGURATION_KEYS = 12/);
+  assert.match(definitions, /SENSITIVE_KEY/);
+  assert.match(definitions, /matches\.length === 1/);
+  assert.match(definitions, /no single link/);
+  assert.match(definitions, /no\s+relationship is inferred/);
+  assert.match(definitions, /<EntityLink/);
+  assert.doesNotMatch(definitions, /JSON\.stringify|dangerouslySetInnerHTML/);
+  assert.doesNotMatch(definitions, /POST\(|DELETE\(|PUT\(/);
+  assert.doesNotMatch(definitions, /hacker.news/i);
 });
 
 test("limits mutations to bounded and explicitly confirmed operator changes", async () => {

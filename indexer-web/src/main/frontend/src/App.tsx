@@ -7,7 +7,9 @@ import {
   infrastructureStatus,
   invalidRoutes,
   isReady,
+  listIndexerDefinitions,
   listIndexers,
+  listTargetDefinitions,
   listTargets,
   nodeStatus,
   operationalMetrics,
@@ -20,14 +22,17 @@ import {
 import type {
   InfrastructureStatus,
   Indexer,
+  IndexerDefinition,
   InvalidRouteList,
   NodeStatus,
   OperationalMetrics,
   RuntimeIndexer,
   Target,
+  TargetDefinition,
   TargetInvalidationList,
 } from "./api/indexer-api";
 import CatalogDetailPanel from "./components/CatalogDetailPanel";
+import DefinitionsView from "./components/DefinitionsView";
 import EntityLink from "./components/EntityLink";
 import NodeDiagnosticsView from "./components/NodeDiagnosticsView";
 import OperationalIssuesView from "./components/OperationalIssuesView";
@@ -46,6 +51,7 @@ type DashboardSection =
   | "metrics"
   | "issues"
   | "diagnostics"
+  | "definitions"
   | "reports";
 type CatalogPageSize = 10 | 25 | 50;
 type IndexerSort =
@@ -60,6 +66,7 @@ type DiagnosticServiceName =
   | "infrastructure"
   | "invalidRoutes"
   | "targetInvalidations";
+type DefinitionServiceName = "targets" | "indexers";
 type ServiceState = "checking" | "online" | "degraded";
 type ServiceDiagnostic = {
   state: ServiceState;
@@ -88,6 +95,11 @@ type DashboardData = {
     invalidRoutes: InvalidRouteList | null;
     targetInvalidations: TargetInvalidationList | null;
     services: Record<DiagnosticServiceName, ServiceDiagnostic>;
+  };
+  definitions: {
+    targets: TargetDefinition[];
+    indexers: IndexerDefinition[];
+    services: Record<DefinitionServiceName, ServiceDiagnostic>;
   };
 };
 
@@ -122,6 +134,14 @@ const INITIAL_DATA: DashboardData = {
       targetInvalidations: INITIAL_SERVICE,
     },
   },
+  definitions: {
+    targets: [],
+    indexers: [],
+    services: {
+      targets: INITIAL_SERVICE,
+      indexers: INITIAL_SERVICE,
+    },
+  },
 };
 const SERVICE_LABELS: Record<ServiceName, string> = {
   readiness: "Readiness",
@@ -135,6 +155,10 @@ const DIAGNOSTIC_SERVICE_LABELS: Record<DiagnosticServiceName, string> = {
   invalidRoutes: "Invalid routes",
   targetInvalidations: "Target invalidations",
 };
+const DEFINITION_SERVICE_LABELS: Record<DefinitionServiceName, string> = {
+  targets: "Target definitions",
+  indexers: "Indexer definitions",
+};
 const DEFAULT_POLL_INTERVAL: PollInterval = 15_000;
 const POLL_INTERVALS: readonly PollInterval[] = [0, 15_000, 30_000, 60_000];
 const CATALOG_PAGE_SIZES: readonly CatalogPageSize[] = [10, 25, 50];
@@ -146,6 +170,7 @@ const DASHBOARD_SECTIONS: readonly DashboardSection[] = [
   "metrics",
   "issues",
   "diagnostics",
+  "definitions",
   "reports",
 ];
 
@@ -460,6 +485,8 @@ export default function App() {
         infrastructureResult,
         invalidRoutesResult,
         targetInvalidationsResult,
+        targetDefinitionsResult,
+        indexerDefinitionsResult,
       ] =
         await Promise.allSettled([
           isReady(signal),
@@ -471,6 +498,8 @@ export default function App() {
           infrastructureStatus(signal),
           invalidRoutes(signal),
           targetInvalidations(signal),
+          listTargetDefinitions(signal),
+          listIndexerDefinitions(signal),
         ]);
 
       if (signal.aborted) {
@@ -576,6 +605,28 @@ export default function App() {
             ),
           },
         },
+        definitions: {
+          targets:
+            targetDefinitionsResult.status === "fulfilled"
+              ? targetDefinitionsResult.value
+              : current.definitions.targets,
+          indexers:
+            indexerDefinitionsResult.status === "fulfilled"
+              ? indexerDefinitionsResult.value
+              : current.definitions.indexers,
+          services: {
+            targets: serviceDiagnostic(
+              targetDefinitionsResult,
+              current.definitions.services.targets,
+              completedAt,
+            ),
+            indexers: serviceDiagnostic(
+              indexerDefinitionsResult,
+              current.definitions.services.indexers,
+              completedAt,
+            ),
+          },
+        },
       }));
       if (
         healthResult.status === "fulfilled" &&
@@ -624,6 +675,21 @@ export default function App() {
               ],
             ),
           ) as DashboardData["diagnostics"]["services"],
+        },
+        definitions: {
+          ...current.definitions,
+          services: Object.fromEntries(
+            Object.entries(current.definitions.services).map(
+              ([name, service]) => [
+                name,
+                {
+                  ...service,
+                  state: "degraded",
+                  error: failureMessage(error),
+                },
+              ],
+            ),
+          ) as DashboardData["definitions"]["services"],
         },
       }));
     } finally {
@@ -852,11 +918,18 @@ export default function App() {
       ServiceDiagnostic,
     ][]
   ).filter(([, service]) => service.state === "degraded");
+  const degradedDefinitionServices = (
+    Object.entries(data.definitions.services) as [
+      DefinitionServiceName,
+      ServiceDiagnostic,
+    ][]
+  ).filter(([, service]) => service.state === "degraded");
   const operationalIssues =
     provisioningIssues +
     runtimeDrifts.length +
     degradedServices.length +
     degradedDiagnosticServices.length +
+    degradedDefinitionServices.length +
     (data.metricsDiagnostic.state === "degraded" ? 1 : 0) +
     ((data.metrics?.lifecyclePending ?? 0) > 0 ? 1 : 0) +
     (!runtimeComparisonAvailable && (data.metrics?.runtimeDrift ?? 0) > 0
@@ -1179,6 +1252,13 @@ export default function App() {
             Diagnostics
           </a>
           <a
+            className={`nav__item${activeSection === "definitions" ? " nav__item--active" : ""}`}
+            href="#definitions"
+          >
+            <span aria-hidden="true">⌘</span>
+            Definitions
+          </a>
+          <a
             className={`nav__item${activeSection === "reports" ? " nav__item--active" : ""}`}
             href="#reports"
           >
@@ -1476,6 +1556,15 @@ export default function App() {
                 name: `diagnostics-${name}`,
                 label: DIAGNOSTIC_SERVICE_LABELS[name],
                 state: diagnostic.state,
+                  error: diagnostic.error,
+                })),
+              ...(Object.entries(data.definitions.services) as [
+                DefinitionServiceName,
+                ServiceDiagnostic,
+              ][]).map(([name, diagnostic]) => ({
+                name: `definitions-${name}`,
+                label: DEFINITION_SERVICE_LABELS[name],
+                state: diagnostic.state,
                 error: diagnostic.error,
               })),
             ]}
@@ -1505,6 +1594,25 @@ export default function App() {
               error: diagnostic.error,
             }))}
             targetInvalidations={data.diagnostics.targetInvalidations}
+            targets={data.targets}
+          />
+
+          <DefinitionsView
+            indexerDefinitions={data.definitions.indexers}
+            onSelectTarget={(id) => {
+              setSelectedIndexerId(null);
+              setSelectedTargetId(id);
+            }}
+            services={(Object.entries(data.definitions.services) as [
+              DefinitionServiceName,
+              ServiceDiagnostic,
+            ][]).map(([name, diagnostic]) => ({
+              name,
+              label: DEFINITION_SERVICE_LABELS[name],
+              state: diagnostic.state,
+              error: diagnostic.error,
+            }))}
+            targetDefinitions={data.definitions.targets}
             targets={data.targets}
           />
 
