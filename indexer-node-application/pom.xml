@@ -24,6 +24,11 @@
 		</dependency>
 		<dependency>
 			<groupId>com.inqwise.indexer</groupId>
+			<artifactId>indexer-load</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.inqwise.indexer</groupId>
 			<artifactId>indexer-query</artifactId>
 		</dependency>
 		<dependency>

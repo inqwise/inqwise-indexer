@@ -81,6 +81,12 @@ It links only one unambiguous logical target-name match, keeps provider
 configuration distinct from catalog state, and never infers indexer-definition
 identity from schema or physical names.
 
+Load Operations is a separate read-only projection over the load-owned query
+service. It lists bounded current workflow records and links their explicit
+target, load-writer, and live-writer ids to already-loaded catalogs. The query
+contract omits source-query payloads, and the console does not expose load
+creation or lifecycle mutations in this visibility-first slice.
+
 The Reports view discovers presentations and executes reports through the
 consumer-neutral API. It generates forms only for closed object schemas with
 flat scalar parameters and renders only bounded scalar or table results. Unknown

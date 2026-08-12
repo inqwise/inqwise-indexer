@@ -20,6 +20,8 @@ public final class IndexerWebOptions {
 		public static final String METRICS_PORT = "metrics_port";
 		public static final String REPORTS_HOST = "reports_host";
 		public static final String REPORTS_PORT = "reports_port";
+		public static final String LOADS_HOST = "loads_host";
+		public static final String LOADS_PORT = "loads_port";
 
 		private Keys() {
 		}
@@ -34,6 +36,7 @@ public final class IndexerWebOptions {
 	public static final int DEFAULT_HEALTH_PORT = 8084;
 	public static final int DEFAULT_METRICS_PORT = 9090;
 	public static final int DEFAULT_REPORTS_PORT = 8086;
+	public static final int DEFAULT_LOADS_PORT = 8087;
 
 	private final String host;
 	private final int port;
@@ -49,6 +52,8 @@ public final class IndexerWebOptions {
 	private final int metricsPort;
 	private final String reportsHost;
 	private final int reportsPort;
+	private final String loadsHost;
+	private final int loadsPort;
 
 	private IndexerWebOptions(Builder builder) {
 		host = builder.host;
@@ -65,6 +70,8 @@ public final class IndexerWebOptions {
 		metricsPort = builder.metricsPort;
 		reportsHost = builder.reportsHost;
 		reportsPort = builder.reportsPort;
+		loadsHost = builder.loadsHost;
+		loadsPort = builder.loadsPort;
 	}
 
 	public static Builder builder() {
@@ -94,6 +101,8 @@ public final class IndexerWebOptions {
 			.withMetricsPort(source.getInteger(Keys.METRICS_PORT, DEFAULT_METRICS_PORT))
 			.withReportsHost(source.getString(Keys.REPORTS_HOST, DEFAULT_UPSTREAM_HOST))
 			.withReportsPort(source.getInteger(Keys.REPORTS_PORT, DEFAULT_REPORTS_PORT))
+			.withLoadsHost(source.getString(Keys.LOADS_HOST, DEFAULT_UPSTREAM_HOST))
+			.withLoadsPort(source.getInteger(Keys.LOADS_PORT, DEFAULT_LOADS_PORT))
 			.build();
 	}
 
@@ -112,7 +121,9 @@ public final class IndexerWebOptions {
 			.put(Keys.METRICS_HOST, metricsHost)
 			.put(Keys.METRICS_PORT, metricsPort)
 			.put(Keys.REPORTS_HOST, reportsHost)
-			.put(Keys.REPORTS_PORT, reportsPort);
+			.put(Keys.REPORTS_PORT, reportsPort)
+			.put(Keys.LOADS_HOST, loadsHost)
+			.put(Keys.LOADS_PORT, loadsPort);
 	}
 
 	public String host() {
@@ -171,6 +182,14 @@ public final class IndexerWebOptions {
 		return reportsPort;
 	}
 
+	public String loadsHost() {
+		return loadsHost;
+	}
+
+	public int loadsPort() {
+		return loadsPort;
+	}
+
 	public static final class Builder {
 		private String host = DEFAULT_HOST;
 		private int port = DEFAULT_PORT;
@@ -186,6 +205,8 @@ public final class IndexerWebOptions {
 		private int metricsPort = DEFAULT_METRICS_PORT;
 		private String reportsHost = DEFAULT_UPSTREAM_HOST;
 		private int reportsPort = DEFAULT_REPORTS_PORT;
+		private String loadsHost = DEFAULT_UPSTREAM_HOST;
+		private int loadsPort = DEFAULT_LOADS_PORT;
 
 		private Builder() {
 		}
@@ -260,6 +281,16 @@ public final class IndexerWebOptions {
 			return this;
 		}
 
+		public Builder withLoadsHost(String value) {
+			loadsHost = value;
+			return this;
+		}
+
+		public Builder withLoadsPort(int value) {
+			loadsPort = value;
+			return this;
+		}
+
 		public IndexerWebOptions build() {
 			requireText(host, "host");
 			validatePort(port, "port", true);
@@ -275,6 +306,8 @@ public final class IndexerWebOptions {
 			validatePort(metricsPort, "metricsPort", false);
 			requireText(reportsHost, "reportsHost");
 			validatePort(reportsPort, "reportsPort", false);
+			requireText(loadsHost, "loadsHost");
+			validatePort(loadsPort, "loadsPort", false);
 			return new IndexerWebOptions(this);
 		}
 	}

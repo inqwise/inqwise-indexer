@@ -82,6 +82,15 @@ Multiple periodic targets remain an explicit count, and the console never
 infers an indexer-definition relationship from schema or physical names. The
 view is read-only and keeps provider configuration separate from catalog state.
 
+The Load Operations section consumes the load-owned read-side API through its
+own same-origin proxy. The endpoint returns at most 100 current load records;
+the console requests 50 and renders at most 25. Cards expose workflow state,
+optimistic version, logical target/load-writer/live-writer ids, review and
+catch-up facts, bounded failure context, and timestamps. Links use only those
+explicit numeric identities and expose missing catalog references. Source-query
+payloads are intentionally absent from the read model. This visibility slice
+does not expose load creation, start, recovery, approval, or cancellation.
+
 The Reports section discovers consumer-neutral parameter/result schemas through
 the generic Reports REST adapter. It renders only closed object schemas with
 flat scalar inputs and bounded scalar/table results. Unknown keywords, remote
@@ -106,6 +115,8 @@ The module follows the Vert.x React SPA pattern:
   metrics view.
 - The wrapper forwards the neutral Reports API without interpreting schemas,
   parameters, or results.
+- The wrapper forwards the separate read-only Load Query API without enabling
+  load workflow mutations.
 
 The wrapper is a delivery adapter. It does not depend on Indexer domain/runtime
 classes, EventBus services, or Gateway.

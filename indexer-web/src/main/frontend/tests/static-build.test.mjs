@@ -40,6 +40,38 @@ test("keeps the browser API surface same-origin and Gateway-independent", async 
   assert.doesNotMatch(source, /\/gateway\//);
 });
 
+test("renders bounded read-only load workflow visibility with explicit identities", async () => {
+  const app = await readFile(
+    new URL("../src/App.tsx", import.meta.url),
+    "utf8",
+  );
+  const view = await readFile(
+    new URL("../src/components/LoadOperationsView.tsx", import.meta.url),
+    "utf8",
+  );
+  const api = await readFile(
+    new URL("../src/api/load-query-api.ts", import.meta.url),
+    "utf8",
+  );
+  const vite = await readFile(
+    new URL("../vite.config.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(app, /href="#loads"/);
+  assert.match(app, /<LoadOperationsView/);
+  assert.match(api, /baseUrl: "\/api\/loads"/);
+  assert.match(api, /GET\("\/admin\/loads"/);
+  assert.match(api, /max: 50/);
+  assert.match(vite, /"\/api\/loads"/);
+  assert.match(view, /MAX_VISIBLE_LOADS = 25/);
+  assert.match(view, /MAX_TEXT = 180/);
+  assert.match(view, /destination=\{\{ kind, id \}\}/);
+  assert.match(view, /Missing #/);
+  assert.doesNotMatch(view, /source_query|dangerouslySetInnerHTML/);
+  assert.doesNotMatch(view, /POST\(|DELETE\(|PUT\(/);
+});
+
 test("generates dashboard contracts from the Java REST OpenAPI schemas", async () => {
   const adminTypes = await readFile(
     new URL("../src/generated/admin-api.ts", import.meta.url),

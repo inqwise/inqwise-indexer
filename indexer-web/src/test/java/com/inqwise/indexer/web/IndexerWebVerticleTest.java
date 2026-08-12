@@ -36,6 +36,7 @@ class IndexerWebVerticleTest {
 					.withHealthPort(upstreamPort)
 					.withMetricsPort(upstreamPort)
 					.withReportsPort(upstreamPort)
+					.withLoadsPort(upstreamPort)
 					.build();
 				IndexerWebVerticle web = new IndexerWebVerticle(options);
 				return vertx.deployVerticle(web)
@@ -89,6 +90,19 @@ class IndexerWebVerticleTest {
 					assertEquals(200, response.statusCode());
 					assertEquals(
 						"/reports",
+						body.toJsonObject().getString("uri")
+					);
+					return null;
+				}))
+				.compose(ignored -> get(
+					vertx,
+					web.actualPort(),
+					"/api/loads/admin/loads?max=50"
+				))
+				.compose(response -> response.body().map(body -> {
+					assertEquals(200, response.statusCode());
+					assertEquals(
+						"/admin/loads?max=50",
 						body.toJsonObject().getString("uri")
 					);
 					return null;

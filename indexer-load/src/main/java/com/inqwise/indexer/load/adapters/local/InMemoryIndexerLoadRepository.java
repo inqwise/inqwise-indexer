@@ -17,6 +17,8 @@ import com.inqwise.indexer.load.repository.UpdateIndexerLoadState;
 
 import java.time.Instant;
 import java.util.Map;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -91,6 +93,19 @@ public class InMemoryIndexerLoadRepository implements IndexerLoadRepository {
 			.filter(load -> indexerId.equals(load.indexerId()) || indexerId.equals(load.liveIndexerId()))
 			.filter(load -> isActive(load.state()))
 			.findFirst());
+	}
+
+	@Override
+	public Future<List<IndexerLoadRecord>> list(int max) {
+		if (max < 1) {
+			return Future.failedFuture(new IllegalArgumentException("max must be positive"));
+		}
+		return Future.succeededFuture(loadsByIndexerId.values().stream()
+			.sorted(Comparator
+				.comparing(IndexerLoadRecord::updatedAt, Comparator.nullsLast(Comparator.reverseOrder()))
+				.thenComparing(IndexerLoadRecord::indexerId, Comparator.reverseOrder()))
+			.limit(max)
+			.toList());
 	}
 
 	@Override

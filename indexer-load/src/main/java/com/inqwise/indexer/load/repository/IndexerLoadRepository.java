@@ -5,6 +5,7 @@ import com.inqwise.indexer.load.api.IndexerLoadState;
 
 
 import java.util.Optional;
+import java.util.List;
 
 import io.vertx.core.Future;
 
@@ -18,6 +19,8 @@ public interface IndexerLoadRepository {
 	Future<Optional<IndexerLoadRecord>> getActiveByTargetId(Integer targetId);
 
 	Future<Optional<IndexerLoadRecord>> getActiveByTargetIndexerId(Integer indexerId);
+
+	Future<List<IndexerLoadRecord>> list(int max);
 
 	Future<Void> updateState(UpdateIndexerLoadState update);
 

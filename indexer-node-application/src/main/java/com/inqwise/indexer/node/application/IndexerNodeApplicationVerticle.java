@@ -12,6 +12,11 @@ import com.inqwise.indexer.example.hn.reports.local.LocalHackerNewsReports;
 import com.inqwise.indexer.example.hn.reports.rest.HackerNewsReportsRestOptions;
 import com.inqwise.indexer.example.hn.reports.rest.HackerNewsReportsRestVerticle;
 import com.inqwise.indexer.metadata.RepositoryPublishedIndexResolver;
+import com.inqwise.indexer.load.adapters.local.InMemoryIndexerLoadRepository;
+import com.inqwise.indexer.load.rest.LoadQueryRestOptions;
+import com.inqwise.indexer.load.rest.LoadQueryRestVerticle;
+import com.inqwise.indexer.load.service.LoadQueryServiceVerticle;
+import com.inqwise.indexer.load.workflow.RepositoryLoadQuery;
 import com.inqwise.indexer.node.IndexerNode;
 import com.inqwise.indexer.node.IndexerNodeOptions;
 import com.inqwise.indexer.node.application.monitoring.MicrometerIndexerEventPublisher;
@@ -43,6 +48,9 @@ public final class IndexerNodeApplicationVerticle extends AbstractVerticle {
 	private String reportsRestDeploymentId;
 	private ReportsRestVerticle neutralReportsRest;
 	private String neutralReportsRestDeploymentId;
+	private String loadQueryServiceDeploymentId;
+	private String loadQueryRestDeploymentId;
+	private LoadQueryRestVerticle loadQueryRest;
 
 	@Override
 	public void start(Promise<Void> startPromise) {
@@ -75,8 +83,12 @@ public final class IndexerNodeApplicationVerticle extends AbstractVerticle {
 			HackerNewsReportsRestOptions.from(applicationConfig);
 		ReportsRestOptions neutralReportRestOptions =
 			ReportsRestOptions.from(applicationConfig);
+		LoadQueryRestOptions loadQueryRestOptions =
+			LoadQueryRestOptions.from(applicationConfig);
+		InMemoryIndexerLoadRepository loadRepository = new InMemoryIndexerLoadRepository();
 
 		node.start()
+			.compose(ignored -> deployLoadQuery(loadRepository, loadQueryRestOptions))
 			.compose(ignored -> deployHackerNewsReports(reportOptions))
 			.compose(ignored -> deployReportsRest(neutralReportRestOptions))
 			.compose(ignored -> deployHackerNewsReportsRest(reportRestOptions))
@@ -124,11 +136,44 @@ public final class IndexerNodeApplicationVerticle extends AbstractVerticle {
 	}
 
 	private Future<Void> stopNode() {
-		return undeployHackerNewsReportsRest()
+		return undeployLoadQuery()
+			.compose(ignored -> undeployHackerNewsReportsRest())
 			.compose(ignored -> undeployReportsRest())
 			.compose(ignored -> undeployReportDiscovery())
 			.compose(ignored -> undeployHackerNewsReports())
 			.compose(ignored -> node == null ? Future.succeededFuture() : node.stop());
+	}
+
+	private Future<Void> deployLoadQuery(
+		InMemoryIndexerLoadRepository repository,
+		LoadQueryRestOptions options
+	) {
+		return vertx.deployVerticle(new LoadQueryServiceVerticle(
+			new RepositoryLoadQuery(repository)
+		))
+			.onSuccess(id -> loadQueryServiceDeploymentId = id)
+			.compose(ignored -> {
+				loadQueryRest = new LoadQueryRestVerticle(options);
+				return vertx.deployVerticle(loadQueryRest)
+					.onSuccess(id -> loadQueryRestDeploymentId = id);
+			})
+			.mapEmpty();
+	}
+
+	private Future<Void> undeployLoadQuery() {
+		Future<Void> stopped = loadQueryRestDeploymentId == null
+			? Future.succeededFuture()
+			: vertx.undeploy(loadQueryRestDeploymentId).recover(error -> Future.succeededFuture());
+		loadQueryRestDeploymentId = null;
+		loadQueryRest = null;
+		return stopped.compose(ignored -> {
+			if (loadQueryServiceDeploymentId == null) {
+				return Future.succeededFuture();
+			}
+			String id = loadQueryServiceDeploymentId;
+			loadQueryServiceDeploymentId = null;
+			return vertx.undeploy(id).recover(error -> Future.succeededFuture());
+		});
 	}
 
 	private Future<Void> deployReportsRest(ReportsRestOptions options) {

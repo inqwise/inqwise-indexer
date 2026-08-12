@@ -1,0 +1,75 @@
+openapi: 3.0.3
+info:
+  title: inqwise-indexer load query API
+  version: 0.1.0
+paths:
+  /admin/loads:
+    get:
+      operationId: listLoads
+      parameters:
+        - name: max
+          in: query
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: Active and retained load workflow records, newest first.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoadList'
+        default:
+          description: Controlled load-query error.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+components:
+  schemas:
+    LoadList:
+      type: object
+      required: [loads]
+      properties:
+        loads:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/LoadView'
+    LoadView:
+      type: object
+      required:
+        - indexer_id
+        - target_id
+        - live_writer_policy
+        - provider_id
+        - state
+        - review_required
+        - version
+      properties:
+        indexer_id: { type: integer }
+        target_id: { type: integer }
+        live_indexer_id: { type: integer, nullable: true }
+        live_writer_policy: { type: string }
+        provider_id: { type: string }
+        state: { type: string }
+        reload_start_at: { type: string, format: date-time, nullable: true }
+        live_replay_from: { type: string, format: date-time, nullable: true }
+        source_from: { type: string, format: date-time, nullable: true }
+        source_to: { type: string, format: date-time, nullable: true }
+        source_playbook_id: { type: string, nullable: true }
+        review_required: { type: boolean }
+        approved_at: { type: string, format: date-time, nullable: true }
+        approved_by: { type: string, nullable: true }
+        approval_reason: { type: string, nullable: true }
+        last_barrier_id: { type: string, nullable: true }
+        last_barrier_timestamp: { type: string, format: date-time, nullable: true }
+        last_barrier_reached_at: { type: string, format: date-time, nullable: true }
+        failure_reason: { type: string, nullable: true }
+        failed_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time, nullable: true }
+        updated_at: { type: string, format: date-time, nullable: true }
+        version: { type: integer, format: int64 }

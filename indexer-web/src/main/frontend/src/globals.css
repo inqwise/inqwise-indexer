@@ -571,6 +571,7 @@ a {
 
 .diagnostics-view,
 .definitions-view,
+.loads-view,
 .issues-view,
 .reports-view {
   margin-bottom: 14px;
@@ -1130,6 +1131,182 @@ a {
 
 .definition-truncated {
   color: #b68c50;
+}
+
+.loads-view__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 15px;
+}
+
+.loads-view__header h3 {
+  margin: 5px 0 0;
+  font-size: 16px;
+  letter-spacing: -0.025em;
+}
+
+.loads-view__header p {
+  max-width: 700px;
+  margin: 7px 0 0;
+  color: #747d90;
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.loads-state {
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: #81899a;
+  padding: 6px 10px;
+  font-size: 9px;
+}
+
+.loads-state--online {
+  border-color: rgba(77, 228, 218, 0.16);
+  color: #8abbb8;
+}
+
+.loads-state--degraded {
+  border-color: rgba(241, 121, 121, 0.2);
+  color: #df9898;
+}
+
+.loads-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.loads-list > article {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(7, 9, 17, 0.25);
+  padding: 14px;
+}
+
+.load-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.load-card__header > div > span,
+.load-card__header > div > strong {
+  display: block;
+}
+
+.load-card__header > div > span {
+  color: #687185;
+  font-size: 7px;
+  text-transform: uppercase;
+}
+
+.load-card__header > div > strong {
+  margin-top: 4px;
+  color: #d1d5df;
+  font-size: 10px;
+}
+
+.load-state {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.035);
+  color: #8a93a5;
+  padding: 5px 8px;
+  font-size: 7px;
+}
+
+.load-state--good {
+  color: #86c5b9;
+}
+
+.load-state--warn {
+  color: #df9898;
+}
+
+.load-relations {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 11px;
+}
+
+.load-relations > div,
+.load-facts > div {
+  min-width: 0;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.025);
+  padding: 7px 8px;
+}
+
+.load-relations span,
+.load-facts dt {
+  display: block;
+  color: #687185;
+  font-size: 7px;
+  text-transform: uppercase;
+}
+
+.load-relations a,
+.load-relations strong,
+.load-facts dd {
+  display: block;
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+  color: #abb3c2;
+  font-size: 8px;
+  text-decoration: none;
+}
+
+.load-relations a:hover,
+.load-relations a:focus-visible {
+  color: var(--cyan);
+}
+
+.load-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin: 6px 0 0;
+}
+
+.load-card__failure,
+.load-card__context,
+.loads-empty,
+.loads-truncated {
+  margin: 9px 0 0;
+  color: #687185;
+  font-size: 8px;
+  line-height: 1.5;
+}
+
+.load-card__failure {
+  border-radius: 7px;
+  background: rgba(241, 121, 121, 0.055);
+  color: #c58f8f;
+  padding: 8px;
+}
+
+.load-card__failure strong {
+  margin-right: 5px;
+}
+
+.loads-empty {
+  margin: 0;
+  border: 1px dashed rgba(255, 255, 255, 0.08);
+  border-radius: 9px;
+  padding: 18px;
+  font-size: 9px;
+  text-align: center;
+}
+
+.loads-empty--warn,
+.loads-truncated {
+  color: #c58f8f;
 }
 
 .issues-view__header {
@@ -1815,6 +1992,7 @@ a {
 #diagnostics,
 #indexers,
 #issues,
+#loads,
 #metrics,
 #reports,
 #runtime,
@@ -2900,6 +3078,7 @@ footer {
   .diagnostics-services,
   .definitions-grid,
   .definitions-services,
+  .loads-list,
   .infrastructure-list,
   .observed-signals,
   .observed-signals__grid {
@@ -2907,6 +3086,11 @@ footer {
   }
 
   .node-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .load-relations,
+  .load-facts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 

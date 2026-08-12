@@ -19,6 +19,8 @@ import {
   runtimeStatus,
   targetInvalidations,
 } from "./api/indexer-api";
+import { listLoads } from "./api/load-query-api";
+import type { LoadView } from "./api/load-query-api";
 import type {
   InfrastructureStatus,
   Indexer,
@@ -33,6 +35,7 @@ import type {
 } from "./api/indexer-api";
 import CatalogDetailPanel from "./components/CatalogDetailPanel";
 import DefinitionsView from "./components/DefinitionsView";
+import LoadOperationsView from "./components/LoadOperationsView";
 import EntityLink from "./components/EntityLink";
 import NodeDiagnosticsView from "./components/NodeDiagnosticsView";
 import OperationalIssuesView from "./components/OperationalIssuesView";
@@ -52,6 +55,7 @@ type DashboardSection =
   | "issues"
   | "diagnostics"
   | "definitions"
+  | "loads"
   | "reports";
 type CatalogPageSize = 10 | 25 | 50;
 type IndexerSort =
@@ -101,6 +105,8 @@ type DashboardData = {
     indexers: IndexerDefinition[];
     services: Record<DefinitionServiceName, ServiceDiagnostic>;
   };
+  loads: LoadView[];
+  loadsDiagnostic: ServiceDiagnostic;
 };
 
 const INITIAL_SERVICE: ServiceDiagnostic = {
@@ -142,6 +148,8 @@ const INITIAL_DATA: DashboardData = {
       indexers: INITIAL_SERVICE,
     },
   },
+  loads: [],
+  loadsDiagnostic: INITIAL_SERVICE,
 };
 const SERVICE_LABELS: Record<ServiceName, string> = {
   readiness: "Readiness",
@@ -171,6 +179,7 @@ const DASHBOARD_SECTIONS: readonly DashboardSection[] = [
   "issues",
   "diagnostics",
   "definitions",
+  "loads",
   "reports",
 ];
 
@@ -487,6 +496,7 @@ export default function App() {
         targetInvalidationsResult,
         targetDefinitionsResult,
         indexerDefinitionsResult,
+        loadsResult,
       ] =
         await Promise.allSettled([
           isReady(signal),
@@ -500,6 +510,7 @@ export default function App() {
           targetInvalidations(signal),
           listTargetDefinitions(signal),
           listIndexerDefinitions(signal),
+          listLoads(signal),
         ]);
 
       if (signal.aborted) {
@@ -627,6 +638,15 @@ export default function App() {
             ),
           },
         },
+        loads:
+          loadsResult.status === "fulfilled"
+            ? loadsResult.value
+            : current.loads,
+        loadsDiagnostic: serviceDiagnostic(
+          loadsResult,
+          current.loadsDiagnostic,
+          completedAt,
+        ),
       }));
       if (
         healthResult.status === "fulfilled" &&
@@ -690,6 +710,11 @@ export default function App() {
               ],
             ),
           ) as DashboardData["definitions"]["services"],
+        },
+        loadsDiagnostic: {
+          ...current.loadsDiagnostic,
+          state: "degraded",
+          error: failureMessage(error),
         },
       }));
     } finally {
@@ -930,6 +955,7 @@ export default function App() {
     degradedServices.length +
     degradedDiagnosticServices.length +
     degradedDefinitionServices.length +
+    (data.loadsDiagnostic.state === "degraded" ? 1 : 0) +
     (data.metricsDiagnostic.state === "degraded" ? 1 : 0) +
     ((data.metrics?.lifecyclePending ?? 0) > 0 ? 1 : 0) +
     (!runtimeComparisonAvailable && (data.metrics?.runtimeDrift ?? 0) > 0
@@ -1259,6 +1285,13 @@ export default function App() {
             Definitions
           </a>
           <a
+            className={`nav__item${activeSection === "loads" ? " nav__item--active" : ""}`}
+            href="#loads"
+          >
+            <span aria-hidden="true">⇄</span>
+            Loads
+          </a>
+          <a
             className={`nav__item${activeSection === "reports" ? " nav__item--active" : ""}`}
             href="#reports"
           >
@@ -1565,8 +1598,14 @@ export default function App() {
                 name: `definitions-${name}`,
                 label: DEFINITION_SERVICE_LABELS[name],
                 state: diagnostic.state,
-                error: diagnostic.error,
-              })),
+                  error: diagnostic.error,
+                })),
+              {
+                name: "loads",
+                label: "Load operations",
+                state: data.loadsDiagnostic.state,
+                error: data.loadsDiagnostic.error,
+              },
             ]}
             targets={data.targets}
           />
@@ -1613,6 +1652,21 @@ export default function App() {
               error: diagnostic.error,
             }))}
             targetDefinitions={data.definitions.targets}
+            targets={data.targets}
+          />
+
+          <LoadOperationsView
+            diagnostic={data.loadsDiagnostic}
+            indexers={data.indexers}
+            loads={data.loads}
+            onSelectIndexer={(id) => {
+              setSelectedTargetId(null);
+              setSelectedIndexerId(id);
+            }}
+            onSelectTarget={(id) => {
+              setSelectedIndexerId(null);
+              setSelectedTargetId(id);
+            }}
             targets={data.targets}
           />
 

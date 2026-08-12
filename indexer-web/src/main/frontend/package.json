@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "generate:api": "openapi-typescript ../../../../indexer/src/main/resources/openapi/admin.yaml -o src/generated/admin-api.ts && openapi-typescript ../../../../indexer/src/main/resources/openapi/runtime.yaml -o src/generated/runtime-api.ts && openapi-typescript ../../../../indexer-query-rest/src/main/resources/openapi/reports.yaml -o src/generated/reports-api.ts",
+    "generate:api": "openapi-typescript ../../../../indexer/src/main/resources/openapi/admin.yaml -o src/generated/admin-api.ts && openapi-typescript ../../../../indexer/src/main/resources/openapi/runtime.yaml -o src/generated/runtime-api.ts && openapi-typescript ../../../../indexer-query-rest/src/main/resources/openapi/reports.yaml -o src/generated/reports-api.ts && openapi-typescript ../../../../indexer-load/src/main/resources/openapi/load-query.yaml -o src/generated/load-query-api.ts",
     "build": "npm run generate:api && tsc --noEmit && vite build",
     "test": "node --test tests/static-build.test.mjs",
     "lint": "eslint . --ignore-pattern dist"
