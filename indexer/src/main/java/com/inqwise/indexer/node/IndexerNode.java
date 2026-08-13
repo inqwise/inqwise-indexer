@@ -190,6 +190,26 @@ public class IndexerNode {
 		IndexerOperationalMonitor operationalMonitor,
 		TargetActionPreparationRegistry targetActionPreparations
 	) {
+		return create(
+			vertx,
+			options,
+			gatewayRequestHooks,
+			eventPublisher,
+			operationalMonitor,
+			targetActionPreparations,
+			IndexerPluginFactory.NONE
+		);
+	}
+
+	public static IndexerNode create(
+		Vertx vertx,
+		IndexerNodeOptions options,
+		GatewayRequestHooks gatewayRequestHooks,
+		IndexerEventPublisher eventPublisher,
+		IndexerOperationalMonitor operationalMonitor,
+		TargetActionPreparationRegistry targetActionPreparations,
+		IndexerPluginFactory pluginFactory
+	) {
 		IndexerNodeOptions resolved = options == null
 			? IndexerNodeOptions.builder().build()
 			: options;
@@ -201,7 +221,9 @@ public class IndexerNode {
 				vertx,
 				resolved,
 				eventPublisher,
-				operationalMonitor
+				operationalMonitor,
+				null,
+				pluginFactory
 			),
 			gatewayRequestHooks,
 			operationalMonitor,

@@ -85,7 +85,15 @@ Load Operations is a separate read-only projection over the load-owned query
 service. It lists bounded current workflow records and links their explicit
 target, load-writer, and live-writer ids to already-loaded catalogs. The query
 contract omits source-query payloads, and the console does not expose load
-creation or lifecycle mutations in this visibility-first slice.
+creation or lifecycle mutations in this visibility-first slice. The local node
+application enables load composition by default and can disable it with
+`load.enabled=false`. When enabled, it builds the load command handlers,
+cold-action/runtime plugin, management service, and query service around one
+application-owned in-memory load repository. Its management REST adapter is bound
+to container loopback only and is not proxied by the console. The local provider
+registry is deliberately empty: a concrete consumer/deployment must register a
+real provider before start or recovery can succeed, and the console does not
+fabricate consumer-specific load behavior.
 
 The Reports view discovers presentations and executes reports through the
 consumer-neutral API. It generates forms only for closed object schemas with

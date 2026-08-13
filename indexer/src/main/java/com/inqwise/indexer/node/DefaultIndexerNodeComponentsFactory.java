@@ -92,7 +92,8 @@ public final class DefaultIndexerNodeComponentsFactory {
 			nodeOptions,
 			eventPublisher,
 			operationalMonitor,
-			DocumentActionRuntimeHooks.NONE
+			DocumentActionRuntimeHooks.NONE,
+			IndexerPluginFactory.NONE
 		);
 	}
 
@@ -102,6 +103,24 @@ public final class DefaultIndexerNodeComponentsFactory {
 		IndexerEventPublisher eventPublisher,
 		IndexerOperationalMonitor operationalMonitor,
 		DocumentActionRuntimeHooks runtimeHooks
+	) {
+		return create(
+			vertx,
+			nodeOptions,
+			eventPublisher,
+			operationalMonitor,
+			runtimeHooks,
+			IndexerPluginFactory.NONE
+		);
+	}
+
+	public IndexerNodeComponents create(
+		Vertx vertx,
+		IndexerNodeOptions nodeOptions,
+		IndexerEventPublisher eventPublisher,
+		IndexerOperationalMonitor operationalMonitor,
+		DocumentActionRuntimeHooks runtimeHooks,
+		IndexerPluginFactory pluginFactory
 	) {
 		Objects.requireNonNull(vertx, "vertx");
 		Objects.requireNonNull(nodeOptions, "nodeOptions").validate();
@@ -191,6 +210,16 @@ public final class DefaultIndexerNodeComponentsFactory {
 				.withIndexerOperations(indexerOperations)
 				.build()
 		);
+		IndexerPlugins plugins = Objects.requireNonNull(
+			pluginFactory == null ? IndexerPluginFactory.NONE : pluginFactory,
+			"pluginFactory"
+		).create(IndexerPluginContext.builder()
+			.withRepository(repository)
+			.withQueue(queue)
+			.withCommandEngine(commandEngine)
+			.withLifecycleEventBus(lifecycleEventBus)
+			.build());
+		Objects.requireNonNull(plugins, "plugins");
 		IndexerProvisioningService provisioningService = new MetadataIndexerProvisioningService(
 			repository,
 			indexerDefinitionProvider,
@@ -211,7 +240,7 @@ public final class DefaultIndexerNodeComponentsFactory {
 			metadataChangeNotifier,
 			queue,
 			invalidRouteCache,
-			List.of()
+			plugins.actionReceiveCapabilities()
 		));
 		HotIndexActionsService hotIndexActionsService = new HotIndexActionsService(
 			hotMetadataView,
@@ -242,7 +271,7 @@ public final class DefaultIndexerNodeComponentsFactory {
 			documentStore,
 			IndexerOptions.builder().build(),
 			resolvedEventPublisher,
-			IndexerPlugins.empty(),
+			plugins,
 			resolvedRuntimeHooks
 		);
 		IndexerRuntimeReconciler runtimeReconciler = new IndexerRuntimeReconciler(

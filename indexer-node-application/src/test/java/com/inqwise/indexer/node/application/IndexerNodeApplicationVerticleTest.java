@@ -3,6 +3,7 @@ package com.inqwise.indexer.node.application;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Instant;
@@ -37,6 +38,8 @@ import com.inqwise.indexer.example.hn.model.HackerNewsDocumentCodec;
 import com.inqwise.indexer.metadata.InsertIndexer;
 import com.inqwise.indexer.metadata.InsertManifest;
 import com.inqwise.indexer.metadata.InsertTarget;
+import com.inqwise.indexer.load.rest.LoadQueryRestOptions;
+import com.inqwise.indexer.load.rest.LoadRestOptions;
 import com.inqwise.indexer.provisioning.ManifestStatus;
 import com.inqwise.indexer.publication.PublicationState;
 import com.inqwise.indexer.query.TypedReportExecutor;
@@ -82,8 +85,47 @@ class IndexerNodeApplicationVerticleTest {
 				assertEquals(0, application.reportDeploymentCount());
 				assertEquals(-1, application.actualHackerNewsReportsRestPort());
 				assertEquals(-1, application.actualReportsRestPort());
+				assertTrue(application.actualLoadRestPort() > 0);
+				assertTrue(application.actualLoadQueryRestPort() > 0);
+				assertTrue(application.loadRepository() != null);
+				assertEquals(
+					application.node().components().repository(),
+					application.loadPluginContext().repository()
+				);
 				return null;
 			}))
+			.onComplete(testContext.succeeding(ignored -> testContext.completeNow()));
+	}
+
+	@Test
+	void skipsLoadCompositionWhenDisabled(
+		Vertx vertx,
+		VertxTestContext testContext
+	) {
+		IndexerNodeApplicationVerticle application = new IndexerNodeApplicationVerticle();
+		JsonObject config = applicationConfig()
+			.put(LoadDeploymentOptions.CONFIG_KEY, new JsonObject().put("enabled", false));
+
+		vertx.deployVerticle(
+			application,
+			new DeploymentOptions().setConfig(config)
+		)
+			.compose(deploymentId -> vertx.createHttpClient()
+				.request(
+					HttpMethod.GET,
+					application.actualWebPort(),
+					"127.0.0.1",
+					"/"
+				)
+				.compose(request -> request.send())
+				.compose(response -> response.body().map(body -> deploymentId)))
+			.compose(deploymentId -> {
+				assertEquals(-1, application.actualLoadRestPort());
+				assertEquals(-1, application.actualLoadQueryRestPort());
+				assertNull(application.loadRepository());
+				assertNull(application.loadPluginContext());
+				return vertx.undeploy(deploymentId);
+			})
 			.onComplete(testContext.succeeding(ignored -> testContext.completeNow()));
 	}
 
@@ -372,6 +414,14 @@ class IndexerNodeApplicationVerticleTest {
 		}
 		return new JsonObject()
 			.put("services", services)
+			.put(LoadDeploymentOptions.CONFIG_KEY, new JsonObject()
+				.put("enabled", true))
+			.put(LoadRestOptions.CONFIG_KEY, new JsonObject()
+				.put("host", "127.0.0.1")
+				.put("port", 0))
+			.put(LoadQueryRestOptions.CONFIG_KEY, new JsonObject()
+				.put("host", "127.0.0.1")
+				.put("port", 0))
 			.put("web", new JsonObject()
 				.put("host", "127.0.0.1")
 				.put("port", 0));

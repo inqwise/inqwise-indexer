@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import com.inqwise.coordination.LocalExclusiveFlowCoordinator;
+import com.inqwise.events.EventPublisher;
 import com.inqwise.indexer.adapters.local.InMemoryIndexerDocumentStore;
 import com.inqwise.indexer.example.hn.actions.HackerNewsTargetActionPreparer;
 import com.inqwise.indexer.example.hn.reports.HackerNewsReportCatalog;
@@ -13,13 +15,26 @@ import com.inqwise.indexer.example.hn.reports.rest.HackerNewsReportsRestOptions;
 import com.inqwise.indexer.example.hn.reports.rest.HackerNewsReportsRestVerticle;
 import com.inqwise.indexer.metadata.RepositoryPublishedIndexResolver;
 import com.inqwise.indexer.load.adapters.local.InMemoryIndexerLoadRepository;
+import com.inqwise.indexer.load.adapters.local.InMemoryLoadProviderRegistry;
+import com.inqwise.indexer.load.adapters.metadata.MetadataLazyLiveWriterCatalog;
+import com.inqwise.indexer.load.adapters.metadata.MetadataLoadCreationCatalog;
+import com.inqwise.indexer.load.adapters.metadata.MetadataLoadPublicationRepository;
+import com.inqwise.indexer.load.commands.LoadCommandHandlers;
 import com.inqwise.indexer.load.rest.LoadQueryRestOptions;
 import com.inqwise.indexer.load.rest.LoadQueryRestVerticle;
+import com.inqwise.indexer.load.rest.LoadRestOptions;
+import com.inqwise.indexer.load.rest.LoadRestVerticle;
+import com.inqwise.indexer.load.runtime.LoadIndexerPlugin;
 import com.inqwise.indexer.load.service.LoadQueryServiceVerticle;
+import com.inqwise.indexer.load.service.LoadServiceVerticle;
+import com.inqwise.indexer.load.workflow.DefaultLoadManagementService;
 import com.inqwise.indexer.load.workflow.RepositoryLoadQuery;
 import com.inqwise.indexer.node.IndexerNode;
 import com.inqwise.indexer.node.IndexerNodeOptions;
+import com.inqwise.indexer.node.IndexerPluginContext;
+import com.inqwise.indexer.node.IndexerPluginFactory;
 import com.inqwise.indexer.node.application.monitoring.MicrometerIndexerEventPublisher;
+import com.inqwise.indexer.providers.IndexerPlugins;
 import com.inqwise.indexer.query.ConsumerReportExecutionContextResolver;
 import com.inqwise.indexer.query.ReportExecutionContext;
 import com.inqwise.indexer.query.rest.ReportsRestOptions;
@@ -51,6 +66,12 @@ public final class IndexerNodeApplicationVerticle extends AbstractVerticle {
 	private String loadQueryServiceDeploymentId;
 	private String loadQueryRestDeploymentId;
 	private LoadQueryRestVerticle loadQueryRest;
+	private String loadServiceDeploymentId;
+	private String loadRestDeploymentId;
+	private LoadRestVerticle loadRest;
+	private InMemoryIndexerLoadRepository loadRepository;
+	private InMemoryLoadProviderRegistry loadProviders;
+	private IndexerPluginContext loadPluginContext;
 
 	@Override
 	public void start(Promise<Void> startPromise) {
@@ -66,13 +87,19 @@ public final class IndexerNodeApplicationVerticle extends AbstractVerticle {
 			: operationalMetrics;
 		HackerNewsActionsDeploymentOptions actionOptions =
 			HackerNewsActionsDeploymentOptions.from(applicationConfig);
+		LoadDeploymentOptions loadOptions = LoadDeploymentOptions.from(applicationConfig);
+		if (loadOptions.enabled()) {
+			loadRepository = new InMemoryIndexerLoadRepository();
+			loadProviders = new InMemoryLoadProviderRegistry();
+		}
 		node = IndexerNode.create(
 			vertx,
 			new IndexerNodeOptions(applicationConfig),
 			null,
 			eventPublisher,
 			operationalMetrics,
-			actionPreparations(actionOptions)
+			actionPreparations(actionOptions),
+			loadOptions.enabled() ? this::createLoadPlugins : IndexerPluginFactory.NONE
 		);
 		web = new IndexerWebVerticle(IndexerWebOptions.from(
 			applicationConfig.getJsonObject(WEB_CONFIG, new JsonObject())
@@ -85,10 +112,12 @@ public final class IndexerNodeApplicationVerticle extends AbstractVerticle {
 			ReportsRestOptions.from(applicationConfig);
 		LoadQueryRestOptions loadQueryRestOptions =
 			LoadQueryRestOptions.from(applicationConfig);
-		InMemoryIndexerLoadRepository loadRepository = new InMemoryIndexerLoadRepository();
+		LoadRestOptions loadRestOptions = new LoadRestOptions(
+			applicationConfig.getJsonObject(LoadRestOptions.CONFIG_KEY, new JsonObject())
+		);
 
 		node.start()
-			.compose(ignored -> deployLoadQuery(loadRepository, loadQueryRestOptions))
+			.compose(ignored -> deployLoad(loadOptions, loadRestOptions, loadQueryRestOptions))
 			.compose(ignored -> deployHackerNewsReports(reportOptions))
 			.compose(ignored -> deployReportsRest(neutralReportRestOptions))
 			.compose(ignored -> deployHackerNewsReportsRest(reportRestOptions))
@@ -96,6 +125,41 @@ public final class IndexerNodeApplicationVerticle extends AbstractVerticle {
 			.map((Void) null)
 			.recover(this::rollbackStartup)
 			.onComplete(startPromise);
+	}
+
+	private IndexerPlugins createLoadPlugins(IndexerPluginContext context) {
+		loadPluginContext = context;
+		MetadataLoadPublicationRepository publications =
+			new MetadataLoadPublicationRepository(context.repository());
+		LoadCommandHandlers.register(
+			context.commandEngine(),
+			LoadCommandHandlers.Config.builder()
+				.withPublicationRepository(publications)
+				.withCleanupRepository(publications)
+				.withLoadRepository(loadRepository)
+				.withEventBus(context.lifecycleEventBus())
+				.build()
+		);
+		return new IndexerPlugins(List.of(new LoadIndexerPlugin(
+			new MetadataLazyLiveWriterCatalog(context.repository()),
+			loadRepository,
+			context.commandEngine(),
+			EventPublisher.NOOP,
+			new LocalExclusiveFlowCoordinator(),
+			context.lifecycleEventBus()
+		)));
+	}
+
+	private Future<Void> deployLoad(
+		LoadDeploymentOptions loadOptions,
+		LoadRestOptions loadRestOptions,
+		LoadQueryRestOptions loadQueryRestOptions
+	) {
+		if (!loadOptions.enabled()) {
+			return Future.succeededFuture();
+		}
+		return deployLoadManagement(loadRestOptions)
+			.compose(ignored -> deployLoadQuery(loadRepository, loadQueryRestOptions));
 	}
 
 	private TargetActionPreparationRegistry actionPreparations(
@@ -131,17 +195,73 @@ public final class IndexerNodeApplicationVerticle extends AbstractVerticle {
 		return neutralReportsRest == null ? -1 : neutralReportsRest.actualPort();
 	}
 
+	int actualLoadRestPort() {
+		return loadRest == null ? -1 : loadRest.actualPort();
+	}
+
+	int actualLoadQueryRestPort() {
+		return loadQueryRest == null ? -1 : loadQueryRest.actualPort();
+	}
+
+	InMemoryIndexerLoadRepository loadRepository() {
+		return loadRepository;
+	}
+
+	IndexerPluginContext loadPluginContext() {
+		return loadPluginContext;
+	}
+
 	IndexerNode node() {
 		return node;
 	}
 
 	private Future<Void> stopNode() {
 		return undeployLoadQuery()
+			.compose(ignored -> undeployLoadManagement())
 			.compose(ignored -> undeployHackerNewsReportsRest())
 			.compose(ignored -> undeployReportsRest())
 			.compose(ignored -> undeployReportDiscovery())
 			.compose(ignored -> undeployHackerNewsReports())
 			.compose(ignored -> node == null ? Future.succeededFuture() : node.stop());
+	}
+
+	private Future<Void> deployLoadManagement(LoadRestOptions options) {
+		IndexerPluginContext context = java.util.Objects.requireNonNull(
+			loadPluginContext,
+			"loadPluginContext"
+		);
+		DefaultLoadManagementService management = new DefaultLoadManagementService(
+			new MetadataLoadCreationCatalog(context.repository()),
+			loadRepository,
+			context.queue(),
+			loadProviders,
+			context.lifecycleEventBus(),
+			context.commandEngine()
+		);
+		return vertx.deployVerticle(new LoadServiceVerticle(management))
+			.onSuccess(id -> loadServiceDeploymentId = id)
+			.compose(ignored -> {
+				loadRest = new LoadRestVerticle(options);
+				return vertx.deployVerticle(loadRest)
+					.onSuccess(id -> loadRestDeploymentId = id);
+			})
+			.mapEmpty();
+	}
+
+	private Future<Void> undeployLoadManagement() {
+		Future<Void> stopped = loadRestDeploymentId == null
+			? Future.succeededFuture()
+			: vertx.undeploy(loadRestDeploymentId).recover(error -> Future.succeededFuture());
+		loadRestDeploymentId = null;
+		loadRest = null;
+		return stopped.compose(ignored -> {
+			if (loadServiceDeploymentId == null) {
+				return Future.succeededFuture();
+			}
+			String id = loadServiceDeploymentId;
+			loadServiceDeploymentId = null;
+			return vertx.undeploy(id).recover(error -> Future.succeededFuture());
+		});
 	}
 
 	private Future<Void> deployLoadQuery(

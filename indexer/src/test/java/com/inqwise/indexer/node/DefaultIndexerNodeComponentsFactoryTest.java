@@ -11,6 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,6 +30,7 @@ import com.inqwise.indexer.catalog.targets.TargetDefinition;
 import com.inqwise.indexer.catalog.targets.TargetPeriodStrategy;
 import com.inqwise.indexer.metadata.IndexerRecord;
 import com.inqwise.indexer.publication.PublicationState;
+import com.inqwise.indexer.providers.IndexerPlugins;
 import com.inqwise.indexer.runtime.IndexerEventType;
 
 import io.vertx.core.Future;
@@ -38,6 +40,31 @@ import io.vertx.junit5.VertxTestContext;
 
 @ExtendWith(VertxExtension.class)
 class DefaultIndexerNodeComponentsFactoryTest {
+	@Test
+	void composesPluginsWithTheNodeOwnedDependencies(Vertx vertx) {
+		AtomicReference<IndexerPluginContext> captured = new AtomicReference<>();
+		IndexerNodeComponents components = new DefaultIndexerNodeComponentsFactory()
+			.create(
+				vertx,
+				new IndexerNodeOptions(),
+				null,
+				null,
+				null,
+				context -> {
+					captured.set(context);
+					return IndexerPlugins.empty();
+				}
+			);
+
+		assertNotNull(captured.get());
+		assertAll(
+			() -> assertEquals(components.repository(), captured.get().repository()),
+			() -> assertEquals(components.queueResources(), captured.get().queue()),
+			() -> assertEquals(components.commandEngine(), captured.get().commandEngine()),
+			() -> assertEquals(components.lifecycleEventBus(), captured.get().lifecycleEventBus())
+		);
+	}
+
 	@Test
 	void createsCompleteDefaultComponentGraph(Vertx vertx) {
 		IndexerNodeComponents components = new DefaultIndexerNodeComponentsFactory()

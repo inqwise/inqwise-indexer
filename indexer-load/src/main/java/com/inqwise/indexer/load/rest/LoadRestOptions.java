@@ -9,8 +9,9 @@ import io.vertx.core.json.JsonObject;
 
 @DataObject
 public class LoadRestOptions {
+	public static final String CONFIG_KEY = "load_rest";
 	public static final String DEFAULT_HOST = "127.0.0.1";
-	public static final int DEFAULT_PORT = 8084;
+	public static final int DEFAULT_PORT = 8088;
 	public static final String DEFAULT_OPEN_API_PATH = "openapi/load.yaml";
 
 	private String host = DEFAULT_HOST;

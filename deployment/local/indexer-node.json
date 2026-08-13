@@ -55,6 +55,13 @@
 		"reports_address": "indexer.query.reports",
 		"discovery_address": "indexer.query.reports.discovery"
 	},
+	"load": {
+		"enabled": true
+	},
+	"load_rest": {
+		"host": "127.0.0.1",
+		"port": 8088
+	},
 	"web": {
 		"host": "0.0.0.0",
 		"port": 3000,
