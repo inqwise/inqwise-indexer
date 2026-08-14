@@ -765,6 +765,10 @@ a {
   color: #70798c;
 }
 
+.node-recovery-control {
+  margin-top: 12px;
+}
+
 .diagnostic-list article {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

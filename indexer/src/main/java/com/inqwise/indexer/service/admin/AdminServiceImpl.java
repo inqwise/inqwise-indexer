@@ -57,6 +57,7 @@ public class AdminServiceImpl implements AdminService {
 	private final InvalidRouteCache invalidRouteCache;
 	private final TargetInvalidationRegistry targetInvalidationRegistry;
 	private final AdminNodeStatusSource nodeStatusSource;
+	private final AdminNodeRecovery nodeRecovery;
 	private final AdminInfrastructureStatusSource infrastructureStatusSource;
 
 	public AdminServiceImpl(
@@ -186,6 +187,40 @@ public class AdminServiceImpl implements AdminService {
 		AdminNodeStatusSource nodeStatusSource,
 		AdminInfrastructureStatusSource infrastructureStatusSource
 	) {
+		this(
+			repository,
+			metadataChangeNotifier,
+			queueResources,
+			targetDefinitionProvider,
+			indexerDefinitionProvider,
+			documentIndexResources,
+			commandService,
+			indexerOperations,
+			monitor,
+			invalidRouteCache,
+			targetInvalidationRegistry,
+			nodeStatusSource,
+			infrastructureStatusSource,
+			AdminNodeRecovery.NONE
+		);
+	}
+
+	public AdminServiceImpl(
+		DocumentStoreMetadataRepository repository,
+		MetadataChangeNotifier metadataChangeNotifier,
+		IndexerQueueResourceManager queueResources,
+		TargetDefinitionProvider targetDefinitionProvider,
+		IndexerDefinitionProvider indexerDefinitionProvider,
+		IndexerDocumentIndexResourceManager documentIndexResources,
+		CommandService commandService,
+		IndexerOperations indexerOperations,
+		IndexerOperationalMonitor monitor,
+		InvalidRouteCache invalidRouteCache,
+		TargetInvalidationRegistry targetInvalidationRegistry,
+		AdminNodeStatusSource nodeStatusSource,
+		AdminInfrastructureStatusSource infrastructureStatusSource,
+		AdminNodeRecovery nodeRecovery
+	) {
 		this.repository = Objects.requireNonNull(repository, "repository");
 		this.metadataChangeNotifier = Objects.requireNonNull(
 			metadataChangeNotifier,
@@ -209,6 +244,9 @@ public class AdminServiceImpl implements AdminService {
 		this.nodeStatusSource = nodeStatusSource == null
 			? EmptyNodeStatusSource.INSTANCE
 			: nodeStatusSource;
+		this.nodeRecovery = nodeRecovery == null
+			? AdminNodeRecovery.NONE
+			: nodeRecovery;
 		this.infrastructureStatusSource = infrastructureStatusSource == null
 			? EmptyInfrastructureStatusSource.INSTANCE
 			: infrastructureStatusSource;
@@ -392,6 +430,16 @@ public class AdminServiceImpl implements AdminService {
 	public Future<AdminNodeStatusResult> nodeStatus() {
 		try {
 			return Future.succeededFuture(nodeStatusSource.status());
+		} catch (Throwable error) {
+			return Future.failedFuture(IndexerErrors.normalize(error));
+		}
+	}
+
+	@Override
+	public Future<AdminNodeStatusResult> recoverNode() {
+		try {
+			return nodeRecovery.recover().map(ignored -> nodeStatusSource.status())
+				.recover(error -> Future.failedFuture(IndexerErrors.normalize(error)));
 		} catch (Throwable error) {
 			return Future.failedFuture(IndexerErrors.normalize(error));
 		}

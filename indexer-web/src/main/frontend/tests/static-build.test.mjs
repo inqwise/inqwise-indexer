@@ -29,6 +29,7 @@ test("keeps the browser API surface same-origin and Gateway-independent", async 
   assert.match(source, /baseUrl: "\/api\/runtime"/);
   assert.match(source, /GET\("\/runtime\/status"/);
   assert.match(source, /GET\("\/admin\/node\/status"/);
+  assert.match(source, /POST\(\s*"\/admin\/node\/recover"/);
   assert.match(source, /"\/admin\/infrastructure\/status"/);
   assert.match(source, /"\/admin\/routing\/invalid-routes"/);
   assert.match(source, /"\/admin\/routing\/target-invalidations"/);
@@ -38,6 +39,26 @@ test("keeps the browser API surface same-origin and Gateway-independent", async 
   assert.match(source, /return response\.ok/);
   assert.match(source, /"\/api\/metrics\/metrics"/);
   assert.doesNotMatch(source, /\/gateway\//);
+});
+
+test("guards node recovery behind recovery-only diagnostics state", async () => {
+  const app = await readFile(
+    new URL("../src/App.tsx", import.meta.url),
+    "utf8",
+  );
+  const view = await readFile(
+    new URL("../src/components/NodeDiagnosticsView.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(view, /node\.recovery_only &&/);
+  assert.match(view, /onRecoverNode: \(\) => Promise<void>/);
+  assert.match(view, /recoveryPending \? "Recovering…" : "Recover node"/);
+  assert.match(view, /setRecoveryError\(errorMessage\(error\)\)/);
+  assert.match(view, /role="alert"/);
+  assert.match(app, /await recoverNode\(\)/);
+  assert.match(app, /await load\(controller\.signal, true\)/);
+  assert.match(app, /onRecoverNode=\{recoverCurrentNode\}/);
 });
 
 test("renders bounded read-only load workflow visibility with explicit identities", async () => {

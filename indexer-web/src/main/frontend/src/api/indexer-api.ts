@@ -147,6 +147,16 @@ export async function nodeStatus(signal: AbortSignal): Promise<NodeStatus> {
   return data;
 }
 
+export async function recoverNode(): Promise<NodeStatus> {
+  const { data, error, response } = await adminClient.POST(
+    "/admin/node/recover",
+  );
+  if (!data) {
+    throw requestError(response.status, error);
+  }
+  return data;
+}
+
 export async function infrastructureStatus(
   signal: AbortSignal,
 ): Promise<InfrastructureStatus> {

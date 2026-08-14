@@ -372,6 +372,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/node/recover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["recoverNode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/infrastructure/status": {
         parameters: {
             query?: never;
@@ -1335,6 +1351,27 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Node-local status and composition facts. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminNodeStatus"];
+                };
+            };
+            default: components["responses"]["ErrorResponse"];
+        };
+    };
+    recoverNode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Node-local status after the serialized recovery attempt completes. */
             200: {
                 headers: {
                     [name: string]: unknown;

@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import type {
   Indexer,
   InfrastructureStatus,
@@ -27,6 +29,7 @@ export default function NodeDiagnosticsView({
   infrastructure,
   invalidRoutes,
   node,
+  onRecoverNode,
   onSelectIndexer,
   onSelectTarget,
   services,
@@ -37,12 +40,15 @@ export default function NodeDiagnosticsView({
   infrastructure: InfrastructureStatus | null;
   invalidRoutes: InvalidRouteList | null;
   node: NodeStatus | null;
+  onRecoverNode: () => Promise<void>;
   onSelectIndexer: (id: number) => void;
   onSelectTarget: (id: number) => void;
   services: DiagnosticServiceState[];
   targetInvalidations: TargetInvalidationList | null;
   targets: Target[];
 }) {
+  const [recoveryPending, setRecoveryPending] = useState(false);
+  const [recoveryError, setRecoveryError] = useState<string | null>(null);
   const targetsById = new Map(targets.map((target) => [target.id, target] as const));
   const indexersById = new Map(
     indexers.map((indexer) => [indexer.id, indexer] as const),
@@ -134,6 +140,40 @@ export default function NodeDiagnosticsView({
                   </div>
                 ))}
               </div>
+              {node.recovery_only && (
+                <div className="lifecycle-control lifecycle-control--recovery node-recovery-control">
+                  <span className="eyebrow">Restricted node operation</span>
+                  <h3>Restore the data plane</h3>
+                  <p>
+                    Restart runtime reconciliation and redeploy this node&apos;s
+                    configured data-plane services. Concurrent attempts share the
+                    same recovery.
+                  </p>
+                  <button
+                    className="lifecycle-button"
+                    disabled={recoveryPending}
+                    onClick={async () => {
+                      setRecoveryPending(true);
+                      setRecoveryError(null);
+                      try {
+                        await onRecoverNode();
+                      } catch (error) {
+                        setRecoveryError(errorMessage(error));
+                      } finally {
+                        setRecoveryPending(false);
+                      }
+                    }}
+                    type="button"
+                  >
+                    {recoveryPending ? "Recovering…" : "Recover node"}
+                  </button>
+                  {recoveryError && (
+                    <p className="lifecycle-control__error" role="alert">
+                      {recoveryError}
+                    </p>
+                  )}
+                </div>
+              )}
             </>
           ) : (
             <Unavailable state={services.find((service) => service.name === "node")} />
@@ -258,6 +298,13 @@ export default function NodeDiagnosticsView({
       </div>
     </section>
   );
+}
+
+function errorMessage(error: unknown) {
+  if (error instanceof Error && error.message.trim()) {
+    return bounded(error.message);
+  }
+  return "Node recovery failed";
 }
 
 function BlockHeader({ eyebrow, title }: { eyebrow: string; title: string }) {

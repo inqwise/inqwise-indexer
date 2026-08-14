@@ -145,6 +145,40 @@ public class AdminServiceVerticle extends ServiceProxyVerticle<AdminService> {
 		AdminNodeStatusSource nodeStatusSource,
 		AdminInfrastructureStatusSource infrastructureStatusSource
 	) {
+		this(
+			repository,
+			metadataChangeNotifier,
+			queueResources,
+			targetDefinitionProvider,
+			indexerDefinitionProvider,
+			documentIndexResources,
+			commandService,
+			indexerOperations,
+			monitor,
+			invalidRouteCache,
+			targetInvalidationRegistry,
+			nodeStatusSource,
+			infrastructureStatusSource,
+			AdminNodeRecovery.NONE
+		);
+	}
+
+	public AdminServiceVerticle(
+		DocumentStoreMetadataRepository repository,
+		MetadataChangeNotifier metadataChangeNotifier,
+		IndexerQueueResourceManager queueResources,
+		TargetDefinitionProvider targetDefinitionProvider,
+		IndexerDefinitionProvider indexerDefinitionProvider,
+		IndexerDocumentIndexResourceManager documentIndexResources,
+		CommandService commandService,
+		IndexerOperations indexerOperations,
+		IndexerOperationalMonitor monitor,
+		InvalidRouteCache invalidRouteCache,
+		TargetInvalidationRegistry targetInvalidationRegistry,
+		AdminNodeStatusSource nodeStatusSource,
+		AdminInfrastructureStatusSource infrastructureStatusSource,
+		AdminNodeRecovery nodeRecovery
+	) {
 		AdminService delegate = new AdminServiceImpl(
 			Objects.requireNonNull(repository, "repository"),
 			Objects.requireNonNull(metadataChangeNotifier, "metadataChangeNotifier"),
@@ -158,7 +192,8 @@ public class AdminServiceVerticle extends ServiceProxyVerticle<AdminService> {
 			invalidRouteCache,
 			targetInvalidationRegistry,
 			nodeStatusSource,
-			infrastructureStatusSource
+			infrastructureStatusSource,
+			nodeRecovery
 		);
 		this.service = new MonitoredAdminService(
 			delegate,

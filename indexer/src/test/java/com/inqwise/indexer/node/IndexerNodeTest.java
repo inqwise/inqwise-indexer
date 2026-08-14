@@ -213,6 +213,7 @@ class IndexerNodeTest {
 		VertxTestContext testContext
 	) throws IOException {
 		int healthPort = availablePort();
+		int adminPort = availablePort();
 		IndexerNodeOptions options = new IndexerNodeOptions()
 			.setService(
 				IndexerNodeOptions.Services.HEALTH_REST,
@@ -220,7 +221,12 @@ class IndexerNodeTest {
 			)
 			.setHealthRestOptions(
 				NodeHealthRestOptions.builder().withPort(healthPort).build()
-			);
+			)
+			.setService(
+				IndexerNodeOptions.Services.ADMIN_REST,
+				IndexerServiceDeploymentOptions.builder().build()
+			)
+			.setAdminRestOptions(AdminRestOptions.builder().withPort(adminPort).build());
 		IndexerNode node = IndexerNode.create(vertx, options);
 		int[] activeDeployments = new int[1];
 
@@ -252,12 +258,19 @@ class IndexerNodeTest {
 			})
 			.compose(status -> {
 				assertEquals(204, status);
-				return node.recover();
+				return recoverNode(vertx, adminPort);
 			})
-			.compose(ignored -> {
+			.compose(recovered -> {
+				assertTrue(recovered.getBoolean("ready"));
+				assertFalse(recovered.getBoolean("recovery_only"));
 				assertFalse(node.isRecoveryOnly());
 				assertTrue(node.isReady());
 				assertEquals(activeDeployments[0], node.deploymentIds().size());
+				return recoverNode(vertx, adminPort);
+			})
+			.compose(repeated -> {
+				assertTrue(repeated.getBoolean("ready"));
+				assertFalse(repeated.getBoolean("recovery_only"));
 				return healthStatus(
 					vertx,
 					healthPort,
@@ -269,6 +282,17 @@ class IndexerNodeTest {
 				return node.stop();
 			})
 			.onComplete(testContext.succeeding(ignored -> testContext.completeNow()));
+	}
+
+	private Future<JsonObject> recoverNode(Vertx vertx, int port) {
+		return vertx.createHttpClient()
+			.request(HttpMethod.POST, port, "127.0.0.1", "/admin/node/recover")
+			.compose(request -> request.send())
+			.compose(response -> {
+				assertEquals(200, response.statusCode());
+				return response.body();
+			})
+			.map(body -> body.toJsonObject());
 	}
 
 	@Test

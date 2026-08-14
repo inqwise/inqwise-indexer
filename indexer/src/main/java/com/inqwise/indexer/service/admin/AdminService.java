@@ -25,6 +25,8 @@ public interface AdminService {
 
 	Future<AdminNodeStatusResult> nodeStatus();
 
+	Future<AdminNodeStatusResult> recoverNode();
+
 	Future<AdminInfrastructureStatusResult> infrastructureStatus();
 
 	Future<AdminTargetResult> getTarget(AdminTargetGetRequest request);

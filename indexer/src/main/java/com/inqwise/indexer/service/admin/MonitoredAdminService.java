@@ -66,6 +66,11 @@ final class MonitoredAdminService implements AdminService {
 	}
 
 	@Override
+	public Future<AdminNodeStatusResult> recoverNode() {
+		return observe(LifecycleOperation.RECONCILE, delegate::recoverNode);
+	}
+
+	@Override
 	public Future<AdminInfrastructureStatusResult> infrastructureStatus() {
 		return delegate.infrastructureStatus();
 	}

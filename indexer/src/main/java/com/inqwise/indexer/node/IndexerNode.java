@@ -700,7 +700,8 @@ public class IndexerNode {
 					components.invalidRouteCache(),
 					components.targetInvalidationRegistry(),
 					this::nodeStatus,
-					this::infrastructureStatus
+					this::infrastructureStatus,
+					this::recover
 				),
 				new DeploymentOptions()
 			).onSuccess(id -> trackControlPlaneDeployment(

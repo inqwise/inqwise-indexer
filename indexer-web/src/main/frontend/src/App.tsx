@@ -14,6 +14,7 @@ import {
   nodeStatus,
   operationalMetrics,
   reconcileIndexer,
+  recoverNode,
   recoverTargetProvisioning,
   resetIndexerQueue,
   runtimeStatus,
@@ -1162,6 +1163,21 @@ export default function App() {
     [load],
   );
 
+  const recoverCurrentNode = useCallback(async () => {
+    let mutationFailure: unknown;
+    try {
+      await recoverNode();
+    } catch (error) {
+      mutationFailure = error;
+    }
+
+    const controller = new AbortController();
+    await load(controller.signal, true);
+    if (mutationFailure) {
+      throw mutationFailure;
+    }
+  }, [load]);
+
   const reconcileRuntime = useCallback(
     async (indexer: Indexer) => {
       let mutationFailure: unknown;
@@ -1615,6 +1631,7 @@ export default function App() {
             infrastructure={data.diagnostics.infrastructure}
             invalidRoutes={data.diagnostics.invalidRoutes}
             node={data.diagnostics.node}
+            onRecoverNode={recoverCurrentNode}
             onSelectIndexer={(id) => {
               setSelectedTargetId(null);
               setSelectedIndexerId(id);

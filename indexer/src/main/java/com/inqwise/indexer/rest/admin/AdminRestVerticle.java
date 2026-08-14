@@ -211,6 +211,12 @@ public class AdminRestVerticle extends AbstractVerticle {
 				);
 				RestOperations.bind(
 					builder,
+					"recoverNode",
+					context -> adminService.recoverNode(),
+					AdminRestVerticle::toJson
+				);
+				RestOperations.bind(
+					builder,
 					"infrastructureStatus",
 					context -> adminService.infrastructureStatus(),
 					AdminRestVerticle::toJson

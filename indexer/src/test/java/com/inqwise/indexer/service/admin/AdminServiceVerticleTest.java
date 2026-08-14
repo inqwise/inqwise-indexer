@@ -4,6 +4,7 @@ import static com.inqwise.indexer.testing.TestMetadataRecords.indexerRecord;
 import static com.inqwise.indexer.testing.TestMetadataRecords.readyTarget;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Instant;
 import java.util.List;
@@ -39,6 +40,7 @@ import com.inqwise.indexer.catalog.targets.TargetPeriodStrategy;
 import com.inqwise.indexer.catalog.indexers.IndexerOperations;
 import com.inqwise.indexer.catalog.indexers.MetadataIndexerOperations;
 
+import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import io.vertx.junit5.VertxExtension;
@@ -46,6 +48,52 @@ import io.vertx.junit5.VertxTestContext;
 
 @ExtendWith(VertxExtension.class)
 class AdminServiceVerticleTest {
+	@Test
+	void retainsRecoveryOnlyStatusWhenNodeRecoveryFails(
+		Vertx vertx,
+		VertxTestContext testContext
+	) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
+		AdminNodeStatusSource status = () -> AdminNodeStatusResult.builder()
+			.withStarted(true)
+			.withReady(false)
+			.withRecoveryOnly(true)
+			.withStopping(false)
+			.withClustered(false)
+			.withDeploymentCount(1)
+			.withControlPlaneDeployments(1)
+			.withDataPlaneDeployments(0)
+			.withInfrastructureDeployments(0)
+			.withLifecycleEventNamespace("local")
+			.withTargetInvalidationProvider("IN_MEMORY")
+			.withTargetInvalidationNamespace("local")
+			.withTargetInvalidationMaxTargets(100)
+			.withServices(List.of())
+			.build();
+
+		vertx.deployVerticle(adminVerticle(
+			repository,
+			eventBus,
+			queue,
+			status,
+			null,
+			() -> Future.failedFuture("reconciliation unavailable")
+		))
+			.compose(ignored -> AdminServices.proxy(vertx).recoverNode()
+				.transform(result -> {
+					assertTrue(result.failed());
+					return AdminServices.proxy(vertx).nodeStatus();
+				}))
+			.onComplete(testContext.succeeding(result -> testContext.verify(() -> {
+				assertTrue(result.toJson().getBoolean("recovery_only"));
+				assertEquals(false, result.toJson().getBoolean("ready"));
+				testContext.completeNow();
+			})));
+	}
+
 	@Test
 	void listsTargetsThroughServiceProxy(Vertx vertx, VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
@@ -320,6 +368,24 @@ class AdminServiceVerticleTest {
 		InMemoryIndexerLifecycleEventBus eventBus,
 		InMemoryIndexerQueue queue
 	) {
+		return adminVerticle(
+			repository,
+			eventBus,
+			queue,
+			null,
+			null,
+			AdminNodeRecovery.NONE
+		);
+	}
+
+	private AdminServiceVerticle adminVerticle(
+		InMemoryDocumentStoreMetadataRepository repository,
+		InMemoryIndexerLifecycleEventBus eventBus,
+		InMemoryIndexerQueue queue,
+		AdminNodeStatusSource nodeStatus,
+		AdminInfrastructureStatusSource infrastructureStatus,
+		AdminNodeRecovery nodeRecovery
+	) {
 		InMemoryIndexerDocumentStore documentStore = new InMemoryIndexerDocumentStore();
 		IndexerOperations indexerOperations = new MetadataIndexerOperations(
 			repository,
@@ -345,7 +411,13 @@ class AdminServiceVerticleTest {
 			)),
 			documentStore,
 			commandService,
-			indexerOperations
+			indexerOperations,
+			com.inqwise.indexer.monitoring.IndexerOperationalMonitor.NOOP,
+			null,
+			null,
+			nodeStatus,
+			infrastructureStatus,
+			nodeRecovery
 		);
 	}
 

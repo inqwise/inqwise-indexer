@@ -659,6 +659,18 @@ paths:
                 $ref: '#/components/schemas/AdminNodeStatus'
         default:
           $ref: '#/components/responses/ErrorResponse'
+  /admin/node/recover:
+    post:
+      operationId: recoverNode
+      responses:
+        '200':
+          description: Node-local status after the serialized recovery attempt completes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminNodeStatus'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
   /admin/infrastructure/status:
     get:
       operationId: infrastructureStatus
