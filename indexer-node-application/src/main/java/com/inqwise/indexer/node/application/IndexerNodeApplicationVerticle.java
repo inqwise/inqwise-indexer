@@ -34,9 +34,12 @@ import com.inqwise.indexer.node.IndexerNodeOptions;
 import com.inqwise.indexer.node.IndexerPluginContext;
 import com.inqwise.indexer.node.IndexerPluginFactory;
 import com.inqwise.indexer.node.application.monitoring.MicrometerIndexerEventPublisher;
+import com.inqwise.indexer.node.application.monitoring.MicrometerReportOperationalMonitor;
 import com.inqwise.indexer.providers.IndexerPlugins;
 import com.inqwise.indexer.query.ConsumerReportExecutionContextResolver;
+import com.inqwise.indexer.query.ReportCatalog;
 import com.inqwise.indexer.query.ReportExecutionContext;
+import com.inqwise.indexer.query.monitoring.ReportOperationalMonitor;
 import com.inqwise.indexer.query.rest.ReportsRestOptions;
 import com.inqwise.indexer.query.rest.ReportsRestVerticle;
 import com.inqwise.indexer.query.service.ReportDiscoveryServiceVerticle;
@@ -72,6 +75,7 @@ public final class IndexerNodeApplicationVerticle extends AbstractVerticle {
 	private InMemoryIndexerLoadRepository loadRepository;
 	private InMemoryLoadProviderRegistry loadProviders;
 	private IndexerPluginContext loadPluginContext;
+	private ReportOperationalMonitor reportMonitor = ReportOperationalMonitor.NOOP;
 
 	@Override
 	public void start(Promise<Void> startPromise) {
@@ -80,6 +84,13 @@ public final class IndexerNodeApplicationVerticle extends AbstractVerticle {
 		if (BackendRegistries.getDefaultNow() != null) {
 			operationalMetrics = new MicrometerIndexerEventPublisher(
 				BackendRegistries.getDefaultNow()
+			);
+			ReportCatalog reportCatalog = HackerNewsReportCatalog.create();
+			reportMonitor = new MicrometerReportOperationalMonitor(
+				BackendRegistries.getDefaultNow(),
+				reportCatalog.presentations().stream()
+					.map(presentation -> presentation.getName())
+					.collect(java.util.stream.Collectors.toUnmodifiableSet())
 			);
 		}
 		IndexerEventPublisher eventPublisher = operationalMetrics == null
@@ -370,7 +381,8 @@ public final class IndexerNodeApplicationVerticle extends AbstractVerticle {
 						new ConsumerReportExecutionContextResolver(java.util.Map.of(
 							HackerNewsReportConstants.CONSUMER_NAME,
 							ReportExecutionContext.builder().build()
-						))
+						)),
+						reportMonitor
 					),
 					options.address()
 				)

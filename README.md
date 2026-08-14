@@ -102,12 +102,15 @@ registry is deliberately empty: a concrete consumer/deployment must register a
 real provider before start or recovery can succeed, and the console does not
 fabricate consumer-specific load behavior.
 
-The Reports view discovers presentations and executes reports through the
-consumer-neutral API. It generates forms only for closed object schemas with
-flat scalar parameters and renders only bounded scalar or table results. Unknown
-keywords, remote references, deep structures, incompatible result payloads,
-unsafe link schemes, and results beyond the display cap are rejected or bounded.
-The frontend imports no consumer module or consumer-owned OpenAPI contract.
+The operator console does not execute or render reports. Its read-only Report
+activity view discovers a bounded neutral catalog and combines those stable names
+with process-lifetime execution counters, outcomes, active executions, and average
+duration from the existing Prometheus proxy. The report service emits only neutral
+name/outcome/timing observations; the application-owned Micrometer adapter limits
+labels to the registered catalog and collapses every unknown name into one
+`unknown` series. Parameters, results, consumer-specific fields, trusted scope,
+logical targets, and physical index identities remain outside the console. The
+neutral execution API still exists for appropriately composed clients.
 
 In development, Vite provides hot reload and forwards the same paths that the
 Vert.x wrapper owns in packaged/runtime use:

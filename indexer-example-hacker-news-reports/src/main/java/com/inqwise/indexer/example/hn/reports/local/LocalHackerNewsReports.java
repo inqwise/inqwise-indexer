@@ -8,6 +8,7 @@ import com.inqwise.indexer.example.hn.reports.HackerNewsReportConstants;
 import com.inqwise.indexer.publication.PublishedIndexResolver;
 import com.inqwise.indexer.query.DefaultReportsFacade;
 import com.inqwise.indexer.query.ReportExecutionContextResolver;
+import com.inqwise.indexer.query.monitoring.ReportOperationalMonitor;
 import com.inqwise.indexer.query.service.ReportCaller;
 import com.inqwise.indexer.query.service.ReportsService;
 import com.inqwise.indexer.query.service.ReportsServiceImpl;
@@ -21,6 +22,15 @@ public final class LocalHackerNewsReports {
 		InMemoryIndexerDocumentStore documents,
 		ReportExecutionContextResolver contexts
 	) {
+		return create(publishedIndexes, documents, contexts, ReportOperationalMonitor.NOOP);
+	}
+
+	public static ReportsService create(
+		PublishedIndexResolver publishedIndexes,
+		InMemoryIndexerDocumentStore documents,
+		ReportExecutionContextResolver contexts,
+		ReportOperationalMonitor monitor
+	) {
 		return new ReportsServiceImpl(
 			new DefaultReportsFacade(
 				HackerNewsReportCatalog.create(),
@@ -33,7 +43,8 @@ public final class LocalHackerNewsReports {
 			ReportCaller.builder()
 				.withConsumerName(HackerNewsReportConstants.CONSUMER_NAME)
 				.withSubject("local-hacker-news-reports")
-				.build()
+				.build(),
+			Objects.requireNonNull(monitor, "monitor")
 		);
 	}
 }

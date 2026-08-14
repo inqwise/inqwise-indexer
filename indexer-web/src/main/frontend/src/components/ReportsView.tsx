@@ -1,62 +1,37 @@
 import { useEffect, useMemo, useState } from "react";
 
-import {
-  discoverReports,
-  executeReport,
-} from "../api/reports-api";
-import {
-  buildParameters,
-  scalarType,
-  validatePresentation,
-  validateResultPayload,
-} from "../report-schema";
-import type {
-  ArraySchema,
-  ScalarSchema,
-  ValidatedReportPresentation,
-} from "../report-schema";
+import type { OperationalMetrics } from "../api/indexer-api";
+import { discoverReports } from "../api/reports-api";
+import type { ReportPresentation } from "../api/reports-api";
 
-const MAX_RENDERED_ROWS = 100;
-const MAX_RENDERED_TEXT = 2_048;
 const MAX_DISCOVERED_REPORTS = 256;
+const MAX_TEXT = 512;
 
-type FieldValue = string | boolean;
-type ReportResult = Record<string, unknown>;
+type ReportSummary = {
+  name: string;
+  title: string;
+  description?: string;
+};
 
-export default function ReportsView() {
-  const [reports, setReports] = useState<ValidatedReportPresentation[]>([]);
-  const [selectedName, setSelectedName] = useState("");
-  const [values, setValues] = useState<Record<string, FieldValue>>({});
-  const [result, setResult] = useState<ReportResult | null>(null);
+export default function ReportsView({
+  metrics,
+  metricsState,
+}: {
+  metrics: OperationalMetrics | null;
+  metricsState: "checking" | "online" | "degraded";
+}) {
+  const [reports, setReports] = useState<ReportSummary[]>([]);
   const [loading, setLoading] = useState(true);
-  const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [rejectedCount, setRejectedCount] = useState(0);
-
-  const selected = useMemo(
-    () => reports.find((report) => report.name === selectedName) ?? null,
-    [reports, selectedName],
-  );
 
   useEffect(() => {
     const controller = new AbortController();
     void discoverReports(controller.signal)
       .then((discovered) => {
-        const accepted: ValidatedReportPresentation[] = [];
-        let rejected = Math.max(0, discovered.length - MAX_DISCOVERED_REPORTS);
-        for (const report of discovered.slice(0, MAX_DISCOVERED_REPORTS)) {
-          try {
-            accepted.push(validatePresentation(report));
-          } catch {
-            rejected += 1;
-          }
-        }
-        setReports(accepted);
-        setRejectedCount(rejected);
-        setSelectedName((current) =>
-          accepted.some((report) => report.name === current)
-            ? current
-            : (accepted[0]?.name ?? ""),
+        setReports(
+          discovered
+            .slice(0, MAX_DISCOVERED_REPORTS)
+            .flatMap(validateSummary),
         );
         setError(null);
       })
@@ -73,367 +48,198 @@ export default function ReportsView() {
     return () => controller.abort();
   }, []);
 
-  useEffect(() => {
-    setValues(selected ? defaultValues(selected) : {});
-    setResult(null);
-    setError(null);
-  }, [selected]);
-
-  async function runReport() {
-    if (!selected) {
-      return;
-    }
-    const controller = new AbortController();
-    setRunning(true);
-    setError(null);
-    setResult(null);
-    try {
-      const parameters = buildParameters(selected.parameters_schema, values);
-      const payload = await executeReport(selected.name, parameters, controller.signal);
-      validateResultPayload(selected.result_schema, payload);
-      setResult(payload);
-    } catch (failure) {
-      setError(message(failure));
-    } finally {
-      setRunning(false);
-    }
-  }
+  const activity = useMemo(() => {
+    const byName = new Map(
+      (metrics?.reports ?? []).map((metric) => [metric.reportName, metric]),
+    );
+    return reports.map((report) => ({
+      report,
+      metric: byName.get(report.name) ?? emptyMetric(report.name),
+    }));
+  }, [metrics, reports]);
+  const totals = (metrics?.reports ?? []).reduce(
+    (current, metric) => ({
+      succeeded: current.succeeded + metric.succeeded,
+      invalid: current.invalid + metric.invalid,
+      failed: current.failed + metric.failed,
+      active: current.active + metric.active,
+      durationSeconds: current.durationSeconds + metric.durationSeconds,
+    }),
+    { succeeded: 0, invalid: 0, failed: 0, active: 0, durationSeconds: 0 },
+  );
+  const completed = totals.succeeded + totals.invalid + totals.failed;
 
   return (
-    <section aria-label="Reports" className="reports-view" id="reports">
+    <section aria-label="Report activity" className="reports-view" id="reports">
       <div className="reports-view__header">
         <div>
-          <span className="eyebrow">On-demand analysis</span>
-          <h3>Reports</h3>
+          <span className="eyebrow">Read-only operations</span>
+          <h3>Report activity</h3>
           <p>
-            Forms and results are generated from the neutral report discovery
-            contract. Consumer code and physical index identities stay server-side.
+            Provider-neutral execution signals for the reports registered in this
+            node. Parameters, results, consumer fields, and physical indexes remain
+            outside the operator console.
           </p>
         </div>
-        <span className="reports-view__contract">Schema-driven</span>
+        <span className="reports-view__contract">Process lifetime</span>
       </div>
 
-      {loading ? (
-        <div className="report-state" role="status">Loading report catalog…</div>
-      ) : reports.length === 0 ? (
-        <div className="report-state" role="status">
-          <strong>No compatible reports</strong>
-          <p>{error ?? "No report presentations match the supported schema subset."}</p>
-        </div>
-      ) : (
-        <div className="reports-layout">
-          <aside className="report-catalog" aria-label="Available reports">
-            {reports.map((report) => (
-              <button
-                className={report.name === selectedName ? "is-active" : ""}
-                key={report.name}
-                onClick={() => setSelectedName(report.name)}
-                type="button"
-              >
-                <strong>{report.title}</strong>
-                <span>{report.description || report.name}</span>
-              </button>
-            ))}
-            {rejectedCount > 0 && (
-              <small>{rejectedCount} unsupported presentation{rejectedCount === 1 ? "" : "s"} hidden</small>
-            )}
-          </aside>
-
-          {selected && (
-            <div className="report-workspace">
-              <header>
-                <span className="eyebrow">{selected.name}</span>
-                <h4>{selected.title}</h4>
-                {selected.description && <p>{selected.description}</p>}
-              </header>
-
-              <form
-                className="report-form"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void runReport();
-                }}
-              >
-                <div className="report-fields">
-                  {Object.entries(selected.parameters_schema.properties).map(
-                    ([name, schema]) => (
-                      <ReportField
-                        key={name}
-                        name={name}
-                        onChange={(value) =>
-                          setValues((current) => ({ ...current, [name]: value }))
-                        }
-                        required={selected.parameters_schema.required.includes(name)}
-                        schema={schema}
-                        value={values[name] ?? ""}
-                      />
-                    ),
-                  )}
-                </div>
-                <button className="report-run" disabled={running} type="submit">
-                  {running ? "Running…" : "Run report"}
-                </button>
-              </form>
-
-              {error && <div className="report-error" role="alert">{error}</div>}
-              {result && (
-                <ReportResultView result={result} schema={selected.result_schema} />
-              )}
-            </div>
-          )}
-        </div>
-      )}
-    </section>
-  );
-}
-
-function ReportField({
-  name,
-  onChange,
-  required,
-  schema,
-  value,
-}: {
-  name: string;
-  onChange: (value: FieldValue) => void;
-  required: boolean;
-  schema: ScalarSchema;
-  value: FieldValue;
-}) {
-  const type = scalarType(schema);
-  const label = schema.title ?? name.replaceAll("_", " ");
-  if (schema.format === "date-time") {
-    return (
-      <ReportDateTimeField
-        description={schema.description}
-        label={label}
-        onChange={onChange}
-        required={required}
-        value={String(value)}
-      />
-    );
-  }
-  if (type === "boolean") {
-    return (
-      <label className="report-field report-field--boolean">
-        <input
-          checked={value === true}
-          onChange={(event) => onChange(event.target.checked)}
-          type="checkbox"
+      <div className="report-activity__metrics">
+        <ActivityMetric
+          detail="discovered through the neutral catalog"
+          label="Available reports"
+          value={loading ? "…" : String(reports.length)}
         />
-        <span><strong>{label}</strong>{schema.description && <small>{schema.description}</small>}</span>
-      </label>
-    );
-  }
-  if (schema.enum) {
-    return (
-      <label className="report-field">
-        <span>{label}{required && <em>Required</em>}</span>
-        <select
-          onChange={(event) => onChange(event.target.value)}
-          required={required}
-          value={String(value)}
-        >
-          {!required && <option value="">Not set</option>}
-          {schema.enum.map((option) => <option key={option} value={option}>{option.replaceAll("_", " ")}</option>)}
-        </select>
-        {schema.description && <small>{schema.description}</small>}
-      </label>
-    );
-  }
-  const inputType = type === "integer" || type === "number" ? "number" : "text";
-  return (
-    <label className="report-field">
-      <span>{label}{required && <em>Required</em>}</span>
-      <input
-        max={schema.maximum}
-        maxLength={schema.maxLength ?? (type === "string" ? MAX_RENDERED_TEXT : undefined)}
-        min={schema.minimum}
-        minLength={schema.minLength}
-        onChange={(event) => onChange(event.target.value)}
-        required={required}
-        step={type === "integer" ? 1 : type === "number" ? "any" : undefined}
-        type={inputType}
-        value={String(value)}
-      />
-      {schema.description && <small>{schema.description}</small>}
-    </label>
-  );
-}
-
-function ReportDateTimeField({
-  description,
-  label,
-  onChange,
-  required,
-  value,
-}: {
-  description?: string;
-  label: string;
-  onChange: (value: FieldValue) => void;
-  required: boolean;
-  value: string;
-}) {
-  const [date = "", time = ""] = value.split("T", 2);
-  const effectiveTime = time || "00:00";
-  return (
-    <fieldset className="report-field report-field--date-time">
-      <legend>{label}{required && <em>Required</em>}</legend>
-      <div className="report-date-time-inputs">
-        <label>
-          <span>Date</span>
-          <input
-            aria-label={`${label} date`}
-            onChange={(event) => onChange(
-              event.target.value ? `${event.target.value}T${effectiveTime}` : "",
-            )}
-            required={required}
-            type="date"
-            value={date}
-          />
-        </label>
-        <label>
-          <span>Time</span>
-          <input
-            aria-label={`${label} time`}
-            disabled={!date}
-            onChange={(event) => onChange(`${date}T${event.target.value || "00:00"}`)}
-            type="time"
-            value={effectiveTime}
-          />
-        </label>
+        <ActivityMetric
+          detail="completed since this process started"
+          label="Executions observed"
+          value={formatCount(completed)}
+        />
+        <ActivityMetric
+          detail={`${formatCount(totals.invalid)} invalid · ${formatCount(totals.failed)} failed`}
+          label="Outcomes"
+          value={`${formatCount(totals.succeeded)} succeeded`}
+          warn={totals.invalid + totals.failed > 0}
+        />
+        <ActivityMetric
+          detail={`${formatCount(totals.active)} active now`}
+          label="Average duration"
+          value={
+            completed > 0
+              ? formatDuration(totals.durationSeconds / completed)
+              : "No samples"
+          }
+        />
       </div>
-      {description && <small>{description}</small>}
-    </fieldset>
-  );
-}
 
-function ReportResultView({
-  result,
-  schema,
-}: {
-  result: ReportResult;
-  schema: ValidatedReportPresentation["result_schema"];
-}) {
-  return (
-    <section aria-label="Report result" className="report-result">
-      <div className="report-result__header">
-        <span className="eyebrow">Result</span>
-        <strong>Completed</strong>
-      </div>
-      {Object.entries(schema.properties).map(([name, property]) =>
-        property.type === "array" ? (
-          <ResultTable
-            key={name}
-            name={name}
-            rows={Array.isArray(result[name]) ? result[name] : []}
-            schema={property}
-          />
-        ) : (
-          <div className="report-result__scalar" key={name}>
-            <span>{property.title ?? name.replaceAll("_", " ")}</span>
-            <ResultValue schema={property} value={result[name]} />
-          </div>
-        ),
-      )}
-    </section>
-  );
-}
-
-function ResultTable({
-  name,
-  rows,
-  schema,
-}: {
-  name: string;
-  rows: unknown[];
-  schema: ArraySchema;
-}) {
-  const columns = Object.entries(schema.items.properties) as [string, ScalarSchema][];
-  const visible = rows.slice(0, MAX_RENDERED_ROWS) as Record<string, unknown>[];
-  return (
-    <div className="report-table-block">
-      <div className="report-table-block__title">
-        <strong>{schema.title ?? name.replaceAll("_", " ")}</strong>
-        <span>{rows.length} row{rows.length === 1 ? "" : "s"}</span>
-      </div>
-      {visible.length === 0 ? (
-        <p className="report-result__empty">No rows returned.</p>
+      {error ? (
+        <div className="report-state" role="alert">
+          Report discovery unavailable: {error}
+        </div>
+      ) : reports.length === 0 && !loading ? (
+        <div className="report-state" role="status">
+          No reports are currently available.
+        </div>
       ) : (
-        <div className="table-wrap">
-          <table>
-            <thead><tr>{columns.map(([key, column]) => <th key={key}>{column.title ?? key.replaceAll("_", " ")}</th>)}</tr></thead>
+        <div className="report-activity__table-wrap">
+          <table className="report-activity__table">
+            <thead>
+              <tr>
+                <th>Report</th>
+                <th>Executions</th>
+                <th>Outcomes</th>
+                <th>Active</th>
+                <th>Avg duration</th>
+              </tr>
+            </thead>
             <tbody>
-              {visible.map((row, index) => (
-                <tr key={index}>
-                  {columns.map(([key, column]) => <td key={key}><ResultValue schema={column} value={row[key]} /></td>)}
-                </tr>
-              ))}
+              {activity.map(({ report, metric }) => {
+                const count = metric.succeeded + metric.invalid + metric.failed;
+                return (
+                  <tr key={report.name}>
+                    <td>
+                      <strong>{report.title}</strong>
+                      <small>{report.description || report.name}</small>
+                      <code>{report.name}</code>
+                    </td>
+                    <td data-label="Executions">{formatCount(count)}</td>
+                    <td data-label="Outcomes">
+                      <span
+                        className={
+                          metric.invalid + metric.failed > 0
+                            ? "report-activity__outcome--warn"
+                            : ""
+                        }
+                      >
+                        {formatCount(metric.succeeded)} / {formatCount(metric.invalid)} / {formatCount(metric.failed)}
+                      </span>
+                      <small>succeeded / invalid / failed</small>
+                    </td>
+                    <td data-label="Active">{formatCount(metric.active)}</td>
+                    <td data-label="Avg duration">
+                      {count > 0
+                        ? formatDuration(metric.durationSeconds / count)
+                        : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       )}
-      {rows.length > MAX_RENDERED_ROWS && <small>Showing the first {MAX_RENDERED_ROWS} rows.</small>}
-    </div>
+      {metricsState !== "online" && (
+        <p className="report-activity__notice">
+          {metricsState === "checking"
+            ? "Waiting for operational metrics."
+            : "Metrics are degraded; showing the last available sample."}
+        </p>
+      )}
+    </section>
   );
 }
 
-function ResultValue({ schema, value }: { schema: ScalarSchema; value: unknown }) {
-  if (value === null || value === undefined) {
-    return <span className="report-value--empty">—</span>;
-  }
-  if (schema.format === "uri" && typeof value === "string" && safeHttpUrl(value)) {
-    return <a href={value} rel="noreferrer" target="_blank">{boundedText(value)}</a>;
-  }
-  if (schema.format === "date-time" && typeof value === "string") {
-    return <time dateTime={value}>{new Date(value).toLocaleString()}</time>;
-  }
-  if (typeof value === "boolean") {
-    return <span>{value ? "Yes" : "No"}</span>;
-  }
-  return <span>{boundedText(String(value))}</span>;
-}
-
-function defaultValues(
-  report: ValidatedReportPresentation,
-): Record<string, FieldValue> {
-  return Object.fromEntries(
-    Object.entries(report.parameters_schema.properties).map(([name, schema]) => {
-      if (schema.default === undefined) {
-        return [name, scalarType(schema) === "boolean" ? false : ""];
-      }
-      if (schema.format === "date-time" && typeof schema.default === "string") {
-        return [name, localDateTime(schema.default)];
-      }
-      return [name, typeof schema.default === "boolean" ? schema.default : String(schema.default)];
-    }),
+function ActivityMetric({
+  label,
+  value,
+  detail,
+  warn = false,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  warn?: boolean;
+}) {
+  return (
+    <article
+      className={`report-activity__metric${warn ? " report-activity__metric--warn" : ""}`}
+    >
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <small>{detail}</small>
+    </article>
   );
 }
 
-function localDateTime(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "";
+function validateSummary(report: ReportPresentation): ReportSummary[] {
+  if (
+    typeof report.name !== "string" ||
+    !report.name ||
+    report.name.length > MAX_TEXT ||
+    typeof report.title !== "string" ||
+    !report.title ||
+    report.title.length > MAX_TEXT
+  ) {
+    return [];
   }
-  const offset = date.getTimezoneOffset() * 60_000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
-}
-
-function safeHttpUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
+  const summary: ReportSummary = { name: report.name, title: report.title };
+  if (typeof report.description === "string" && report.description) {
+    summary.description = report.description.slice(0, MAX_TEXT);
   }
+  return [summary];
 }
 
-function boundedText(value: string): string {
-  return value.length > MAX_RENDERED_TEXT
-    ? `${value.slice(0, MAX_RENDERED_TEXT)}…`
-    : value;
+function emptyMetric(reportName: string) {
+  return {
+    reportName,
+    succeeded: 0,
+    invalid: 0,
+    failed: 0,
+    active: 0,
+    durationSeconds: 0,
+  };
 }
 
-function message(value: unknown): string {
-  return value instanceof Error ? value.message : "Report request failed";
+function formatCount(value: number): string {
+  return Math.max(0, value).toLocaleString();
+}
+
+function formatDuration(seconds: number): string {
+  return seconds < 1
+    ? `${Math.round(seconds * 1_000)} ms`
+    : `${seconds.toFixed(seconds < 10 ? 2 : 1)} s`;
+}
+
+function message(error: unknown): string {
+  return error instanceof Error ? error.message : "Unknown error";
 }

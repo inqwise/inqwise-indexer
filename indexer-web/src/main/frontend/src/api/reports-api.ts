@@ -33,25 +33,6 @@ export async function discoverReports(
   return data.reports as ReportPresentation[];
 }
 
-export async function executeReport(
-  reportName: string,
-  parameters: Record<string, unknown>,
-  signal: AbortSignal,
-): Promise<Record<string, unknown>> {
-  const { data, error, response } = await reportsClient.POST(
-    "/reports/{report_name}/executions",
-    {
-      body: parameters,
-      params: { path: { report_name: reportName } },
-      signal,
-    },
-  );
-  if (!data) {
-    throw requestError(response.status, error);
-  }
-  return data;
-}
-
 function requestError(status: number, error: unknown): Error {
   if (error && typeof error === "object") {
     const detail = "detail" in error ? error.detail : undefined;

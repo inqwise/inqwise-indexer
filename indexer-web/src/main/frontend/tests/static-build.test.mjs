@@ -285,7 +285,7 @@ test("shows a bounded compact view of project-logic metrics", async () => {
   assert.doesNotMatch(app, /document id|request id|queue name/i);
 });
 
-test("renders reports only through the neutral bounded schema contract", async () => {
+test("renders bounded read-only report activity through neutral contracts", async () => {
   const app = await readFile(
     new URL("../src/App.tsx", import.meta.url),
     "utf8",
@@ -294,8 +294,8 @@ test("renders reports only through the neutral bounded schema contract", async (
     new URL("../src/components/ReportsView.tsx", import.meta.url),
     "utf8",
   );
-  const schema = await readFile(
-    new URL("../src/report-schema.ts", import.meta.url),
+  const metrics = await readFile(
+    new URL("../src/api/indexer-api.ts", import.meta.url),
     "utf8",
   );
   const api = await readFile(
@@ -312,25 +312,22 @@ test("renders reports only through the neutral bounded schema contract", async (
   );
 
   assert.match(app, /href="#reports"/);
-  assert.match(app, /<ReportsView \/>/);
+  assert.match(app, /<ReportsView/);
   assert.match(api, /baseUrl: "\/api\/reports"/);
   assert.match(api, /GET\("\/reports"/);
-  assert.match(api, /"\/reports\/\{report_name\}\/executions"/);
+  assert.doesNotMatch(api, /POST\(|executions/);
   assert.match(generated, /ReportPresentation:/);
-  assert.match(view, /validatePresentation/);
-  assert.match(view, /validateResultPayload/);
-  assert.match(view, /MAX_RENDERED_ROWS = 100/);
-  assert.match(view, /safeHttpUrl/);
-  assert.match(view, /ReportDateTimeField/);
-  assert.match(view, /type="date"/);
-  assert.match(view, /type="time"/);
-  assert.match(view, /event\.target\.value \? `\$\{event\.target\.value\}T\$\{effectiveTime\}`/);
+  assert.match(view, /MAX_DISCOVERED_REPORTS = 256/);
+  assert.match(view, /Available reports/);
+  assert.match(view, /Executions observed/);
+  assert.match(view, /succeeded \/ invalid \/ failed/);
+  assert.match(view, /Average duration/);
+  assert.match(metrics, /inqwise_indexer_report_executions_total/);
+  assert.match(metrics, /inqwise_indexer_report_executions_active/);
+  assert.match(metrics, /inqwise_indexer_report_execution_duration_seconds_total/);
   assert.doesNotMatch(view, /dangerouslySetInnerHTML/);
   assert.doesNotMatch(view, /hacker.news/i);
-  assert.match(schema, /assertKeys/);
-  assert.match(schema, /unsupported keyword/);
-  assert.doesNotMatch(schema, /"\$ref"/);
-  assert.doesNotMatch(schema, /"pattern"/);
+  assert.doesNotMatch(view, /<form|Run report|result_schema|parameters_schema/);
   assert.match(vite, /"\/api\/reports"/);
 });
 

@@ -1687,7 +1687,10 @@ export default function App() {
             targets={data.targets}
           />
 
-          <ReportsView />
+          <ReportsView
+            metrics={data.metrics}
+            metricsState={data.metricsDiagnostic.state}
+          />
 
           <div className="dashboard-grid">
             <section className="panel panel--wide" id="indexers">

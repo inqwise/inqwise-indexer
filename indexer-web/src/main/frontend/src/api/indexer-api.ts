@@ -37,6 +37,16 @@ export type OperationalMetrics = {
   lifecycleSucceeded: number;
   lifecycleFailed: number;
   lifecycleRetrying: number;
+  reports: ReportOperationalMetric[];
+};
+
+export type ReportOperationalMetric = {
+  reportName: string;
+  succeeded: number;
+  invalid: number;
+  failed: number;
+  active: number;
+  durationSeconds: number;
 };
 
 type PrometheusSample = {
@@ -335,6 +345,23 @@ function parseOperationalMetrics(source: string): OperationalMetrics {
       "inqwise_indexer_lifecycle_operations_total",
       labeled("outcome", outcome),
     );
+  const reportNames = Array.from(
+    new Set(
+      samples
+        .filter((sample) =>
+          sample.name.startsWith("inqwise_indexer_report_"),
+        )
+        .map((sample) => sample.labels.report)
+        .filter((name): name is string => Boolean(name)),
+    ),
+  ).sort().slice(0, 257);
+  const reportMetric = (reportName: string, outcome: string) =>
+    sum(
+      "inqwise_indexer_report_executions_total",
+      (sample) =>
+        sample.labels.report === reportName &&
+        sample.labels.outcome === outcome,
+    );
 
   return {
     acceptedPutActions: intake("put_document", "accepted"),
@@ -361,6 +388,20 @@ function parseOperationalMetrics(source: string): OperationalMetrics {
     lifecycleSucceeded: lifecycle("succeeded"),
     lifecycleFailed: lifecycle("failed"),
     lifecycleRetrying: lifecycle("retrying"),
+    reports: reportNames.map((reportName) => ({
+      reportName,
+      succeeded: reportMetric(reportName, "succeeded"),
+      invalid: reportMetric(reportName, "invalid"),
+      failed: reportMetric(reportName, "failed"),
+      active: sum(
+        "inqwise_indexer_report_executions_active",
+        (sample) => sample.labels.report === reportName,
+      ),
+      durationSeconds: sum(
+        "inqwise_indexer_report_execution_duration_seconds_total",
+        (sample) => sample.labels.report === reportName,
+      ),
+    })),
   };
 }
 
