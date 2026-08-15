@@ -32,6 +32,7 @@ import com.inqwise.indexer.catalog.indexers.IndexerRole;
 import com.inqwise.indexer.catalog.indexers.IndexerType;
 import com.inqwise.indexer.adapters.local.InMemoryIndexerQueue;
 import com.inqwise.indexer.adapters.local.InMemoryIndexerLifecycleEventBus;
+import com.inqwise.indexer.routing.QueueIndexerPublishingService;
 import com.inqwise.indexer.provisioning.IndexerQueueResourceManager;
 import com.inqwise.indexer.cleanup.CleanupDeletingIndexerCommandHandler;
 import com.inqwise.indexer.cleanup.DeleteIndexerCommandHandler;
@@ -216,7 +217,7 @@ class PublishLoadCommandTest {
 		LoadManagementService loadService = new DefaultLoadManagementService(
 			new MetadataLoadCreationCatalog(metadata),
 			loads,
-			new InMemoryIndexerQueue(),
+			new QueueIndexerPublishingService(new InMemoryIndexerQueue()),
 			new InMemoryLoadProviderRegistry(),
 			new InMemoryIndexerLifecycleEventBus(),
 			commands

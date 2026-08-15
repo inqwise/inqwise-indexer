@@ -26,7 +26,7 @@ public class SubmitIndexActionsCommandHandler implements CommandHandler {
 	private final MetadataSubmitIndexActionRouter metadataRouter;
 	private final TargetDefinitionProvider targetDefinitionProvider;
 	private final MetadataChangeNotifier metadataChangeNotifier;
-	private final RoutedIndexActionPublisher publisher;
+	private final IndexerPublishingService publisher;
 	private final InvalidRouteCache invalidRouteCache;
 	private final TargetPeriodResolver periodResolver = new TargetPeriodResolver();
 
@@ -97,6 +97,28 @@ public class SubmitIndexActionsCommandHandler implements CommandHandler {
 		InvalidRouteCache invalidRouteCache,
 		List<IndexerActionReceiveCapability> receiveCapabilities
 	) {
+		this(
+			metadataRepository,
+			targetDefinitionProvider,
+			provisioningService,
+			publicationService,
+			metadataChangeNotifier,
+			new RoutedIndexActionPublisher(queue),
+			invalidRouteCache,
+			receiveCapabilities
+		);
+	}
+
+	public SubmitIndexActionsCommandHandler(
+		DocumentStoreMetadataRepository metadataRepository,
+		TargetDefinitionProvider targetDefinitionProvider,
+		IndexerProvisioningService provisioningService,
+		IndexPublicationService publicationService,
+		MetadataChangeNotifier metadataChangeNotifier,
+		IndexerPublishingService publisher,
+		InvalidRouteCache invalidRouteCache,
+		List<IndexerActionReceiveCapability> receiveCapabilities
+	) {
 		this.metadataRouter = new MetadataSubmitIndexActionRouter(
 			metadataRepository,
 			targetDefinitionProvider,
@@ -112,7 +134,7 @@ public class SubmitIndexActionsCommandHandler implements CommandHandler {
 			metadataChangeNotifier,
 			"metadataChangeNotifier"
 		);
-		this.publisher = new RoutedIndexActionPublisher(queue);
+		this.publisher = Objects.requireNonNull(publisher, "publisher");
 		this.invalidRouteCache = invalidRouteCache;
 	}
 

@@ -9,10 +9,10 @@ import com.inqwise.indexer.runtime.IndexerQueuePublisher;
 
 import io.vertx.core.Future;
 
-public class RoutedIndexActionPublisher implements IndexerPublishingService {
+public class QueueIndexerPublishingService implements IndexerPublishingService {
 	private final IndexerQueueClient queue;
 
-	public RoutedIndexActionPublisher(IndexerQueueClient queue) {
+	public QueueIndexerPublishingService(IndexerQueueClient queue) {
 		this.queue = Objects.requireNonNull(queue, "queue");
 	}
 

@@ -18,6 +18,7 @@ import com.inqwise.indexer.providers.IndexerPlugins;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -33,6 +34,7 @@ import com.inqwise.indexer.catalog.indexers.IndexerRuntimeStateRequest;
 import com.inqwise.indexer.catalog.indexers.IndexerType;
 import com.inqwise.indexer.catalog.indexers.MetadataIndexerManagementService;
 import com.inqwise.indexer.metadata.UpdateIndexerQueueName;
+import com.inqwise.indexer.routing.RoutedIndexActions;
 import com.inqwise.indexer.catalog.indexers.IndexerOperations;
 import com.inqwise.indexer.catalog.indexers.MetadataIndexerOperations;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
@@ -218,6 +220,130 @@ class IndexerRuntimeTest {
 				new io.vertx.core.json.JsonObject().put("name", "Ada")
 			)).eventually(publisher::close))
 			.onFailure(testContext::failNow);
+	}
+
+	@Test
+	void runtimePublishingServicePublishesThroughActiveLocalIndexer(
+		Vertx vertx,
+		VertxTestContext testContext
+	) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
+		InMemoryIndexerDocumentStore documentStore = new InMemoryIndexerDocumentStore();
+		IndexerRuntime runtime = new IndexerRuntime(
+			vertx,
+			queue,
+			documentStore,
+			new IndexerOptions(),
+			event -> {
+				if (event.getType() == IndexerEventType.CONSUMER_RESUMED
+					&& event.getItem() != null) {
+					testContext.verify(() -> {
+						assertEquals(
+							"Ada",
+							documentStore.get("customers_1", "42").getString("name")
+						);
+						testContext.completeNow();
+					});
+				}
+				return Future.succeededFuture();
+			}
+		);
+
+		insertIndexer(repository, IndexerRuntimeState.ACTIVE, MutationState.WRITABLE)
+			.compose(id -> reconcile(runtime, repository, id)
+				.compose(ignored -> new RuntimeIndexerPublishingService(runtime).publish(List.of(
+					RoutedIndexActions.builder()
+						.withIndexerId(id)
+						.withTargetId(1)
+						.withIndexerVersion(0L)
+						.withQueueName("queue-customers-1")
+						.withActions(List.of(IndexerActionItems.concretePutDocument(
+							1,
+							id,
+							"customers_1",
+							"42",
+							new io.vertx.core.json.JsonObject().put("name", "Ada")
+						)))
+						.build()
+				))))
+			.onFailure(testContext::failNow);
+	}
+
+	@Test
+	void runtimePublishingServiceFailsWhenIndexerIsNotActiveLocally(
+		VertxTestContext testContext
+	) {
+		IndexerRuntime runtime = new IndexerRuntime(indexer -> {
+			throw new AssertionError("No indexer should be created");
+		});
+
+		new RuntimeIndexerPublishingService(runtime).publish(List.of(RoutedIndexActions.builder()
+			.withIndexerId(99)
+			.withTargetId(1)
+			.withIndexerVersion(0L)
+			.withQueueName("queue-customers-1")
+			.withActions(List.of(IndexerActionItems.concretePutDocument(
+				1,
+				99,
+				"customers_1",
+				"42",
+				new io.vertx.core.json.JsonObject()
+			)))
+			.build()))
+			.onComplete(testContext.failing(error -> testContext.verify(() -> {
+				assertEquals("Runtime indexer is not active locally: 99", error.getMessage());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void runtimePublishingServiceFailsWhenRouteVersionIsStale(
+		Vertx vertx,
+		VertxTestContext testContext
+	) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		IndexerRuntime runtime = new IndexerRuntime(
+			indexer -> new TestIndexer(
+				vertx,
+				IndexerRuntime.toModel(indexer),
+				new AtomicInteger(),
+				new AtomicInteger(),
+				new AtomicInteger()
+			)
+		);
+
+		insertIndexer(repository, IndexerRuntimeState.ACTIVE, MutationState.WRITABLE)
+			.compose(id -> repository.updateIndexerQueueName(new UpdateIndexerQueueName(
+				id,
+				"queue-customers-1-v1",
+				0L
+			)).compose(ignored -> repository.getIndexerById(id))
+				.compose(found -> runtime.reconcile(found.orElseThrow()))
+				.compose(ignored -> new RuntimeIndexerPublishingService(runtime).publish(List.of(
+					RoutedIndexActions.builder()
+						.withIndexerId(id)
+						.withTargetId(1)
+						.withIndexerVersion(0L)
+						.withQueueName("queue-customers-1-v1")
+						.withActions(List.of(IndexerActionItems.concretePutDocument(
+							1,
+							id,
+							"customers_1",
+							"42",
+							new io.vertx.core.json.JsonObject()
+						)))
+						.build()
+				))))
+			.onComplete(testContext.failing(error -> testContext.verify(() -> {
+				assertEquals(
+					"Routed indexer version does not match runtime indexer: expected 0 but was 1",
+					error.getMessage()
+				);
+				testContext.completeNow();
+			})));
 	}
 
 	@Test

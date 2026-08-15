@@ -24,6 +24,7 @@ import com.inqwise.indexer.runtime.IndexerQueueClient;
 import com.inqwise.indexer.runtime.IndexerQueueConsumer;
 import com.inqwise.indexer.runtime.IndexerQueueConsumerOptions;
 import com.inqwise.indexer.runtime.IndexerQueuePublisher;
+import com.inqwise.indexer.routing.QueueIndexerPublishingService;
 import com.inqwise.indexer.adapters.local.InMemoryIndexerQueue;
 import com.inqwise.indexer.actions.PutDocumentActionItem;
 import com.inqwise.indexer.actions.RemoveDocumentActionItem;
@@ -192,7 +193,7 @@ class QueueLoadWriterTest {
 			20,
 			"customers--idx-load",
 			"customers--queue-load",
-			queue,
+			new QueueIndexerPublishingService(queue),
 			loads
 		);
 	}

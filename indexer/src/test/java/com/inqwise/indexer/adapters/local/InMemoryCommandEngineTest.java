@@ -2,14 +2,19 @@ package com.inqwise.indexer.adapters.local;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.atomic.AtomicReference;
 
 import com.inqwise.indexer.commands.Command;
+import com.inqwise.indexer.commands.CommandExecutionOutcome;
+import com.inqwise.indexer.commands.CommandFailureKind;
 import com.inqwise.indexer.commands.CommandHandler;
 import com.inqwise.indexer.commands.CommandHandlerRegistry;
+import com.inqwise.indexer.commands.CommandProcessor;
+import com.inqwise.indexer.routing.IndexerPublishingRouteException;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -94,6 +99,41 @@ class InMemoryCommandEngineTest {
 		service.submit(command)
 			.onComplete(testContext.failing(error -> testContext.verify(() -> {
 				assertEquals("No command handler for type: test.missing", error.getMessage());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void classifiesRuntimePublishingRouteFailureAsRetryable(
+		VertxTestContext testContext
+	) {
+		RuntimeException error = new IndexerPublishingRouteException(
+			"Runtime indexer is not active locally: 1"
+		);
+		CommandHandlerRegistry handlers = new CommandHandlerRegistry()
+			.register(new CommandHandler() {
+				@Override
+				public String getType() {
+					return "test.publish";
+				}
+
+				@Override
+				public Future<Void> handle(Command command) {
+					return Future.failedFuture(error);
+				}
+			});
+
+		new CommandProcessor(
+			handlers,
+			InMemoryCommandEngine.failureClassifier()
+		).execute(new TestCommand("test.publish", new JsonObject()))
+			.onComplete(testContext.succeeding(outcome -> testContext.verify(() -> {
+				CommandExecutionOutcome.Failed failed = assertInstanceOf(
+					CommandExecutionOutcome.Failed.class,
+					outcome
+				);
+				assertEquals(CommandFailureKind.RETRYABLE, failed.failureKind());
+				assertSame(error, failed.error());
 				testContext.completeNow();
 			})));
 	}

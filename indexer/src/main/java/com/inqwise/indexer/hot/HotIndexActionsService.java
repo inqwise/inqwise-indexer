@@ -14,7 +14,8 @@ import com.inqwise.indexer.routing.ActionDestination;
 import com.inqwise.indexer.commands.CommandService;
 import com.inqwise.indexer.routing.RoutedIndexActions;
 import com.inqwise.indexer.routing.SubmitIndexActionsCommand;
-import com.inqwise.indexer.routing.RoutedIndexActionPublisher;
+import com.inqwise.indexer.routing.IndexerPublishingService;
+import com.inqwise.indexer.routing.IndexerPublishingRouteException;
 import com.inqwise.indexer.routing.InvalidRouteCache;
 import com.inqwise.indexer.routing.InvalidRouteRecord;
 import com.inqwise.indexer.routing.InvalidRouteSignature;
@@ -24,13 +25,13 @@ import io.vertx.core.Future;
 
 public class HotIndexActionsService {
 	private final HotMetadataView hotMetadataView;
-	private final RoutedIndexActionPublisher publisher;
+	private final IndexerPublishingService publisher;
 	private final CommandService commandService;
 	private final InvalidRouteCache invalidRouteCache;
 
 	public HotIndexActionsService(
 		HotMetadataView hotMetadataView,
-		RoutedIndexActionPublisher publisher,
+		IndexerPublishingService publisher,
 		CommandService commandService
 	) {
 		this(hotMetadataView, publisher, commandService, null);
@@ -38,7 +39,7 @@ public class HotIndexActionsService {
 
 	public HotIndexActionsService(
 		HotMetadataView hotMetadataView,
-		RoutedIndexActionPublisher publisher,
+		IndexerPublishingService publisher,
 		CommandService commandService,
 		InvalidRouteCache invalidRouteCache
 	) {
@@ -63,10 +64,30 @@ public class HotIndexActionsService {
 
 		HotRouteResult result = route(request);
 		if (result instanceof HotRouteResult.Routed routed) {
-			return publisher.publish(routed.groups());
+			return publisher.publish(routed.groups())
+				.recover(error -> recoverRoutedPublishFailure(request, routed, error));
 		}
 
 		return fallback(request);
+	}
+
+	private Future<Void> recoverRoutedPublishFailure(
+		HotIndexActionsRequest request,
+		HotRouteResult.Routed routed,
+		Throwable error
+	) {
+		if (!isRoutePublishRejection(error)) {
+			return Future.failedFuture(error);
+		}
+
+		invalidateRoutedTargets(routed.groups());
+		return fallback(request);
+	}
+
+	private void invalidateRoutedTargets(List<RoutedIndexActions> groups) {
+		for (RoutedIndexActions group : groups) {
+			hotMetadataView.invalidateHotTargetByConcreteTargetId(group.targetId());
+		}
 	}
 
 	private HotRouteResult route(HotIndexActionsRequest request) {
@@ -221,5 +242,17 @@ public class HotIndexActionsService {
 
 	private boolean isStableInvalid(Throwable error) {
 		return error instanceof CommandFailure failure && failure.stableInvalid();
+	}
+
+	private boolean isRoutePublishRejection(Throwable error) {
+		Throwable current = error;
+		while (current != null) {
+			if (current instanceof IndexerPublishingRouteException) {
+				return true;
+			}
+			current = current.getCause();
+		}
+
+		return false;
 	}
 }

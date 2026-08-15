@@ -30,8 +30,8 @@ import java.util.Objects;
 
 import com.inqwise.indexer.lifecycle.IndexerLifecycleEventBus;
 import com.inqwise.indexer.lifecycle.IndexerMetadataChanged;
-import com.inqwise.indexer.runtime.IndexerQueueClient;
 import com.inqwise.indexer.commands.CommandService;
+import com.inqwise.indexer.routing.IndexerPublishingService;
 
 import io.vertx.core.Future;
 
@@ -39,7 +39,7 @@ public final class DefaultLoadManagementService implements LoadManagementService
 	private static final String CHANGE_TYPE = "indexer.load.create";
 	private final LoadCreationCatalog loadCreationCatalog;
 	private final IndexerLoadRepository loadRepository;
-	private final IndexerQueueClient queueClient;
+	private final IndexerPublishingService publishingService;
 	private final IndexerLifecycleEventBus eventBus;
 	private final CommandService commandService;
 	private final LoadPublicationOrchestrator publicationOrchestrator;
@@ -48,7 +48,7 @@ public final class DefaultLoadManagementService implements LoadManagementService
 	public DefaultLoadManagementService(
 		LoadCreationCatalog loadCreationCatalog,
 		IndexerLoadRepository loadRepository,
-		IndexerQueueClient queueClient,
+		IndexerPublishingService publishingService,
 		LoadProviderRegistry loadProviderRegistry,
 		IndexerLifecycleEventBus eventBus,
 		CommandService commandService
@@ -58,7 +58,7 @@ public final class DefaultLoadManagementService implements LoadManagementService
 			"loadCreationCatalog"
 		);
 		this.loadRepository = Objects.requireNonNull(loadRepository, "loadRepository");
-		this.queueClient = Objects.requireNonNull(queueClient, "queueClient");
+		this.publishingService = Objects.requireNonNull(publishingService, "publishingService");
 		this.loadProviderRegistry = Objects.requireNonNull(loadProviderRegistry, "loadProviderRegistry");
 		this.eventBus = eventBus == null ? IndexerLifecycleEventBus.NOOP : eventBus;
 		this.commandService = Objects.requireNonNull(commandService, "commandService");
@@ -294,7 +294,7 @@ public final class DefaultLoadManagementService implements LoadManagementService
 			load.indexerId(),
 			context.indexName(),
 			context.queueName(),
-			queueClient,
+			publishingService,
 			loadRepository
 		);
 	}

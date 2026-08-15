@@ -15,11 +15,11 @@ import java.util.Objects;
 import com.inqwise.indexer.actions.Actions;
 import com.inqwise.indexer.actions.CompleteIndexActionItem;
 import com.inqwise.indexer.actions.IndexerActionItem;
-import com.inqwise.indexer.runtime.IndexerQueueClient;
-import com.inqwise.indexer.runtime.IndexerQueuePublisher;
 import com.inqwise.indexer.catalog.indexers.IndexerRole;
 import com.inqwise.indexer.actions.IndexerActionRouteContext;
 import com.inqwise.indexer.actions.IndexerActionRouteMode;
+import com.inqwise.indexer.routing.IndexerPublishingService;
+import com.inqwise.indexer.routing.RoutedIndexActions;
 
 import io.vertx.core.Future;
 
@@ -28,7 +28,7 @@ public class QueueLoadWriter implements LoadWriter {
 	private final Integer indexerId;
 	private final String indexName;
 	private final String queueName;
-	private final IndexerQueueClient queue;
+	private final IndexerPublishingService publisher;
 	private final IndexerLoadRepository loadRepository;
 
 	public QueueLoadWriter(
@@ -36,14 +36,14 @@ public class QueueLoadWriter implements LoadWriter {
 		Integer indexerId,
 		String indexName,
 		String queueName,
-		IndexerQueueClient queue,
+		IndexerPublishingService publisher,
 		IndexerLoadRepository loadRepository
 	) {
 		this.targetId = Objects.requireNonNull(targetId, "targetId");
 		this.indexerId = Objects.requireNonNull(indexerId, "indexerId");
 		this.indexName = Objects.requireNonNull(indexName, "indexName");
 		this.queueName = Objects.requireNonNull(queueName, "queueName");
-		this.queue = Objects.requireNonNull(queue, "queue");
+		this.publisher = Objects.requireNonNull(publisher, "publisher");
 		this.loadRepository = Objects.requireNonNull(loadRepository, "loadRepository");
 	}
 
@@ -100,18 +100,13 @@ public class QueueLoadWriter implements LoadWriter {
 	}
 
 	private Future<Void> publish(List<IndexerActionItem> items) {
-		List<IndexerActionItem> batch = new ArrayList<>(items);
-		return queue.publisher(queueName)
-			.compose(publisher -> publish(publisher, batch)
-				.eventually(publisher::close));
-	}
-
-	private Future<Void> publish(IndexerQueuePublisher publisher, List<IndexerActionItem> items) {
-		Future<Void> published = Future.succeededFuture();
-		for (IndexerActionItem item : items) {
-			published = published.compose(ignored -> publisher.publish(item));
-		}
-		return published;
+		return publisher.publish(List.of(RoutedIndexActions.builder()
+			.withIndexerId(indexerId)
+			.withTargetId(targetId)
+			.withIndexerVersion(0L)
+			.withQueueName(queueName)
+			.withActions(new ArrayList<>(items))
+			.build()));
 	}
 
 	private List<IndexerActionItem> normalize(List<IndexerActionItem> items) {

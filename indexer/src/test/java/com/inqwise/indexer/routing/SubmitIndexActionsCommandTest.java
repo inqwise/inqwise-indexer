@@ -1013,6 +1013,74 @@ class SubmitIndexActionsCommandTest {
 	}
 
 	@Test
+	void runtimePublishingRouteFailureDoesNotRecordInvalidRoute(
+		VertxTestContext testContext
+	) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
+		InMemoryInvalidRouteCache invalidRouteCache =
+			new InMemoryInvalidRouteCache(Duration.ofMinutes(5));
+		InMemoryCommandEngine commandService = new InMemoryCommandEngine()
+			.register(new SubmitIndexActionsCommandHandler(
+				repository,
+				customersMonthlyTargetDefinitionProvider(true),
+				provisioningService(
+					repository,
+					IndexerDocumentIndexResourceManager.NOOP,
+					IndexerQueueResourceManager.NOOP
+				),
+				new MetadataIndexPublicationService(
+					repository,
+					indexerDefinitionProvider(),
+					IndexerDocumentIndexResourceManager.NOOP,
+					IndexerQueueResourceManager.NOOP
+				),
+				TestMetadataChangeNotifiers.create(eventBus),
+				groups -> Future.failedFuture(new IndexerPublishingRouteException(
+					"Runtime indexer is not active locally: 1"
+				)),
+				invalidRouteCache,
+				List.of()
+			));
+
+		repository.insertTarget(readyTarget("test", "customers"))
+			.compose(targetId -> repository.insertIndexer(indexerRecord(
+				"test",
+				targetId,
+				"customers",
+				"customers_1",
+				"queue-customers-1",
+				IndexerType.INDEX,
+				IndexerRuntimeState.ACTIVE,
+				PublicationState.PUBLISHED,
+				MutationState.WRITABLE
+			)).compose(indexerId -> {
+				SubmitIndexActionsCommand command = new SubmitIndexActionsCommand(List.of(
+					IndexerActionItems.concretePutDocument(
+						targetId,
+						indexerId,
+						"customers_1",
+						"42",
+						new JsonObject().put("name", "Ada")
+					)
+				));
+				return commandService.submit(command)
+					.recover(error -> {
+						assertTrue(error instanceof IndexerPublishingRouteException);
+						assertTrue(invalidRouteCache.find(
+							InvalidRouteSignatures.from(command).get(0)
+						).isEmpty());
+						return Future.failedFuture(error);
+					});
+			}))
+			.onComplete(testContext.failing(error -> testContext.verify(() -> {
+				assertEquals("Runtime indexer is not active locally: 1", error.getMessage());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
 	void metadataCommandPublishesCompleteActionToOneQueue(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();

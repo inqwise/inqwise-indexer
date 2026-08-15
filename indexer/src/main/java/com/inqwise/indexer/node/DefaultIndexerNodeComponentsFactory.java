@@ -48,8 +48,9 @@ import com.inqwise.indexer.provisioning.IndexerProvisioningService;
 import com.inqwise.indexer.provisioning.MetadataIndexerProvisioningService;
 import com.inqwise.indexer.publication.IndexPublicationService;
 import com.inqwise.indexer.publication.MetadataIndexPublicationService;
-import com.inqwise.indexer.routing.RoutedIndexActionPublisher;
+import com.inqwise.indexer.routing.IndexerPublishingService;
 import com.inqwise.indexer.routing.SubmitIndexActionsCommandHandler;
+import com.inqwise.indexer.runtime.RuntimeIndexerPublishingService;
 import com.inqwise.indexer.service.invalidation.TargetInvalidationRegistryServices;
 
 import io.vertx.core.Vertx;
@@ -232,19 +233,29 @@ public final class DefaultIndexerNodeComponentsFactory {
 			documentStore,
 			queue
 		);
+		IndexerRuntime runtime = new IndexerRuntime(
+			vertx,
+			queue,
+			documentStore,
+			IndexerOptions.builder().build(),
+			resolvedEventPublisher,
+			plugins,
+			resolvedRuntimeHooks
+		);
+		IndexerPublishingService publishingService = new RuntimeIndexerPublishingService(runtime);
 		commandEngine.register(new SubmitIndexActionsCommandHandler(
 			repository,
 			targetDefinitionProvider,
 			provisioningService,
 			publicationService,
 			metadataChangeNotifier,
-			queue,
+			publishingService,
 			invalidRouteCache,
 			plugins.actionReceiveCapabilities()
 		));
 		HotIndexActionsService hotIndexActionsService = new HotIndexActionsService(
 			hotMetadataView,
-			new RoutedIndexActionPublisher(queue),
+			publishingService,
 			commandEngine,
 			invalidRouteCache
 		);
@@ -264,15 +275,6 @@ public final class DefaultIndexerNodeComponentsFactory {
 			targetInvalidationRegistry,
 			hotMetadataView,
 			targetInvalidationOptions
-		);
-		IndexerRuntime runtime = new IndexerRuntime(
-			vertx,
-			queue,
-			documentStore,
-			IndexerOptions.builder().build(),
-			resolvedEventPublisher,
-			plugins,
-			resolvedRuntimeHooks
 		);
 		IndexerRuntimeReconciler runtimeReconciler = new IndexerRuntimeReconciler(
 			vertx,

@@ -30,11 +30,14 @@ import com.inqwise.indexer.actions.PutDocumentActionItem;
 import com.inqwise.indexer.commands.Command;
 import com.inqwise.indexer.commands.CommandFailure;
 import com.inqwise.indexer.commands.CommandService;
+import com.inqwise.indexer.routing.IndexerPublishingRouteException;
+import com.inqwise.indexer.routing.IndexerPublishingService;
 import com.inqwise.indexer.routing.RoutedIndexActionPublisher;
 import com.inqwise.indexer.routing.InvalidRouteCache;
 import com.inqwise.indexer.routing.InvalidRouteRecord;
 import com.inqwise.indexer.routing.InvalidRouteSignature;
 import com.inqwise.indexer.routing.SubmitIndexActionsCommand;
+import com.inqwise.indexer.routing.RoutedIndexActions;
 import com.inqwise.indexer.adapters.local.StaticTargetDefinitionProvider;
 import com.inqwise.indexer.catalog.targets.TargetDefinition;
 import com.inqwise.indexer.catalog.targets.ConcreteTargetKey;
@@ -278,6 +281,79 @@ class HotIndexActionsServiceTest {
 			})));
 	}
 
+	@Test
+	void invalidatesHotTargetAndFallsBackWhenRuntimePublisherRejectsRoute(
+		VertxTestContext testContext
+	) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		RecordingCommandService commandService = new RecordingCommandService();
+		InMemoryInvalidRouteCache invalidRouteCache =
+			new InMemoryInvalidRouteCache(Duration.ofMinutes(5));
+		DefaultHotMetadataView view = view(repository);
+		HotIndexActionsService service = new HotIndexActionsService(
+			view,
+			new FailingPublishingService(new IndexerPublishingRouteException(
+				"Runtime indexer is not active locally: 1"
+			)),
+			commandService,
+			invalidRouteCache
+		);
+		HotIndexActionsRequest request = new HotIndexActionsRequest(
+			"customers",
+			Instant.parse("2026-05-18T10:15:00Z"),
+			List.of(IndexerActionItems.putDocument("42", new JsonObject()))
+		);
+
+		insertReadyMonthlyTargetWithIndexer(repository)
+			.compose(target -> view.refreshHotTargetByConcreteTargetId(target.id())
+				.map(target))
+			.compose(target -> {
+				assertTrue(view.findTargetByName("customers").isPresent());
+				return service.submit(request).map(target);
+			})
+			.onComplete(testContext.succeeding(target -> testContext.verify(() -> {
+				assertTrue(view.findTargetByName("customers").isEmpty());
+				assertTrue(view.findIndexerById(1).isEmpty());
+				assertEquals(1, commandService.submitted.size());
+				assertTrue(invalidRouteCache.list(10).isEmpty());
+				SubmitIndexActionsCommand command =
+					(SubmitIndexActionsCommand) commandService.submitted.get(0);
+				assertEquals("customers", command.getTargetName());
+				assertEquals(request.actions(), command.getActions());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void doesNotFallbackWhenPublisherFailsForUnexpectedReason(
+		VertxTestContext testContext
+	) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		RecordingCommandService commandService = new RecordingCommandService();
+		DefaultHotMetadataView view = view(repository);
+		HotIndexActionsService service = new HotIndexActionsService(
+			view,
+			new FailingPublishingService(new IllegalStateException("publisher broken")),
+			commandService
+		);
+
+		insertReadyMonthlyTargetWithIndexer(repository)
+			.compose(target -> view.refreshHotTargetByConcreteTargetId(target.id()))
+			.compose(ignored -> service.submit(new HotIndexActionsRequest(
+				"customers",
+				Instant.parse("2026-05-18T10:15:00Z"),
+				List.of(IndexerActionItems.putDocument("42", new JsonObject()))
+			)))
+			.onComplete(testContext.failing(error -> testContext.verify(() -> {
+				assertEquals("publisher broken", error.getMessage());
+				assertEquals(0, commandService.submitted.size());
+				assertTrue(view.findTargetByName("customers").isPresent());
+				testContext.completeNow();
+			})));
+	}
+
 	private HotIndexActionsService service(
 		DefaultHotMetadataView view,
 		RecordingQueue queue,
@@ -379,6 +455,19 @@ class HotIndexActionsServiceTest {
 			}
 
 			return Future.succeededFuture();
+		}
+	}
+
+	private static class FailingPublishingService implements IndexerPublishingService {
+		private final RuntimeException failure;
+
+		private FailingPublishingService(RuntimeException failure) {
+			this.failure = failure;
+		}
+
+		@Override
+		public Future<Void> publish(List<RoutedIndexActions> groups) {
+			return Future.failedFuture(failure);
 		}
 	}
 }

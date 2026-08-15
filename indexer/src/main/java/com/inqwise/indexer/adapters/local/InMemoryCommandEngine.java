@@ -13,6 +13,7 @@ import com.inqwise.indexer.commands.CommandHandler;
 import com.inqwise.indexer.commands.CommandHandlerRegistry;
 import com.inqwise.indexer.commands.CommandProcessor;
 import com.inqwise.indexer.errors.RetryableStaleStateException;
+import com.inqwise.indexer.routing.IndexerPublishingRouteException;
 
 import io.vertx.core.Future;
 
@@ -26,12 +27,20 @@ public class InMemoryCommandEngine implements CommandEngine {
 	}
 
 	public InMemoryCommandEngine(CommandHandlerRegistry handlers) {
-		this(handlers, new CommandFailureClassifier(List.of(
+		this(handlers, failureClassifier());
+	}
+
+	static CommandFailureClassifier failureClassifier() {
+		return new CommandFailureClassifier(List.of(
 			CommandFailureClassifier.causeType(
 				RetryableStaleStateException.class,
 				CommandFailureKind.RETRYABLE
+			),
+			CommandFailureClassifier.causeType(
+				IndexerPublishingRouteException.class,
+				CommandFailureKind.RETRYABLE
 			)
-		)));
+		));
 	}
 
 	public InMemoryCommandEngine(

@@ -55,6 +55,8 @@ import com.inqwise.indexer.catalog.targets.TargetStatus;
 import com.inqwise.indexer.catalog.indexers.IndexerOperations;
 import com.inqwise.indexer.catalog.indexers.MetadataIndexerOperations;
 import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
+import com.inqwise.indexer.routing.IndexerPublishingService;
+import com.inqwise.indexer.routing.QueueIndexerPublishingService;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
@@ -102,7 +104,7 @@ class LoadManagementServiceTest {
 		LoadManagementService service = new DefaultLoadManagementService(
 			new MetadataLoadCreationCatalog(metadata),
 			loads,
-			new InMemoryIndexerQueue(),
+			publisher(),
 			registry,
 			eventBus,
 			command -> Future.succeededFuture()
@@ -166,7 +168,7 @@ class LoadManagementServiceTest {
 		LoadManagementService service = new DefaultLoadManagementService(
 			new MetadataLoadCreationCatalog(metadata),
 			loads,
-			new InMemoryIndexerQueue(),
+			publisher(),
 			registry,
 			new InMemoryIndexerLifecycleEventBus(),
 			command -> Future.succeededFuture()
@@ -207,7 +209,7 @@ class LoadManagementServiceTest {
 			.register("default", provider);
 		LoadManagementService service = new DefaultLoadManagementService(
 			new MetadataLoadCreationCatalog(metadata), loads,
-			new InMemoryIndexerQueue(), registry, eventBus,
+			publisher(), registry, eventBus,
 			command -> Future.succeededFuture()
 		);
 		createReadyTarget(metadata).compose(targetId -> service.create(new CreateLoadRequest(
@@ -240,7 +242,7 @@ class LoadManagementServiceTest {
 		LoadManagementService service = new DefaultLoadManagementService(
 			new MetadataLoadCreationCatalog(new InMemoryDocumentStoreMetadataRepository()),
 			new InMemoryIndexerLoadRepository(),
-			new InMemoryIndexerQueue(),
+			publisher(),
 			new InMemoryLoadProviderRegistry(),
 			new InMemoryIndexerLifecycleEventBus(),
 			command -> Future.succeededFuture()
@@ -269,7 +271,7 @@ class LoadManagementServiceTest {
 		LoadManagementService service = new DefaultLoadManagementService(
 			new MetadataLoadCreationCatalog(metadata),
 			new InMemoryIndexerLoadRepository(),
-			new InMemoryIndexerQueue(),
+			publisher(),
 			new InMemoryLoadProviderRegistry(),
 			new InMemoryIndexerLifecycleEventBus(),
 			command -> Future.succeededFuture()
@@ -300,7 +302,7 @@ class LoadManagementServiceTest {
 		InMemoryIndexerLifecycleEventBus eventBus = new InMemoryIndexerLifecycleEventBus();
 		AtomicInteger submissions = new AtomicInteger();
 		LoadManagementService createService = new DefaultLoadManagementService(
-			new MetadataLoadCreationCatalog(metadata), loads, new InMemoryIndexerQueue(),
+			new MetadataLoadCreationCatalog(metadata), loads, publisher(),
 			new InMemoryLoadProviderRegistry(), eventBus,
 			command -> Future.succeededFuture()
 		);
@@ -310,7 +312,7 @@ class LoadManagementServiceTest {
 		))).compose(created -> new DefaultLoadManagementService(
 			new MetadataLoadCreationCatalog(metadata),
 			loads,
-			new InMemoryIndexerQueue(),
+			publisher(),
 			new InMemoryLoadProviderRegistry(),
 			eventBus,
 			command -> {
@@ -334,7 +336,7 @@ class LoadManagementServiceTest {
 		LoadManagementService service = new DefaultLoadManagementService(
 			new MetadataLoadCreationCatalog(metadata),
 			loads,
-			new InMemoryIndexerQueue(),
+			publisher(),
 			new InMemoryLoadProviderRegistry(),
 			new InMemoryIndexerLifecycleEventBus(),
 			command -> {
@@ -386,7 +388,7 @@ class LoadManagementServiceTest {
 		LoadManagementService service = new DefaultLoadManagementService(
 			new MetadataLoadCreationCatalog(metadata),
 			loads,
-			new InMemoryIndexerQueue(),
+			publisher(),
 			new InMemoryLoadProviderRegistry(),
 			new InMemoryIndexerLifecycleEventBus(),
 			command -> {
@@ -434,7 +436,7 @@ class LoadManagementServiceTest {
 		LoadManagementService service = new DefaultLoadManagementService(
 			new MetadataLoadCreationCatalog(new InMemoryDocumentStoreMetadataRepository()),
 			new InMemoryIndexerLoadRepository(),
-			new InMemoryIndexerQueue(),
+			publisher(),
 			new InMemoryLoadProviderRegistry(),
 			new InMemoryIndexerLifecycleEventBus(),
 			command -> Future.succeededFuture()
@@ -458,7 +460,7 @@ class LoadManagementServiceTest {
 		LoadManagementService service = new DefaultLoadManagementService(
 			new MetadataLoadCreationCatalog(metadata),
 			loads,
-			queue,
+			publisher(queue),
 			registry,
 			new InMemoryIndexerLifecycleEventBus(),
 			command -> Future.succeededFuture()
@@ -819,11 +821,19 @@ class LoadManagementServiceTest {
 		return new DefaultLoadManagementService(
 			new MetadataLoadCreationCatalog(metadata),
 			loads,
-			new InMemoryIndexerQueue(),
+			publisher(),
 			loadProviderRegistry,
 			new InMemoryIndexerLifecycleEventBus(),
 			commandService
 		);
+	}
+
+	private IndexerPublishingService publisher() {
+		return publisher(new InMemoryIndexerQueue());
+	}
+
+	private IndexerPublishingService publisher(InMemoryIndexerQueue queue) {
+		return new QueueIndexerPublishingService(queue);
 	}
 
 	private Future<Integer> createReadyTarget(InMemoryDocumentStoreMetadataRepository metadata) {

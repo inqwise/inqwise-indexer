@@ -38,6 +38,7 @@ import com.inqwise.indexer.node.application.monitoring.MicrometerReportOperation
 import com.inqwise.indexer.providers.IndexerPlugins;
 import com.inqwise.indexer.query.ConsumerReportExecutionContextResolver;
 import com.inqwise.indexer.query.ReportCatalog;
+import com.inqwise.indexer.runtime.RuntimeIndexerPublishingService;
 import com.inqwise.indexer.query.ReportExecutionContext;
 import com.inqwise.indexer.query.monitoring.ReportOperationalMonitor;
 import com.inqwise.indexer.query.rest.ReportsRestOptions;
@@ -244,7 +245,7 @@ public final class IndexerNodeApplicationVerticle extends AbstractVerticle {
 		DefaultLoadManagementService management = new DefaultLoadManagementService(
 			new MetadataLoadCreationCatalog(context.repository()),
 			loadRepository,
-			context.queue(),
+			new RuntimeIndexerPublishingService(node.components().runtime()),
 			loadProviders,
 			context.lifecycleEventBus(),
 			context.commandEngine()

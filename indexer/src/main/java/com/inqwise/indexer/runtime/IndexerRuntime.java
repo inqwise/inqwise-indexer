@@ -17,6 +17,8 @@ import com.inqwise.indexer.catalog.indexers.IndexerStatus;
 import com.inqwise.indexer.catalog.indexers.MutationState;
 import com.inqwise.indexer.providers.IndexerMarkerHandler;
 import com.inqwise.indexer.providers.IndexerPlugins;
+import com.inqwise.indexer.routing.IndexerPublishingRouteException;
+import com.inqwise.indexer.routing.RoutedIndexActions;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
@@ -178,6 +180,23 @@ public class IndexerRuntime {
 			.toList();
 	}
 
+	public Future<Void> publish(RoutedIndexActions group) {
+		Objects.requireNonNull(group, "group");
+		RuntimeEntry entry = indexersById.get(group.indexerId());
+		if (entry == null) {
+			return Future.failedFuture(new IndexerPublishingRouteException(
+				"Runtime indexer is not active locally: " + group.indexerId()
+			));
+		}
+
+		String validationError = validateRoute(entry.model(), group);
+		if (validationError != null) {
+			return Future.failedFuture(new IndexerPublishingRouteException(validationError));
+		}
+
+		return entry.indexer().index(group.actions());
+	}
+
 	public static IndexerModel toModel(IndexerRecord indexer) {
 		return MetadataIndexerModels.fromRecord(indexer);
 	}
@@ -232,6 +251,23 @@ public class IndexerRuntime {
 	private boolean sameRuntimeModel(IndexerModel current, IndexerModel next) {
 		return Objects.equals(current.getQueueName(), next.getQueueName())
 			&& current.getVersion() == next.getVersion();
+	}
+
+	private String validateRoute(IndexerModel model, RoutedIndexActions group) {
+		if (!Objects.equals(model.getId(), group.indexerId())) {
+			return "Routed indexer id does not match runtime indexer: " + group.indexerId();
+		}
+		if (!Objects.equals(model.getTargetId(), group.targetId())) {
+			return "Routed target id does not match runtime indexer: " + group.targetId();
+		}
+		if (!Objects.equals(model.getQueueName(), group.queueName())) {
+			return "Routed queue does not match runtime indexer: " + group.queueName();
+		}
+		if (model.getVersion() != group.indexerVersion()) {
+			return "Routed indexer version does not match runtime indexer: expected "
+				+ group.indexerVersion() + " but was " + model.getVersion();
+		}
+		return null;
 	}
 
 	private record RuntimeEntry(IndexerModel model, Indexer indexer) {
