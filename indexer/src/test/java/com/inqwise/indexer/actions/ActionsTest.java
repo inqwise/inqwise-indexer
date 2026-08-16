@@ -35,6 +35,12 @@ class ActionsTest {
 		assertFalse(hasPublicJsonConstructor(RemoveDocumentActionItem.class));
 	}
 
+	@Test
+	void internalMarkerActionsExposeOnlyBuilderAndParserConstructionApi() {
+		assertEquals(0, CompleteIndexActionItem.class.getConstructors().length);
+		assertEquals(0, CatchUpBarrierActionItem.class.getConstructors().length);
+	}
+
 	private boolean hasPublicMethod(Class<?> type, String name) {
 		return Arrays.stream(type.getMethods()).anyMatch(method -> method.getName().equals(name));
 	}

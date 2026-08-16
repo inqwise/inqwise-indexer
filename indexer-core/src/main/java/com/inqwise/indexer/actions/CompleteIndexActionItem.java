@@ -1,9 +1,7 @@
 package com.inqwise.indexer.actions;
 
-import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
 
-@DataObject
 public class CompleteIndexActionItem implements IndexerActionItem {
 	public static final String TYPE = "type";
 	public static final String TARGET_ID = "target_id";
@@ -12,11 +10,7 @@ public class CompleteIndexActionItem implements IndexerActionItem {
 	private final Integer targetId;
 	private final Integer indexerId;
 
-	public CompleteIndexActionItem() {
-		this(null, null);
-	}
-
-	public CompleteIndexActionItem(JsonObject json) {
+	CompleteIndexActionItem(JsonObject json) {
 		this(
 			json.getInteger(TARGET_ID),
 			json.getInteger(INDEXER_ID)

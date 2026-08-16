@@ -2,10 +2,8 @@ package com.inqwise.indexer.actions;
 
 import java.time.Instant;
 
-import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
 
-@DataObject
 public class CatchUpBarrierActionItem implements IndexerActionItem {
 	public static final String TYPE = "type";
 	public static final String TARGET_ID = "target_id";
@@ -18,11 +16,7 @@ public class CatchUpBarrierActionItem implements IndexerActionItem {
 	private final String barrierId;
 	private final Instant barrierTimestamp;
 
-	public CatchUpBarrierActionItem() {
-		this(null, null, null, null);
-	}
-
-	public CatchUpBarrierActionItem(JsonObject json) {
+	CatchUpBarrierActionItem(JsonObject json) {
 		this(
 			json.getInteger(TARGET_ID),
 			json.getInteger(INDEXER_ID),
