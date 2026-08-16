@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 
 import com.inqwise.indexer.actions.CompleteIndexActionItem;
 import com.inqwise.indexer.actions.IndexerActionItem;
+import com.inqwise.indexer.actions.IndexerActionType;
 import com.inqwise.indexer.runtime.IndexerQueueClient;
 import com.inqwise.indexer.runtime.IndexerQueueConsumer;
 import com.inqwise.indexer.runtime.IndexerQueueConsumerOptions;
@@ -68,7 +69,8 @@ class QueueLoadWriterTest {
 		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
 		QueueLoadWriter writer = writer(loads);
 
-		var submitted = writer.submit(List.of(new PutDocumentActionItem(new JsonObject()
+		var submitted = writer.submit(List.of(IndexerActionItem.fromJson(new JsonObject()
+			.put(PutDocumentActionItem.TYPE, IndexerActionType.PUT_DOCUMENT.name())
 			.put(PutDocumentActionItem.TARGET_ID, 11)
 			.put(PutDocumentActionItem.UID, "42")
 			.put(PutDocumentActionItem.DOCUMENT, new JsonObject()))));

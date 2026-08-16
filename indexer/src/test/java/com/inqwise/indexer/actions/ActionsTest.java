@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import java.lang.reflect.Constructor;
 import java.time.Instant;
 import java.util.Arrays;
 
@@ -30,10 +31,18 @@ class ActionsTest {
 		assertFalse(hasPublicMethod(RemoveDocumentActionItem.Builder.class, "withTargetId"));
 		assertFalse(hasPublicMethod(RemoveDocumentActionItem.Builder.class, "withIndexerId"));
 		assertFalse(hasPublicMethod(RemoveDocumentActionItem.Builder.class, "withIndexName"));
+		assertFalse(hasPublicJsonConstructor(PutDocumentActionItem.class));
+		assertFalse(hasPublicJsonConstructor(RemoveDocumentActionItem.class));
 	}
 
 	private boolean hasPublicMethod(Class<?> type, String name) {
 		return Arrays.stream(type.getMethods()).anyMatch(method -> method.getName().equals(name));
+	}
+
+	private boolean hasPublicJsonConstructor(Class<?> type) {
+		return Arrays.stream(type.getConstructors())
+			.map(Constructor::getParameterTypes)
+			.anyMatch(parameters -> parameters.length == 1 && parameters[0].equals(JsonObject.class));
 	}
 
 	@Test

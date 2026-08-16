@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 
+import com.inqwise.indexer.actions.IndexerActionItem;
 import com.inqwise.indexer.actions.IndexerActionType;
 import com.inqwise.indexer.actions.PutDocumentActionItem;
 import com.inqwise.indexer.commands.CommandFailure;
@@ -88,7 +89,7 @@ class RoutingCommandPartitionKeyResolversTest {
 	}
 
 	private PutDocumentActionItem action(Integer targetId, Integer indexerId, String uid) {
-		return new PutDocumentActionItem(new JsonObject()
+		return (PutDocumentActionItem) IndexerActionItem.fromJson(new JsonObject()
 			.put(PutDocumentActionItem.TYPE, IndexerActionType.PUT_DOCUMENT.name())
 			.put(PutDocumentActionItem.TARGET_ID, targetId)
 			.put(PutDocumentActionItem.INDEXER_ID, indexerId)

@@ -10,6 +10,7 @@ import com.inqwise.indexer.adapters.local.InMemoryIndexerQueue;
 import com.inqwise.indexer.actions.CompleteIndexActionItem;
 import com.inqwise.indexer.actions.IndexerActionItem;
 import com.inqwise.indexer.actions.IndexerActionItems;
+import com.inqwise.indexer.actions.IndexerActionType;
 import com.inqwise.indexer.actions.PutDocumentActionItem;
 import com.inqwise.indexer.lifecycle.IndexerMetadataChanged;
 import com.inqwise.indexer.provisioning.IndexerQueueResourceManager;
@@ -1132,7 +1133,8 @@ class SubmitIndexActionsCommandTest {
 		String uid,
 		JsonObject document
 	) {
-		return new PutDocumentActionItem(new JsonObject()
+		return (PutDocumentActionItem) IndexerActionItem.fromJson(new JsonObject()
+			.put(PutDocumentActionItem.TYPE, IndexerActionType.PUT_DOCUMENT.name())
 			.put(PutDocumentActionItem.TARGET_ID, targetId)
 			.put(PutDocumentActionItem.UID, uid)
 			.put(PutDocumentActionItem.DOCUMENT, document));
@@ -1143,7 +1145,8 @@ class SubmitIndexActionsCommandTest {
 		String uid,
 		JsonObject document
 	) {
-		return new PutDocumentActionItem(new JsonObject()
+		return (PutDocumentActionItem) IndexerActionItem.fromJson(new JsonObject()
+			.put(PutDocumentActionItem.TYPE, IndexerActionType.PUT_DOCUMENT.name())
 			.put(PutDocumentActionItem.INDEX_NAME, indexName)
 			.put(PutDocumentActionItem.UID, uid)
 			.put(PutDocumentActionItem.DOCUMENT, document));

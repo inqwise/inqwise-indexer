@@ -36,6 +36,7 @@ import com.inqwise.events.RecordingEventPublisher;
 import com.inqwise.events.EventPublisher;
 import com.inqwise.indexer.catalog.indexers.IndexResourceOwnership;
 import com.inqwise.indexer.actions.IndexerActionItem;
+import com.inqwise.indexer.actions.IndexerActionType;
 import com.inqwise.indexer.lifecycle.IndexerLifecycleEventBus;
 import com.inqwise.indexer.lifecycle.IndexerLifecycleProviderSignal;
 import com.inqwise.indexer.lifecycle.IndexerLifecycleSubscription;
@@ -445,7 +446,8 @@ class LoadWriterActionReceiveCapabilityTest {
 	}
 
 	private PutDocumentActionItem targetedPut(Integer targetId, String uid, String name) {
-		return new PutDocumentActionItem(new JsonObject()
+		return (PutDocumentActionItem) IndexerActionItem.fromJson(new JsonObject()
+			.put(PutDocumentActionItem.TYPE, IndexerActionType.PUT_DOCUMENT.name())
 			.put(PutDocumentActionItem.TARGET_ID, targetId)
 			.put(PutDocumentActionItem.UID, uid)
 			.put(PutDocumentActionItem.DOCUMENT, new JsonObject().put("name", name)));
