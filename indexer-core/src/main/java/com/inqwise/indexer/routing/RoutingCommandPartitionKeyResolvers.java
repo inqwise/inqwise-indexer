@@ -27,6 +27,10 @@ public final class RoutingCommandPartitionKeyResolvers {
 		JsonObject payload = command.toJson();
 		String targetName = payload.getString("target_name");
 		if (targetName != null) {
+			if (targetName.isBlank()) {
+				throw invalidActions("targetName must not be blank");
+			}
+
 			return CommandPartitionKey.targetName(targetName);
 		}
 

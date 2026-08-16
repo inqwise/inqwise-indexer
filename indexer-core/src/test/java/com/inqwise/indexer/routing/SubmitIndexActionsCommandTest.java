@@ -2,6 +2,7 @@ package com.inqwise.indexer.routing;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.time.Instant;
 import java.util.List;
@@ -53,6 +54,22 @@ class SubmitIndexActionsCommandTest {
 		assertFalse(action.containsKey(PutDocumentActionItem.TARGET_ID));
 		assertFalse(action.containsKey(PutDocumentActionItem.INDEXER_ID));
 		assertFalse(action.containsKey(PutDocumentActionItem.INDEX_NAME));
+	}
+
+	@Test
+	void targetEnvelopeRejectsBlankTargetName() {
+		IllegalArgumentException error = assertThrows(
+			IllegalArgumentException.class,
+			() -> SubmitIndexActionsCommand.builder()
+				.withTargetName(" ")
+				.withActions(List.of(IndexerActionItems.putDocument(
+					"42",
+					new JsonObject().put("name", "Ada")
+				)))
+				.build()
+		);
+
+		assertEquals("targetName must not be blank", error.getMessage());
 	}
 
 	@Test

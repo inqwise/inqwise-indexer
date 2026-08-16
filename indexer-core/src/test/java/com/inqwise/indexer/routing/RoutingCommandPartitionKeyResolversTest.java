@@ -34,6 +34,23 @@ class RoutingCommandPartitionKeyResolversTest {
 	}
 
 	@Test
+	void rejectsBlankTargetName() {
+		GenericCommand command = new GenericCommand(
+			SubmitIndexActionsCommand.TYPE,
+			new JsonObject()
+				.put("target_name", " ")
+				.put("actions", new JsonArray(List.of(action(null, null, "1")).stream()
+					.map(PutDocumentActionItem::toJson)
+					.toList()))
+		);
+
+		CommandFailure error = assertThrows(CommandFailure.class, () -> router.resolve(command));
+
+		assertEquals(CommandFailureKind.FINAL, error.kind());
+		assertEquals("targetName must not be blank", error.getMessage());
+	}
+
+	@Test
 	void resolvesRoutedActionsBySharedTargetBeforeIndexer() {
 		SubmitIndexActionsCommand command = new SubmitIndexActionsCommand(List.of(
 			action(12, 31, "1"),

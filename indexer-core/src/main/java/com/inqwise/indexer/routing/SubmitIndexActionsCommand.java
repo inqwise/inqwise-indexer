@@ -69,7 +69,7 @@ public class SubmitIndexActionsCommand implements Command {
 
 	private SubmitIndexActionsCommand(Builder builder) {
 		correlationId = Objects.requireNonNull(builder.correlationId, "correlationId");
-		targetName = builder.targetName;
+		targetName = validateTargetName(builder.targetName);
 		timestamp = builder.timestamp;
 		actions = validateActions(builder.actions);
 	}
@@ -154,6 +154,14 @@ public class SubmitIndexActionsCommand implements Command {
 		}
 
 		return copy;
+	}
+
+	private String validateTargetName(String value) {
+		if (value != null && value.isBlank()) {
+			throw new IllegalArgumentException("targetName must not be blank");
+		}
+
+		return value;
 	}
 
 	private void validateRouteMode(IndexerActionItem action, boolean hasTargetEnvelope) {
