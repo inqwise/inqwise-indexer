@@ -318,10 +318,10 @@ class LoadIndexerMarkerHandlerTest {
 	}
 
 	private static CatchUpBarrierActionItem submittedBarrier(Command command) {
-		SubmitIndexActionsCommand submit = new SubmitIndexActionsCommand(
+		SubmitIndexActionsCommand submit = SubmitIndexActionsCommand.builder(
 			command.toJson(),
 			command.getCorrelationId()
-		);
+		).build();
 		return (CatchUpBarrierActionItem) submit.getActions().get(0);
 	}
 

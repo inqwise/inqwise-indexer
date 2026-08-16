@@ -116,9 +116,9 @@ class LoadWriterActionReceiveCapabilityTest {
 			));
 
 		insertLazyLoad(metadata, loads)
-			.compose(load -> commands.submit(new SubmitIndexActionsCommand(List.of(
-				targetedPut(load.targetId(), "42", "Ada")
-			))).compose(ignored -> loads.getByIndexerId(load.indexerId()))
+			.compose(load -> commands.submit(SubmitIndexActionsCommand.builder()
+				.withActions(List.of(targetedPut(load.targetId(), "42", "Ada")))
+				.build()).compose(ignored -> loads.getByIndexerId(load.indexerId()))
 				.compose(updated -> metadata.getIndexerById(updated.orElseThrow().liveIndexerId())
 					.map(liveWriter -> new Result(updated.orElseThrow(), liveWriter.orElseThrow()))))
 			.onComplete(testContext.succeeding(result -> testContext.verify(() -> {

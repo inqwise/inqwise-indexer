@@ -24,13 +24,13 @@ public class SubmitIndexActionsCommand implements Command {
 	private final Instant timestamp;
 	private final List<IndexerActionItem> actions;
 
-	public SubmitIndexActionsCommand(
+	SubmitIndexActionsCommand(
 		List<IndexerActionItem> actions
 	) {
 		this(builder().withActions(actions));
 	}
 
-	public SubmitIndexActionsCommand(
+	SubmitIndexActionsCommand(
 		String correlationId,
 		List<IndexerActionItem> actions
 	) {
@@ -39,7 +39,7 @@ public class SubmitIndexActionsCommand implements Command {
 			.withActions(actions));
 	}
 
-	public SubmitIndexActionsCommand(
+	SubmitIndexActionsCommand(
 		String targetName,
 		Instant timestamp,
 		List<IndexerActionItem> actions
@@ -50,7 +50,7 @@ public class SubmitIndexActionsCommand implements Command {
 			.withActions(actions));
 	}
 
-	public SubmitIndexActionsCommand(
+	SubmitIndexActionsCommand(
 		String correlationId,
 		String targetName,
 		Instant timestamp,
@@ -63,7 +63,7 @@ public class SubmitIndexActionsCommand implements Command {
 			.withActions(actions));
 	}
 
-	public SubmitIndexActionsCommand(JsonObject json, String correlationId) {
+	SubmitIndexActionsCommand(JsonObject json, String correlationId) {
 		this(builder(json, correlationId));
 	}
 

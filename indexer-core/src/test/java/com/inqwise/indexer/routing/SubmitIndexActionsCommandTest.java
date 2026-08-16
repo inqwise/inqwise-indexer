@@ -16,15 +16,15 @@ import io.vertx.core.json.JsonObject;
 class SubmitIndexActionsCommandTest {
 	@Test
 	void concreteCommandOmitsTargetEnvelopeFields() {
-		SubmitIndexActionsCommand command = new SubmitIndexActionsCommand(List.of(
-			IndexerActionItems.concretePutDocument(
+		SubmitIndexActionsCommand command = SubmitIndexActionsCommand.builder()
+			.withActions(List.of(IndexerActionItems.concretePutDocument(
 				10,
 				20,
 				"customers-2026-06",
 				"42",
 				new JsonObject().put("name", "Ada")
-			)
-		));
+			)))
+			.build();
 
 		JsonObject json = command.toJson();
 
@@ -36,14 +36,14 @@ class SubmitIndexActionsCommandTest {
 	@Test
 	void targetEnvelopeCommandIncludesTargetEnvelopeFields() {
 		Instant timestamp = Instant.parse("2026-06-25T10:15:00Z");
-		SubmitIndexActionsCommand command = new SubmitIndexActionsCommand(
-			"customers",
-			timestamp,
-			List.of(IndexerActionItems.putDocument(
+		SubmitIndexActionsCommand command = SubmitIndexActionsCommand.builder()
+			.withTargetName("customers")
+			.withTimestamp(timestamp)
+			.withActions(List.of(IndexerActionItems.putDocument(
 				"42",
 				new JsonObject().put("name", "Ada")
-			))
-		);
+			)))
+			.build();
 
 		JsonObject json = command.toJson();
 		JsonObject action = json.getJsonArray("actions").getJsonObject(0);
@@ -53,5 +53,10 @@ class SubmitIndexActionsCommandTest {
 		assertFalse(action.containsKey(PutDocumentActionItem.TARGET_ID));
 		assertFalse(action.containsKey(PutDocumentActionItem.INDEXER_ID));
 		assertFalse(action.containsKey(PutDocumentActionItem.INDEX_NAME));
+	}
+
+	@Test
+	void exposesOnlyBuilderAndParserConstructionApi() {
+		assertEquals(0, SubmitIndexActionsCommand.class.getConstructors().length);
 	}
 }
