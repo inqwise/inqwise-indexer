@@ -31,8 +31,8 @@ public class CatchUpBarrierActionItem implements IndexerActionItem {
 		String barrierId,
 		Instant barrierTimestamp
 	) {
-		this.targetId = targetId;
-		this.indexerId = indexerId;
+		this.targetId = ActionItemValidation.optionalPositive(targetId, "targetId");
+		this.indexerId = ActionItemValidation.optionalPositive(indexerId, "indexerId");
 		this.barrierId = ActionItemValidation.optionalText(barrierId, "barrierId");
 		this.barrierTimestamp = barrierTimestamp;
 	}

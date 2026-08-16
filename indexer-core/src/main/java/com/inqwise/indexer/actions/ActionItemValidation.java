@@ -22,4 +22,21 @@ final class ActionItemValidation {
 
 		return value;
 	}
+
+	static Integer requiredPositive(Integer value, String name) {
+		Integer number = Objects.requireNonNull(value, name);
+		if (number <= 0) {
+			throw new IllegalArgumentException(name + " must be positive");
+		}
+
+		return number;
+	}
+
+	static Integer optionalPositive(Integer value, String name) {
+		if (value != null && value <= 0) {
+			throw new IllegalArgumentException(name + " must be positive");
+		}
+
+		return value;
+	}
 }

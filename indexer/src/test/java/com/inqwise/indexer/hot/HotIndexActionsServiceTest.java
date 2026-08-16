@@ -326,6 +326,37 @@ class HotIndexActionsServiceTest {
 	}
 
 	@Test
+	void invalidatesHotTargetAndFallsBackWhenRuntimePublisherWrapsRouteRejection(
+		VertxTestContext testContext
+	) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		RecordingCommandService commandService = new RecordingCommandService();
+		DefaultHotMetadataView view = view(repository);
+		HotIndexActionsService service = new HotIndexActionsService(
+			view,
+			new FailingPublishingService(new IllegalStateException(
+				"Publishing failed",
+				new IndexerPublishingRouteException("Runtime indexer is not active locally: 1")
+			)),
+			commandService
+		);
+
+		insertReadyMonthlyTargetWithIndexer(repository)
+			.compose(target -> view.refreshHotTargetByConcreteTargetId(target.id()))
+			.compose(ignored -> service.submit(new HotIndexActionsRequest(
+				"customers",
+				Instant.parse("2026-05-18T10:15:00Z"),
+				List.of(IndexerActionItems.putDocument("42", new JsonObject()))
+			)))
+			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
+				assertTrue(view.findTargetByName("customers").isEmpty());
+				assertEquals(1, commandService.submitted.size());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
 	void doesNotFallbackWhenPublisherFailsForUnexpectedReason(
 		VertxTestContext testContext
 	) {

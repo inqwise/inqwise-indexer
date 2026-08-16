@@ -24,9 +24,19 @@ public record RoutedIndexActions(
 	}
 
 	public RoutedIndexActions {
-		Objects.requireNonNull(indexerId, "indexerId");
-		Objects.requireNonNull(targetId, "targetId");
-		actions = List.copyOf(actions);
+		requirePositive(indexerId, "indexerId");
+		requirePositive(targetId, "targetId");
+		if (indexerVersion < 0) {
+			throw new IllegalArgumentException("indexerVersion must not be negative");
+		}
+		String queue = Objects.requireNonNull(queueName, "queueName");
+		if (queue.isBlank()) {
+			throw new IllegalArgumentException("queueName must not be blank");
+		}
+		actions = List.copyOf(Objects.requireNonNull(actions, "actions"));
+		if (actions.isEmpty()) {
+			throw new IllegalArgumentException("actions must not be empty");
+		}
 	}
 
 	public static Builder builder() {
@@ -76,13 +86,20 @@ public record RoutedIndexActions(
 
 		public RoutedIndexActions build() {
 			return new RoutedIndexActions(
-				Objects.requireNonNull(indexerId, "indexerId"),
-				Objects.requireNonNull(targetId, "targetId"),
+				indexerId,
+				targetId,
 				Objects.requireNonNull(indexerVersion, "indexerVersion"),
-				Objects.requireNonNull(queueName, "queueName"),
-				Objects.requireNonNull(actions, "actions"),
+				queueName,
+				actions,
 				metadataChanged
 			);
+		}
+	}
+
+	private static void requirePositive(Integer value, String name) {
+		Integer number = Objects.requireNonNull(value, name);
+		if (number <= 0) {
+			throw new IllegalArgumentException(name + " must be positive");
 		}
 	}
 }

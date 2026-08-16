@@ -18,8 +18,8 @@ public class CompleteIndexActionItem implements IndexerActionItem {
 	}
 
 	private CompleteIndexActionItem(Integer targetId, Integer indexerId) {
-		this.targetId = targetId;
-		this.indexerId = indexerId;
+		this.targetId = ActionItemValidation.optionalPositive(targetId, "targetId");
+		this.indexerId = ActionItemValidation.optionalPositive(indexerId, "indexerId");
 	}
 
 	@Override

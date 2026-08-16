@@ -29,8 +29,8 @@ public class RemoveDocumentActionItem implements IndexerActionItem {
 		String indexName,
 		String uid
 	) {
-		this.targetId = targetId;
-		this.indexerId = indexerId;
+		this.targetId = ActionItemValidation.optionalPositive(targetId, "targetId");
+		this.indexerId = ActionItemValidation.optionalPositive(indexerId, "indexerId");
 		this.indexName = ActionItemValidation.optionalText(indexName, "indexName");
 		this.uid = ActionItemValidation.requiredText(uid, "uid");
 	}

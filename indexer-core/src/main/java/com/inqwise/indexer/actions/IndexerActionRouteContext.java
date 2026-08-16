@@ -12,6 +12,14 @@ public record IndexerActionRouteContext(
 	String queueName,
 	IndexerRole role
 ) {
+	public IndexerActionRouteContext {
+		targetId = ActionItemValidation.requiredPositive(targetId, "targetId");
+		indexerId = ActionItemValidation.requiredPositive(indexerId, "indexerId");
+		indexName = ActionItemValidation.requiredText(indexName, "indexName");
+		queueName = ActionItemValidation.requiredText(queueName, "queueName");
+		Objects.requireNonNull(role, "role");
+	}
+
 	public static Builder builder() {
 		return new Builder();
 	}
@@ -59,12 +67,12 @@ public record IndexerActionRouteContext(
 
 		public IndexerActionRouteContext build() {
 			return new IndexerActionRouteContext(
-				Objects.requireNonNull(targetId, "targetId"),
-				Objects.requireNonNull(indexerId, "indexerId"),
+				targetId,
+				indexerId,
 				targetName,
-				Objects.requireNonNull(indexName, "indexName"),
-				Objects.requireNonNull(queueName, "queueName"),
-				Objects.requireNonNull(role, "role")
+				indexName,
+				queueName,
+				role
 			);
 		}
 	}

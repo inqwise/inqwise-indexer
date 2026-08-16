@@ -165,6 +165,20 @@ class ActionsTest {
 	}
 
 	@Test
+	void putActionRejectsNonPositiveTargetIdFromTransport() {
+		IllegalArgumentException error = assertThrows(
+			IllegalArgumentException.class,
+			() -> IndexerActionItem.fromJson(new JsonObject()
+				.put(PutDocumentActionItem.TYPE, IndexerActionType.PUT_DOCUMENT.name())
+				.put(PutDocumentActionItem.TARGET_ID, 0)
+				.put(PutDocumentActionItem.UID, "42")
+				.put(PutDocumentActionItem.DOCUMENT, new JsonObject()))
+		);
+
+		assertEquals("targetId must be positive", error.getMessage());
+	}
+
+	@Test
 	void putActionOmitsEmptyConcreteIdentityFields() {
 		PutDocumentActionItem item = IndexerActionItems.putDocument(
 			"42",
@@ -213,6 +227,65 @@ class ActionsTest {
 		);
 
 		assertEquals("uid must not be blank", error.getMessage());
+	}
+
+	@Test
+	void removeActionRejectsNonPositiveIndexerId() {
+		IllegalArgumentException error = assertThrows(
+			IllegalArgumentException.class,
+			() -> IndexerActionItems.concreteRemoveDocument(
+				10,
+				0,
+				"customers-2024-a",
+				"42"
+			)
+		);
+
+		assertEquals("indexerId must be positive", error.getMessage());
+	}
+
+	@Test
+	void completeActionRejectsNonPositiveIndexerId() {
+		IllegalArgumentException error = assertThrows(
+			IllegalArgumentException.class,
+			() -> CompleteIndexActionItem.builder()
+				.withIndexerId(-1)
+				.build()
+		);
+
+		assertEquals("indexerId must be positive", error.getMessage());
+	}
+
+	@Test
+	void routeContextRejectsNonPositiveTargetId() {
+		IllegalArgumentException error = assertThrows(
+			IllegalArgumentException.class,
+			() -> IndexerActionRouteContext.builder()
+				.withTargetId(0)
+				.withIndexerId(20)
+				.withIndexName("customers-2024-a")
+				.withQueueName("queue-customers")
+				.withRole(IndexerRole.LIVE_WRITER)
+				.build()
+		);
+
+		assertEquals("targetId must be positive", error.getMessage());
+	}
+
+	@Test
+	void routeContextRejectsBlankQueueName() {
+		IllegalArgumentException error = assertThrows(
+			IllegalArgumentException.class,
+			() -> IndexerActionRouteContext.builder()
+				.withTargetId(10)
+				.withIndexerId(20)
+				.withIndexName("customers-2024-a")
+				.withQueueName(" ")
+				.withRole(IndexerRole.LIVE_WRITER)
+				.build()
+		);
+
+		assertEquals("queueName must not be blank", error.getMessage());
 	}
 
 	@Test

@@ -31,9 +31,9 @@ import com.inqwise.events.EventPublisher;
 import com.inqwise.indexer.runtime.IndexerEventPublisher;
 import com.inqwise.indexer.runtime.IndexerOptions;
 import com.inqwise.indexer.catalog.indexers.IndexerRole;
-import com.inqwise.indexer.routing.QueueIndexerPublishingService;
 import com.inqwise.indexer.runtime.IndexerRuntime;
 import com.inqwise.indexer.runtime.IndexerRuntimeReconciler;
+import com.inqwise.indexer.runtime.RuntimeIndexerPublishingService;
 import com.inqwise.indexer.adapters.local.InMemoryIndexerDocumentStore;
 import com.inqwise.indexer.adapters.local.InMemoryIndexerLifecycleEventBus;
 import com.inqwise.indexer.adapters.local.InMemoryIndexerQueue;
@@ -101,7 +101,11 @@ class LoadApplicationCompositionTest {
 		);
 		LoadManagementService loadService = new DefaultLoadManagementService(
 			new MetadataLoadCreationCatalog(metadata),
-			loads, new QueueIndexerPublishingService(queue), providers, lifecycleEvents, commands
+			loads,
+			new RuntimeIndexerPublishingService(runtime),
+			providers,
+			lifecycleEvents,
+			commands
 		);
 
 		metadata.insertTarget(readyTarget("test", "customers"))

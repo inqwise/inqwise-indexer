@@ -138,6 +138,42 @@ class InMemoryCommandEngineTest {
 			})));
 	}
 
+	@Test
+	void classifiesWrappedRuntimePublishingRouteFailureAsRetryable(
+		VertxTestContext testContext
+	) {
+		RuntimeException error = new IllegalStateException(
+			"Publishing failed",
+			new IndexerPublishingRouteException("Runtime indexer is not active locally: 1")
+		);
+		CommandHandlerRegistry handlers = new CommandHandlerRegistry()
+			.register(new CommandHandler() {
+				@Override
+				public String getType() {
+					return "test.publish";
+				}
+
+				@Override
+				public Future<Void> handle(Command command) {
+					return Future.failedFuture(error);
+				}
+			});
+
+		new CommandProcessor(
+			handlers,
+			InMemoryCommandEngine.failureClassifier()
+		).execute(new TestCommand("test.publish", new JsonObject()))
+			.onComplete(testContext.succeeding(outcome -> testContext.verify(() -> {
+				CommandExecutionOutcome.Failed failed = assertInstanceOf(
+					CommandExecutionOutcome.Failed.class,
+					outcome
+				);
+				assertEquals(CommandFailureKind.RETRYABLE, failed.failureKind());
+				assertSame(error, failed.error());
+				testContext.completeNow();
+			})));
+	}
+
 	private record TestCommand(String type, JsonObject json) implements Command {
 		@Override
 		public String getType() {

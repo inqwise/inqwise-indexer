@@ -33,8 +33,8 @@ public class PutDocumentActionItem implements IndexerActionItem {
 		String uid,
 		JsonObject document
 	) {
-		this.targetId = targetId;
-		this.indexerId = indexerId;
+		this.targetId = ActionItemValidation.optionalPositive(targetId, "targetId");
+		this.indexerId = ActionItemValidation.optionalPositive(indexerId, "indexerId");
 		this.indexName = ActionItemValidation.optionalText(indexName, "indexName");
 		this.uid = ActionItemValidation.requiredText(uid, "uid");
 		this.document = document == null ? new JsonObject() : document.copy();
