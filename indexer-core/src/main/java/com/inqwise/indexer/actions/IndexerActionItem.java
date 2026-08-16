@@ -1,5 +1,7 @@
 package com.inqwise.indexer.actions;
 
+import java.util.Objects;
+
 import io.vertx.core.json.JsonObject;
 
 public interface IndexerActionItem {
@@ -10,7 +12,8 @@ public interface IndexerActionItem {
 	JsonObject toJson();
 
 	static IndexerActionItem fromJson(JsonObject json) {
-		String type = ActionItemValidation.requiredText(json.getString(TYPE), "type");
+		JsonObject action = Objects.requireNonNull(json, "json");
+		String type = ActionItemValidation.requiredText(action.getString(TYPE), "type");
 		IndexerActionType actionType;
 		try {
 			actionType = IndexerActionType.valueOf(type);
@@ -19,10 +22,10 @@ public interface IndexerActionItem {
 		}
 
 		return switch (actionType) {
-			case PUT_DOCUMENT -> new PutDocumentActionItem(json);
-			case REMOVE_DOCUMENT -> new RemoveDocumentActionItem(json);
-			case COMPLETE -> new CompleteIndexActionItem(json);
-			case CATCH_UP_BARRIER -> new CatchUpBarrierActionItem(json);
+			case PUT_DOCUMENT -> new PutDocumentActionItem(action);
+			case REMOVE_DOCUMENT -> new RemoveDocumentActionItem(action);
+			case COMPLETE -> new CompleteIndexActionItem(action);
+			case CATCH_UP_BARRIER -> new CatchUpBarrierActionItem(action);
 		};
 	}
 }

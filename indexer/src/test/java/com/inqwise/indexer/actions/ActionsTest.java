@@ -71,6 +71,16 @@ class ActionsTest {
 	}
 
 	@Test
+	void parserRejectsNullActionPayload() {
+		NullPointerException error = assertThrows(
+			NullPointerException.class,
+			() -> IndexerActionItem.fromJson(null)
+		);
+
+		assertEquals("json", error.getMessage());
+	}
+
+	@Test
 	void parserRejectsMissingActionType() {
 		NullPointerException error = assertThrows(
 			NullPointerException.class,
