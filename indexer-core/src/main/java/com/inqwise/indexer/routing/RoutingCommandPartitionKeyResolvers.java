@@ -53,12 +53,12 @@ public final class RoutingCommandPartitionKeyResolvers {
 			return CommandPartitionKey.target(targetIds.iterator().next());
 		}
 		if (!targetIds.isEmpty()) {
-			throw invalidActions("Concrete action batch must reference one target id");
+			throw invalidActions("Routed action batch must reference one target id");
 		}
 		if (!missingIndexerId && indexerIds.size() == 1) {
 			return CommandPartitionKey.indexer(indexerIds.iterator().next());
 		}
-		throw invalidActions("Concrete action batch must reference one indexer id");
+		throw invalidActions("Routed action batch must reference one indexer id");
 	}
 
 	private static CommandFailure invalidActions(String message) {

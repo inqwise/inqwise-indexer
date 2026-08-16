@@ -103,7 +103,7 @@ class SubmitIndexActionsCommandTest {
 				PublicationState.PUBLISHED,
 				MutationState.WRITABLE
 			)).compose(secondIndexerId -> {
-				PutDocumentActionItem action = partialPutByTargetId(
+				PutDocumentActionItem action = targetScopedPut(
 					targetId,
 					"42",
 					new JsonObject().put("name", "Ada")
@@ -163,7 +163,7 @@ class SubmitIndexActionsCommandTest {
 				PublicationState.PUBLISHED,
 				MutationState.WRITABLE
 			))).compose(ignored -> {
-				PutDocumentActionItem action = partialPutByTargetId(
+				PutDocumentActionItem action = targetScopedPut(
 					targetId,
 					"42",
 					new JsonObject().put("name", "Ada")
@@ -200,7 +200,7 @@ class SubmitIndexActionsCommandTest {
 				PublicationState.UNPUBLISHED,
 				MutationState.WRITABLE
 			)).compose(ignored -> {
-				PutDocumentActionItem action = partialPutByTargetId(
+				PutDocumentActionItem action = targetScopedPut(
 					targetId,
 					"42",
 					new JsonObject().put("name", "Ada")
@@ -842,20 +842,20 @@ class SubmitIndexActionsCommandTest {
 	}
 
 	@Test
-	void targetEnvelopeRejectsConcreteActionDestinations() {
+	void targetEnvelopeRejectsRouteDestinations() {
 		IllegalArgumentException error = assertThrows(
 			IllegalArgumentException.class,
 			() -> new SubmitIndexActionsCommand(
 				"customers",
 				Instant.parse("2026-05-18T10:15:00Z"),
-				List.of(partialPutByTargetId(
+				List.of(targetScopedPut(
 					10,
 					"42",
 					new JsonObject().put("name", "Ada")
 				))
 			)
 		);
-		assertEquals("Target envelope actions must not include concrete destination fields", error.getMessage());
+		assertEquals("Target envelope actions must not include route destination fields", error.getMessage());
 	}
 
 	@Test
@@ -872,14 +872,14 @@ class SubmitIndexActionsCommandTest {
 	}
 
 	@Test
-	void concreteCommandRejectsTimestampWithoutTargetEnvelope() {
+	void routedCommandRejectsTimestampWithoutTargetEnvelope() {
 		IllegalArgumentException error = assertThrows(
 			IllegalArgumentException.class,
 			() -> new SubmitIndexActionsCommand(
 				"command-1",
 				null,
 				Instant.parse("2026-05-18T10:15:00Z"),
-				List.of(partialPutByTargetId(
+				List.of(targetScopedPut(
 					10,
 					"42",
 					new JsonObject().put("name", "Ada")
@@ -890,20 +890,20 @@ class SubmitIndexActionsCommandTest {
 	}
 
 	@Test
-	void concreteCommandRejectsIndexNameOnlyDestination() {
+	void routedCommandRejectsIndexNameOnlyDestination() {
 		IllegalArgumentException error = assertThrows(
 			IllegalArgumentException.class,
-			() -> new SubmitIndexActionsCommand(List.of(partialPutByIndexName(
+			() -> new SubmitIndexActionsCommand(List.of(indexNameOnlyPut(
 				"customers_1",
 				"42",
 				new JsonObject().put("name", "Ada")
 			)))
 		);
-		assertEquals("Concrete action requires target id or indexer id", error.getMessage());
+		assertEquals("Routed command action requires target id or indexer id", error.getMessage());
 	}
 
 	@Test
-	void concreteCommandRejectsInternalActionWithoutIndexerId() {
+	void routedCommandRejectsInternalActionWithoutIndexerId() {
 		IllegalArgumentException error = assertThrows(
 			IllegalArgumentException.class,
 			() -> new SubmitIndexActionsCommand(List.of(CompleteIndexActionItem.builder()
@@ -1125,10 +1125,10 @@ class SubmitIndexActionsCommandTest {
 				.withDocument(new JsonObject().put("name", "Ada"))
 				.build()))
 		);
-		assertEquals("Concrete action destination is required", error.getMessage());
+		assertEquals("Routed command action destination is required", error.getMessage());
 	}
 
-	private PutDocumentActionItem partialPutByTargetId(
+	private PutDocumentActionItem targetScopedPut(
 		Integer targetId,
 		String uid,
 		JsonObject document
@@ -1140,7 +1140,7 @@ class SubmitIndexActionsCommandTest {
 			.put(PutDocumentActionItem.DOCUMENT, document));
 	}
 
-	private PutDocumentActionItem partialPutByIndexName(
+	private PutDocumentActionItem indexNameOnlyPut(
 		String indexName,
 		String uid,
 		JsonObject document

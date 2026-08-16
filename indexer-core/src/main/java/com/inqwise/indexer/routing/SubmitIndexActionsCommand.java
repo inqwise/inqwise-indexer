@@ -168,7 +168,7 @@ public class SubmitIndexActionsCommand implements Command {
 
 			if (!destination.isEmpty()) {
 				throw new IllegalArgumentException(
-					"Target envelope actions must not include concrete destination fields"
+					"Target envelope actions must not include route destination fields"
 				);
 			}
 
@@ -180,11 +180,11 @@ public class SubmitIndexActionsCommand implements Command {
 		}
 
 		if (destination.isEmpty()) {
-			throw new IllegalArgumentException("Concrete action destination is required");
+			throw new IllegalArgumentException("Routed command action destination is required");
 		}
 
 		if (destination.indexerId() == null && destination.targetId() == null) {
-			throw new IllegalArgumentException("Concrete action requires target id or indexer id");
+			throw new IllegalArgumentException("Routed command action requires target id or indexer id");
 		}
 
 		if (!isDocumentMutation(action) && destination.indexerId() == null) {

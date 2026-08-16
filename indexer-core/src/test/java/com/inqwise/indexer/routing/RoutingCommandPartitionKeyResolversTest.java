@@ -34,7 +34,7 @@ class RoutingCommandPartitionKeyResolversTest {
 	}
 
 	@Test
-	void resolvesConcreteActionsBySharedTargetBeforeIndexer() {
+	void resolvesRoutedActionsBySharedTargetBeforeIndexer() {
 		SubmitIndexActionsCommand command = new SubmitIndexActionsCommand(List.of(
 			action(12, 31, "1"),
 			action(12, 32, "2")
@@ -44,7 +44,7 @@ class RoutingCommandPartitionKeyResolversTest {
 	}
 
 	@Test
-	void resolvesConcreteActionsWithoutTargetBySharedIndexer() {
+	void resolvesRoutedActionsWithoutTargetBySharedIndexer() {
 		SubmitIndexActionsCommand command = new SubmitIndexActionsCommand(List.of(
 			action(null, 31, "1"),
 			action(null, 31, "2")
@@ -63,7 +63,7 @@ class RoutingCommandPartitionKeyResolversTest {
 		CommandFailure error = assertThrows(CommandFailure.class, () -> router.resolve(command));
 
 		assertEquals(CommandFailureKind.FINAL, error.kind());
-		assertEquals("Concrete action batch must reference one target id", error.getMessage());
+		assertEquals("Routed action batch must reference one target id", error.getMessage());
 	}
 
 	@Test
@@ -76,7 +76,7 @@ class RoutingCommandPartitionKeyResolversTest {
 		CommandFailure error = assertThrows(CommandFailure.class, () -> router.resolve(command));
 
 		assertEquals(CommandFailureKind.FINAL, error.kind());
-		assertEquals("Concrete action batch must reference one target id", error.getMessage());
+		assertEquals("Routed action batch must reference one target id", error.getMessage());
 	}
 
 	private GenericCommand actionsCommand(PutDocumentActionItem... actions) {
