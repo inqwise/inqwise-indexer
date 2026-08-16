@@ -14,8 +14,9 @@ public class ReportExecutionRequest {
 	}
 
 	public ReportExecutionRequest(JsonObject json) {
-		reportName = json.getString("report_name");
-		parameters = json.getJsonObject("parameters", new JsonObject()).copy();
+		JsonObject request = Objects.requireNonNull(json, "json");
+		setReportName(request.getString("report_name"));
+		setParameters(request.getJsonObject("parameters", new JsonObject()));
 	}
 
 	public JsonObject toJson() {
@@ -29,7 +30,7 @@ public class ReportExecutionRequest {
 	}
 
 	public ReportExecutionRequest setReportName(String value) {
-		reportName = value;
+		reportName = requireReportName(value);
 		return this;
 	}
 
@@ -38,12 +39,19 @@ public class ReportExecutionRequest {
 	}
 
 	public ReportExecutionRequest setParameters(JsonObject value) {
-		parameters = value == null ? new JsonObject() : value.copy();
+		parameters = Objects.requireNonNull(value, "parameters").copy();
 		return this;
 	}
 
 	public static Builder builder() {
 		return new Builder();
+	}
+
+	private static String requireReportName(String value) {
+		if (value == null || value.isBlank()) {
+			throw new IllegalArgumentException("reportName must not be blank");
+		}
+		return value;
 	}
 
 	public static final class Builder {
@@ -64,9 +72,6 @@ public class ReportExecutionRequest {
 		}
 
 		public ReportExecutionRequest build() {
-			if (reportName == null || reportName.isBlank()) {
-				throw new IllegalArgumentException("reportName must not be blank");
-			}
 			return new ReportExecutionRequest()
 				.setReportName(reportName)
 				.setParameters(Objects.requireNonNull(parameters, "parameters"));

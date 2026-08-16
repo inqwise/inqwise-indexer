@@ -13,7 +13,8 @@ public class ReportExecutionResult {
 	}
 
 	public ReportExecutionResult(JsonObject json) {
-		payload = json.getJsonObject("payload", new JsonObject()).copy();
+		JsonObject result = Objects.requireNonNull(json, "json");
+		setPayload(result.getJsonObject("payload"));
 	}
 
 	public JsonObject toJson() {
@@ -25,7 +26,7 @@ public class ReportExecutionResult {
 	}
 
 	public ReportExecutionResult setPayload(JsonObject value) {
-		payload = value == null ? new JsonObject() : value.copy();
+		payload = Objects.requireNonNull(value, "payload").copy();
 		return this;
 	}
 
