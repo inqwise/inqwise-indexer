@@ -21,14 +21,12 @@ public final class ReportPresentation {
 	}
 
 	public ReportPresentation(JsonObject json) {
-		this.name = json.getString("name");
-		this.title = json.getString("title");
-		this.description = json.getString("description", "");
-		this.parametersSchema = json.getJsonObject(
-			"parameters_schema",
-			new JsonObject()
-		).copy();
-		this.resultSchema = json.getJsonObject("result_schema", new JsonObject()).copy();
+		JsonObject presentation = Objects.requireNonNull(json, "json");
+		setName(presentation.getString("name"));
+		setTitle(presentation.getString("title"));
+		setDescription(presentation.getString("description", ""));
+		setParametersSchema(presentation.getJsonObject("parameters_schema"));
+		setResultSchema(presentation.getJsonObject("result_schema"));
 	}
 
 	public JsonObject toJson() {

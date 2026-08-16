@@ -9,6 +9,35 @@ import io.vertx.core.json.JsonObject;
 
 class ReportPresentationTest {
 	@Test
+	void jsonConstructorRejectsNullPayload() {
+		NullPointerException error = assertThrows(
+			NullPointerException.class,
+			() -> new ReportPresentation(null)
+		);
+
+		assertEquals("json", error.getMessage());
+	}
+
+	@Test
+	void jsonConstructorValidatesFields() {
+		IllegalArgumentException nameError = assertThrows(
+			IllegalArgumentException.class,
+			() -> new ReportPresentation(validPresentationJson().put("name", "unsafe/name"))
+		);
+		IllegalArgumentException schemaError = assertThrows(
+			IllegalArgumentException.class,
+			() -> new ReportPresentation(validPresentationJson()
+				.put("parameters_schema", new JsonObject().put("type", "object")))
+		);
+
+		assertEquals("name is not HTTP-path compatible", nameError.getMessage());
+		assertEquals(
+			"parametersSchema must use JSON Schema draft 2020-12",
+			schemaError.getMessage()
+		);
+	}
+
+	@Test
 	void validatesAndDefensivelyCopiesSchemas() {
 		JsonObject parameters = objectSchema().put(
 			"properties",
@@ -63,5 +92,13 @@ class ReportPresentationTest {
 		return new JsonObject()
 			.put("$schema", ReportPresentation.JSON_SCHEMA_DIALECT)
 			.put("type", "object");
+	}
+
+	private JsonObject validPresentationJson() {
+		return new JsonObject()
+			.put("name", "stories")
+			.put("title", "Stories")
+			.put("parameters_schema", objectSchema())
+			.put("result_schema", objectSchema());
 	}
 }
