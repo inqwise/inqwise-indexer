@@ -1,6 +1,7 @@
 package com.inqwise.indexer.query.service;
 
 import java.util.List;
+import java.util.Objects;
 
 import com.inqwise.indexer.query.presentation.ReportPresentation;
 
@@ -16,7 +17,8 @@ public final class ReportDiscoveryResult {
 	}
 
 	public ReportDiscoveryResult(JsonObject json) {
-		reports = json.getJsonArray("reports", new JsonArray()).stream()
+		JsonObject result = Objects.requireNonNull(json, "json");
+		reports = result.getJsonArray("reports", new JsonArray()).stream()
 			.map(JsonObject.class::cast)
 			.map(ReportPresentation::new)
 			.toList();
