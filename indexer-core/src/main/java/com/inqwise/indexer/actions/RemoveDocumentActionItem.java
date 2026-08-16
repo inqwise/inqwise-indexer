@@ -1,7 +1,5 @@
 package com.inqwise.indexer.actions;
 
-import java.util.Objects;
-
 import io.vertx.core.json.JsonObject;
 
 public class RemoveDocumentActionItem implements IndexerActionItem {
@@ -33,8 +31,8 @@ public class RemoveDocumentActionItem implements IndexerActionItem {
 	) {
 		this.targetId = targetId;
 		this.indexerId = indexerId;
-		this.indexName = indexName;
-		this.uid = Objects.requireNonNull(uid, "uid");
+		this.indexName = ActionItemValidation.optionalText(indexName, "indexName");
+		this.uid = ActionItemValidation.requiredText(uid, "uid");
 	}
 
 	@Override

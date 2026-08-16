@@ -33,7 +33,7 @@ public class CatchUpBarrierActionItem implements IndexerActionItem {
 	) {
 		this.targetId = targetId;
 		this.indexerId = indexerId;
-		this.barrierId = barrierId;
+		this.barrierId = ActionItemValidation.optionalText(barrierId, "barrierId");
 		this.barrierTimestamp = barrierTimestamp;
 	}
 

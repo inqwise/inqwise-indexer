@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.lang.reflect.Constructor;
 import java.time.Instant;
@@ -107,6 +108,18 @@ class ActionsTest {
 	}
 
 	@Test
+	void catchUpBarrierRejectsBlankBarrierId() {
+		IllegalArgumentException error = assertThrows(
+			IllegalArgumentException.class,
+			() -> CatchUpBarrierActionItem.builder()
+				.withBarrierId(" ")
+				.build()
+		);
+
+		assertEquals("barrierId must not be blank", error.getMessage());
+	}
+
+	@Test
 	void putActionRoundTripsConcreteIdentityFields() {
 		PutDocumentActionItem item = IndexerActionItems.concretePutDocument(
 			10,
@@ -120,6 +133,35 @@ class ActionsTest {
 
 		assertInstanceOf(PutDocumentActionItem.class, parsed);
 		assertEquals(item.toJson(), parsed.toJson());
+	}
+
+	@Test
+	void putActionRejectsBlankUid() {
+		IllegalArgumentException error = assertThrows(
+			IllegalArgumentException.class,
+			() -> IndexerActionItems.putDocument(
+				" ",
+				new JsonObject().put("name", "Ada")
+			)
+		);
+
+		assertEquals("uid must not be blank", error.getMessage());
+	}
+
+	@Test
+	void putActionRejectsBlankConcreteIndexName() {
+		IllegalArgumentException error = assertThrows(
+			IllegalArgumentException.class,
+			() -> IndexerActionItems.concretePutDocument(
+				10,
+				20,
+				" ",
+				"42",
+				new JsonObject().put("name", "Ada")
+			)
+		);
+
+		assertEquals("indexName must not be blank", error.getMessage());
 	}
 
 	@Test
@@ -161,6 +203,16 @@ class ActionsTest {
 
 		assertInstanceOf(RemoveDocumentActionItem.class, parsed);
 		assertEquals(item.toJson(), parsed.toJson());
+	}
+
+	@Test
+	void removeActionRejectsBlankUid() {
+		IllegalArgumentException error = assertThrows(
+			IllegalArgumentException.class,
+			() -> IndexerActionItems.removeDocument(" ")
+		);
+
+		assertEquals("uid must not be blank", error.getMessage());
 	}
 
 	@Test
