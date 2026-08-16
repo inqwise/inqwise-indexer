@@ -1,6 +1,9 @@
 package com.inqwise.indexer.actions;
 
 import java.util.Objects;
+import java.util.Set;
+
+import io.vertx.core.json.JsonObject;
 
 final class ActionItemValidation {
 	private ActionItemValidation() {
@@ -38,5 +41,15 @@ final class ActionItemValidation {
 		}
 
 		return value;
+	}
+
+	static void requireOnlyFields(JsonObject json, String... allowedFields) {
+		Objects.requireNonNull(json, "json");
+		Set<String> allowed = Set.of(allowedFields);
+		for (String field : json.fieldNames()) {
+			if (!allowed.contains(field)) {
+				throw new IllegalArgumentException("Unknown action field: " + field);
+			}
+		}
 	}
 }

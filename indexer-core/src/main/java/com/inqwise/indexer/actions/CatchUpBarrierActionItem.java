@@ -1,6 +1,7 @@
 package com.inqwise.indexer.actions;
 
 import java.time.Instant;
+import java.time.format.DateTimeParseException;
 
 import io.vertx.core.json.JsonObject;
 
@@ -17,12 +18,21 @@ public class CatchUpBarrierActionItem implements IndexerActionItem {
 	private final Instant barrierTimestamp;
 
 	CatchUpBarrierActionItem(JsonObject json) {
-		this(
-			json.getInteger(TARGET_ID),
-			json.getInteger(INDEXER_ID),
-			json.getString(BARRIER_ID),
-			parseInstant(json.getString(BARRIER_TIMESTAMP))
+		ActionItemValidation.requireOnlyFields(
+			json,
+			TYPE,
+			TARGET_ID,
+			INDEXER_ID,
+			BARRIER_ID,
+			BARRIER_TIMESTAMP
 		);
+		this.targetId = ActionItemValidation.optionalPositive(json.getInteger(TARGET_ID), "targetId");
+		this.indexerId = ActionItemValidation.optionalPositive(
+			json.getInteger(INDEXER_ID),
+			"indexerId"
+		);
+		this.barrierId = ActionItemValidation.optionalText(json.getString(BARRIER_ID), "barrierId");
+		this.barrierTimestamp = parseInstant(json.getString(BARRIER_TIMESTAMP));
 	}
 
 	private CatchUpBarrierActionItem(
@@ -87,7 +97,15 @@ public class CatchUpBarrierActionItem implements IndexerActionItem {
 	}
 
 	private static Instant parseInstant(String value) {
-		return value == null ? null : Instant.parse(value);
+		if (value == null) {
+			return null;
+		}
+
+		try {
+			return Instant.parse(value);
+		} catch (DateTimeParseException error) {
+			throw new IllegalArgumentException("barrierTimestamp must be an ISO-8601 instant", error);
+		}
 	}
 
 	public static final class Builder {

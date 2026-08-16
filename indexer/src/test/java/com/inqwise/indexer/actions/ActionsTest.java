@@ -71,6 +71,44 @@ class ActionsTest {
 	}
 
 	@Test
+	void parserRejectsMissingActionType() {
+		NullPointerException error = assertThrows(
+			NullPointerException.class,
+			() -> IndexerActionItem.fromJson(new JsonObject()
+				.put(PutDocumentActionItem.UID, "42")
+				.put(PutDocumentActionItem.DOCUMENT, new JsonObject()))
+		);
+
+		assertEquals("type", error.getMessage());
+	}
+
+	@Test
+	void parserRejectsBlankActionType() {
+		IllegalArgumentException error = assertThrows(
+			IllegalArgumentException.class,
+			() -> IndexerActionItem.fromJson(new JsonObject()
+				.put(PutDocumentActionItem.TYPE, " ")
+				.put(PutDocumentActionItem.UID, "42")
+				.put(PutDocumentActionItem.DOCUMENT, new JsonObject()))
+		);
+
+		assertEquals("type must not be blank", error.getMessage());
+	}
+
+	@Test
+	void parserRejectsUnknownActionType() {
+		IllegalArgumentException error = assertThrows(
+			IllegalArgumentException.class,
+			() -> IndexerActionItem.fromJson(new JsonObject()
+				.put(PutDocumentActionItem.TYPE, "UPSERT_DOCUMENT")
+				.put(PutDocumentActionItem.UID, "42")
+				.put(PutDocumentActionItem.DOCUMENT, new JsonObject()))
+		);
+
+		assertEquals("Unknown action type: UPSERT_DOCUMENT", error.getMessage());
+	}
+
+	@Test
 	void completeActionRoundTripsThroughJson() {
 		CompleteIndexActionItem item = CompleteIndexActionItem.builder()
 			.withTargetId(10)
@@ -120,6 +158,19 @@ class ActionsTest {
 	}
 
 	@Test
+	void catchUpBarrierRejectsMalformedTimestamp() {
+		IllegalArgumentException error = assertThrows(
+			IllegalArgumentException.class,
+			() -> IndexerActionItem.fromJson(new JsonObject()
+				.put(CatchUpBarrierActionItem.TYPE, IndexerActionType.CATCH_UP_BARRIER.name())
+				.put(CatchUpBarrierActionItem.INDEXER_ID, 20)
+				.put(CatchUpBarrierActionItem.BARRIER_TIMESTAMP, "2026-05-28 10:30"))
+		);
+
+		assertEquals("barrierTimestamp must be an ISO-8601 instant", error.getMessage());
+	}
+
+	@Test
 	void putActionRoundTripsConcreteIdentityFields() {
 		PutDocumentActionItem item = IndexerActionItems.concretePutDocument(
 			10,
@@ -146,6 +197,42 @@ class ActionsTest {
 		);
 
 		assertEquals("uid must not be blank", error.getMessage());
+	}
+
+	@Test
+	void putActionRejectsMissingDocument() {
+		NullPointerException error = assertThrows(
+			NullPointerException.class,
+			() -> IndexerActionItem.fromJson(new JsonObject()
+				.put(PutDocumentActionItem.TYPE, IndexerActionType.PUT_DOCUMENT.name())
+				.put(PutDocumentActionItem.UID, "42"))
+		);
+
+		assertEquals("document", error.getMessage());
+	}
+
+	@Test
+	void putActionRejectsNullDocumentBuilderInput() {
+		NullPointerException error = assertThrows(
+			NullPointerException.class,
+			() -> IndexerActionItems.putDocument("42", null)
+		);
+
+		assertEquals("document", error.getMessage());
+	}
+
+	@Test
+	void putActionRejectsUnknownTopLevelField() {
+		IllegalArgumentException error = assertThrows(
+			IllegalArgumentException.class,
+			() -> IndexerActionItem.fromJson(new JsonObject()
+				.put(PutDocumentActionItem.TYPE, IndexerActionType.PUT_DOCUMENT.name())
+				.put(PutDocumentActionItem.UID, "42")
+				.put(PutDocumentActionItem.DOCUMENT, new JsonObject())
+				.put("target_name", "customers"))
+		);
+
+		assertEquals("Unknown action field: target_name", error.getMessage());
 	}
 
 	@Test
@@ -242,6 +329,32 @@ class ActionsTest {
 		);
 
 		assertEquals("indexerId must be positive", error.getMessage());
+	}
+
+	@Test
+	void removeActionRejectsUnknownTopLevelField() {
+		IllegalArgumentException error = assertThrows(
+			IllegalArgumentException.class,
+			() -> IndexerActionItem.fromJson(new JsonObject()
+				.put(RemoveDocumentActionItem.TYPE, IndexerActionType.REMOVE_DOCUMENT.name())
+				.put(RemoveDocumentActionItem.UID, "42")
+				.put("timestamp", "2026-06-06T10:15:00Z"))
+		);
+
+		assertEquals("Unknown action field: timestamp", error.getMessage());
+	}
+
+	@Test
+	void completeActionRejectsUnknownTopLevelField() {
+		IllegalArgumentException error = assertThrows(
+			IllegalArgumentException.class,
+			() -> IndexerActionItem.fromJson(new JsonObject()
+				.put(CompleteIndexActionItem.TYPE, IndexerActionType.COMPLETE.name())
+				.put(CompleteIndexActionItem.INDEXER_ID, 20)
+				.put("uid", "42"))
+		);
+
+		assertEquals("Unknown action field: uid", error.getMessage());
 	}
 
 	@Test

@@ -1,5 +1,7 @@
 package com.inqwise.indexer.actions;
 
+import java.util.Objects;
+
 import io.vertx.core.json.JsonObject;
 
 public class PutDocumentActionItem implements IndexerActionItem {
@@ -17,13 +19,26 @@ public class PutDocumentActionItem implements IndexerActionItem {
 	private final JsonObject document;
 
 	PutDocumentActionItem(JsonObject json) {
-		this(
-			json.getInteger(TARGET_ID),
-			json.getInteger(INDEXER_ID),
-			json.getString(INDEX_NAME),
-			json.getString(UID),
-			json.getJsonObject(DOCUMENT, new JsonObject())
+		ActionItemValidation.requireOnlyFields(
+			json,
+			TYPE,
+			TARGET_ID,
+			INDEXER_ID,
+			INDEX_NAME,
+			UID,
+			DOCUMENT
 		);
+		this.targetId = ActionItemValidation.optionalPositive(
+			json.getInteger(TARGET_ID),
+			"targetId"
+		);
+		this.indexerId = ActionItemValidation.optionalPositive(
+			json.getInteger(INDEXER_ID),
+			"indexerId"
+		);
+		this.indexName = ActionItemValidation.optionalText(json.getString(INDEX_NAME), "indexName");
+		this.uid = ActionItemValidation.requiredText(json.getString(UID), "uid");
+		this.document = Objects.requireNonNull(json.getJsonObject(DOCUMENT), "document").copy();
 	}
 
 	PutDocumentActionItem(
@@ -37,7 +52,7 @@ public class PutDocumentActionItem implements IndexerActionItem {
 		this.indexerId = ActionItemValidation.optionalPositive(indexerId, "indexerId");
 		this.indexName = ActionItemValidation.optionalText(indexName, "indexName");
 		this.uid = ActionItemValidation.requiredText(uid, "uid");
-		this.document = document == null ? new JsonObject() : document.copy();
+		this.document = Objects.requireNonNull(document, "document").copy();
 	}
 
 	@Override

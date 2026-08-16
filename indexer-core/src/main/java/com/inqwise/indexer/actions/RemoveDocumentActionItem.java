@@ -15,12 +15,24 @@ public class RemoveDocumentActionItem implements IndexerActionItem {
 	private final String uid;
 
 	RemoveDocumentActionItem(JsonObject json) {
-		this(
-			json.getInteger(TARGET_ID),
-			json.getInteger(INDEXER_ID),
-			json.getString(INDEX_NAME),
-			json.getString(UID)
+		ActionItemValidation.requireOnlyFields(
+			json,
+			TYPE,
+			TARGET_ID,
+			INDEXER_ID,
+			INDEX_NAME,
+			UID
 		);
+		this.targetId = ActionItemValidation.optionalPositive(
+			json.getInteger(TARGET_ID),
+			"targetId"
+		);
+		this.indexerId = ActionItemValidation.optionalPositive(
+			json.getInteger(INDEXER_ID),
+			"indexerId"
+		);
+		this.indexName = ActionItemValidation.optionalText(json.getString(INDEX_NAME), "indexName");
+		this.uid = ActionItemValidation.requiredText(json.getString(UID), "uid");
 	}
 
 	RemoveDocumentActionItem(

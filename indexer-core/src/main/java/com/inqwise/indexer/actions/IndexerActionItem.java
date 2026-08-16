@@ -10,7 +10,13 @@ public interface IndexerActionItem {
 	JsonObject toJson();
 
 	static IndexerActionItem fromJson(JsonObject json) {
-		IndexerActionType actionType = IndexerActionType.valueOf(json.getString(TYPE));
+		String type = ActionItemValidation.requiredText(json.getString(TYPE), "type");
+		IndexerActionType actionType;
+		try {
+			actionType = IndexerActionType.valueOf(type);
+		} catch (IllegalArgumentException error) {
+			throw new IllegalArgumentException("Unknown action type: " + type, error);
+		}
 
 		return switch (actionType) {
 			case PUT_DOCUMENT -> new PutDocumentActionItem(json);
