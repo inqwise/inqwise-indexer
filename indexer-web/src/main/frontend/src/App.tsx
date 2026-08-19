@@ -4,6 +4,7 @@ import {
   activateIndexer,
   deactivateIndexer,
   deleteIndexer,
+  hotTargets,
   infrastructureStatus,
   invalidRoutes,
   isReady,
@@ -24,6 +25,8 @@ import { listLoads } from "./api/load-query-api";
 import type { LoadView } from "./api/load-query-api";
 import type {
   InfrastructureStatus,
+  HotTargetList,
+  HotTarget,
   Indexer,
   IndexerDefinition,
   InvalidRouteList,
@@ -70,6 +73,7 @@ type DiagnosticServiceName =
   | "node"
   | "infrastructure"
   | "invalidRoutes"
+  | "hotTargets"
   | "targetInvalidations";
 type DefinitionServiceName = "targets" | "indexers";
 type ServiceState = "checking" | "online" | "degraded";
@@ -98,6 +102,7 @@ type DashboardData = {
     node: NodeStatus | null;
     infrastructure: InfrastructureStatus | null;
     invalidRoutes: InvalidRouteList | null;
+    hotTargets: HotTargetList | null;
     targetInvalidations: TargetInvalidationList | null;
     services: Record<DiagnosticServiceName, ServiceDiagnostic>;
   };
@@ -133,11 +138,13 @@ const INITIAL_DATA: DashboardData = {
     node: null,
     infrastructure: null,
     invalidRoutes: null,
+    hotTargets: null,
     targetInvalidations: null,
     services: {
       node: INITIAL_SERVICE,
       infrastructure: INITIAL_SERVICE,
       invalidRoutes: INITIAL_SERVICE,
+      hotTargets: INITIAL_SERVICE,
       targetInvalidations: INITIAL_SERVICE,
     },
   },
@@ -162,6 +169,7 @@ const DIAGNOSTIC_SERVICE_LABELS: Record<DiagnosticServiceName, string> = {
   node: "Node status",
   infrastructure: "Infrastructure",
   invalidRoutes: "Invalid routes",
+  hotTargets: "Hot routing view",
   targetInvalidations: "Target invalidations",
 };
 const DEFINITION_SERVICE_LABELS: Record<DefinitionServiceName, string> = {
@@ -200,6 +208,32 @@ function StatusPill({ value }: { value: string }) {
       <span aria-hidden="true" className="status-pill__dot" />
       {value.replaceAll("_", " ").toLowerCase()}
     </span>
+  );
+}
+
+function HotRoutingPill({
+  diagnostic,
+  hotTarget,
+}: {
+  diagnostic: ServiceDiagnostic;
+  hotTarget: HotTarget | null;
+}) {
+  if (diagnostic.state === "checking") {
+    return <StatusPill value="CHECKING HOT STATE" />;
+  }
+  if (diagnostic.state === "degraded") {
+    return <StatusPill value="HOT STATE UNAVAILABLE" />;
+  }
+  if (!hotTarget) {
+    return <StatusPill value="NOT LOADED" />;
+  }
+  if (hotTarget.hot_indexer_ids.length === 0) {
+    return <StatusPill value="LOADED NO HOT INDEXERS" />;
+  }
+  return (
+    <StatusPill
+      value={`HOT · ${hotTarget.hot_indexer_ids.length}${hotTarget.indexers_truncated ? "+" : ""}`}
+    />
   );
 }
 
@@ -494,6 +528,7 @@ export default function App() {
         nodeStatusResult,
         infrastructureResult,
         invalidRoutesResult,
+        hotTargetsResult,
         targetInvalidationsResult,
         targetDefinitionsResult,
         indexerDefinitionsResult,
@@ -508,6 +543,7 @@ export default function App() {
           nodeStatus(signal),
           infrastructureStatus(signal),
           invalidRoutes(signal),
+          hotTargets(signal),
           targetInvalidations(signal),
           listTargetDefinitions(signal),
           listIndexerDefinitions(signal),
@@ -590,6 +626,10 @@ export default function App() {
             invalidRoutesResult.status === "fulfilled"
               ? invalidRoutesResult.value
               : current.diagnostics.invalidRoutes,
+          hotTargets:
+            hotTargetsResult.status === "fulfilled"
+              ? hotTargetsResult.value
+              : current.diagnostics.hotTargets,
           targetInvalidations:
             targetInvalidationsResult.status === "fulfilled"
               ? targetInvalidationsResult.value
@@ -608,6 +648,11 @@ export default function App() {
             invalidRoutes: serviceDiagnostic(
               invalidRoutesResult,
               current.diagnostics.services.invalidRoutes,
+              completedAt,
+            ),
+            hotTargets: serviceDiagnostic(
+              hotTargetsResult,
+              current.diagnostics.services.hotTargets,
               completedAt,
             ),
             targetInvalidations: serviceDiagnostic(
@@ -1095,10 +1140,22 @@ export default function App() {
     () => new Map(data.indexers.map((indexer) => [indexer.id, indexer] as const)),
     [data.indexers],
   );
+  const hotTargetsById = useMemo(
+    () => new Map(
+      (data.diagnostics.hotTargets?.hot_targets ?? []).map(
+        (target) => [target.target_id, target] as const,
+      ),
+    ),
+    [data.diagnostics.hotTargets],
+  );
   const selectedTarget =
     selectedTargetId === null
       ? null
       : (targetsById.get(selectedTargetId) ?? null);
+  const selectedHotTarget =
+    selectedTargetId === null
+      ? null
+      : (hotTargetsById.get(selectedTargetId) ?? null);
   const selectedIndexer =
     selectedIndexerId === null
       ? null
@@ -2095,7 +2152,13 @@ export default function App() {
                         {target.period_key} · #{target.id}
                       </small>
                     </div>
-                    <StatusPill value={target.provisioning_state} />
+                    <span className="target-card__states">
+                      <HotRoutingPill
+                        diagnostic={data.diagnostics.services.hotTargets}
+                        hotTarget={hotTargetsById.get(target.id) ?? null}
+                      />
+                      <StatusPill value={target.provisioning_state} />
+                    </span>
                   </button>
                 ))}
                 {filteredTargets.length === 0 && (
@@ -2140,6 +2203,8 @@ export default function App() {
       <CatalogDetailPanel
         indexer={selectedIndexer}
         indexerTarget={selectedIndexerTarget}
+        hotRoutingDiagnostic={data.diagnostics.services.hotTargets}
+        hotTarget={selectedHotTarget}
         onClose={() => {
           setSelectedIndexerId(null);
           setSelectedTargetId(null);

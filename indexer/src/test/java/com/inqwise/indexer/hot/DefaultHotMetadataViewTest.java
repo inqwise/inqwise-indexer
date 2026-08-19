@@ -68,6 +68,28 @@ class DefaultHotMetadataViewTest {
 	}
 
 	@Test
+	void diagnosticSnapshotReportsActualConcreteTargetWriters(
+		VertxTestContext testContext
+	) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		DefaultHotMetadataView view = view(repository);
+
+		insertReadyMonthlyTargetWithIndexer(repository)
+			.compose(target -> view.refreshHotTargetByConcreteTargetId(target.id()))
+			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
+				HotRoutingSnapshot snapshot = view.snapshot(10, 10);
+
+				assertEquals(1, snapshot.targets().size());
+				assertEquals("customers", snapshot.targets().get(0).targetName());
+				assertEquals(List.of(1), snapshot.targets().get(0).hotIndexerIds());
+				assertTrue(!snapshot.truncated());
+				assertTrue(!snapshot.targets().get(0).indexersTruncated());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
 	void invalidateByConcreteTargetRemovesFullTargetSnapshot(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();

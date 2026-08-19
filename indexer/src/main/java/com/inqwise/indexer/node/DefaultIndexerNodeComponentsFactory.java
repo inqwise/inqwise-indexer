@@ -26,7 +26,6 @@ import com.inqwise.indexer.adapters.local.StaticTargetDefinitionProvider;
 import com.inqwise.indexer.catalog.targets.TargetDefinitionProvider;
 import com.inqwise.indexer.hot.DefaultHotMetadataView;
 import com.inqwise.indexer.hot.HotIndexActionsService;
-import com.inqwise.indexer.hot.HotMetadataView;
 import com.inqwise.indexer.adapters.local.InMemoryInvalidRouteCache;
 import com.inqwise.indexer.adapters.local.InMemoryTargetInvalidationRegistryProvider;
 import com.inqwise.indexer.routing.InvalidRouteCache;
@@ -191,7 +190,7 @@ public final class DefaultIndexerNodeComponentsFactory {
 		IndexerProviders indexerProviders = new IndexerProviders(List.of(
 			new MetadataIndexerProvider(repository)
 		));
-		HotMetadataView hotMetadataView = new DefaultHotMetadataView(
+		DefaultHotMetadataView hotMetadataView = new DefaultHotMetadataView(
 			repository,
 			targetDefinitionProvider,
 			indexerProviders
@@ -286,6 +285,7 @@ public final class DefaultIndexerNodeComponentsFactory {
 		);
 		return IndexerNodeComponents.builder()
 			.withHotIndexActionsService(hotIndexActionsService)
+			.withHotRoutingDiagnostics(hotMetadataView)
 			.withRuntime(runtime)
 			.withRuntimeReconciler(runtimeReconciler)
 			.withCommandEngine(commandEngine)

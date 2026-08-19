@@ -20,6 +20,8 @@ export type InvalidRouteList =
   AdminComponents["schemas"]["AdminInvalidRouteList"];
 export type TargetInvalidationList =
   AdminComponents["schemas"]["AdminTargetInvalidationList"];
+export type HotTargetList = AdminComponents["schemas"]["AdminHotTargetList"];
+export type HotTarget = AdminComponents["schemas"]["AdminHotTargetView"];
 export type TargetDefinition =
   AdminComponents["schemas"]["AdminTargetDefinitionView"];
 export type IndexerDefinition =
@@ -203,6 +205,22 @@ export async function targetInvalidations(
     "/admin/routing/target-invalidations",
     {
       params: { query: { max: 50 } },
+      signal,
+    },
+  );
+  if (!data) {
+    throw requestError(response.status, error);
+  }
+  return data;
+}
+
+export async function hotTargets(
+  signal: AbortSignal,
+): Promise<HotTargetList> {
+  const { data, error, response } = await adminClient.GET(
+    "/admin/routing/hot-targets",
+    {
+      params: { query: { max: 100 } },
       signal,
     },
   );

@@ -72,6 +72,7 @@ class DefaultIndexerNodeComponentsFactoryTest {
 
 		assertAll(
 			() -> assertNotNull(components.hotIndexActionsService()),
+			() -> assertNotNull(components.hotRoutingDiagnostics()),
 			() -> assertNotNull(components.runtime()),
 			() -> assertNotNull(components.runtimeReconciler()),
 			() -> assertNotNull(components.commandEngine()),

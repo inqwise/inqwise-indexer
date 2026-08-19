@@ -29,7 +29,7 @@ import com.inqwise.indexer.providers.HotIndexerCapability;
 
 import io.vertx.core.Future;
 
-public class DefaultHotMetadataView implements HotMetadataView {
+public class DefaultHotMetadataView implements HotMetadataView, HotRoutingDiagnostics {
 	private final DocumentStoreMetadataRepository repository;
 	private final TargetDefinitionProvider targetDefinitionProvider;
 	private final IndexerProviders indexerProviders;
@@ -59,6 +59,41 @@ public class DefaultHotMetadataView implements HotMetadataView {
 	@Override
 	public Optional<HotIndexerCapability> findIndexerById(Integer indexerId) {
 		return Optional.ofNullable(indexersById.get(indexerId));
+	}
+
+	@Override
+	public Future<Optional<HotTarget>> refreshHotTargetByName(String targetName) {
+		return targetDefinitionProvider.getByName(targetName)
+			.compose(found -> found
+				.map(this::refreshHotTarget)
+				.orElseGet(() -> {
+					removeByName(targetName);
+					return Future.succeededFuture(Optional.empty());
+				}));
+	}
+
+	@Override
+	public HotRoutingSnapshot snapshot(int maxTargets, int maxIndexersPerTarget) {
+		if (maxTargets < 1) {
+			throw new IllegalArgumentException("maxTargets must be greater than zero");
+		}
+		if (maxIndexersPerTarget < 1) {
+			throw new IllegalArgumentException(
+				"maxIndexersPerTarget must be greater than zero"
+			);
+		}
+
+		List<Map.Entry<Integer, HotTarget>> targets = targetsByConcreteTargetId.entrySet()
+			.stream()
+			.sorted(Map.Entry.comparingByKey())
+			.toList();
+		return HotRoutingSnapshot.builder()
+			.withTargets(targets.stream()
+				.limit(maxTargets)
+				.map(entry -> toSnapshot(entry.getKey(), entry.getValue(), maxIndexersPerTarget))
+				.toList())
+			.withTruncated(targets.size() > maxTargets)
+			.build();
 	}
 
 	@Override
@@ -102,12 +137,16 @@ public class DefaultHotMetadataView implements HotMetadataView {
 	private Future<Void> refreshHotTarget(TargetRecord concreteTarget) {
 		return targetDefinitionProvider.getByName(concreteTarget.targetName())
 			.compose(found -> found
-				.map(definition -> loadConcreteTargets(definition)
-					.compose(targets -> buildHotTarget(definition, targets)))
+				.map(definition -> refreshHotTarget(definition).map((Void) null))
 				.orElseGet(() -> {
 					invalidateHotTargetByConcreteTargetId(concreteTarget.id());
 					return Future.succeededFuture();
 				}));
+	}
+
+	private Future<Optional<HotTarget>> refreshHotTarget(TargetDefinition definition) {
+		return loadConcreteTargets(definition)
+			.compose(targets -> buildHotTarget(definition, targets));
 	}
 
 	private Future<List<TargetRecord>> loadConcreteTargets(TargetDefinition definition) {
@@ -118,13 +157,13 @@ public class DefaultHotMetadataView implements HotMetadataView {
 			.build());
 	}
 
-	private Future<Void> buildHotTarget(
+	private Future<Optional<HotTarget>> buildHotTarget(
 		TargetDefinition definition,
 		List<TargetRecord> concreteTargets
 	) {
 		if (concreteTargets.isEmpty()) {
 			removeByName(definition.targetName());
-			return Future.succeededFuture();
+			return Future.succeededFuture(Optional.empty());
 		}
 
 		List<Integer> targetIds = concreteTargets.stream()
@@ -164,7 +203,7 @@ public class DefaultHotMetadataView implements HotMetadataView {
 				.build();
 
 			replace(hotTarget);
-			return null;
+			return Optional.of(hotTarget);
 		});
 	}
 
@@ -180,6 +219,26 @@ public class DefaultHotMetadataView implements HotMetadataView {
 			indexersById.put(indexer.id(), indexer);
 			targetsByIndexerId.put(indexer.id(), target);
 		}
+	}
+
+	private HotRoutingTargetSnapshot toSnapshot(
+		Integer targetId,
+		HotTarget target,
+		int maxIndexersPerTarget
+	) {
+		List<Integer> hotIndexerIds = target.indexers().stream()
+			.filter(indexer -> targetId.equals(indexer.targetId()))
+			.map(HotIndexerCapability::id)
+			.sorted()
+			.toList();
+		return HotRoutingTargetSnapshot.builder()
+			.withTargetId(targetId)
+			.withTargetName(target.targetName())
+			.withHotIndexerIds(hotIndexerIds.stream()
+				.limit(maxIndexersPerTarget)
+				.toList())
+			.withIndexersTruncated(hotIndexerIds.size() > maxIndexersPerTarget)
+			.build();
 	}
 
 	private synchronized void remove(HotTarget target) {

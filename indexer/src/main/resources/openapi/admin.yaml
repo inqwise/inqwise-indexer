@@ -647,6 +647,26 @@ paths:
                 $ref: '#/components/schemas/AdminTargetInvalidationList'
         default:
           $ref: '#/components/responses/ErrorResponse'
+  /admin/routing/hot-targets:
+    get:
+      operationId: listHotTargets
+      parameters:
+        - name: max
+          in: query
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 1000
+      responses:
+        '200':
+          description: Node-local targets loaded in the hot routing view.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminHotTargetList'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
   /admin/node/status:
     get:
       operationId: nodeStatus
@@ -966,6 +986,36 @@ components:
         expires_at:
           type: string
           format: date-time
+    AdminHotTargetList:
+      type: object
+      required:
+        - hot_targets
+        - truncated
+      properties:
+        hot_targets:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminHotTargetView'
+        truncated:
+          type: boolean
+    AdminHotTargetView:
+      type: object
+      required:
+        - target_id
+        - target_name
+        - hot_indexer_ids
+        - indexers_truncated
+      properties:
+        target_id:
+          type: integer
+        target_name:
+          type: string
+        hot_indexer_ids:
+          type: array
+          items:
+            type: integer
+        indexers_truncated:
+          type: boolean
     AdminNodeStatus:
       type: object
       required:

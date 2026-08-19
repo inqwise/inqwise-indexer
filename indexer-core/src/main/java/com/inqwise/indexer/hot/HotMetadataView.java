@@ -11,6 +11,8 @@ public interface HotMetadataView {
 
 	Optional<HotIndexerCapability> findIndexerById(Integer indexerId);
 
+	Future<Optional<HotTarget>> refreshHotTargetByName(String targetName);
+
 	Future<Void> refreshHotTargetByConcreteTargetId(Integer targetId);
 
 	void invalidateHotTargetByConcreteTargetId(Integer targetId);

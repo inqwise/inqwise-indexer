@@ -701,7 +701,8 @@ public class IndexerNode {
 					components.targetInvalidationRegistry(),
 					this::nodeStatus,
 					this::infrastructureStatus,
-					this::recover
+					this::recover,
+					components.hotRoutingDiagnostics()
 				),
 				new DeploymentOptions()
 			).onSuccess(id -> trackControlPlaneDeployment(

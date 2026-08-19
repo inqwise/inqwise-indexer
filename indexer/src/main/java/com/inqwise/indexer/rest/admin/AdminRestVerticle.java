@@ -29,6 +29,7 @@ import com.inqwise.indexer.service.admin.AdminIndexerListResult;
 import com.inqwise.indexer.service.admin.AdminIndexerQuery;
 import com.inqwise.indexer.service.admin.AdminIndexerResult;
 import com.inqwise.indexer.service.admin.AdminInfrastructureStatusResult;
+import com.inqwise.indexer.service.admin.AdminHotTargetListResult;
 import com.inqwise.indexer.service.admin.AdminInvalidRouteListResult;
 import com.inqwise.indexer.service.admin.AdminNodeStatusResult;
 import com.inqwise.indexer.service.admin.AdminRecoverTargetProvisioningRequest;
@@ -205,6 +206,16 @@ public class AdminRestVerticle extends AbstractVerticle {
 				);
 				RestOperations.bind(
 					builder,
+					"listHotTargets",
+					context -> adminService.listHotTargets(optionalQueryInteger(
+						context,
+						"max",
+						100
+					)),
+					AdminRestVerticle::toJson
+				);
+				RestOperations.bind(
+					builder,
 					"nodeStatus",
 					context -> adminService.nodeStatus(),
 					AdminRestVerticle::toJson
@@ -364,6 +375,9 @@ public class AdminRestVerticle extends AbstractVerticle {
 			return value.toJson();
 		}
 		if (result instanceof AdminTargetInvalidationListResult value) {
+			return value.toJson();
+		}
+		if (result instanceof AdminHotTargetListResult value) {
 			return value.toJson();
 		}
 		if (result instanceof AdminNodeStatusResult value) {

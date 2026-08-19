@@ -10,6 +10,8 @@ public interface HotIndexerCapability {
 
 	Integer targetId();
 
+	long version();
+
 	String queueName();
 
 	Optional<IndexerActionItem> route(IndexerActionItem item, IndexerActionRouteMode mode);

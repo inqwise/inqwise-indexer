@@ -23,6 +23,8 @@ public interface AdminService {
 
 	Future<AdminTargetInvalidationListResult> listTargetInvalidations(int maxTargets);
 
+	Future<AdminHotTargetListResult> listHotTargets(int maxTargets);
+
 	Future<AdminNodeStatusResult> nodeStatus();
 
 	Future<AdminNodeStatusResult> recoverNode();

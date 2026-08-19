@@ -13,6 +13,7 @@ import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 import com.inqwise.indexer.monitoring.IndexerOperationalMonitor;
 import com.inqwise.indexer.routing.InvalidRouteCache;
 import com.inqwise.indexer.lifecycle.TargetInvalidationRegistry;
+import com.inqwise.indexer.hot.HotRoutingDiagnostics;
 import com.inqwise.indexer.service.ServiceProxyVerticle;
 
 import io.vertx.serviceproxy.ProxyHandler;
@@ -179,6 +180,42 @@ public class AdminServiceVerticle extends ServiceProxyVerticle<AdminService> {
 		AdminInfrastructureStatusSource infrastructureStatusSource,
 		AdminNodeRecovery nodeRecovery
 	) {
+		this(
+			repository,
+			metadataChangeNotifier,
+			queueResources,
+			targetDefinitionProvider,
+			indexerDefinitionProvider,
+			documentIndexResources,
+			commandService,
+			indexerOperations,
+			monitor,
+			invalidRouteCache,
+			targetInvalidationRegistry,
+			nodeStatusSource,
+			infrastructureStatusSource,
+			nodeRecovery,
+			null
+		);
+	}
+
+	public AdminServiceVerticle(
+		DocumentStoreMetadataRepository repository,
+		MetadataChangeNotifier metadataChangeNotifier,
+		IndexerQueueResourceManager queueResources,
+		TargetDefinitionProvider targetDefinitionProvider,
+		IndexerDefinitionProvider indexerDefinitionProvider,
+		IndexerDocumentIndexResourceManager documentIndexResources,
+		CommandService commandService,
+		IndexerOperations indexerOperations,
+		IndexerOperationalMonitor monitor,
+		InvalidRouteCache invalidRouteCache,
+		TargetInvalidationRegistry targetInvalidationRegistry,
+		AdminNodeStatusSource nodeStatusSource,
+		AdminInfrastructureStatusSource infrastructureStatusSource,
+		AdminNodeRecovery nodeRecovery,
+		HotRoutingDiagnostics hotRoutingDiagnostics
+	) {
 		AdminService delegate = new AdminServiceImpl(
 			Objects.requireNonNull(repository, "repository"),
 			Objects.requireNonNull(metadataChangeNotifier, "metadataChangeNotifier"),
@@ -193,7 +230,8 @@ public class AdminServiceVerticle extends ServiceProxyVerticle<AdminService> {
 			targetInvalidationRegistry,
 			nodeStatusSource,
 			infrastructureStatusSource,
-			nodeRecovery
+			nodeRecovery,
+			hotRoutingDiagnostics
 		);
 		this.service = new MonitoredAdminService(
 			delegate,

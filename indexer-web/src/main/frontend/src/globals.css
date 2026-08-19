@@ -2600,6 +2600,13 @@ td small {
   background: rgba(77, 228, 218, 0.045);
 }
 
+.target-card__states {
+  display: flex;
+  align-items: flex-end;
+  flex-direction: column;
+  gap: 5px;
+}
+
 .target-list__glyph {
   display: grid;
   width: 31px;

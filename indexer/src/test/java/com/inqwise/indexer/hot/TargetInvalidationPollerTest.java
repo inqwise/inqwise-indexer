@@ -199,6 +199,11 @@ class TargetInvalidationPollerTest {
 		}
 
 		@Override
+		public Future<Optional<HotTarget>> refreshHotTargetByName(String targetName) {
+			return Future.succeededFuture(Optional.empty());
+		}
+
+		@Override
 		public Future<Void> refreshHotTargetByConcreteTargetId(Integer targetId) {
 			return Future.succeededFuture();
 		}

@@ -27,6 +27,11 @@ public class MetadataHotIndexer implements HotIndexerCapability {
 	}
 
 	@Override
+	public long version() {
+		return record.version();
+	}
+
+	@Override
 	public String queueName() {
 		return record.queueName() == null ? record.indexName() : record.queueName();
 	}

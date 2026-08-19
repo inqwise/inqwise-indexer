@@ -62,7 +62,14 @@ public class HotIndexActionsService {
 			));
 		}
 
-		HotRouteResult result = route(request);
+		return route(request)
+			.compose(result -> submitRouteResult(request, result));
+	}
+
+	private Future<Void> submitRouteResult(
+		HotIndexActionsRequest request,
+		HotRouteResult result
+	) {
 		if (result instanceof HotRouteResult.Routed routed) {
 			return publisher.publish(routed.groups())
 				.recover(error -> recoverRoutedPublishFailure(request, routed, error));
@@ -90,22 +97,26 @@ public class HotIndexActionsService {
 		}
 	}
 
-	private HotRouteResult route(HotIndexActionsRequest request) {
+	private Future<HotRouteResult> route(HotIndexActionsRequest request) {
 		if (hasTargetEnvelope(request)) {
 			return routeByTarget(request);
 		}
 
-		return routeDirect(request);
+		return Future.succeededFuture(routeDirect(request));
 	}
 
-	private HotRouteResult routeByTarget(HotIndexActionsRequest request) {
+	private Future<HotRouteResult> routeByTarget(HotIndexActionsRequest request) {
 		Optional<HotTarget> target = hotMetadataView.findTargetByName(request.targetName());
+		if (target.isPresent()) {
+			return Future.succeededFuture(target.get().route(request));
+		}
 
-		return target
-			.<HotRouteResult>map(found -> found.route(request))
-			.orElseGet(() -> HotRouteResult.Miss.builder()
-				.withReason("Hot target not found")
-				.build());
+		return hotMetadataView.refreshHotTargetByName(request.targetName())
+			.map(loaded -> loaded
+				.<HotRouteResult>map(found -> found.route(request))
+				.orElseGet(() -> HotRouteResult.Miss.builder()
+					.withReason("Hot target not found")
+					.build()));
 	}
 
 	private HotRouteResult routeDirect(HotIndexActionsRequest request) {
@@ -141,7 +152,7 @@ public class HotIndexActionsService {
 				.map(entry -> RoutedIndexActions.builder()
 					.withIndexerId(entry.getKey().id())
 					.withTargetId(entry.getKey().targetId())
-					.withIndexerVersion(0L)
+					.withIndexerVersion(entry.getKey().version())
 					.withQueueName(entry.getKey().queueName())
 					.withActions(entry.getValue())
 					.build())

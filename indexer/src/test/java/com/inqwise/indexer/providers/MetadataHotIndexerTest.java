@@ -95,6 +95,7 @@ class MetadataHotIndexerTest {
 
 				assertEquals(1, routed.getTargetId());
 				assertEquals(found.get().model().getId(), routed.getIndexerId());
+				assertEquals(found.get().model().getVersion(), hotIndexer.version());
 				assertEquals("customers-a", routed.getIndexName());
 				assertEquals("Ada", routed.getDocument().getString("name"));
 				testContext.completeNow();

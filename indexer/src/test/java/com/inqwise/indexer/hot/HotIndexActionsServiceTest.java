@@ -121,6 +121,37 @@ class HotIndexActionsServiceTest {
 	}
 
 	@Test
+	void lazyLoadsTargetEnvelopeOnHotRouteMiss(VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository repository =
+			new InMemoryDocumentStoreMetadataRepository();
+		RecordingQueue queue = new RecordingQueue();
+		RecordingCommandService commandService = new RecordingCommandService();
+		DefaultHotMetadataView view = view(repository);
+		HotIndexActionsService service = service(view, queue, commandService);
+
+		insertReadyMonthlyTargetWithIndexer(repository)
+			.compose(ignored -> service.submit(new HotIndexActionsRequest(
+				"customers",
+				Instant.parse("2026-05-18T10:15:00Z"),
+				List.of(IndexerActionItems.putDocument(
+					"42",
+					new JsonObject().put("name", "Ada")
+				))
+			)))
+			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
+				assertEquals(1, queue.published.size());
+				assertEquals(0, commandService.submitted.size());
+				assertTrue(view.findTargetByName("customers").isPresent());
+				assertTrue(view.findIndexerById(1).isPresent());
+				PutDocumentActionItem put = (PutDocumentActionItem) queue.published.get(0);
+				assertEquals(1, put.getTargetId());
+				assertEquals(1, put.getIndexerId());
+				assertEquals("customers-index", put.getIndexName());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
 	void fallsBackUnchangedWhenHotTargetMissing(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository repository =
 			new InMemoryDocumentStoreMetadataRepository();

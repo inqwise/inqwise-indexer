@@ -230,7 +230,7 @@ class AdminRestVerticleTest {
 					"/admin/routing/target-invalidations?max=10"
 				);
 			})
-			.onComplete(testContext.succeeding(invalidationsBody -> testContext.verify(() -> {
+			.compose(invalidationsBody -> {
 				JsonObject invalidations = invalidationsBody.toJsonObject();
 				assertEquals(1, invalidations.getJsonArray("target_invalidations").size());
 				assertEquals(
@@ -239,6 +239,16 @@ class AdminRestVerticleTest {
 						.getJsonObject(0)
 						.getInteger("target_id")
 				);
+				return get(
+					vertx,
+					restVerticle.actualPort(),
+					"/admin/routing/hot-targets?max=10"
+				);
+			})
+			.onComplete(testContext.succeeding(hotTargetsBody -> testContext.verify(() -> {
+				JsonObject hotTargets = hotTargetsBody.toJsonObject();
+				assertEquals(0, hotTargets.getJsonArray("hot_targets").size());
+				assertEquals(false, hotTargets.getBoolean("truncated"));
 				testContext.completeNow();
 			})));
 	}

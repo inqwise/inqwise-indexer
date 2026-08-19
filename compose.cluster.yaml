@@ -27,9 +27,9 @@ services:
         -Dindexer.cluster.name=${INDEXER_CLUSTER_NAME:-inqwise-indexer-local}
         -Dindexer.cluster.members=${INDEXER_CLUSTER_MEMBERS:-indexer-node:5701}
         -Dhazelcast.local.localAddress=${INDEXER_HAZELCAST_HOST:-0.0.0.0}
-        -Dhazelcast.local.publicAddress=${INDEXER_HAZELCAST_PUBLIC_ADDRESS:-127.0.0.1:5701}
+        -Dhazelcast.local.publicAddress=${INDEXER_HAZELCAST_PUBLIC_ADDRESS:-127.0.0.1:5702}
     ports:
-      - "${INDEXER_HAZELCAST_FORWARD_HOST:-127.0.0.1}:${INDEXER_HAZELCAST_FORWARD_PORT:-5701}:5701"
+      - "${INDEXER_HAZELCAST_FORWARD_HOST:-127.0.0.1}:${INDEXER_HAZELCAST_FORWARD_PORT:-5702}:5701"
       - "${INDEXER_CLUSTER_FORWARD_HOST:-127.0.0.1}:${INDEXER_CLUSTER_FORWARD_PORT:-15701}:${INDEXER_CLUSTER_PORT:-15701}"
     volumes:
       - ./deployment/local/hazelcast.xml:/config/hazelcast.xml:ro

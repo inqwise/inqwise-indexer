@@ -130,6 +130,23 @@ test("uses generated DTOs instead of handwritten dashboard response models", asy
   assert.doesNotMatch(source, /getJson</);
 });
 
+test("uses node-local hot routing diagnostics for target state", async () => {
+  const app = await readFile(
+    new URL("../src/App.tsx", import.meta.url),
+    "utf8",
+  );
+  const details = await readFile(
+    new URL("../src/components/CatalogDetailPanel.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(app, /hotTargets\(signal\)/);
+  assert.match(app, /hotTargetsById\.get\(target\.id\)/);
+  assert.match(details, /actual hot writer/);
+  assert.match(details, /not loaded in the node-local hot routing view/);
+  assert.doesNotMatch(app, /LIVE_WRITER.*WRITABLE|WRITABLE.*LIVE_WRITER/s);
+});
+
 test("provides catalog filters and accessible entity details", async () => {
   const app = await readFile(
     new URL("../src/App.tsx", import.meta.url),

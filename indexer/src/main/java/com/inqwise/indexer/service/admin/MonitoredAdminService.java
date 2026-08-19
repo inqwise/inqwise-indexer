@@ -61,6 +61,11 @@ final class MonitoredAdminService implements AdminService {
 	}
 
 	@Override
+	public Future<AdminHotTargetListResult> listHotTargets(int maxTargets) {
+		return delegate.listHotTargets(maxTargets);
+	}
+
+	@Override
 	public Future<AdminNodeStatusResult> nodeStatus() {
 		return delegate.nodeStatus();
 	}

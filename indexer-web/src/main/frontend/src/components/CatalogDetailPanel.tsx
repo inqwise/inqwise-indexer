@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 
 import type {
+  HotTarget,
   Indexer,
   RuntimeIndexer,
   Target,
@@ -9,6 +10,11 @@ import type {
 import EntityLink from "./EntityLink";
 
 type CatalogDetailPanelProps = {
+  hotRoutingDiagnostic: {
+    state: "checking" | "online" | "degraded";
+    error: string | null;
+  };
+  hotTarget: HotTarget | null;
   target: Target | null;
   indexer: Indexer | null;
   indexerTarget: Target | null;
@@ -28,6 +34,8 @@ type CatalogDetailPanelProps = {
 };
 
 export default function CatalogDetailPanel({
+  hotRoutingDiagnostic,
+  hotTarget,
   target,
   indexer,
   indexerTarget,
@@ -142,6 +150,8 @@ export default function CatalogDetailPanel({
             }
           }}
           pending={targetRecoveryPending}
+          hotRoutingDiagnostic={hotRoutingDiagnostic}
+          hotTarget={hotTarget}
           relatedIndexers={relatedIndexers}
           target={target}
           onIndexerSelect={onIndexerSelect}
@@ -239,6 +249,8 @@ export default function CatalogDetailPanel({
 }
 
 function TargetDetails({
+  hotRoutingDiagnostic,
+  hotTarget,
   target,
   relatedIndexers,
   pending,
@@ -246,6 +258,8 @@ function TargetDetails({
   onIndexerSelect,
   onRecover,
 }: {
+  hotRoutingDiagnostic: CatalogDetailPanelProps["hotRoutingDiagnostic"];
+  hotTarget: HotTarget | null;
   target: Target;
   relatedIndexers: Indexer[];
   pending: boolean;
@@ -284,7 +298,58 @@ function TargetDetails({
         />
         <Detail label="Created" value={formatDateTime(target.created_at)} />
         <Detail label="Updated" value={formatDateTime(target.updated_at)} />
+        <Detail
+          label="Hot routing"
+          value={hotRoutingLabel(hotRoutingDiagnostic.state, hotTarget)}
+        />
       </div>
+      <section className="related-entities" aria-labelledby="hot-indexers-title">
+        <div className="related-entities__header">
+          <div>
+            <span className="eyebrow">Node-local routing</span>
+            <h3 id="hot-indexers-title">Hot indexers</h3>
+          </div>
+          <span>
+            {hotRoutingDiagnostic.state === "online" && hotTarget
+              ? `${hotTarget.hot_indexer_ids.length}${hotTarget.indexers_truncated ? "+" : ""}`
+              : "—"}
+          </span>
+        </div>
+        {hotRoutingDiagnostic.state === "checking" ? (
+          <p>Checking the node-local hot routing view.</p>
+        ) : hotRoutingDiagnostic.state === "degraded" ? (
+          <p>Hot routing state is unavailable from this node.</p>
+        ) : !hotTarget ? (
+          <p>This target is not loaded in the node-local hot routing view.</p>
+        ) : hotTarget.hot_indexer_ids.length === 0 ? (
+          <p>This target is loaded, but it has no hot indexers.</p>
+        ) : (
+          <div className="related-entities__list">
+            {hotTarget.hot_indexer_ids.map((indexerId) => {
+              const indexer = relatedIndexers.find(
+                (candidate) => candidate.id === indexerId,
+              );
+              return indexer ? (
+                <EntityLink
+                  destination={{ kind: "indexer", id: indexer.id }}
+                  key={indexer.id}
+                  onNavigate={() => onIndexerSelect(indexer.id)}
+                >
+                  <span>
+                    <strong>{indexer.index_name}</strong>
+                    <small>#{indexer.id} · actual hot writer</small>
+                  </span>
+                  <span aria-hidden="true">→</span>
+                </EntityLink>
+              ) : (
+                <span className="entity-reference-missing" key={indexerId}>
+                  Hot indexer #{indexerId} is absent from the catalog response
+                </span>
+              );
+            })}
+          </div>
+        )}
+      </section>
       <section className="related-entities" aria-labelledby="related-indexers-title">
         <div className="related-entities__header">
           <div>
@@ -347,6 +412,25 @@ function TargetDetails({
       )}
     </>
   );
+}
+
+function hotRoutingLabel(
+  state: CatalogDetailPanelProps["hotRoutingDiagnostic"]["state"],
+  hotTarget: HotTarget | null,
+): string {
+  if (state === "checking") {
+    return "Checking";
+  }
+  if (state === "degraded") {
+    return "Unavailable";
+  }
+  if (!hotTarget) {
+    return "Not loaded";
+  }
+  if (hotTarget.hot_indexer_ids.length === 0) {
+    return "Loaded · no hot indexers";
+  }
+  return `Hot · ${hotTarget.hot_indexer_ids.length}${hotTarget.indexers_truncated ? "+" : ""} indexers`;
 }
 
 function IndexerDetails({

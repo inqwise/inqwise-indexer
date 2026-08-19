@@ -356,6 +356,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/routing/hot-targets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listHotTargets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/node/status": {
         parameters: {
             query?: never;
@@ -510,6 +526,16 @@ export interface components {
             version: number;
             /** Format: date-time */
             expires_at: string;
+        };
+        AdminHotTargetList: {
+            hot_targets: components["schemas"]["AdminHotTargetView"][];
+            truncated: boolean;
+        };
+        AdminHotTargetView: {
+            target_id: number;
+            target_name: string;
+            hot_indexer_ids: number[];
+            indexers_truncated: boolean;
         };
         AdminNodeStatus: {
             started: boolean;
@@ -1336,6 +1362,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminTargetInvalidationList"];
+                };
+            };
+            default: components["responses"]["ErrorResponse"];
+        };
+    };
+    listHotTargets: {
+        parameters: {
+            query?: {
+                max?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Node-local targets loaded in the hot routing view. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminHotTargetList"];
                 };
             };
             default: components["responses"]["ErrorResponse"];

@@ -40,10 +40,13 @@ import com.inqwise.indexer.routing.InvalidRouteRecord;
 import com.inqwise.indexer.routing.InvalidRouteSignature;
 import com.inqwise.indexer.lifecycle.TargetInvalidationEntries;
 import com.inqwise.indexer.lifecycle.TargetInvalidationRegistry;
+import com.inqwise.indexer.hot.HotRoutingDiagnostics;
 
 import io.vertx.core.Future;
 
 public class AdminServiceImpl implements AdminService {
+	private static final int MAX_HOT_TARGETS = 1_000;
+	private static final int MAX_HOT_INDEXERS_PER_TARGET = 100;
 	private final DocumentStoreMetadataRepository repository;
 	private final MetadataChangeNotifier metadataChangeNotifier;
 	private final IndexerManagementService indexerManagementService;
@@ -56,6 +59,7 @@ public class AdminServiceImpl implements AdminService {
 	private final IndexerDefinitionProvider indexerDefinitionProvider;
 	private final InvalidRouteCache invalidRouteCache;
 	private final TargetInvalidationRegistry targetInvalidationRegistry;
+	private final HotRoutingDiagnostics hotRoutingDiagnostics;
 	private final AdminNodeStatusSource nodeStatusSource;
 	private final AdminNodeRecovery nodeRecovery;
 	private final AdminInfrastructureStatusSource infrastructureStatusSource;
@@ -221,6 +225,42 @@ public class AdminServiceImpl implements AdminService {
 		AdminInfrastructureStatusSource infrastructureStatusSource,
 		AdminNodeRecovery nodeRecovery
 	) {
+		this(
+			repository,
+			metadataChangeNotifier,
+			queueResources,
+			targetDefinitionProvider,
+			indexerDefinitionProvider,
+			documentIndexResources,
+			commandService,
+			indexerOperations,
+			monitor,
+			invalidRouteCache,
+			targetInvalidationRegistry,
+			nodeStatusSource,
+			infrastructureStatusSource,
+			nodeRecovery,
+			EmptyHotRoutingDiagnostics.INSTANCE
+		);
+	}
+
+	public AdminServiceImpl(
+		DocumentStoreMetadataRepository repository,
+		MetadataChangeNotifier metadataChangeNotifier,
+		IndexerQueueResourceManager queueResources,
+		TargetDefinitionProvider targetDefinitionProvider,
+		IndexerDefinitionProvider indexerDefinitionProvider,
+		IndexerDocumentIndexResourceManager documentIndexResources,
+		CommandService commandService,
+		IndexerOperations indexerOperations,
+		IndexerOperationalMonitor monitor,
+		InvalidRouteCache invalidRouteCache,
+		TargetInvalidationRegistry targetInvalidationRegistry,
+		AdminNodeStatusSource nodeStatusSource,
+		AdminInfrastructureStatusSource infrastructureStatusSource,
+		AdminNodeRecovery nodeRecovery,
+		HotRoutingDiagnostics hotRoutingDiagnostics
+	) {
 		this.repository = Objects.requireNonNull(repository, "repository");
 		this.metadataChangeNotifier = Objects.requireNonNull(
 			metadataChangeNotifier,
@@ -241,6 +281,9 @@ public class AdminServiceImpl implements AdminService {
 		this.targetInvalidationRegistry = targetInvalidationRegistry == null
 			? EmptyTargetInvalidationRegistry.INSTANCE
 			: targetInvalidationRegistry;
+		this.hotRoutingDiagnostics = hotRoutingDiagnostics == null
+			? EmptyHotRoutingDiagnostics.INSTANCE
+			: hotRoutingDiagnostics;
 		this.nodeStatusSource = nodeStatusSource == null
 			? EmptyNodeStatusSource.INSTANCE
 			: nodeStatusSource;
@@ -421,6 +464,28 @@ public class AdminServiceImpl implements AdminService {
 					.withTruncated(entries.truncated())
 					.build())
 				.recover(error -> Future.failedFuture(IndexerErrors.normalize(error)));
+		} catch (Throwable error) {
+			return Future.failedFuture(IndexerErrors.normalize(error));
+		}
+	}
+
+	@Override
+	public Future<AdminHotTargetListResult> listHotTargets(int maxTargets) {
+		try {
+			int limit = Math.min(
+				validatedMax(maxTargets, "maxTargets"),
+				MAX_HOT_TARGETS
+			);
+			var snapshot = hotRoutingDiagnostics.snapshot(
+				limit,
+				MAX_HOT_INDEXERS_PER_TARGET
+			);
+			return Future.succeededFuture(AdminHotTargetListResult.builder()
+				.withHotTargets(snapshot.targets().stream()
+					.map(AdminHotTargetView::from)
+					.toList())
+				.withTruncated(snapshot.truncated())
+				.build());
 		} catch (Throwable error) {
 			return Future.failedFuture(IndexerErrors.normalize(error));
 		}

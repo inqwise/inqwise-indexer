@@ -10,6 +10,7 @@ import com.inqwise.indexer.commands.CommandEngine;
 import com.inqwise.indexer.provisioning.definitions.IndexerDefinitionProvider;
 import com.inqwise.indexer.catalog.targets.TargetDefinitionProvider;
 import com.inqwise.indexer.hot.HotIndexActionsService;
+import com.inqwise.indexer.hot.HotRoutingDiagnostics;
 import com.inqwise.indexer.routing.InvalidRouteCache;
 import com.inqwise.indexer.hot.InvalidRouteMetadataChangeListener;
 import com.inqwise.indexer.hot.TargetInvalidationMetadataChangeListener;
@@ -21,6 +22,7 @@ import com.inqwise.indexer.provisioning.IndexerDocumentIndexResourceManager;
 
 public record IndexerNodeComponents(
 	HotIndexActionsService hotIndexActionsService,
+	HotRoutingDiagnostics hotRoutingDiagnostics,
 	IndexerRuntime runtime,
 	IndexerRuntimeReconciler runtimeReconciler,
 	CommandEngine commandEngine,
@@ -44,6 +46,7 @@ public record IndexerNodeComponents(
 
 	public static final class Builder {
 		private HotIndexActionsService hotIndexActionsService;
+		private HotRoutingDiagnostics hotRoutingDiagnostics;
 		private IndexerRuntime runtime;
 		private IndexerRuntimeReconciler runtimeReconciler;
 		private CommandEngine commandEngine;
@@ -66,6 +69,11 @@ public record IndexerNodeComponents(
 
 		public Builder withHotIndexActionsService(HotIndexActionsService value) {
 			hotIndexActionsService = value;
+			return this;
+		}
+
+		public Builder withHotRoutingDiagnostics(HotRoutingDiagnostics value) {
+			hotRoutingDiagnostics = value;
 			return this;
 		}
 
@@ -160,6 +168,7 @@ public record IndexerNodeComponents(
 		public IndexerNodeComponents build() {
 			return new IndexerNodeComponents(
 				Objects.requireNonNull(hotIndexActionsService, "hotIndexActionsService"),
+				Objects.requireNonNull(hotRoutingDiagnostics, "hotRoutingDiagnostics"),
 				Objects.requireNonNull(runtime, "runtime"),
 				Objects.requireNonNull(runtimeReconciler, "runtimeReconciler"),
 				Objects.requireNonNull(commandEngine, "commandEngine"),

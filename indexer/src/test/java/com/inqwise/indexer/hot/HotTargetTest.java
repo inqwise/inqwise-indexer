@@ -25,7 +25,7 @@ class HotTargetTest {
 	@Test
 	void routesBatchToSingleLiveWriter() {
 		HotTarget target = hotTarget(TargetPeriodStrategy.NONE, List.of(
-			concreteTarget(null, List.of(new FakeHotIndexer(10, 100, "queue-a")))
+			concreteTarget(null, List.of(new FakeHotIndexer(10, 100, "queue-a", 7L)))
 		));
 
 		HotRouteResult result = target.route(new HotIndexActionsRequest(
@@ -37,6 +37,7 @@ class HotTargetTest {
 		HotRouteResult.Routed routed = assertInstanceOf(HotRouteResult.Routed.class, result);
 		assertEquals(1, routed.groups().size());
 		assertEquals(100, routed.groups().get(0).indexerId());
+		assertEquals(7L, routed.groups().get(0).indexerVersion());
 		assertEquals("queue-a", routed.groups().get(0).queueName());
 
 		PutDocumentActionItem put = (PutDocumentActionItem) routed.groups().get(0).actions().get(0);
@@ -144,11 +145,22 @@ class HotTargetTest {
 		private final Integer targetId;
 		private final Integer indexerId;
 		private final String queueName;
+		private final long version;
 
 		private FakeHotIndexer(Integer targetId, Integer indexerId, String queueName) {
+			this(targetId, indexerId, queueName, 1L);
+		}
+
+		private FakeHotIndexer(
+			Integer targetId,
+			Integer indexerId,
+			String queueName,
+			long version
+		) {
 			this.targetId = targetId;
 			this.indexerId = indexerId;
 			this.queueName = queueName;
+			this.version = version;
 		}
 
 		@Override
@@ -159,6 +171,11 @@ class HotTargetTest {
 		@Override
 		public Integer targetId() {
 			return targetId;
+		}
+
+		@Override
+		public long version() {
+			return version;
 		}
 
 		@Override

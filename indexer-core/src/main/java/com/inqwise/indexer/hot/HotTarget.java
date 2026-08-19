@@ -113,7 +113,7 @@ public class HotTarget {
 				.map(entry -> RoutedIndexActions.builder()
 					.withIndexerId(entry.getKey().id())
 					.withTargetId(entry.getKey().targetId())
-					.withIndexerVersion(0L)
+					.withIndexerVersion(entry.getKey().version())
 					.withQueueName(entry.getKey().queueName())
 					.withActions(entry.getValue())
 					.build())
