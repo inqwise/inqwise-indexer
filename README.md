@@ -14,9 +14,9 @@ Vert.x 5.x indexing library with this Maven reactor layout:
 - `indexer-example-hacker-news-actions`: consumer-owned pre-routing action validation and canonicalization over the shared HN model. It contains no target selection, routing, queue, document-store, or report execution logic.
 - `indexer-example-hacker-news-reports`: consumer-owned HN report contracts, codecs, catalog, typed facade, result transformation, and local in-memory query-provider adapter. It contains no polling runtime, launcher, or logging configuration.
 - `indexer-web`: internal React operator console plus its Vert.x static-delivery and same-origin API-proxy boundary. Maven builds the SPA into the module classpath without depending on Indexer domain/runtime code or Gateway.
-- `indexer-node-application`: deployable node boundary. It composes the Indexer node, web verticle, and optional local consumer report services, and owns the Vert.x application launcher, runtime logging implementation, Jib image definition, and container process arguments without adding a project-specific `main()` method or shaded application JAR.
+- `indexer-node-application`: consumer-neutral deployable node boundary. `IndexerNodeApplicationVerticle` remains the root execution verticle and composes the Indexer node, web/load services, and neutral report delivery through a provider-owned runtime. It owns the generic Vert.x launcher, logging, and Jib image without depending on a concrete consumer or exposing node components to deployment code.
 - `indexer-example-hacker-news`: first concrete data-source project. It owns Hacker News change polling, current-item projection, source-side deduplication, and target-action batching. Its ingestion runtime runs as a separate clustered Vert.x application and submits to an Indexer node through the Target Action EventBus service without depending on report execution.
-- `indexer-example-hacker-news-node-application`: optional combined deployment boundary. It starts the existing node composition and HN ingestion as child verticles in one launcher-owned Vert.x instance and packages their complete runtime dependency graph as one executable fat JAR. It does not replace the separate node image or source application.
+- `indexer-example-hacker-news-node-application`: optional combined HN distribution. It packages the generic node, standalone HN source, HN action provider, and HN report provider in one executable fat JAR; its wrapper can start source and node together, but the same artifact can launch the generic root alone while the source runs in another clustered process.
 - `indexer-load`: load/reload orchestration, provider/runtime integration, durable workflow commands, and load-specific metadata around the core indexer primitives.
 - Root `inqwise-indexer`: local aggregator POM only.
 
@@ -32,7 +32,7 @@ Optional presentation is a separate capability from execution. A `PresentedRepor
 
 Published index resolution includes the active manifest schema name and version. Query execution rejects unsupported schemas before provider invocation and groups compatible indexes without deriving identity from physical names. Physical index identities are present only in `DocumentQueryExecution`, where the provider adapter needs them; report definitions receive schema identity and the provider result without index names or indexer/target ids. Request-codec validation is identified explicitly and maps malformed types, fractional numbers, and out-of-range integers to the service's invalid-request contract; unexpected report, provider, and stored-data failures remain internal errors rather than being attributed to the caller. Each current `ReportsFacade` owns one provider and a provider-homogeneous resolver, so provider identity is implicit in composition. Explicit provider/strategy identity is required before any future facade may resolve mixed-provider indexes. Concrete search clients, authentication and trusted-context construction, REST/Gateway exposure, consumer report catalogs, document ingestion validation, action hooks, exports, node wiring, and deployment topology remain outside `indexer-query`. The module does not depend on queue transport, load/reload, runtime workers, `Indexer`, node/application modules, consumers, or concrete document stores.
 
-The dependency direction for this slice is one-way: `indexer-core` provides Publication and runtime contracts; `indexer-query` adds provider-neutral report execution; the shared HN model remains independent; HN actions and reports consume that model from separate write-side and read-side modules; and `indexer-node-application` alone composes the selected consumer capabilities with the local `indexer` adapters. The reports module depends on `indexer` only for its explicitly local `InMemoryIndexerDocumentStore` adapter. Neither `indexer-core`, `indexer-query`, nor `indexer` imports a concrete consumer.
+The dependency direction for this slice is one-way: `indexer-core` provides Publication and runtime contracts; `indexer-query` adds provider-neutral report execution and the `ReportsProviderFactory` SPI; the shared HN model remains independent; and HN actions and reports consume that model from separate write-side and read-side modules. `indexer-node-application` automatically loads every packaged report and target-action preparation provider with `ServiceLoader`, rejects duplicate provider ids, report names, and target registrations, and composes them against its private runtime resources. No report list is selected from configuration. The reports module depends on `indexer` only for its explicitly local in-memory adapter. The generic node artifact contains no HN dependency; the optional HN distribution adds the HN provider artifacts through its own dependencies.
 
 ## Hacker News Example
 
@@ -44,9 +44,9 @@ The `hacker-news.story-authors` report validates a materially different result s
 
 `HackerNewsDocument` and `HackerNewsDocumentCodec` form the shared active-document contract. Ingestion builds the immutable model and validates required ids, type, time, story title, numeric ranges, related ids, and source before encoding the JSON carried by `PutDocumentActionItem`. `LocalHackerNewsQueryProvider` decodes stored JSON through the same contract before filtering or projection, so malformed documents fail as stored-data errors instead of producing weakened results. Unknown extra fields are tolerated but not added to the base model, allowing a future store adapter to append provider-specific enrichment through its own wrapper without changing this consumer codec. Report projections remain separate from the stored model because aggregate and calculated reports do not necessarily return whole documents.
 
-`TargetActionPreparer` is an optional consumer-side boundary invoked by `TargetActionService` after generic request validation and before hot routing. The deployment-owned `TargetActionPreparationRegistry` selects a preparer by target name; the preparer itself remains target-agnostic, and targets without a registration pass through unchanged. Preparation is batch-atomic and must preserve action count and action types. Consumer validation failures become invalid-request failures, while broken preparer contracts remain internal errors. `HackerNewsTargetActionPreparer` validates PUT and REMOVE ids, decodes PUT documents through the shared codec, requires the action uid to match the document id, and emits canonical base JSON. This protects direct Target Action producers as well as the HN ingestion application. Provider/store-specific appended fields remain downstream adapter responsibility and are intentionally removed from submitted base documents. The local node enables this registration explicitly through `hacker_news_actions`, whose deployment configuration owns `target_name`; application code keeps it disabled by default.
+`TargetActionPreparer` is an optional consumer-side boundary invoked by `TargetActionService` after generic request validation and before hot routing. `TargetActionPreparationProvider` contributes target-keyed preparers from packaged artifacts, and the application rejects duplicate provider ids or target registrations; targets without a registration pass through unchanged. Preparation is batch-atomic and must preserve action count and action types. Consumer validation failures become invalid-request failures, while broken preparer contracts remain internal errors. `HackerNewsTargetActionPreparer` validates PUT and REMOVE ids, decodes PUT documents through the shared codec, requires the action uid to match the document id, and emits canonical base JSON. This protects direct Target Action producers as well as the HN ingestion application. Provider/store-specific appended fields remain downstream adapter responsibility and are intentionally removed from submitted base documents. Packaging `indexer-example-hacker-news-actions` activates the fixed `hacker-news` registration automatically; configuration does not select or rename it.
 
-`LocalHackerNewsQueryProvider` is the concrete adapter for the current query scope over `InMemoryIndexerDocumentStore`. It reads defensive per-index snapshots, dispatches the story-search and author-summary capabilities, translates only the known HN source/story filters, and rejects every unknown filter rather than silently weakening trusted scope. Duplicate item ids prefer the later selected index when source timestamps are equal, which is required because HN item timestamps do not advance with score/content updates. `LocalHackerNewsReports.create(...)` composes that adapter, the HN catalog, a supplied Publication resolver, a supplied trusted-context resolver, and the fixed server-side `hacker-news-reports` caller into `ReportsService`. The ingestion verticle never deploys or calls it. The node application can deploy this local service explicitly through `hacker_news_reports`; it is disabled by default in application code and enabled only by the local development configuration. The same configuration deploys the neutral discovery service on `discovery_address`; the HN definitions contribute their user-parameter/result schemas without exposing HN classes to a discovery client. The local execution service currently maps its fixed consumer identity to an unbounded development scope. The consumer module also owns optional OpenAPI REST adapters over its typed facade. They remain separate from `indexer-query` and Gateway and delegate caller-free requests to the configured EventBus `ReportsService` address rather than duplicating report execution. External document stores, deployment-selected authentication/context policy, and public query exposure remain outside the example.
+`LocalHackerNewsQueryProvider` is the concrete adapter for the current query scope over defensive in-memory document snapshots. It dispatches the story-search and author-summary capabilities, translates only the known HN source/story filters, and rejects every unknown filter rather than silently weakening trusted scope. Duplicate item ids prefer the later selected index when source timestamps are equal, which is required because HN item timestamps do not advance with score/content updates. `HackerNewsReportsProviderFactory` contributes the catalog and local execution service automatically when its reports artifact is packaged with the node. The provider receives only the application provider's published-index resolver, snapshot reader, and monitor; it does not receive `IndexerNodeComponents` or a repository. The local execution service currently maps its fixed consumer identity to an unbounded development scope. The consumer-specific typed REST verticle remains an optional delivery adapter and is not auto-deployed; the generic report service and neutral REST contract are the stable remote boundary. External stores require separately scoped provider contexts/adapters rather than access to this in-memory snapshot port.
 
 HN item ids are stable document uids. Live items produce idempotent PUT actions containing the current structured item fields; items marked `dead` or `deleted` produce idempotent REMOVE actions. The source application does not construct or start `IndexerNode`. It obtains `TargetActionService` from `TargetActionServices.proxy(vertx)` and sends batches to the cluster-visible `indexer.service.target-action` address. The separately deployed Indexer node owns target resolution, auto-provisioning, routing, queue transport, runtime processing, and document storage.
 
@@ -66,13 +66,13 @@ Start the Indexer node with the clustered container deployment described under L
 
 Both launchers detect the host address selected by the default network route. Override detection with `INDEXER_PUBLIC_HOST`; use `INDEXER_NODE_HOST` when the node advertises a different address and `INDEXER_HACKER_NEWS_CLUSTER_HOST` when the source must bind another local interface. The node Hazelcast public port defaults to `5702`, and the cluster name defaults to `inqwise-indexer-local`; override them with `INDEXER_HAZELCAST_PUBLIC_PORT` and `INDEXER_CLUSTER_NAME`. The host-side example binds its Hazelcast member to `${INDEXER_HACKER_NEWS_CLUSTER_HOST}:5701`, while the container member remains reachable at `${INDEXER_NODE_HOST}:${INDEXER_HAZELCAST_PUBLIC_PORT}`. Do not use the nonexistent `local-cluster` Maven profile or omit the Hazelcast system properties: either starts an isolated default cluster. A source warning containing `No handlers for address indexer.service.target-action` means the HN launcher cannot see the clustered Indexer node; verify that both Hazelcast member logs report a cluster size of two.
 
-`deployment/local/indexer-node.json` defines the non-periodic `hacker-news` target with auto-provision-on-write. The standalone HN source configuration in `deployment/local/hacker-news.json` places `base_uri`, `poll_interval_ms`, `max_changes_per_poll`, `request_concurrency`, `request_idle_timeout_ms`, and `action_batch_size` directly at its application-config root; repeating the known `hacker_news` application identity as a wrapper is unnecessary. The combined deployment mirrors those flat source settings inside its deployment-owned `client` section. Defaults are a five-second poll, at most 100 changed ids, eight concurrent item requests with a ten-second idle timeout, and 100 actions per submission. One poll is allowed in flight; a timer tick during a slow poll is skipped rather than creating unbounded work. Fingerprints are retained only for the selected update window, so source-side deduplication memory stays bounded.
+`deployment/local/indexer-node.json` defines the non-periodic `hacker-news` target with auto-provision-on-write. The standalone HN source configuration in `deployment/local/hacker-news.json` places `base_uri`, `poll_interval_ms`, `max_changes_per_poll`, `request_concurrency`, `request_idle_timeout_ms`, and `action_batch_size` directly at its application-config root; repeating the known `hacker_news` application identity as a wrapper is unnecessary. The optional combined wrapper reads the same source settings from its `client` section. Defaults are a five-second poll, at most 100 changed ids, eight concurrent item requests with a ten-second idle timeout, and 100 actions per submission. One poll is allowed in flight; a timer tick during a slow poll is skipped rather than creating unbounded work. Fingerprints are retained only for the selected update window, so source-side deduplication memory stays bounded.
 
-This remains a development example. Its fingerprint memory is process-local and is lost on restart. Restarting may replay the current update window, which is safe because document mutations use stable ids. The source exposes no document query API and has no access to the node's document adapter. In the local profile, cluster members can call the report service at `indexer.query.reports`, but every request receives the server-injected `hacker-news-reports` caller and cannot select another consumer through its payload; the host can call the consumer-specific REST adapter through loopback port `8085`. That fixed consumer currently receives a deliberately unbounded scope because the profile has no authenticated identity boundary, so neither transport must be treated as public or production-safe. Production evolution requires source leadership, a durable deduplication/checkpoint store, durable command/queue and document providers, retry/backoff plus API observability, and an authenticated caller/context policy. Each future document-store query implementation remains an independent provider scope rather than a continuation of the in-memory example. LLM-derived product-pain enrichment is the next consumer layer, not part of source ingestion or Indexer runtime state.
+This remains a development example. Its fingerprint memory is process-local and is lost on restart. Restarting may replay the current update window, which is safe because document mutations use stable ids. The source exposes no document query API and has no access to the node's document adapter. When the HN reports artifact is packaged with the node, cluster members can call the generic report service at `indexer.query.reports`; every request receives the provider's server-injected `hacker-news-reports` caller and cannot select another consumer through its payload. That fixed consumer currently receives a deliberately unbounded scope because the profile has no authenticated identity boundary, so the transport must not be treated as public or production-safe. Production evolution requires source leadership, a durable deduplication/checkpoint store, durable command/queue and document providers, retry/backoff plus API observability, and an authenticated caller/context policy. Each future document-store query implementation remains an independent provider scope rather than a continuation of the in-memory example. LLM-derived product-pain enrichment is the next consumer layer, not part of source ingestion or Indexer runtime state.
 
-### Combined Hacker News + Indexer fat JAR
+### Combined Hacker News + Indexer distribution
 
-`indexer-example-hacker-news-node-application` is an additional non-container deployment for local evaluation and distribution as one file. Its application verticle deploys `IndexerNodeApplicationVerticle` first and starts `HackerNewsApplicationVerticle` only after the node is ready. Node settings remain at the combined configuration root; the wrapper removes `client` before passing that root to the node and passes only the copied contents of `client` to ingestion. Both children still share one launcher-created Vert.x instance, EventBus, cluster membership, and shutdown lifecycle. If ingestion startup fails, the already-started node is rolled back. The child modules remain independently runnable; this wrapper adds no second node or ingestion implementation and no custom `main()` method.
+`indexer-example-hacker-news-node-application` is an optional combined distribution packaged as one executable file. Its dependencies contribute the HN providers automatically; its application verticle deploys the unchanged `IndexerNodeApplicationVerticle` first and starts `HackerNewsApplicationVerticle` only after the node is ready. Node settings remain at the combined configuration root; the wrapper removes `client` before passing that root to the node and passes only the copied contents of `client` to ingestion. Both children share one launcher-created Vert.x instance, EventBus, cluster membership, and shutdown lifecycle. If ingestion startup fails, the already-started node is rolled back. The wrapper adds no second node or ingestion implementation and no custom `main()` method.
 
 Build the executable JAR from the repository root:
 
@@ -88,6 +88,20 @@ java -jar indexer-example-hacker-news-node-application/target/inqwise-hacker-new
 	--options deployment/local/vertx-options.json \
 	--conf deployment/local/indexer-node.json
 ```
+
+To keep the HN source in a separate process while retaining HN providers in the
+state-owning node, launch the generic root class from that same JAR:
+
+```sh
+java -jar indexer-example-hacker-news-node-application/target/inqwise-hacker-news-indexer-node.jar \
+	com.inqwise.indexer.node.application.IndexerNodeApplicationVerticle \
+	--cluster \
+	--options deployment/local/vertx-options.json \
+	--conf deployment/local/indexer-node.json
+```
+
+Then launch `indexer-example-hacker-news` independently with matching cluster
+settings. Only the combined wrapper starts ingestion itself.
 
 The same JAR can be one member of an existing Vert.x/Hazelcast network. Supply the same Hazelcast cluster name and TCP seed list used by the other members, bind addresses reachable on the host, and enable the launcher cluster mode:
 
@@ -184,47 +198,33 @@ The console is an internal development and operations surface. Excluding Gateway
 
 ## Local Deployment
 
-The first runnable deployment uses the existing `IndexerNode` composition with in-memory metadata, queue, and document-store adapters. It enables the internal Admin, Target Action, and Runtime REST envelopes, keeps the public Gateway disabled, and loads local `customers` and `hacker-news` target definitions with cold-write auto-provisioning from `deployment/local/indexer-node.json`. It explicitly registers HN action preparation for the `hacker-news` target, and enables one HN `ReportsService` instance at the cluster-visible `indexer.query.reports` EventBus address, sharing the exact metadata repository and in-memory document store created for the node. The neutral adapter exposes discovery/execution on port `8086` for the same-origin console proxy. A consumer-specific REST adapter remains available on loopback port `8085` for typed HN acceptance checks. The application integration contract verifies malformed direct actions are rejected before routing and verifies the document and aggregate read paths with a published target/indexer/manifest and a stored HN document resolved and returned through typed EventBus and HTTP boundaries. Action-preparer selection and report adapters are owned by the application rather than `Indexer`; report components are removed during application shutdown or startup rollback, while the read-side report service remains available during runtime recovery-only mode for already-published data. This profile is for inspection and development only: the endpoints are not Gateway routes, have no caller authentication, use unbounded trusted scope, and all state is discarded when the process stops.
+The default local deployment runs the generic `indexer-node-application` image with in-memory adapters. It enables the internal Admin, Target Action, Runtime, and neutral Reports REST envelopes, keeps Gateway disabled, and loads the local `customers` and `hacker-news` target definitions from `deployment/local/indexer-node.json`. The neutral adapter listens on loopback port `8086`. Because the generic image intentionally contains no consumer providers, report discovery is empty in this topology; adding a target definition never installs its reports or action preparation implicitly.
 
-Prerequisites are Java 21 or newer, Maven, a running Docker-compatible daemon with Compose support, and free loopback ports `3000`, `8080`, `8081`, `8083`, `8084`, `8085`, and `9090`. Build the layered image with Jib and start it from the repository root:
+Prerequisites are Java 21 or newer, Maven, a running Docker-compatible daemon with Compose support, and free loopback ports `3000`, `8080`, `8081`, `8083`, `8084`, `8086`, and `9090`. Build the layered generic image with Jib and start it from the repository root:
 
 ```sh
 ./run-local.sh
 ```
 
-The script installs the dependent reactor modules, builds `inqwise/indexer-node:0.1.0-SNAPSHOT` into the local Docker daemon with Jib, and starts `compose.yaml`. Jib launches `IndexerNodeApplicationVerticle` through `io.vertx.launcher.application.VertxApplication`; that application verticle starts the Indexer node first and then deploys `IndexerWebVerticle` in the same JVM. The `indexer-node-application` image module has no deployment-specific `main()` method and does not itself build an uber JAR; the optional combined fat JAR is owned by the separate module described above. The Java 21 base image is pinned to an approved multi-platform OCI digest; dependency maintenance must update that digest explicitly. Compose mounts the combined node configuration read-only and checks Indexer readiness on port `8084`; the console is exposed from the same container on port `3000`.
+The script installs the dependent reactor modules, builds `inqwise/indexer-node:0.1.0-SNAPSHOT`, and starts `compose.yaml`. Compose mounts the node configuration read-only, checks readiness on port `8084`, and exposes the console on port `3000`.
 
-Query the local HN stories report with its typed JSON contract:
-
-```sh
-curl --request POST http://127.0.0.1:8085/reports/hacker-news/stories \
-	--header 'content-type: application/json' \
-	--data '{"from_inclusive":"2026-08-01T00:00:00Z","to_exclusive":"2026-08-10T00:00:00Z","minimum_score":20,"limit":25}'
-```
-
-The time range is required, `minimum_score` must be non-negative, and `limit` must be positive. The report definition further caps the effective result limit at 100. When the response contains `next_cursor`, repeat the same request criteria with that value in the optional `cursor` field; changing the time range or minimum score is rejected, while changing the page limit is allowed. Pagination uses the current in-memory index contents and does not promise a frozen snapshot when documents change between pages. Cursor semantics remain HN report/provider behavior and do not add a generic pagination model to `indexer-query`. The OpenAPI contract is in `indexer-example-hacker-news-reports/src/main/resources/openapi/hacker-news-reports.yaml`.
-
-Query grouped author summaries through the second consumer-owned operation:
+The HN distribution is an additional packaging option, not a replacement root. Build its executable JAR with:
 
 ```sh
-curl --request POST http://127.0.0.1:8085/reports/hacker-news/story-authors \
-	--header 'content-type: application/json' \
-	--data '{"from_inclusive":"2026-08-01T00:00:00Z","to_exclusive":"2026-08-10T00:00:00Z","minimum_score":20,"limit":10,"order_by":"total_score"}'
+mvn -pl indexer-example-hacker-news-node-application -am package -DskipTests
 ```
 
-For the complete two-process acceptance check, start the clustered node and
-then the source in separate terminals:
+Maven Shade merges the provider service descriptors, so this JAR automatically installs the HN report catalog and `hacker-news` action preparer. Launching `HackerNewsIndexerNodeApplicationVerticle` starts the node and HN source together. Launching `IndexerNodeApplicationVerticle` from the same artifact starts only the node while retaining the packaged HN providers; the standalone `indexer-example-hacker-news` application may then run in another container or process in the same Vert.x cluster. With the current in-memory document store, the report provider must run in the state-owning node process. A separately deployed reports container is not supported until a remote store adapter exists.
+
+HN reports remain available through the neutral `POST /reports/{report_name}/executions` contract on port `8086`; the consumer-specific typed REST verticle is a library adapter and is not automatically deployed. The HN time range is required, `minimum_score` must be non-negative, and `limit` must be positive. Story pagination uses the current in-memory contents and does not promise a frozen snapshot. The optional typed OpenAPI contract remains in `indexer-example-hacker-news-reports/src/main/resources/openapi/hacker-news-reports.yaml` for deployments that explicitly choose that adapter.
+
+For the default generic local acceptance check, start the node:
 
 ```sh
-INDEXER_CLUSTERED=true ./run-local.sh
+./run-local.sh
 ```
 
-```sh
-./run-hacker-news-local.sh
-```
-
-The Hazelcast logs in both terminals must show two members. After the source
-logs an accepted action batch, verify the catalog view owned by the node:
+Verify node readiness and the configured catalog view:
 
 ```sh
 curl -fsS http://127.0.0.1:8084/health/ready
@@ -232,21 +232,19 @@ curl -fsS http://127.0.0.1:8080/admin/targets
 curl -fsS http://127.0.0.1:8080/admin/indexers
 ```
 
-The expected state is one active/ready `hacker-news` target and one
-available/ready/active `LIVE_WRITER` whose `publication_state` is `PUBLISHED`
-and whose `mutation_state` is `WRITABLE`. Query story search with a small
-limit, then send the returned `next_cursor` with otherwise identical criteria;
-the second response must continue after the first page without repeating its
-last story. Query `story-authors` and confirm that it returns the requested
-ordering and limit.
+Before source submissions, the `hacker-news` definition is available but no live
+writer is required. For the separated topology, start the generic node in
+clustered mode and then run `run-hacker-news-local.sh`; the source will submit
+through the clustered Target Action service. This bare generic node accepts the
+actions without HN-specific preparation and exposes no HN reports. To retain HN
+preparation and reports in a separated-source topology, launch the generic root
+from the HN distribution artifact so its provider JARs are on the node classpath.
+Do not also launch the combined wrapper, because that would start a second HN
+poller.
 
-Finally, stop only `run-hacker-news-local.sh`, start it again, and wait for a
-new accepted action batch. Re-read the target and indexer catalogs. The same
-target and physical indexer identities must remain, no second writer may be
-created, publication must remain `PUBLISHED`, and both reports must remain
-queryable. Because source fingerprints are intentionally process-local, this
-restart can replay the current update window; stable document ids make those
-PUTs idempotent.
+All adapters are in memory, so node catalog and document state are not retained
+across restart; source fingerprints are also process-local. Stable document ids
+keep replayed PUTs idempotent within any deployment using durable adapters.
 
 The same image supports an opt-in clustered launch:
 
@@ -254,7 +252,7 @@ The same image supports an opt-in clustered launch:
 INDEXER_CLUSTERED=true ./run-local.sh
 ```
 
-Clustered mode adds `compose.cluster.yaml`. It starts the Vert.x launcher with `--cluster`, fixes the EventBus cluster port, and mounts `deployment/local/hazelcast.xml`. Hazelcast multicast and automatic discovery are disabled; TCP discovery uses members supplied through deployment configuration. The default forms a one-member cluster over the Compose network and does not start or package the Hacker News application. `run-local.sh` detects the address selected by the default network route and uses it for the advertised and forwarded Hazelcast and EventBus endpoints. Set `INDEXER_PUBLIC_HOST` to override detection. A git-ignored root `.env` can persist `INDEXER_CLUSTERED`, `COMPOSE_FILE`, and explicit cluster settings for every agent working in the same checkout. Explicit shell variables take precedence; `INDEXER_CLUSTERED=false ./run-local.sh` explicitly selects standalone `compose.yaml`.
+Clustered mode adds `compose.cluster.yaml`. It starts the generic node launcher with `--cluster`, fixes the EventBus cluster port, and mounts `deployment/local/hazelcast.xml`. Hazelcast multicast and automatic discovery are disabled; TCP discovery uses members supplied through deployment configuration. The default forms a one-member cluster over the Compose network and does not start an HN poller. `run-local.sh` detects the address selected by the default network route and uses it for the advertised and forwarded Hazelcast and EventBus endpoints. Set `INDEXER_PUBLIC_HOST` to override detection. A git-ignored root `.env` can persist `INDEXER_CLUSTERED`, `COMPOSE_FILE`, and explicit cluster settings. Explicit shell variables take precedence; `INDEXER_CLUSTERED=false ./run-local.sh` selects standalone `compose.yaml`.
 
 Cluster settings are deployment variables:
 

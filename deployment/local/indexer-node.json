@@ -32,16 +32,6 @@
 		"host": "0.0.0.0",
 		"port": 8084
 	},
-	"hacker_news_reports": {
-		"enabled": true,
-		"instances": 1,
-		"address": "indexer.query.reports",
-		"discovery_address": "indexer.query.reports.discovery"
-	},
-	"hacker_news_actions": {
-		"enabled": true,
-		"target_name": "hacker-news"
-	},
 	"client": {
 		"base_uri": "https://hacker-news.firebaseio.com/v0",
 		"poll_interval_ms": 5000,
@@ -49,12 +39,6 @@
 		"request_concurrency": 8,
 		"request_idle_timeout_ms": 10000,
 		"action_batch_size": 100
-	},
-	"hacker_news_reports_rest": {
-		"enabled": true,
-		"host": "0.0.0.0",
-		"port": 8085,
-		"reports_address": "indexer.query.reports"
 	},
 	"reports_rest": {
 		"enabled": true,

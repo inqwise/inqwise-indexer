@@ -25,6 +25,7 @@ import com.inqwise.indexer.query.DocumentQueryExecution;
 import com.inqwise.indexer.query.DocumentQueryProvider;
 import com.inqwise.indexer.query.DocumentQueryResult;
 import com.inqwise.indexer.query.QueryFilter;
+import com.inqwise.indexer.query.provider.DocumentSnapshotReader;
 
 import io.vertx.core.Future;
 
@@ -32,9 +33,13 @@ public final class LocalHackerNewsQueryProvider implements DocumentQueryProvider
 	private static final HackerNewsDocumentCodec DOCUMENT_CODEC =
 		new HackerNewsDocumentCodec();
 
-	private final InMemoryIndexerDocumentStore documents;
+	private final DocumentSnapshotReader documents;
 
 	public LocalHackerNewsQueryProvider(InMemoryIndexerDocumentStore documents) {
+		this(Objects.requireNonNull(documents, "documents")::documents);
+	}
+
+	public LocalHackerNewsQueryProvider(DocumentSnapshotReader documents) {
 		this.documents = Objects.requireNonNull(documents, "documents");
 	}
 

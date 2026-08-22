@@ -23,6 +23,14 @@
 			<artifactId>indexer-example-hacker-news</artifactId>
 		</dependency>
 		<dependency>
+			<groupId>com.inqwise.indexer</groupId>
+			<artifactId>indexer-example-hacker-news-actions</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>com.inqwise.indexer</groupId>
+			<artifactId>indexer-example-hacker-news-reports</artifactId>
+		</dependency>
+		<dependency>
 			<groupId>io.vertx</groupId>
 			<artifactId>vertx-launcher-application</artifactId>
 		</dependency>

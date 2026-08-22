@@ -647,7 +647,7 @@ public class IndexerNode {
 		return implementation.getClass().getName();
 	}
 
-	public IndexerNodeComponents components() {
+	IndexerNodeComponents components() {
 		return components;
 	}
 
