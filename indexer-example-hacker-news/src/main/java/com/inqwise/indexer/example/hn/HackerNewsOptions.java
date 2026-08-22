@@ -14,7 +14,6 @@ public record HackerNewsOptions(
 	Duration requestIdleTimeout,
 	int actionBatchSize
 ) {
-	public static final String CONFIG_KEY = "hacker_news";
 	public static final String DEFAULT_BASE_URI = "https://hacker-news.firebaseio.com/v0";
 	public HackerNewsOptions {
 		Objects.requireNonNull(baseUri, "baseUri");
@@ -40,19 +39,17 @@ public record HackerNewsOptions(
 		}
 	}
 
-	public static HackerNewsOptions from(JsonObject rootConfig) {
-		JsonObject config = rootConfig == null
-			? new JsonObject()
-			: rootConfig.getJsonObject(CONFIG_KEY, new JsonObject());
+	public static HackerNewsOptions from(JsonObject config) {
+		JsonObject values = config == null ? new JsonObject() : config;
 		return builder()
-			.withBaseUri(URI.create(config.getString("base_uri", DEFAULT_BASE_URI)))
-			.withPollInterval(Duration.ofMillis(config.getLong("poll_interval_ms", 5_000L)))
-			.withMaxChangesPerPoll(config.getInteger("max_changes_per_poll", 100))
-			.withRequestConcurrency(config.getInteger("request_concurrency", 8))
+			.withBaseUri(URI.create(values.getString("base_uri", DEFAULT_BASE_URI)))
+			.withPollInterval(Duration.ofMillis(values.getLong("poll_interval_ms", 5_000L)))
+			.withMaxChangesPerPoll(values.getInteger("max_changes_per_poll", 100))
+			.withRequestConcurrency(values.getInteger("request_concurrency", 8))
 			.withRequestIdleTimeout(Duration.ofMillis(
-				config.getLong("request_idle_timeout_ms", 10_000L)
+				values.getLong("request_idle_timeout_ms", 10_000L)
 			))
-			.withActionBatchSize(config.getInteger("action_batch_size", 100))
+			.withActionBatchSize(values.getInteger("action_batch_size", 100))
 			.build();
 	}
 

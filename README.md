@@ -16,6 +16,7 @@ Vert.x 5.x indexing library with this Maven reactor layout:
 - `indexer-web`: internal React operator console plus its Vert.x static-delivery and same-origin API-proxy boundary. Maven builds the SPA into the module classpath without depending on Indexer domain/runtime code or Gateway.
 - `indexer-node-application`: deployable node boundary. It composes the Indexer node, web verticle, and optional local consumer report services, and owns the Vert.x application launcher, runtime logging implementation, Jib image definition, and container process arguments without adding a project-specific `main()` method or shaded application JAR.
 - `indexer-example-hacker-news`: first concrete data-source project. It owns Hacker News change polling, current-item projection, source-side deduplication, and target-action batching. Its ingestion runtime runs as a separate clustered Vert.x application and submits to an Indexer node through the Target Action EventBus service without depending on report execution.
+- `indexer-example-hacker-news-node-application`: optional combined deployment boundary. It starts the existing node composition and HN ingestion as child verticles in one launcher-owned Vert.x instance and packages their complete runtime dependency graph as one executable fat JAR. It does not replace the separate node image or source application.
 - `indexer-load`: load/reload orchestration, provider/runtime integration, durable workflow commands, and load-specific metadata around the core indexer primitives.
 - Root `inqwise-indexer`: local aggregator POM only.
 
@@ -65,9 +66,48 @@ Start the Indexer node with the clustered container deployment described under L
 
 Both launchers detect the host address selected by the default network route. Override detection with `INDEXER_PUBLIC_HOST`; use `INDEXER_NODE_HOST` when the node advertises a different address and `INDEXER_HACKER_NEWS_CLUSTER_HOST` when the source must bind another local interface. The node Hazelcast public port defaults to `5702`, and the cluster name defaults to `inqwise-indexer-local`; override them with `INDEXER_HAZELCAST_PUBLIC_PORT` and `INDEXER_CLUSTER_NAME`. The host-side example binds its Hazelcast member to `${INDEXER_HACKER_NEWS_CLUSTER_HOST}:5701`, while the container member remains reachable at `${INDEXER_NODE_HOST}:${INDEXER_HAZELCAST_PUBLIC_PORT}`. Do not use the nonexistent `local-cluster` Maven profile or omit the Hazelcast system properties: either starts an isolated default cluster. A source warning containing `No handlers for address indexer.service.target-action` means the HN launcher cannot see the clustered Indexer node; verify that both Hazelcast member logs report a cluster size of two.
 
-`deployment/local/indexer-node.json` defines the non-periodic `hacker-news` target with auto-provision-on-write. The HN source configuration lives separately under `hacker_news`: `base_uri`, `poll_interval_ms`, `max_changes_per_poll`, `request_concurrency`, `request_idle_timeout_ms`, and `action_batch_size`. Defaults are a five-second poll, at most 100 changed ids, eight concurrent item requests with a ten-second idle timeout, and 100 actions per submission. One poll is allowed in flight; a timer tick during a slow poll is skipped rather than creating unbounded work. Fingerprints are retained only for the selected update window, so source-side deduplication memory stays bounded.
+`deployment/local/indexer-node.json` defines the non-periodic `hacker-news` target with auto-provision-on-write. The standalone HN source configuration in `deployment/local/hacker-news.json` places `base_uri`, `poll_interval_ms`, `max_changes_per_poll`, `request_concurrency`, `request_idle_timeout_ms`, and `action_batch_size` directly at its application-config root; repeating the known `hacker_news` application identity as a wrapper is unnecessary. The combined deployment mirrors those flat source settings inside its deployment-owned `client` section. Defaults are a five-second poll, at most 100 changed ids, eight concurrent item requests with a ten-second idle timeout, and 100 actions per submission. One poll is allowed in flight; a timer tick during a slow poll is skipped rather than creating unbounded work. Fingerprints are retained only for the selected update window, so source-side deduplication memory stays bounded.
 
 This remains a development example. Its fingerprint memory is process-local and is lost on restart. Restarting may replay the current update window, which is safe because document mutations use stable ids. The source exposes no document query API and has no access to the node's document adapter. In the local profile, cluster members can call the report service at `indexer.query.reports`, but every request receives the server-injected `hacker-news-reports` caller and cannot select another consumer through its payload; the host can call the consumer-specific REST adapter through loopback port `8085`. That fixed consumer currently receives a deliberately unbounded scope because the profile has no authenticated identity boundary, so neither transport must be treated as public or production-safe. Production evolution requires source leadership, a durable deduplication/checkpoint store, durable command/queue and document providers, retry/backoff plus API observability, and an authenticated caller/context policy. Each future document-store query implementation remains an independent provider scope rather than a continuation of the in-memory example. LLM-derived product-pain enrichment is the next consumer layer, not part of source ingestion or Indexer runtime state.
+
+### Combined Hacker News + Indexer fat JAR
+
+`indexer-example-hacker-news-node-application` is an additional non-container deployment for local evaluation and distribution as one file. Its application verticle deploys `IndexerNodeApplicationVerticle` first and starts `HackerNewsApplicationVerticle` only after the node is ready. Node settings remain at the combined configuration root; the wrapper removes `client` before passing that root to the node and passes only the copied contents of `client` to ingestion. Both children still share one launcher-created Vert.x instance, EventBus, cluster membership, and shutdown lifecycle. If ingestion startup fails, the already-started node is rolled back. The child modules remain independently runnable; this wrapper adds no second node or ingestion implementation and no custom `main()` method.
+
+Build the executable JAR from the repository root:
+
+```sh
+mvn -pl indexer-example-hacker-news-node-application -am package
+```
+
+The result is `indexer-example-hacker-news-node-application/target/inqwise-hacker-news-indexer-node.jar`. It contains the Vert.x application launcher, the node and HN application classes, the Hazelcast cluster manager, logging, the web console, and all transitive runtime dependencies. Start it as a standalone one-process deployment with:
+
+```sh
+java -jar indexer-example-hacker-news-node-application/target/inqwise-hacker-news-indexer-node.jar \
+	com.inqwise.indexer.example.hn.node.application.HackerNewsIndexerNodeApplicationVerticle \
+	--options deployment/local/vertx-options.json \
+	--conf deployment/local/indexer-node.json
+```
+
+The same JAR can be one member of an existing Vert.x/Hazelcast network. Supply the same Hazelcast cluster name and TCP seed list used by the other members, bind addresses reachable on the host, and enable the launcher cluster mode:
+
+```sh
+java \
+	-Dvertx.hazelcast.config=deployment/local/hazelcast.xml \
+	-Dindexer.cluster.name=inqwise-indexer-local \
+	-Dindexer.cluster.members=10.0.0.10:5701,10.0.0.11:5701 \
+	-Dhazelcast.local.localAddress=10.0.0.12 \
+	-jar indexer-example-hacker-news-node-application/target/inqwise-hacker-news-indexer-node.jar \
+	com.inqwise.indexer.example.hn.node.application.HackerNewsIndexerNodeApplicationVerticle \
+	--cluster \
+	--cluster-host 10.0.0.12 \
+	--options deployment/local/vertx-options.json \
+	--conf deployment/local/indexer-node.json
+```
+
+Replace the example addresses with reachable member addresses. For NAT or port forwarding, also set Hazelcast `hazelcast.local.publicAddress` and the launcher `--cluster-public-host`/`--cluster-public-port`. A missing cluster manager is a packaging or classpath error; the fat JAR already contains `vertx-hazelcast`, so it must not require an adjacent `lib/` directory.
+
+Run exactly one combined fat-JAR process in the current local profile. Each instance owns an HN poller with only process-local fingerprints, so multiple combined instances duplicate source polling and need an elected source leader plus durable checkpoints before they are a supported topology. More importantly, joining a cluster proves discovery and remote EventBus communication but does not make the current in-memory metadata, queue, command, and document adapters shared or durable. Do not operate multiple state-owning Indexer nodes as one coherent production cluster until those adapters are replaced. The separated Kubernetes/container deployment is a distinct follow-up and is not part of this fat-JAR module.
 
 ## Internal Web Console
 
@@ -152,7 +192,7 @@ Prerequisites are Java 21 or newer, Maven, a running Docker-compatible daemon wi
 ./run-local.sh
 ```
 
-The script installs the dependent reactor modules, builds `inqwise/indexer-node:0.1.0-SNAPSHOT` into the local Docker daemon with Jib, and starts `compose.yaml`. Jib launches `IndexerNodeApplicationVerticle` through `io.vertx.launcher.application.VertxApplication`; that application verticle starts the Indexer node first and then deploys `IndexerWebVerticle` in the same JVM. The project has no deployment-specific `main()` method and does not build an uber JAR. The Java 21 base image is pinned to an approved multi-platform OCI digest; dependency maintenance must update that digest explicitly. Compose mounts the combined node configuration read-only and checks Indexer readiness on port `8084`; the console is exposed from the same container on port `3000`.
+The script installs the dependent reactor modules, builds `inqwise/indexer-node:0.1.0-SNAPSHOT` into the local Docker daemon with Jib, and starts `compose.yaml`. Jib launches `IndexerNodeApplicationVerticle` through `io.vertx.launcher.application.VertxApplication`; that application verticle starts the Indexer node first and then deploys `IndexerWebVerticle` in the same JVM. The `indexer-node-application` image module has no deployment-specific `main()` method and does not itself build an uber JAR; the optional combined fat JAR is owned by the separate module described above. The Java 21 base image is pinned to an approved multi-platform OCI digest; dependency maintenance must update that digest explicitly. Compose mounts the combined node configuration read-only and checks Indexer readiness on port `8084`; the console is exposed from the same container on port `3000`.
 
 Query the local HN stories report with its typed JSON contract:
 

@@ -101,6 +101,21 @@
 				<artifactId>indexer-example-hacker-news-reports</artifactId>
 				<version>${project.version}</version>
 			</dependency>
+			<dependency>
+				<groupId>com.inqwise.indexer</groupId>
+				<artifactId>indexer-example-hacker-news</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>com.inqwise.indexer</groupId>
+				<artifactId>indexer-node-application</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>com.inqwise.indexer</groupId>
+				<artifactId>indexer-example-hacker-news-node-application</artifactId>
+				<version>${project.version}</version>
+			</dependency>
 		</dependencies>
 	</dependencyManagement>
 </project>

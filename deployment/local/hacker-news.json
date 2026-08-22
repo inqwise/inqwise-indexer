@@ -1,10 +1,8 @@
 {
-	"hacker_news": {
-		"base_uri": "https://hacker-news.firebaseio.com/v0",
-		"poll_interval_ms": 5000,
-		"max_changes_per_poll": 100,
-		"request_concurrency": 8,
-		"request_idle_timeout_ms": 10000,
-		"action_batch_size": 100
-	}
+	"base_uri": "https://hacker-news.firebaseio.com/v0",
+	"poll_interval_ms": 5000,
+	"max_changes_per_poll": 100,
+	"request_concurrency": 8,
+	"request_idle_timeout_ms": 10000,
+	"action_batch_size": 100
 }
