@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.Duration;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import com.inqwise.indexer.commands.Command;
@@ -14,6 +16,7 @@ import com.inqwise.indexer.commands.CommandFailureKind;
 import com.inqwise.indexer.commands.CommandHandler;
 import com.inqwise.indexer.commands.CommandHandlerRegistry;
 import com.inqwise.indexer.commands.CommandProcessor;
+import com.inqwise.indexer.commands.CommandRetryPolicy;
 import com.inqwise.indexer.routing.IndexerPublishingRouteException;
 
 import org.junit.jupiter.api.Test;
@@ -104,6 +107,71 @@ class InMemoryCommandEngineTest {
 	}
 
 	@Test
+	void retriesRetryableFailureUntilHandlerSucceeds(VertxTestContext testContext) {
+		TestCommand command = new TestCommand("test.retry", new JsonObject());
+		AtomicInteger attempts = new AtomicInteger();
+		InMemoryCommandEngine service = new InMemoryCommandEngine(
+			new CommandHandlerRegistry()
+				.register(new CommandHandler() {
+					@Override
+					public String getType() {
+						return "test.retry";
+					}
+
+					@Override
+					public Future<Void> handle(Command command) {
+						return attempts.incrementAndGet() == 1
+							? Future.failedFuture(new IndexerPublishingRouteException(
+								"Runtime indexer is not active locally: 1"
+							))
+							: Future.succeededFuture();
+					}
+				}),
+			InMemoryCommandEngine.failureClassifier(),
+			retryPolicy(3)
+		);
+
+		service.submit(command)
+			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
+				assertEquals(2, attempts.get());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void failsAfterRetryableAttemptsAreExhausted(VertxTestContext testContext) {
+		TestCommand command = new TestCommand("test.exhausted", new JsonObject());
+		AtomicInteger attempts = new AtomicInteger();
+		IndexerPublishingRouteException error = new IndexerPublishingRouteException(
+			"Runtime indexer is not active locally: 1"
+		);
+		InMemoryCommandEngine service = new InMemoryCommandEngine(
+			new CommandHandlerRegistry()
+				.register(new CommandHandler() {
+					@Override
+					public String getType() {
+						return "test.exhausted";
+					}
+
+					@Override
+					public Future<Void> handle(Command command) {
+						attempts.incrementAndGet();
+						return Future.failedFuture(error);
+					}
+				}),
+			InMemoryCommandEngine.failureClassifier(),
+			retryPolicy(2)
+		);
+
+		service.submit(command)
+			.onComplete(testContext.failing(failure -> testContext.verify(() -> {
+				assertSame(error, failure);
+				assertEquals(2, attempts.get());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
 	void classifiesRuntimePublishingRouteFailureAsRetryable(
 		VertxTestContext testContext
 	) {
@@ -172,6 +240,16 @@ class InMemoryCommandEngineTest {
 				assertSame(error, failed.error());
 				testContext.completeNow();
 			})));
+	}
+
+	private CommandRetryPolicy retryPolicy(int maxAttempts) {
+		return CommandRetryPolicy.builder()
+			.withMaxAttempts(maxAttempts)
+			.withInitialDelay(Duration.ZERO)
+			.withMaximumDelay(Duration.ZERO)
+			.withMultiplier(1)
+			.withJitterRatio(0)
+			.build();
 	}
 
 	private record TestCommand(String type, JsonObject json) implements Command {
