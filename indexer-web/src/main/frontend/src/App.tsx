@@ -44,23 +44,14 @@ import EntityLink from "./components/EntityLink";
 import NodeDiagnosticsView from "./components/NodeDiagnosticsView";
 import OperationalIssuesView from "./components/OperationalIssuesView";
 import ReportsView from "./components/ReportsView";
+import SystemHierarchyView from "./components/SystemHierarchyView";
 
 type HealthState = "checking" | "online" | "offline";
 type IndexerRuntimeFilter = Indexer["runtime_state"] | "ALL";
 type IndexerPublicationFilter = Indexer["publication_state"] | "ALL";
 type TargetProvisioningFilter = Target["provisioning_state"] | "ALL";
 type PollInterval = 0 | 15_000 | 30_000 | 60_000;
-type DashboardSection =
-  | "overview"
-  | "targets"
-  | "indexers"
-  | "runtime"
-  | "metrics"
-  | "issues"
-  | "diagnostics"
-  | "definitions"
-  | "loads"
-  | "reports";
+type DashboardSection = "local" | "system";
 type CatalogPageSize = 10 | 25 | 50;
 type IndexerSort =
   | "NAME_ASC"
@@ -179,18 +170,15 @@ const DEFINITION_SERVICE_LABELS: Record<DefinitionServiceName, string> = {
 const DEFAULT_POLL_INTERVAL: PollInterval = 15_000;
 const POLL_INTERVALS: readonly PollInterval[] = [0, 15_000, 30_000, 60_000];
 const CATALOG_PAGE_SIZES: readonly CatalogPageSize[] = [10, 25, 50];
-const DASHBOARD_SECTIONS: readonly DashboardSection[] = [
+const LOCAL_SECTIONS = new Set([
+  "local",
   "overview",
-  "targets",
-  "indexers",
   "runtime",
   "metrics",
   "issues",
   "diagnostics",
-  "definitions",
-  "loads",
-  "reports",
-];
+  "local-diagnostics",
+]);
 
 function statusTone(status: string): "good" | "warn" | "neutral" {
   if (["ACTIVE", "READY", "PUBLISHED", "COMPLETED"].includes(status)) {
@@ -234,29 +222,6 @@ function HotRoutingPill({
     <StatusPill
       value={`HOT · ${hotTarget.hot_indexer_ids.length}${hotTarget.indexers_truncated ? "+" : ""}`}
     />
-  );
-}
-
-function Metric({
-  label,
-  value,
-  detail,
-  accent,
-}: {
-  label: string;
-  value: number | string;
-  detail: string;
-  accent: "cyan" | "violet" | "amber";
-}) {
-  return (
-    <article className={`metric metric--${accent}`}>
-      <div className="metric__topline">
-        <span>{label}</span>
-        <span className="metric__mark" aria-hidden="true" />
-      </div>
-      <strong>{value}</strong>
-      <p>{detail}</p>
-    </article>
   );
 }
 
@@ -367,9 +332,10 @@ function initialPollInterval(): PollInterval {
 
 function currentSection(): DashboardSection {
   const section = window.location.hash.slice(1);
-  return DASHBOARD_SECTIONS.includes(section as DashboardSection)
-    ? (section as DashboardSection)
-    : "overview";
+  if (LOCAL_SECTIONS.has(section)) {
+    return "local";
+  }
+  return "system";
 }
 
 function ageLabel(ageMs: number): string {
@@ -893,31 +859,6 @@ export default function App() {
     };
   }, [documentVisible, load, pollInterval]);
 
-  const activeIndexers = useMemo(
-    () =>
-      data.indexers.filter((indexer) => indexer.runtime_state === "ACTIVE")
-        .length,
-    [data.indexers],
-  );
-
-  const publishedIndexers = useMemo(
-    () =>
-      data.indexers.filter(
-        (indexer) => indexer.publication_state === "PUBLISHED",
-      ).length,
-    [data.indexers],
-  );
-
-  const provisioningIssues = useMemo(
-    () =>
-      data.targets.filter((target) => target.provisioning_state === "FAILED")
-        .length +
-      data.indexers.filter(
-        (indexer) => indexer.provisioning_state === "FAILED",
-      ).length,
-    [data.indexers, data.targets],
-  );
-
   const runtimeComparisonAvailable =
     data.services.indexers.state === "online" &&
     data.services.runtime.state === "online";
@@ -989,25 +930,6 @@ export default function App() {
       ServiceDiagnostic,
     ][]
   ).filter(([, service]) => service.state === "degraded");
-  const degradedDefinitionServices = (
-    Object.entries(data.definitions.services) as [
-      DefinitionServiceName,
-      ServiceDiagnostic,
-    ][]
-  ).filter(([, service]) => service.state === "degraded");
-  const operationalIssues =
-    provisioningIssues +
-    runtimeDrifts.length +
-    degradedServices.length +
-    degradedDiagnosticServices.length +
-    degradedDefinitionServices.length +
-    (data.loadsDiagnostic.state === "degraded" ? 1 : 0) +
-    (data.metricsDiagnostic.state === "degraded" ? 1 : 0) +
-    ((data.metrics?.lifecyclePending ?? 0) > 0 ? 1 : 0) +
-    (!runtimeComparisonAvailable && (data.metrics?.runtimeDrift ?? 0) > 0
-      ? 1
-      : 0);
-
   const filteredIndexers = useMemo(() => {
     const query = indexerSearch.trim().toLowerCase();
     return data.indexers
@@ -1147,6 +1069,24 @@ export default function App() {
       ),
     ),
     [data.diagnostics.hotTargets],
+  );
+  const hotTargetIds = useMemo(
+    () =>
+      new Set(
+        [...hotTargetsById.values()]
+          .filter((target) => target.hot_indexer_ids.length > 0)
+          .map((target) => target.target_id),
+      ),
+    [hotTargetsById],
+  );
+  const hotIndexerIds = useMemo(
+    () =>
+      new Set(
+        [...hotTargetsById.values()].flatMap(
+          (target) => target.hot_indexer_ids,
+        ),
+      ),
+    [hotTargetsById],
   );
   const selectedTarget =
     selectedTargetId === null
@@ -1292,7 +1232,7 @@ export default function App() {
   return (
     <main className="app-shell">
       <aside className="sidebar">
-        <a className="brand" href="#overview" aria-label="Inqwise Indexer home">
+        <a className="brand" href="#system" aria-label="Inqwise Indexer home">
           <span className="brand__glyph">IQ</span>
           <span>
             <strong>Inqwise</strong>
@@ -1302,74 +1242,24 @@ export default function App() {
 
         <nav className="nav" aria-label="Primary navigation">
           <a
-            className={`nav__item${activeSection === "overview" ? " nav__item--active" : ""}`}
-            href="#overview"
-          >
-            <span aria-hidden="true">⌁</span>
-            Overview
-          </a>
-          <a
-            className={`nav__item${activeSection === "targets" ? " nav__item--active" : ""}`}
-            href="#targets"
-          >
-            <span aria-hidden="true">◎</span>
-            Targets
-          </a>
-          <a
-            className={`nav__item${activeSection === "indexers" ? " nav__item--active" : ""}`}
-            href="#indexers"
-          >
-            <span aria-hidden="true">◇</span>
-            Indexers
-          </a>
-          <a
-            className={`nav__item${activeSection === "runtime" ? " nav__item--active" : ""}`}
-            href="#runtime"
+            className={`nav__item${activeSection === "local" ? " nav__item--active" : ""}`}
+            href="#local"
           >
             <span aria-hidden="true">↯</span>
-            Runtime
+            <span className="nav__label">
+              <strong>Local node</strong>
+              <small>Runtime and health</small>
+            </span>
           </a>
           <a
-            className={`nav__item${activeSection === "metrics" ? " nav__item--active" : ""}`}
-            href="#metrics"
+            className={`nav__item${activeSection === "system" ? " nav__item--active" : ""}`}
+            href="#system"
           >
-            <span aria-hidden="true">∿</span>
-            Metrics
-          </a>
-          <a
-            className={`nav__item${activeSection === "issues" ? " nav__item--active" : ""}`}
-            href="#issues"
-          >
-            <span aria-hidden="true">!</span>
-            Issues
-          </a>
-          <a
-            className={`nav__item${activeSection === "diagnostics" ? " nav__item--active" : ""}`}
-            href="#diagnostics"
-          >
-            <span aria-hidden="true">◫</span>
-            Diagnostics
-          </a>
-          <a
-            className={`nav__item${activeSection === "definitions" ? " nav__item--active" : ""}`}
-            href="#definitions"
-          >
-            <span aria-hidden="true">⌘</span>
-            Definitions
-          </a>
-          <a
-            className={`nav__item${activeSection === "loads" ? " nav__item--active" : ""}`}
-            href="#loads"
-          >
-            <span aria-hidden="true">⇄</span>
-            Loads
-          </a>
-          <a
-            className={`nav__item${activeSection === "reports" ? " nav__item--active" : ""}`}
-            href="#reports"
-          >
-            <span aria-hidden="true">▤</span>
-            Reports
+            <span aria-hidden="true">◎</span>
+            <span className="nav__label">
+              <strong>System</strong>
+              <small>Targets and indexers</small>
+            </span>
           </a>
         </nav>
 
@@ -1386,8 +1276,10 @@ export default function App() {
       <section className="workspace">
         <header className="topbar">
           <div>
-            <span className="eyebrow">Operations / Local node</span>
-            <h1>Indexer overview</h1>
+            <span className="eyebrow">
+              {activeSection === "local" ? "Operations / Local node" : "Catalog / System"}
+            </span>
+            <h1>{activeSection === "local" ? "Local node" : "System"}</h1>
           </div>
           <div className="topbar__actions">
             <div
@@ -1437,7 +1329,25 @@ export default function App() {
           </div>
         </header>
 
-        <div className="content" id="overview">
+        <div className="content">
+          <section
+            className="workspace-panel"
+            hidden={activeSection !== "local"}
+            id="local"
+          >
+            <div className="workspace-panel__intro" id="overview">
+              <div>
+                <span className="eyebrow">Node operations</span>
+                <h2>Operational overview</h2>
+                <p>Current service health, indexer flow, runtime convergence, and actionable issues.</p>
+              </div>
+              <nav aria-label="Local node sections" className="subnav">
+                <a href="#metrics">Flow</a>
+                <a href="#runtime">Runtime</a>
+                <a href="#issues">Issues</a>
+                <a href="#local-diagnostics">Diagnostics</a>
+              </nav>
+            </div>
           {degradedServices.length > 0 && (
             <div className="notice" role="status">
               <span className="notice__icon" aria-hidden="true">
@@ -1458,92 +1368,7 @@ export default function App() {
             </div>
           )}
 
-          <section
-            aria-label="Internal service diagnostics"
-            className="service-diagnostics"
-          >
-            {(Object.keys(SERVICE_LABELS) as ServiceName[]).map((name) => {
-              const service = data.services[name];
-              return (
-                <article
-                  className={`service-diagnostic service-diagnostic--${service.state}`}
-                  key={name}
-                >
-                  <span aria-hidden="true" className="service-diagnostic__dot" />
-                  <div>
-                    <strong>{SERVICE_LABELS[name]}</strong>
-                    <small>
-                      {service.state === "checking"
-                        ? "Checking"
-                        : service.state === "online"
-                          ? `Healthy · ${ageLabel(
-                              Math.max(
-                                0,
-                                clock -
-                                  (service.lastSuccess?.getTime() ?? clock),
-                              ),
-                            )}`
-                          : service.lastSuccess
-                            ? `Degraded · last success ${ageLabel(
-                                Math.max(
-                                  0,
-                                  clock - service.lastSuccess.getTime(),
-                                ),
-                              )}`
-                            : "Unavailable"}
-                    </small>
-                  </div>
-                </article>
-              );
-            })}
-          </section>
-
-          <section className="hero">
-            <div>
-              <span className="hero__kicker">Control plane</span>
-              <h2>Everything indexed, visible at a glance.</h2>
-              <p>
-                Monitor target readiness, publication state, and local runtime
-                convergence from one focused operational view.
-              </p>
-            </div>
-            <div className="hero__signal" aria-hidden="true">
-              <span />
-              <span />
-              <span />
-              <i />
-            </div>
-          </section>
-
-          <section className="metrics" aria-label="Indexer metrics">
-            <Metric
-              label="Targets"
-              value={data.targets.length}
-              detail={
-                data.targets.length === 0
-                  ? "No catalog records"
-                  : `${data.targets.filter((target) => target.provisioning_state === "READY").length} ready`
-              }
-              accent="cyan"
-            />
-            <Metric
-              label="Active indexers"
-              value={activeIndexers}
-              detail={`${data.runtimeIndexers.length} attached to this node`}
-              accent="violet"
-            />
-            <Metric
-              label="Published"
-              value={publishedIndexers}
-              detail={
-                operationalIssues === 0
-                  ? "No operational issues"
-                  : `${operationalIssues} need attention`
-              }
-              accent="amber"
-            />
-          </section>
-
+          <div className="local-overview-grid">
           <section
             className="operational-metrics"
             id="metrics"
@@ -1628,6 +1453,45 @@ export default function App() {
             )}
           </section>
 
+          <section className="local-runtime" id="runtime" aria-label="Local runtime">
+            <div className="local-runtime__summary">
+              <div>
+                <span className="eyebrow">Runtime on this node</span>
+                <h3>
+                  {runtimeComparisonAvailable && runtimeDrifts.length === 0
+                    ? "Runtime converged"
+                    : runtimeComparisonAvailable
+                      ? `${runtimeDrifts.length} attachment drift${runtimeDrifts.length === 1 ? "" : "s"}`
+                      : "Runtime status unavailable"}
+                </h3>
+                <p>{data.runtimeIndexers.length} indexers are attached locally.</p>
+              </div>
+            </div>
+            <div className="local-runtime__attachments">
+              {data.runtimeIndexers.slice(0, 6).map((indexer) => (
+                <EntityLink
+                  destination={{ kind: "indexer", id: indexer.indexer_id }}
+                  key={indexer.indexer_id}
+                  onNavigate={() => {
+                    setSelectedTargetId(null);
+                    setSelectedIndexerId(indexer.indexer_id);
+                  }}
+                >
+                  <span aria-hidden="true">◇</span>
+                  <span>
+                    <strong>{indexer.index_name}</strong>
+                    <small>{indexer.target_name}</small>
+                  </span>
+                  <StatusPill value={indexer.runtime_state} />
+                </EntityLink>
+              ))}
+              {data.runtimeIndexers.length === 0 && (
+                <p className="local-runtime__empty">No indexers are attached to this node.</p>
+              )}
+            </div>
+          </section>
+          </div>
+
           <OperationalIssuesView
             indexers={data.indexers}
             metrics={data.metrics}
@@ -1683,34 +1547,86 @@ export default function App() {
             targets={data.targets}
           />
 
-          <NodeDiagnosticsView
-            indexers={data.indexers}
-            infrastructure={data.diagnostics.infrastructure}
-            invalidRoutes={data.diagnostics.invalidRoutes}
-            node={data.diagnostics.node}
-            onRecoverNode={recoverCurrentNode}
-            onSelectIndexer={(id) => {
-              setSelectedTargetId(null);
-              setSelectedIndexerId(id);
-            }}
-            onSelectTarget={(id) => {
-              setSelectedIndexerId(null);
-              setSelectedTargetId(id);
-            }}
-            services={(Object.entries(data.diagnostics.services) as [
-              DiagnosticServiceName,
-              ServiceDiagnostic,
-            ][]).map(([name, diagnostic]) => ({
-              name,
-              label: DIAGNOSTIC_SERVICE_LABELS[name],
-              state: diagnostic.state,
-              error: diagnostic.error,
-            }))}
-            targetInvalidations={data.diagnostics.targetInvalidations}
-            targets={data.targets}
-          />
+          <details className="subpanel" id="local-diagnostics">
+            <summary>
+              <span>
+                <strong>Node diagnostics</strong>
+                <small>Lifecycle, infrastructure, and routing internals</small>
+              </span>
+              <span>{degradedDiagnosticServices.length > 0 ? `${degradedDiagnosticServices.length} unavailable` : "Available"}</span>
+            </summary>
+            <NodeDiagnosticsView
+              indexers={data.indexers}
+              infrastructure={data.diagnostics.infrastructure}
+              invalidRoutes={data.diagnostics.invalidRoutes}
+              node={data.diagnostics.node}
+              onRecoverNode={recoverCurrentNode}
+              onSelectIndexer={(id) => {
+                setSelectedTargetId(null);
+                setSelectedIndexerId(id);
+              }}
+              onSelectTarget={(id) => {
+                setSelectedIndexerId(null);
+                setSelectedTargetId(id);
+              }}
+              services={(Object.entries(data.diagnostics.services) as [
+                DiagnosticServiceName,
+                ServiceDiagnostic,
+              ][]).map(([name, diagnostic]) => ({
+                name,
+                label: DIAGNOSTIC_SERVICE_LABELS[name],
+                state: diagnostic.state,
+                error: diagnostic.error,
+              }))}
+              targetInvalidations={data.diagnostics.targetInvalidations}
+              targets={data.targets}
+            />
+          </details>
+          </section>
 
-          <DefinitionsView
+          <section
+            className="workspace-panel"
+            hidden={activeSection !== "system"}
+            id="system"
+          >
+            <div className="workspace-panel__intro">
+              <div>
+                <span className="eyebrow">Distributed catalog</span>
+                <h2>Catalog overview</h2>
+                <p>Targets form the parent layer; indexers and local attachments sit beneath them.</p>
+              </div>
+              <nav aria-label="System sections" className="subnav">
+                <a href="#targets">Hierarchy</a>
+                <a href="#catalog-explorer">Catalog explorer</a>
+                <a href="#configuration">Configuration</a>
+              </nav>
+            </div>
+
+            <SystemHierarchyView
+              hotIndexerIds={hotIndexerIds}
+              hotTargetIds={hotTargetIds}
+              indexers={data.indexers}
+              onSelectIndexer={(id) => {
+                setSelectedTargetId(null);
+                setSelectedIndexerId(id);
+              }}
+              onSelectTarget={(id) => {
+                setSelectedIndexerId(null);
+                setSelectedTargetId(id);
+              }}
+              runtimeIndexers={data.runtimeIndexers}
+              targets={data.targets}
+            />
+
+          <details className="subpanel" id="configuration">
+            <summary>
+              <span>
+                <strong>Definitions &amp; capabilities</strong>
+                <small>Read-only provider configuration</small>
+              </span>
+              <span>{data.definitions.targets.length + data.definitions.indexers.length} loaded</span>
+            </summary>
+            <DefinitionsView
             indexerDefinitions={data.definitions.indexers}
             onSelectTarget={(id) => {
               setSelectedIndexerId(null);
@@ -1727,9 +1643,18 @@ export default function App() {
             }))}
             targetDefinitions={data.definitions.targets}
             targets={data.targets}
-          />
+            />
+          </details>
 
-          <LoadOperationsView
+          <details className="subpanel">
+            <summary>
+              <span>
+                <strong>Load operations</strong>
+                <small>Recent distributed data movement</small>
+              </span>
+              <span>{data.loads.length} visible</span>
+            </summary>
+            <LoadOperationsView
             diagnostic={data.loadsDiagnostic}
             indexers={data.indexers}
             loads={data.loads}
@@ -1742,14 +1667,32 @@ export default function App() {
               setSelectedTargetId(id);
             }}
             targets={data.targets}
-          />
+            />
+          </details>
 
-          <ReportsView
-            metrics={data.metrics}
-            metricsState={data.metricsDiagnostic.state}
-          />
+          <details className="subpanel">
+            <summary>
+              <span>
+                <strong>Report activity</strong>
+                <small>Statistical execution information</small>
+              </span>
+              <span>{data.metrics?.reports.length ?? 0} reports</span>
+            </summary>
+            <ReportsView
+              metrics={data.metrics}
+              metricsState={data.metricsDiagnostic.state}
+            />
+          </details>
 
-          <div className="dashboard-grid">
+          <details className="subpanel subpanel--catalog" id="catalog-explorer">
+            <summary>
+              <span>
+                <strong>Catalog explorer</strong>
+                <small>Filtering, sorting, and complete record details</small>
+              </span>
+              <span>{data.targets.length + data.indexers.length} records</span>
+            </summary>
+            <div className="dashboard-grid">
             <section className="panel panel--wide" id="indexers">
               <div className="panel__header">
                 <div>
@@ -1937,109 +1880,7 @@ export default function App() {
               )}
             </section>
 
-            <section className="panel" id="runtime">
-              <div className="panel__header">
-                <div>
-                  <span className="eyebrow">Local node</span>
-                  <h3>Runtime</h3>
-                </div>
-                <span className={`live-dot live-dot--${data.health}`} />
-              </div>
-
-              <div className="runtime-summary">
-                <div className="runtime-summary__ring">
-                  <strong>{data.runtimeIndexers.length}</strong>
-                  <span>attached</span>
-                </div>
-                <div>
-                  <p>Reconciler state</p>
-                  <strong>
-                    {data.health !== "online"
-                      ? "Unavailable"
-                      : !runtimeComparisonAvailable
-                        ? "Diagnostics degraded"
-                        : runtimeDrifts.length === 0
-                          ? "Converged"
-                          : `${runtimeDrifts.length} drift${runtimeDrifts.length === 1 ? "" : "s"}`}
-                  </strong>
-                  <small>{updateStatus}</small>
-                </div>
-              </div>
-
-              <div className="runtime-list">
-                {data.runtimeIndexers.slice(0, 4).map((indexer) => (
-                  <div key={indexer.indexer_id}>
-                    <span className="runtime-list__icon">↯</span>
-                    <span>
-                      {indexersById.has(indexer.indexer_id) ? (
-                        <EntityLink
-                          destination={{ kind: "indexer", id: indexer.indexer_id }}
-                          onNavigate={() => {
-                            setSelectedTargetId(null);
-                            setSelectedIndexerId(indexer.indexer_id);
-                          }}
-                        >
-                          <strong>{indexer.index_name}</strong>
-                        </EntityLink>
-                      ) : (
-                        <strong className="entity-reference-missing">
-                          Missing indexer #{indexer.indexer_id}
-                        </strong>
-                      )}
-                      {targetsById.has(indexer.target_id) ? (
-                        <EntityLink
-                          className="entity-link--secondary"
-                          destination={{ kind: "target", id: indexer.target_id }}
-                          onNavigate={() => {
-                            setSelectedIndexerId(null);
-                            setSelectedTargetId(indexer.target_id);
-                          }}
-                        >
-                          <small>{indexer.target_name}</small>
-                        </EntityLink>
-                      ) : (
-                        <small className="entity-reference-missing">
-                          Missing target #{indexer.target_id}
-                        </small>
-                      )}
-                    </span>
-                    <StatusPill value={indexer.runtime_state} />
-                  </div>
-                ))}
-                {data.runtimeIndexers.length === 0 && (
-                  <p className="runtime-list__empty">
-                    No indexers are attached to this node.
-                  </p>
-                )}
-              </div>
-              {runtimeDrifts.length > 0 && (
-                <div className="runtime-drift" role="status">
-                  <span className="eyebrow">Needs convergence</span>
-                  {runtimeDrifts.slice(0, 4).map((drift) => (
-                    <EntityLink
-                      destination={{ kind: "indexer", id: drift.indexerId }}
-                      key={drift.indexerId}
-                      onNavigate={() => {
-                        setSelectedTargetId(null);
-                        setSelectedIndexerId(drift.indexerId);
-                      }}
-                    >
-                      <span>
-                        <strong>{drift.indexName}</strong>
-                        <small>{drift.targetName}</small>
-                      </span>
-                      <em>
-                        {drift.kind === "MISSING_ATTACHMENT"
-                          ? "Not attached"
-                          : "Unexpected attachment"}
-                      </em>
-                    </EntityLink>
-                  ))}
-                </div>
-              )}
-            </section>
-
-            <section className="panel panel--targets" id="targets">
+            <section className="panel panel--targets" id="catalog-targets">
               <div className="panel__header">
                 <div>
                   <span className="eyebrow">Routing destinations</span>
@@ -2183,7 +2024,9 @@ export default function App() {
                 pageCount={targetPageCount}
               />
             </section>
-          </div>
+            </div>
+          </details>
+          </section>
 
           <footer>
             <span>

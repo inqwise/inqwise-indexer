@@ -79,7 +79,7 @@ test("renders bounded read-only load workflow visibility with explicit identitie
     "utf8",
   );
 
-  assert.match(app, /href="#loads"/);
+  assert.match(app, /<strong>Load operations<\/strong>/);
   assert.match(app, /<LoadOperationsView/);
   assert.match(api, /baseUrl: "\/api\/loads"/);
   assert.match(api, /GET\("\/admin\/loads"/);
@@ -201,6 +201,53 @@ test("links catalog entities through explicit stable identifiers", async () => {
   assert.doesNotMatch(navigation, /index_name|queue_name|physical/i);
 });
 
+test("organizes the console into local and system workspaces with an entity hierarchy", async () => {
+  const app = await readFile(
+    new URL("../src/App.tsx", import.meta.url),
+    "utf8",
+  );
+  const hierarchy = await readFile(
+    new URL("../src/components/SystemHierarchyView.tsx", import.meta.url),
+    "utf8",
+  );
+  const styles = await readFile(
+    new URL("../src/globals.css", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(app, /type DashboardSection = "local" \| "system"/);
+  assert.match(app, /className="brand" href="#system"/);
+  assert.match(app, /href="#local"/);
+  assert.match(app, /href="#system"/);
+  assert.match(app, /const LOCAL_SECTIONS = new Set/);
+  assert.match(app, /function currentSection[\s\S]*return "system";/);
+  assert.match(app, /hidden=\{activeSection !== "local"\}/);
+  assert.match(app, /hidden=\{activeSection !== "system"\}/);
+  assert.match(app, /<details className="subpanel"/);
+  assert.match(app, /<SystemHierarchyView/);
+  assert.match(app, /className="local-overview-grid"/);
+  assert.match(app, /<h2>Operational overview<\/h2>/);
+  assert.doesNotMatch(app, /className="hero"/);
+  assert.doesNotMatch(app, /aria-label="Indexer metrics"/);
+  assert.match(hierarchy, /indexersByTarget/);
+  assert.match(hierarchy, /attachedIds/);
+  assert.match(hierarchy, /hotIndexerIds\.has\(indexer\.id\)/);
+  assert.match(hierarchy, /destination=\{\{ kind: "target", id: target\.id \}\}/);
+  assert.match(hierarchy, /destination=\{\{ kind: "indexer", id: indexer\.id \}\}/);
+  assert.match(hierarchy, /MAX_VISIBLE_TARGETS = 30/);
+  assert.match(hierarchy, /MAX_VISIBLE_INDEXERS = 8/);
+  assert.match(styles, /\.diagnostics-block--infrastructure\s*\{[^}]*grid-column: 1 \/ -1/s);
+  assert.match(styles, /\.diagnostics-block--node\s*\{[^}]*grid-column: 1 \/ -1/s);
+  assert.match(styles, /@media \(max-width: 1100px\)[\s\S]*?\.diagnostics-grid\s*\{[^}]*grid-template-columns: 1fr/s);
+  assert.match(styles, /\.diagnostics-services\s*\{[^}]*repeat\(auto-fit, minmax\(160px, 1fr\)\)/s);
+  assert.match(styles, /\.local-runtime__attachments\s*\{[^}]*repeat\(auto-fit, minmax\(min\(100%, 260px\), 1fr\)\)/s);
+  assert.match(styles, /\.local-overview-grid\s*\{[^}]*grid-template-columns: minmax\(0, 1\.2fr\) minmax\(320px, 0\.8fr\)/s);
+  assert.match(styles, /\.compact-metrics-grid\s*\{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/s);
+  assert.match(styles, /\.diagnostics-view__header p\s*\{[^}]*font-size: 13px/s);
+  assert.match(styles, /\.node-facts strong\s*\{[^}]*font-size: 12px/s);
+  assert.match(styles, /\.infrastructure-list article > small\s*\{[^}]*font-size: 11px/s);
+});
+
 test("provides sortable paged catalogs with URL-persisted navigation", async () => {
   const app = await readFile(
     new URL("../src/App.tsx", import.meta.url),
@@ -222,7 +269,7 @@ test("provides sortable paged catalogs with URL-persisted navigation", async () 
   assert.match(app, /setOptional\("tsort"/);
   assert.match(app, /setOptional\("tpage"/);
   assert.match(app, /services\.indexers\.state !== "checking"/);
-  assert.match(styles, /width: min\(1520px, 100%\)/);
+  assert.match(styles, /width: min\(1320px, 100%\)/);
   assert.match(styles, /@media \(min-width: 1380px\)/);
 });
 
@@ -265,13 +312,13 @@ test("keeps last-good data while reporting internal services independently", asy
   assert.match(app, /current\.targets/);
   assert.match(app, /current\.indexers/);
   assert.match(app, /current\.runtimeIndexers/);
-  assert.match(app, /aria-label="Internal service diagnostics"/);
+  assert.doesNotMatch(app, /aria-label="Internal service diagnostics"/);
+  assert.match(app, /Internal services need attention/);
   assert.match(app, /Target catalog/);
   assert.match(app, /Indexer catalog/);
   assert.match(app, /Local runtime/);
-  assert.match(app, /Degraded · last success/);
   assert.match(app, /!runtimeComparisonAvailable/);
-  assert.match(app, /Diagnostics degraded/);
+  assert.match(app, /Runtime status unavailable/);
 });
 
 test("shows a bounded compact view of project-logic metrics", async () => {
@@ -328,7 +375,7 @@ test("renders bounded read-only report activity through neutral contracts", asyn
     "utf8",
   );
 
-  assert.match(app, /href="#reports"/);
+  assert.match(app, /<strong>Report activity<\/strong>/);
   assert.match(app, /<ReportsView/);
   assert.match(api, /baseUrl: "\/api\/reports"/);
   assert.match(api, /GET\("\/reports"/);
@@ -380,7 +427,7 @@ test("renders bounded read-only node diagnostics with explicit entity resolution
     "utf8",
   );
 
-  assert.match(app, /href="#diagnostics"/);
+  assert.match(app, /id="local-diagnostics"/);
   assert.match(app, /<NodeDiagnosticsView/);
   assert.match(diagnostics, /MAX_NODE_SERVICES = 32/);
   assert.match(diagnostics, /MAX_ROUTING_ITEMS = 12/);
@@ -392,6 +439,14 @@ test("renders bounded read-only node diagnostics with explicit entity resolution
   assert.match(diagnostics, /Missing indexer #/);
   assert.match(diagnostics, /Missing target #/);
   assert.match(diagnostics, /<EntityLink/);
+  assert.ok(
+    diagnostics.indexOf('title="Infrastructure adapters"') <
+      diagnostics.indexOf('title="Invalid routes"'),
+  );
+  assert.ok(
+    diagnostics.indexOf('title="Invalid routes"') <
+      diagnostics.indexOf('title="Target invalidations"'),
+  );
   assert.doesNotMatch(diagnostics, /dangerouslySetInnerHTML/);
   assert.doesNotMatch(diagnostics, /POST\(|DELETE\(|PUT\(/);
   assert.doesNotMatch(diagnostics, /hacker.news/i);
@@ -407,7 +462,7 @@ test("renders bounded read-only definitions without inferred catalog identity", 
     "utf8",
   );
 
-  assert.match(app, /href="#definitions"/);
+  assert.match(app, /id="configuration"/);
   assert.match(app, /<DefinitionsView/);
   assert.match(definitions, /MAX_DEFINITIONS = 24/);
   assert.match(definitions, /MAX_CONFIGURATION_KEYS = 12/);

@@ -180,6 +180,37 @@ export default function NodeDiagnosticsView({
           )}
         </section>
 
+        <section className="diagnostics-block diagnostics-block--infrastructure">
+          <BlockHeader eyebrow="Composition" title="Infrastructure adapters" />
+          {infrastructure ? (
+            infrastructureItems.length === 0 ? (
+              <Empty>No infrastructure facts are available.</Empty>
+            ) : (
+              <div className="infrastructure-list">
+                {infrastructureItems.map((item) => (
+                  <article key={`${item.category}-${item.name}`}>
+                    <span>{item.category}</span>
+                    <strong>{item.name}</strong>
+                    <small>{bounded(item.implementation)}</small>
+                    {safeDetails(item.details).length > 0 && (
+                      <dl>
+                        {safeDetails(item.details).map(([name, value]) => (
+                          <div key={name}>
+                            <dt>{name.replaceAll("_", " ")}</dt>
+                            <dd>{value}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    )}
+                  </article>
+                ))}
+              </div>
+            )
+          ) : (
+            <Unavailable state={services.find((service) => service.name === "infrastructure")} />
+          )}
+        </section>
+
         <section className="diagnostics-block">
           <BlockHeader eyebrow="Routing memory" title="Invalid routes" />
           {invalidRoutes ? (
@@ -265,36 +296,6 @@ export default function NodeDiagnosticsView({
           )}
         </section>
 
-        <section className="diagnostics-block diagnostics-block--infrastructure">
-          <BlockHeader eyebrow="Composition" title="Infrastructure adapters" />
-          {infrastructure ? (
-            infrastructureItems.length === 0 ? (
-              <Empty>No infrastructure facts are available.</Empty>
-            ) : (
-              <div className="infrastructure-list">
-                {infrastructureItems.map((item) => (
-                  <article key={`${item.category}-${item.name}`}>
-                    <span>{item.category}</span>
-                    <strong>{item.name}</strong>
-                    <small>{bounded(item.implementation)}</small>
-                    {safeDetails(item.details).length > 0 && (
-                      <dl>
-                        {safeDetails(item.details).map(([name, value]) => (
-                          <div key={name}>
-                            <dt>{name.replaceAll("_", " ")}</dt>
-                            <dd>{value}</dd>
-                          </div>
-                        ))}
-                      </dl>
-                    )}
-                  </article>
-                ))}
-              </div>
-            )
-          ) : (
-            <Unavailable state={services.find((service) => service.name === "infrastructure")} />
-          )}
-        </section>
       </div>
     </section>
   );

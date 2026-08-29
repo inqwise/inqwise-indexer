@@ -51,7 +51,11 @@ Check readiness:
 curl -fsS http://127.0.0.1:8084/health/ready
 ```
 
-The operator console is available at <http://127.0.0.1:3000>.
+The operator console is available at <http://127.0.0.1:3000>. System is its
+default and home workspace, where Targets are shown as parents of their Indexers
+and local runtime attachments. Local-node operation remains a separate workspace
+with one consolidated overview for service health, project flow, runtime
+convergence, and actionable issues; detailed diagnostics remain on demand.
 
 Discover the reports packaged with the example:
 

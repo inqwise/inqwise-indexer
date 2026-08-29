@@ -2,6 +2,29 @@
 
 Internal operations console for the local Inqwise Indexer node.
 
+The console has two primary workspaces. **System** is the default and home
+workspace, presenting the catalog as a hierarchy of Target → Indexer → local
+attachment using only explicit stable identifiers. **Local node** leads with readiness,
+local runtime attachments, project-logic metrics, and current operational
+issues in one consolidated operational overview rather than repeating them in
+promotional or summary cards; detailed node and infrastructure diagnostics are available in a
+secondary expandable panel. Its Infrastructure adapters block spans the full
+diagnostics width, and the complete panel uses a larger type and spacing scale
+so node, routing, and adapter facts remain readable. Lower-priority routing
+memory panels follow Node state and Infrastructure adapters at the end. Node
+state uses the full content width, while tablet layouts stack diagnostic panels
+and retain a two-column adapter grid until the compact mobile breakpoint.
+The local runtime attachment list auto-fits its cards, so a single attached
+indexer uses the complete list width while multiple indexers form responsive columns.
+Primary operational text uses a readable console scale; microtext is reserved
+for secondary metadata rather than current state or actionable values.
+Healthy internal data sources are not repeated as dashboard cards; degraded
+sources surface through the alert and attention queue, with their internals in Diagnostics.
+The full catalog tables, provider definitions, load history, and report
+activity remain available as supporting expandable panels. Legacy section
+hashes still select the appropriate workspace, and entity links keep their
+shareable `target` or `indexer` query selection.
+
 The console provides client-side target/indexer search and state filters plus
 detail drawers. These projections use the already-loaded generated DTOs and do
 not add another API boundary. The first mutation slice is limited to
