@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: indexer-node
+spec:
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/distribution: hacker-news-example
+    spec:
+      containers:
+        - name: indexer-node
+          image: inqwise/indexer-node-hacker-news:0.1.0-SNAPSHOT
+          args:
+            - com.inqwise.indexer.example.hn.node.application.HackerNewsIndexerNodeApplicationVerticle
+            - --cluster
+            - --cluster-host
+            - 0.0.0.0
+            - --cluster-port
+            - "15701"
+            - --cluster-public-host
+            - $(POD_IP)
+            - --cluster-public-port
+            - "15701"
+            - --options
+            - /config/vertx-options.json
+            - --conf
+            - /config/indexer-node.json

@@ -469,6 +469,45 @@ Available local endpoints:
 - Reports API: <http://127.0.0.1:8086>
 - Prometheus metrics: <http://127.0.0.1:9090/metrics>
 
+### Kubernetes evaluation
+
+Deploy the combined Hacker News example to the current Kubernetes context:
+
+```sh
+./run-kubernetes.sh
+```
+
+Examples are enabled by default. Deploy only the generic node by setting:
+
+```sh
+INDEXER_KUBERNETES_EXAMPLES=false ./run-kubernetes.sh
+```
+
+The script builds the selected image into the local Docker daemon, applies the
+matching Kustomize configuration, and waits for the node rollout. Set
+`INDEXER_KUBERNETES_BUILD_IMAGES=false` when the image is already available to
+the cluster, or `INDEXER_KUBERNETES_WAIT=false` to apply without waiting.
+
+The default manifests create the `inqwise-indexer` namespace, one node Pod, an
+operator-facing ClusterIP Service, and a headless discovery Service. Hazelcast
+and clustered Vert.x advertise the Pod IP and discover peers through the
+headless Service. No Kubernetes API permissions are required.
+
+For local access after deployment:
+
+```sh
+kubectl -n inqwise-indexer port-forward service/indexer-node \
+	3000:3000 8080:8080 8081:8081 8083:8083 8084:8084 8086:8086 9090:9090
+```
+
+The supplied topology deliberately has one replica and uses `Recreate`. Its
+repositories, queues, document storage, and query state are in-memory, so
+scaling it would create independent state-owning nodes rather than a durable
+distributed deployment. A production deployment must replace those adapters
+and establish image registry, ingress, secrets, persistence, and recovery
+policy. See [`deployment/kubernetes`](deployment/kubernetes/README.md) for
+manifest selection and image-loading details.
+
 ### Embedded Vert.x application
 
 An application may compose the Indexer modules inside its own Vert.x runtime.

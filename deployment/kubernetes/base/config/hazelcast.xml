@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hazelcast xmlns="http://www.hazelcast.com/schema/config"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.hazelcast.com/schema/config
+	https://www.hazelcast.com/schema/config/hazelcast-config-5.6.xsd">
+	<cluster-name>${indexer.cluster.name}</cluster-name>
+
+	<network>
+		<port auto-increment="false">5701</port>
+		<join>
+			<multicast enabled="false"/>
+			<tcp-ip enabled="true">
+				<members>${indexer.cluster.members}</members>
+			</tcp-ip>
+			<auto-detection enabled="false"/>
+		</join>
+	</network>
+
+	<multimap name="__vertx.subs">
+		<backup-count>1</backup-count>
+		<value-collection-type>SET</value-collection-type>
+	</multimap>
+
+	<map name="__vertx.haInfo">
+		<backup-count>1</backup-count>
+	</map>
+
+	<map name="__vertx.nodeInfo">
+		<backup-count>1</backup-count>
+	</map>
+</hazelcast>

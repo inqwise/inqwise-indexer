@@ -1,0 +1,85 @@
+{
+	"services": {
+		"adminRest": {
+			"enabled": true
+		},
+		"targetActionRest": {
+			"enabled": true
+		},
+		"runtimeRest": {
+			"enabled": true
+		},
+		"healthRest": {
+			"enabled": true
+		},
+		"gateway": {
+			"enabled": false
+		}
+	},
+	"admin_rest": {
+		"host": "0.0.0.0",
+		"port": 8080
+	},
+	"target_action_rest": {
+		"host": "0.0.0.0",
+		"port": 8081
+	},
+	"runtime_rest": {
+		"host": "0.0.0.0",
+		"port": 8083
+	},
+	"health_rest": {
+		"host": "0.0.0.0",
+		"port": 8084
+	},
+	"client": {
+		"base_uri": "https://hacker-news.firebaseio.com/v0",
+		"poll_interval_ms": 5000,
+		"max_changes_per_poll": 100,
+		"request_concurrency": 8,
+		"request_idle_timeout_ms": 10000,
+		"action_batch_size": 100
+	},
+	"reports_rest": {
+		"enabled": true,
+		"host": "0.0.0.0",
+		"port": 8086,
+		"reports_address": "indexer.query.reports",
+		"discovery_address": "indexer.query.reports.discovery"
+	},
+	"load": {
+		"enabled": true
+	},
+	"load_rest": {
+		"host": "127.0.0.1",
+		"port": 8088
+	},
+	"web": {
+		"host": "0.0.0.0",
+		"port": 3000,
+		"admin_host": "127.0.0.1",
+		"admin_port": 8080,
+		"target_action_host": "127.0.0.1",
+		"target_action_port": 8081,
+		"runtime_host": "127.0.0.1",
+		"runtime_port": 8083,
+		"health_host": "127.0.0.1",
+		"health_port": 8084,
+		"metrics_host": "127.0.0.1",
+		"metrics_port": 9090,
+		"reports_host": "127.0.0.1",
+		"reports_port": 8086
+	},
+	"target_definitions": [
+		{
+			"target_name": "customers",
+			"period_strategy": "MONTHLY",
+			"auto_provision_on_write": true
+		},
+		{
+			"target_name": "hacker-news",
+			"period_strategy": "NONE",
+			"auto_provision_on_write": true
+		}
+	]
+}

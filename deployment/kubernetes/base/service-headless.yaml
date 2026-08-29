@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: indexer-node-headless
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    app.kubernetes.io/name: inqwise-indexer
+    app.kubernetes.io/component: node
+  ports:
+    - name: hazelcast
+      port: 5701
+      targetPort: hazelcast
+    - name: eventbus
+      port: 15701
+      targetPort: eventbus

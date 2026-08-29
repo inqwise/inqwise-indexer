@@ -60,6 +60,46 @@
 		<finalName>inqwise-hacker-news-indexer-node</finalName>
 		<plugins>
 			<plugin>
+				<groupId>com.google.cloud.tools</groupId>
+				<artifactId>jib-maven-plugin</artifactId>
+				<configuration>
+					<from>
+						<image>eclipse-temurin:21-jre-alpine@sha256:3f08b13888f595cc49edabea7250ba69499ba25602b267da591720769400e08c</image>
+						<platforms>
+							<platform>
+								<architecture>${jib.platform.architecture}</architecture>
+								<os>linux</os>
+							</platform>
+						</platforms>
+					</from>
+					<to>
+						<image>inqwise/indexer-node-hacker-news:${project.version}</image>
+					</to>
+					<container>
+						<mainClass>io.vertx.launcher.application.VertxApplication</mainClass>
+						<args>
+							<arg>com.inqwise.indexer.example.hn.node.application.HackerNewsIndexerNodeApplicationVerticle</arg>
+							<arg>--options</arg>
+							<arg>/config/vertx-options.json</arg>
+							<arg>--conf</arg>
+							<arg>/config/indexer-node.json</arg>
+						</args>
+						<ports>
+							<port>3000</port>
+							<port>5701</port>
+							<port>8080</port>
+							<port>8081</port>
+							<port>8083</port>
+							<port>8084</port>
+							<port>8086</port>
+							<port>9090</port>
+							<port>15701</port>
+						</ports>
+						<user>10001:10001</user>
+					</container>
+				</configuration>
+			</plugin>
+			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-shade-plugin</artifactId>
 				<version>3.6.1</version>
