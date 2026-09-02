@@ -14,7 +14,7 @@
 		<micrometer.version>1.16.5</micrometer.version>
 		<junit.version>5.10.2</junit.version>
 		<inqwise.errors.version>2.1.1</inqwise.errors.version>
-		<log4j.version>2.25.4</log4j.version>
+		<log4j.version>2.25.5</log4j.version>
 	</properties>
 
 	<dependencyManagement>
