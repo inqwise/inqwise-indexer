@@ -1,0 +1,13 @@
+# Keep host build outputs and local credentials out of the audit image.
+.git
+.agents
+.codex
+.aws
+.env
+.env.*
+**/.env
+**/.env.*
+**/target
+**/node_modules
+**/dist
+PROGRESS.md

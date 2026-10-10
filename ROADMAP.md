@@ -2,6 +2,15 @@
 
 ## Scope
 
+- OSS Scanner audit files are available under `.oss-scanner`. Enrollment remains
+  a maintainer follow-up: verify the image build and offline test commands, choose
+  the report contact, and submit the upstream project configuration using the
+  explicit `.oss-scanner/thread_model.md` threat-model path.
+- Investigate the Hacker News combined-node shutdown-order test: local scanner
+  setup verification observed `node-stop` before `ingestion-stop` in
+  `HackerNewsIndexerNodeApplicationVerticleTest`. Keep the audit setup usable
+  with recorded test failures until this lifecycle ordering is resolved.
+
 - Current project completion covers provider-neutral domain contracts, workflows, local/in-memory adapters, application composition boundaries, and conformance tests.
 - Production repository implementations and durable/Kafka-backed `CommandEngine` implementations are external integration concerns. Keep their required atomicity, ordering, retry, and compatibility contracts documented, but do not treat implementation of those adapters as unfinished work in this repository.
 - The concrete report-consumer requirement established the provider-neutral `indexer-query` boundary: generic report dispatch, trusted-scope enforcement, Publication-backed multi-index selection, schema-compatible execution grouping, typed report helpers, and the document-query provider port are accepted repository scope. `ReportExecutionRequest` contains only report identity and user parameters; deployment composition injects `ReportCaller` into the server implementation, and the server-owned consumer context resolver selects maximum scope without coupling consumer identity to target ownership. Physical indexes are visible only to provider execution, not consumer report decoding. The separate `indexer-example-hacker-news-reports` module validates both document-shaped and aggregate result flows with typed story-search and grouped story-author reports, codecs, facade methods, in-memory capability dispatch, and consumer-owned OpenAPI adapters. Story search owns stateless keyset pagination ordered by score/time/id; its versioned cursor is criteria-bound, is never trusted scope, and does not establish a frozen read snapshot. The author summary deduplicates multi-index story identities before grouping and supports bounded deterministic aggregate ordering. Keep pagination semantics in the concrete consumer/provider unless multiple real providers establish a neutral common contract. Keeping this module separate prevents node/report composition from importing the HN polling launcher and logging resources. Query-provider implementation in this scope ends at `InMemoryIndexerDocumentStore`. Elasticsearch, OpenSearch, and every other external store adapter must be planned and implemented independently in provider-specific threads; do not introduce a speculative common external-search layer here. Public exposure and authentication/context construction remain external composition work.

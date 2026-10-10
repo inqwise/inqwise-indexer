@@ -623,6 +623,32 @@ The Vite development console is available at <http://localhost:3001>.
 
 ## Documentation
 
+### OSS Scanner audit environment
+
+The [OSS Scanner](https://red.anthropic.com/oss-scanner/) audit workspace uses
+Java 21 and builds the full Maven reactor and frontend, retaining dependencies
+for offline analysis. Build and check it from the repository root:
+
+```sh
+docker build -f .oss-scanner/Dockerfile -t inqwise-indexer-oss-scanner .
+docker run --rm --network none inqwise-indexer-oss-scanner \
+	mvn --batch-mode --no-transfer-progress --offline verify -Dskip.installnodenpm=true
+```
+
+The build also runs frontend tests and repeats verification without networking.
+Java test failures are retained in `target/surefire-reports` and do not block
+image setup; compilation and dependency errors remain fatal. The offline command
+above requires passing tests.
+The Dockerfile-specific ignore file excludes host build outputs and local
+credential directories. See the [threat model](.oss-scanner/thread_model.md) for
+trust boundaries, reproduction commands, and reporting preferences. Enrollment
+requires a maintainer PR to `anthropics/oss-scanner` with a contact email,
+`dockerfile: .oss-scanner/Dockerfile`, and the explicit setting
+`threat_model: .oss-scanner/thread_model.md` because this repository uses that
+filename instead of the scanner's default `threat_model.md`.
+
+### Project references
+
 - [Architecture and design record](docs/ARCHITECTURE.md) — accepted module
   boundaries, workflows, APIs, runtime behavior, and deployment notes.
 - [Roadmap](ROADMAP.md) — uncovered flows, planned adapters, and deferred design

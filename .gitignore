@@ -2,6 +2,10 @@
 /**/.*/
 !/.gitignore
 !/.github
+!/.oss-scanner/
+!/.oss-scanner/Dockerfile
+!/.oss-scanner/Dockerfile.dockerignore
+!/.oss-scanner/thread_model.md
 !/indexer-web/.gitignore
 /target
 /*/target
