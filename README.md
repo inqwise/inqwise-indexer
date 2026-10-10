@@ -1,5 +1,7 @@
 # inqwise-indexer
 
+Licensed under the [MIT License](LICENSE).
+
 inqwise-indexer is a continuously maintained indexing and reporting module for
 AI agents and data-intensive applications. It turns changing source data into
 published knowledge projections and trusted, typed reports.
