@@ -19,7 +19,7 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.junit5.VertxExtension;
 
 @ExtendWith(VertxExtension.class)
-class InMemoryIndexerLoadRepositoryTest extends IndexerLoadRepositoryCompletionContract {
+class InMemoryIndexerLoadRepositoryTest extends IndexerLoadRepositoryPublicationContract {
 	@Override
 	IndexerLoadRepository createRepository() {
 		return new InMemoryIndexerLoadRepository();

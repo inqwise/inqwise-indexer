@@ -8,6 +8,7 @@ import com.inqwise.indexer.load.repository.AttachLiveWriterResult;
 import com.inqwise.indexer.load.repository.IndexerLoadCompletion;
 import com.inqwise.indexer.load.repository.IndexerLoadRepository;
 import com.inqwise.indexer.load.repository.InsertIndexerLoad;
+import com.inqwise.indexer.load.repository.LoadPublication;
 import com.inqwise.indexer.load.repository.RequestIndexerLoadBarrier;
 import com.inqwise.indexer.load.repository.UpdateIndexerLoadApproval;
 import com.inqwise.indexer.load.repository.UpdateIndexerLoadBarrier;
@@ -28,6 +29,40 @@ import io.vertx.core.Future;
 public class InMemoryIndexerLoadRepository implements IndexerLoadRepository {
 	private final Map<Integer, IndexerLoadRecord> loadsByIndexerId = new ConcurrentHashMap<>();
 	private final Map<Integer, IndexerLoadCompletion> completionsByIndexerId = new ConcurrentHashMap<>();
+	private final Map<Integer, LoadPublication> publicationsByIndexerId = new ConcurrentHashMap<>();
+
+	@Override
+	public Future<Optional<LoadPublication>> getPublication(Integer indexerId) {
+		return Future.succeededFuture(Optional.ofNullable(publicationsByIndexerId.get(indexerId)));
+	}
+
+	@Override
+	public synchronized Future<Void> preparePublication(LoadPublication publication) {
+		try {
+			Integer indexerId = publication.loadWriter().id();
+			LoadPublication existing = publicationsByIndexerId.get(indexerId);
+			if (existing != null) {
+				if (!existing.equals(publication)) {
+					throw new IllegalStateException("Different publication already prepared: " + indexerId);
+				}
+				return Future.succeededFuture();
+			}
+			IndexerLoadRecord load = requireLoad(indexerId, publication.expectedLoadVersion());
+			Integer candidateId = load.liveIndexerId() == null ? indexerId : load.liveIndexerId();
+			if (!load.targetId().equals(publication.loadWriter().targetId())
+				|| !candidateId.equals(publication.candidate().id())
+				|| (load.reviewRequired() && load.approvedAt() == null)
+				|| (load.state() != IndexerLoadState.APPROVED
+					&& load.state() != (load.liveIndexerId() == null
+						? IndexerLoadState.HISTORICAL_COMPLETE : IndexerLoadState.CATCH_UP_READY))) {
+				throw new IllegalStateException("Load does not match publication intent: " + indexerId);
+			}
+			publicationsByIndexerId.put(indexerId, publication);
+			return Future.succeededFuture();
+		} catch (RuntimeException error) {
+			return Future.failedFuture(error);
+		}
+	}
 
 	@Override
 	public synchronized Future<Void> insert(InsertIndexerLoad load) {
@@ -112,6 +147,11 @@ public class InMemoryIndexerLoadRepository implements IndexerLoadRepository {
 	public synchronized Future<Void> updateState(UpdateIndexerLoadState update) {
 		try {
 			IndexerLoadRecord existing = requireLoad(update.indexerId(), update.expectedVersion());
+			LoadPublication publication = publicationsByIndexerId.get(update.indexerId());
+			if (update.state() != IndexerLoadState.PUBLISHED
+				|| (publication != null && publication.expectedLoadVersion() != existing.version())) {
+				requireMutable(existing);
+			}
 			loadsByIndexerId.put(update.indexerId(), copy(
 				existing,
 				existing.liveIndexerId(),
@@ -135,6 +175,7 @@ public class InMemoryIndexerLoadRepository implements IndexerLoadRepository {
 	public synchronized Future<Void> approve(UpdateIndexerLoadApproval update) {
 		try {
 			IndexerLoadRecord existing = requireLoad(update.indexerId(), update.expectedVersion());
+			requireMutable(existing);
 			loadsByIndexerId.put(update.indexerId(), copy(
 				existing,
 				existing.liveIndexerId(),
@@ -160,6 +201,7 @@ public class InMemoryIndexerLoadRepository implements IndexerLoadRepository {
 	) {
 		try {
 			IndexerLoadRecord existing = requireLoad(request.indexerId());
+			requireMutable(existing);
 			require(request.liveIndexerId(), "liveIndexerId");
 			if (!isActive(existing.state())) {
 				throw new IllegalStateException("Indexer load is not active: " + existing.state());
@@ -201,6 +243,7 @@ public class InMemoryIndexerLoadRepository implements IndexerLoadRepository {
 	public synchronized Future<Void> requestBarrier(RequestIndexerLoadBarrier request) {
 		try {
 			IndexerLoadRecord existing = requireLoad(request.indexerId(), request.expectedVersion());
+			requireMutable(existing);
 			if (existing.liveIndexerId() == null) {
 				throw new IllegalStateException("Indexer load has no live writer: " + existing.indexerId());
 			}
@@ -233,6 +276,7 @@ public class InMemoryIndexerLoadRepository implements IndexerLoadRepository {
 	public synchronized Future<Void> markBarrierReached(UpdateIndexerLoadBarrier update) {
 		try {
 			IndexerLoadRecord existing = requireLoad(update.indexerId(), update.expectedVersion());
+			requireMutable(existing);
 			if (existing.state() != IndexerLoadState.CATCH_UP_BARRIER_REQUESTED) {
 				throw new IllegalStateException(
 					"Indexer load has no requested catch-up barrier: " + existing.state()
@@ -269,6 +313,7 @@ public class InMemoryIndexerLoadRepository implements IndexerLoadRepository {
 	public synchronized Future<Void> markFailed(UpdateIndexerLoadFailure update) {
 		try {
 			IndexerLoadRecord existing = requireLoad(update.indexerId(), update.expectedVersion());
+			requireMutable(existing);
 			loadsByIndexerId.put(update.indexerId(), copy(
 				existing,
 				existing.liveIndexerId(),
@@ -303,6 +348,7 @@ public class InMemoryIndexerLoadRepository implements IndexerLoadRepository {
 				.withCompletedAt(Instant.now())
 				.build());
 			loadsByIndexerId.remove(indexerId);
+			publicationsByIndexerId.remove(indexerId);
 			return Future.succeededFuture();
 		} catch (RuntimeException error) {
 			return Future.failedFuture(error);
@@ -343,6 +389,12 @@ public class InMemoryIndexerLoadRepository implements IndexerLoadRepository {
 		IndexerLoadRecord existing = requireLoad(indexerId);
 		requireVersion(existing, expectedVersion);
 		return existing;
+	}
+
+	private void requireMutable(IndexerLoadRecord load) {
+		if (publicationsByIndexerId.containsKey(load.indexerId())) {
+			throw new IllegalStateException("Load publication is already prepared: " + load.indexerId());
+		}
 	}
 
 	private IndexerLoadRecord requireLoad(Integer indexerId) {

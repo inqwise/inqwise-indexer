@@ -15,11 +15,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.IntStream;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import io.vertx.junit5.VertxExtension;
@@ -27,6 +31,65 @@ import io.vertx.junit5.VertxTestContext;
 
 @ExtendWith(VertxExtension.class)
 class IndexerQueueFlowTest {
+	@Test
+	void processorDrainsPreexistingBacklogInOrderWithoutLosingCommits(
+		Vertx vertx,
+		VertxTestContext testContext
+	) {
+		int backlogSize = 10_000;
+		InMemoryIndexerQueue queue = new InMemoryIndexerQueue();
+		IndexerModel model = documentModel();
+		List<String> processed = new ArrayList<>();
+		List<String> committed = new ArrayList<>();
+		AtomicInteger commitCount = new AtomicInteger();
+		Promise<Void> drained = Promise.promise();
+		IndexerProcessorVerticle processor = new IndexerProcessorVerticle(
+			model,
+			IndexerOptions.builder().build(),
+			queue,
+			item -> {
+				processed.add(((PutDocumentActionItem) item).getUid());
+				return Future.succeededFuture();
+			},
+			null,
+			event -> {
+				if (event.getType() == IndexerEventType.ACTION_ITEM_FAILED) {
+					drained.tryFail(event.getError());
+				}
+				if (event.getType() == IndexerEventType.ACTION_ITEM_COMMITTED) {
+					committed.add(((PutDocumentActionItem) event.getItem()).getUid());
+					if (commitCount.incrementAndGet() == backlogSize) {
+						drained.tryComplete();
+					}
+				}
+				return Future.succeededFuture();
+			}
+		);
+
+		queue.publisher(model.getQueueName()).compose(publisher -> {
+			List<Future<Void>> enqueued = IntStream.range(0, backlogSize)
+				.mapToObj(index -> publisher.publish(documentItem(Integer.toString(index), "Queued")))
+				.toList();
+			return Future.join(enqueued).eventually(publisher::close);
+		}).compose(ignored -> {
+			long deadline = vertx.setTimer(5_000, timer -> drained.tryFail(
+				"Processor committed " + commitCount.get() + " of " + backlogSize
+					+ " queued actions before the deadline"
+			));
+			return vertx.deployVerticle(processor)
+				.compose(id -> drained.future().eventually(() -> vertx.undeploy(id)))
+				.andThen(result -> vertx.cancelTimer(deadline));
+		}).eventually(queue::close)
+			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
+				List<String> expected = IntStream.range(0, backlogSize)
+					.mapToObj(Integer::toString)
+					.toList();
+				assertEquals(expected, processed);
+				assertEquals(expected, committed);
+				testContext.completeNow();
+			})));
+	}
+
 	@Test
 	void preActionHookFailurePreventsWrite(
 		Vertx vertx,

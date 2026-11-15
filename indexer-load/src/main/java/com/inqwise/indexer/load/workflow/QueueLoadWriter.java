@@ -89,7 +89,8 @@ public class QueueLoadWriter implements LoadWriter {
 	}
 
 	private Future<Void> completeIfActive(IndexerLoadRecord load) {
-		if (load.state() != IndexerLoadState.HISTORICAL_LOADING) {
+		if (load.state() != IndexerLoadState.HISTORICAL_LOADING
+			&& load.state() != IndexerLoadState.STARTING) {
 			return Future.succeededFuture();
 		}
 

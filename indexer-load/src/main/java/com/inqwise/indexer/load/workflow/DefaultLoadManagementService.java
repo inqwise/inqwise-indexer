@@ -86,8 +86,7 @@ public final class DefaultLoadManagementService implements LoadManagementService
 	public Future<IndexerLoadRecord> start(StartLoadRequest request) {
 		Objects.requireNonNull(request, "request");
 		return load(request.indexerId())
-			.compose(load -> start(load, request))
-			.compose(ignored -> load(request.indexerId()));
+			.compose(load -> start(load, request).compose(ignored -> loadAfterStart(load)));
 	}
 
 	@Override
@@ -283,7 +282,7 @@ public final class DefaultLoadManagementService implements LoadManagementService
 		return loadCreationCatalog.prepareStart(load)
 			.compose(context -> loadProviderRegistry.get(load.providerId())
 				.compose(provider -> provider.start(context.request(), writer(load, context)))
-				.compose(ignored -> markHistoricalLoading(load.indexerId()))
+				.compose(ignored -> markHistoricalLoading(load))
 				.recover(error -> markProviderStartFailed(load.indexerId(), error)
 					.compose(ignored -> Future.failedFuture(error))));
 	}
@@ -299,8 +298,8 @@ public final class DefaultLoadManagementService implements LoadManagementService
 		);
 	}
 
-	private Future<Void> markHistoricalLoading(Integer indexerId) {
-		return load(indexerId).compose(load -> {
+	private Future<Void> markHistoricalLoading(IndexerLoadRecord starting) {
+		return loadAfterStart(starting).compose(load -> {
 			if (load.state() != IndexerLoadState.STARTING) {
 				return Future.succeededFuture();
 			}
@@ -315,15 +314,33 @@ public final class DefaultLoadManagementService implements LoadManagementService
 	}
 
 	private Future<Void> markProviderStartFailed(Integer indexerId, Throwable error) {
-		return load(indexerId)
-			.compose(load -> loadRepository.markFailed(UpdateIndexerLoadFailure.builder()
+		return loadRepository.getByIndexerId(indexerId).compose(found -> {
+			if (found.isEmpty() || found.orElseThrow().state() != IndexerLoadState.STARTING) {
+				return Future.succeededFuture();
+			}
+			IndexerLoadRecord load = found.orElseThrow();
+			return loadRepository.markFailed(UpdateIndexerLoadFailure.builder()
 				.withIndexerId(indexerId)
 				.withFailureReason(error == null || error.getMessage() == null
-					? "Load provider failed to start"
-					: error.getMessage())
+					? "Load provider failed to start" : error.getMessage())
 				.withExpectedVersion(load.version())
-				.build()).compose(ignored -> load(indexerId))
-				.compose(this::publishStateChanged));
+				.build()).compose(ignored -> load(indexerId)).compose(this::publishStateChanged);
+		});
+	}
+
+	private Future<IndexerLoadRecord> loadAfterStart(IndexerLoadRecord starting) {
+		return loadRepository.getByIndexerId(starting.indexerId()).compose(found -> found
+			.map(Future::succeededFuture)
+			.orElseGet(() -> loadRepository.getCompletionByIndexerId(starting.indexerId())
+				.compose(completed -> completed
+					.filter(completion -> completion.terminalVersion() >= starting.version())
+					.map(completion -> Future.succeededFuture(IndexerLoadRecord.builder()
+						.from(starting)
+						.withState(completion.terminalState())
+						.withVersion(completion.terminalVersion())
+						.withUpdatedAt(completion.completedAt())
+						.build()))
+					.orElseGet(() -> Future.failedFuture("Indexer load not found: " + starting.indexerId())))));
 	}
 
 	private Future<LoadCreatedIndexer> createLiveIndexer(

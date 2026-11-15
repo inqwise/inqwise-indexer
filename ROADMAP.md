@@ -6,10 +6,6 @@
   a maintainer follow-up: verify the image build and offline test commands, choose
   the report contact, and submit the upstream project configuration using the
   explicit `.oss-scanner/thread_model.md` threat-model path.
-- Investigate the Hacker News combined-node shutdown-order test: local scanner
-  setup verification observed `node-stop` before `ingestion-stop` in
-  `HackerNewsIndexerNodeApplicationVerticleTest`. Keep the audit setup usable
-  with recorded test failures until this lifecycle ordering is resolved.
 
 - Current project completion covers provider-neutral domain contracts, workflows, local/in-memory adapters, application composition boundaries, and conformance tests.
 - Production repository implementations and durable/Kafka-backed `CommandEngine` implementations are external integration concerns. Keep their required atomicity, ordering, retry, and compatibility contracts documented, but do not treat implementation of those adapters as unfinished work in this repository.
@@ -28,6 +24,27 @@
 - The node image includes the Hazelcast cluster manager but launches standalone by default. `INDEXER_CLUSTERED=true` adds the deployment-owned Compose cluster override, explicit TCP discovery configuration, and independently configurable bind, advertised, and Docker-forwarded Hazelcast/EventBus addresses without adding a custom `main()` method. The local launchers detect the address selected by the host's default route and accept `INDEXER_PUBLIC_HOST` plus endpoint-specific overrides; raw Compose defaults remain loopback-only. This validates cluster-capable delivery and remote EventBus participation; it does not authorize multiple state-owning Indexer replicas while persistence, queue, document, and command adapters remain local/in-memory.
 - The first concrete data project is `indexer-example-hacker-news`. Keep its source polling, in-memory fingerprints, and HN projection in the outer example module. It runs as a separate clustered Vert.x application, obtains the generated Target Action EventBus proxy, and never constructs `IndexerNode` or accesses node-local repositories, queues, runtimes, or document adapters. The accepted slice consumes only the current `/v0/updates` window, uses stable item ids for idempotent PUT/REMOVE actions, bounds request concurrency and action batches, and intentionally performs no archive or historical backfill. In the separated-process profile, deploy the Indexer node independently in the same cluster with a matching `hacker-news` target definition; the optional combined deployment remains an outer wrapper around these two applications.
 - Keep `indexer-example-hacker-news-node-application` as an optional combined distribution, not the only topology. Its dependencies package the standalone source plus HN action/report providers; Maven Shade merges their service descriptors. The wrapper starts the unchanged generic root before HN ingestion and rolls it back when ingestion startup fails. The same distribution may instead launch `IndexerNodeApplicationVerticle` alone—with HN providers auto-loaded—while `indexer-example-hacker-news` runs as a separate clustered process. A bare generic node has no HN reports. Because the current document store is process-local, an HN report provider must be packaged with the state-owning node; placing it in an independent container cannot query that node until a real remote document-store adapter is introduced.
+
+## Reliability Contracts And Follow-ups
+
+- [GitHub issue #12](https://github.com/inqwise/inqwise-indexer/issues/12) tracks
+  the review reliability fixes. Regression coverage includes interrupted
+  publication handoffs and completed replay, completion during provider startup,
+  inline terminal cleanup, ordered queue backlog draining, and asynchronous
+  ingestion shutdown. The implementation retains load workflow state in the
+  repository/command boundary and keeps `Indexer` focused on runtime transport.
+- Publication persists the existing `LoadPublication` model as an immutable intent
+  before replacing metadata. Repository preparation atomically fences competing
+  load mutations without advancing the version; publication advances it once,
+  and cleanup atomically replaces the load and intent with a minimal completion
+  tombstone. External adapters must preserve this contract and the publication
+  and completion conformance suites. Saving the original retired-index identity
+  is required; reconstructing it from the current publication catalog is unsafe.
+- Define operator reconciliation for a prepared publication whose participating
+  metadata was administratively changed before completion. Exact-version
+  conflicts remain visible, and the intent must not be silently discarded or
+  rebased after an ambiguous metadata-write outcome. Generic production adapter
+  implementation remains outside this repository's current scope.
 
 ## Query And Report Follow-ups
 

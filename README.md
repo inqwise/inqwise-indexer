@@ -447,6 +447,39 @@ curl -fsS \
 The report name above is illustrative. A consumer must package the corresponding
 definition and query-provider capability.
 
+## Lifecycle reliability
+
+Load publication saves an immutable `LoadPublication` intent in the load
+repository before replacing published metadata. The intent records the original
+load version, candidate, ownership source, and previous published indexer.
+Preparing it atomically fences cancellation, failure, approval, barrier, and
+writer changes without advancing the load version. Publication then applies the
+metadata replacement, advances the load to `PUBLISHED` once, and submits cleanup
+with the saved identities. Retries recognize the exact applied metadata version
+or resume cleanup from the published load. After cleanup, the minimal completion
+tombstone acknowledges only the matching publication command version.
+
+External `IndexerLoadRepository` adapters must persist the intent with the load
+mutation fence, retain it through cleanup-command acceptance, and atomically
+replace the completed load and intent with the completion tombstone. The
+publication and completion repository conformance suites exercise these
+contracts. This sequencing makes the command resumable; it does not make writes
+to separate repositories or command transports one atomic transaction. A
+conflicting administrative metadata change remains an explicit version conflict
+requiring reconciliation.
+
+A provider may report completion while its load is `STARTING`. The completion
+marker is retained, subsequent startup bookkeeping does not overwrite progressed
+or terminal state, and an inline-completed start returns terminal state/version
+from the completion tombstone when cleanup has already removed the load. The
+local queue drains synchronous commit/resume callbacks iteratively, preserving
+ordering and uncommitted-item redelivery without recursive stack growth.
+
+The combined Hacker News distribution deploys ingestion as a child of the node
+deployment. Vert.x therefore waits for asynchronous ingestion shutdown before
+invoking the node runtime's shutdown lifecycle; ingestion startup failure still
+rolls back the started node.
+
 ## Deployment models
 
 ### Local evaluation

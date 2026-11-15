@@ -11,6 +11,8 @@ import com.inqwise.indexer.load.repository.LoadPublication;
 import com.inqwise.indexer.load.repository.LoadPublicationRepository;
 import com.inqwise.indexer.load.api.IndexerLoadState;
 import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
+import com.inqwise.indexer.catalog.indexers.IndexerRole;
+import com.inqwise.indexer.catalog.indexers.IndexResourceOwnership;
 import com.inqwise.indexer.metadata.DocumentStoreMetadataRepository;
 import com.inqwise.indexer.catalog.indexers.IndexerProvisioningState;
 import com.inqwise.indexer.metadata.IndexerRecord;
@@ -30,21 +32,27 @@ public final class MetadataLoadPublicationRepository
 	}
 
 	@Override
-	public Future<LoadPublication> publish(IndexerLoadRecord load) {
+	public Future<LoadPublication> prepare(IndexerLoadRecord load) {
 		return getRequiredIndexer(load.indexerId(), "Load indexer not found: ")
 			.compose(loadWriter -> resolveCandidate(load)
 				.compose(candidate -> validate(load, loadWriter, candidate)
 					.compose(valid -> metadataRepository.listPublishedIndexersByTargetId(load.targetId())
-						.compose(previous -> replace(load, loadWriter, candidate, previous)
-							.map(ignored -> publication(loadWriter, candidate, previous))))));
+						.map(previous -> {
+							if (previous.size() > 1) {
+								throw new IllegalStateException("Multiple published indexers for target: " + load.targetId());
+							}
+							return publication(load, loadWriter, candidate, previous);
+						}))));
 	}
 
 	private LoadPublication publication(
+		IndexerLoadRecord load,
 		IndexerRecord loadWriter,
 		IndexerRecord candidate,
 		List<IndexerRecord> previous
 	) {
 		return LoadPublication.builder()
+			.withExpectedLoadVersion(load.version())
 			.withLoadWriter(reference(loadWriter))
 			.withCandidate(reference(candidate))
 			.withOldPublished(previous.isEmpty() ? null : reference(previous.get(0)))
@@ -118,30 +126,35 @@ public final class MetadataLoadPublicationRepository
 		return Future.succeededFuture();
 	}
 
-	private Future<Void> replace(
-		IndexerLoadRecord load,
-		IndexerRecord loadWriter,
-		IndexerRecord candidate,
-		List<IndexerRecord> previous
-	) {
-		if (previous.size() > 1) {
-			return Future.failedFuture("Multiple published indexers for target: " + load.targetId());
-		}
-
-		IndexerRecord oldPublished = previous.isEmpty() ? null : previous.get(0);
-		return metadataRepository.replacePublishedIndexer(ReplacePublishedIndexer.builder()
-			.withTargetId(load.targetId())
-			.withCandidateIndexerId(candidate.id())
-			.withExpectedCandidateVersion(candidate.version())
-			.withPreviousIndexerId(oldPublished == null ? null : oldPublished.id())
-			.withExpectedPreviousVersion(oldPublished == null ? null : oldPublished.version())
-			.withOwnershipSourceIndexerId(
-				load.liveIndexerId() == null ? null : loadWriter.id()
-			)
-			.withExpectedOwnershipSourceVersion(
-				load.liveIndexerId() == null ? null : loadWriter.version()
-			)
-			.build());
+	@Override
+	public Future<Void> publish(LoadPublication publication) {
+		LoadIndexerReference candidate = publication.candidate();
+		LoadIndexerReference loadWriter = publication.loadWriter();
+		LoadIndexerReference oldPublished = publication.oldPublished();
+		return getRequiredIndexer(candidate.id(), "Candidate indexer not found: ")
+			.compose(current -> {
+				if (candidate.version() < Long.MAX_VALUE
+					&& current.version() == candidate.version() + 1
+					&& current.targetId().equals(candidate.targetId())
+					&& current.publicationState() == PublicationState.PUBLISHED
+					&& current.role() == IndexerRole.LIVE_WRITER
+					&& current.indexOwnership() == IndexResourceOwnership.OWNER) {
+					return Future.succeededFuture();
+				}
+				return metadataRepository.replacePublishedIndexer(ReplacePublishedIndexer.builder()
+					.withTargetId(candidate.targetId())
+					.withCandidateIndexerId(candidate.id())
+					.withExpectedCandidateVersion(candidate.version())
+					.withPreviousIndexerId(oldPublished == null ? null : oldPublished.id())
+					.withExpectedPreviousVersion(oldPublished == null ? null : oldPublished.version())
+					.withOwnershipSourceIndexerId(
+						candidate.id().equals(loadWriter.id()) ? null : loadWriter.id()
+					)
+					.withExpectedOwnershipSourceVersion(
+						candidate.id().equals(loadWriter.id()) ? null : loadWriter.version()
+					)
+					.build());
+			});
 	}
 
 	private LoadIndexerReference reference(IndexerRecord indexer) {
