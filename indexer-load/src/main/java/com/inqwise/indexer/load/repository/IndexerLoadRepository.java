@@ -24,6 +24,17 @@ public interface IndexerLoadRepository {
 
 	Future<Void> updateState(UpdateIndexerLoadState update);
 
+	/** Returns the immutable intent retained until terminal cleanup is finalized. */
+	Future<Optional<LoadPublication>> getPublication(Integer indexerId);
+
+	/**
+	 * Atomically records the publication intent at its expected load version and fences
+	 * other load mutations. Exact replay succeeds; a different intent must fail.
+	 * Recording the intent does not advance the load version. Only the PUBLISHED
+	 * transition may follow it, advancing the version once before cleanup.
+	 */
+	Future<Void> preparePublication(LoadPublication publication);
+
 	Future<Void> approve(UpdateIndexerLoadApproval update);
 
 	Future<AttachLiveWriterResult> attachLiveWriterIfAbsent(AttachLiveWriterRequest request);

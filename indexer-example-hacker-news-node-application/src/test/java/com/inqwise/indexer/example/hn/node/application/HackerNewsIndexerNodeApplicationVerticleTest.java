@@ -1,6 +1,7 @@
 package com.inqwise.indexer.example.hn.node.application;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -18,6 +19,43 @@ import io.vertx.junit5.VertxTestContext;
 
 @ExtendWith(VertxExtension.class)
 class HackerNewsIndexerNodeApplicationVerticleTest {
+	@Test
+	void keepsNodeRunningUntilAsynchronousIngestionShutdownCompletes(
+		Vertx vertx,
+		VertxTestContext testContext
+	) {
+		Promise<Void> ingestionStopped = Promise.promise();
+		HackerNewsIndexerNodeApplicationVerticle application =
+			new HackerNewsIndexerNodeApplicationVerticle(
+				() -> new AbstractVerticle() {
+					@Override
+					public void stop(Promise<Void> stopPromise) {
+						testContext.verify(() -> assertTrue(
+							ingestionStopped.future().succeeded(),
+							"Node shutdown must wait for ingestion shutdown to finish"
+						));
+						stopPromise.complete();
+					}
+				},
+				() -> new AbstractVerticle() {
+					@Override
+					public void stop(Promise<Void> stopPromise) {
+						vertx.runOnContext(ignored -> {
+							ingestionStopped.complete();
+							stopPromise.complete();
+						});
+					}
+				}
+			);
+
+		vertx.deployVerticle(application)
+			.compose(vertx::undeploy)
+			.onComplete(testContext.succeeding(ignored -> testContext.verify(() -> {
+				assertTrue(ingestionStopped.future().succeeded());
+				testContext.completeNow();
+			})));
+	}
+
 	@Test
 	void startsNodeBeforeIngestionAndStopsInReverseOrder(
 		Vertx vertx,

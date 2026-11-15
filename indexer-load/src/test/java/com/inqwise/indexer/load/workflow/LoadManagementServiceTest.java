@@ -1,5 +1,7 @@
 package com.inqwise.indexer.load.workflow;
 
+import static com.inqwise.indexer.load.testing.TestMetadataRecords.readyTarget;
+
 import com.inqwise.indexer.load.adapters.local.InMemoryIndexerLoadRepository;
 import com.inqwise.indexer.load.adapters.local.InMemoryLoadProviderRegistry;
 import com.inqwise.indexer.load.api.ApproveLoadPublicationRequest;
@@ -8,6 +10,7 @@ import com.inqwise.indexer.load.api.CreateLoadRequest;
 import com.inqwise.indexer.load.api.IndexerLoadRecord;
 import com.inqwise.indexer.load.api.IndexerLoadState;
 import com.inqwise.indexer.load.api.LiveWriterPolicy;
+import com.inqwise.indexer.load.api.LoadCompletion;
 import com.inqwise.indexer.load.api.LoadManagementService;
 import com.inqwise.indexer.load.api.LoadProvider;
 import com.inqwise.indexer.load.api.LoadProviderRegistry;
@@ -20,6 +23,8 @@ import com.inqwise.indexer.load.adapters.metadata.MetadataLoadCreationCatalog;
 import com.inqwise.indexer.load.commands.CleanupLoadCommand;
 import com.inqwise.indexer.load.commands.CleanupLoadCommandHandler;
 import com.inqwise.indexer.load.commands.PublishLoadCommand;
+import com.inqwise.indexer.load.commands.PublishLoadCommandHandler;
+import com.inqwise.indexer.load.runtime.LoadIndexerMarkerHandler;
 import com.inqwise.indexer.load.repository.UpdateIndexerLoadState;
 import com.inqwise.indexer.load.repository.InsertIndexerLoad;
 import com.inqwise.indexer.load.adapters.metadata.MetadataLoadPublicationRepository;
@@ -27,11 +32,13 @@ import com.inqwise.indexer.load.testing.LoadTestMetadataChangeNotifiers;
 
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -39,6 +46,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import com.inqwise.indexer.catalog.indexers.IndexResourceOwnership;
+import com.inqwise.indexer.actions.CompleteIndexActionItem;
+import com.inqwise.indexer.actions.IndexerActionItem;
 import com.inqwise.indexer.catalog.indexers.IndexerRole;
 import com.inqwise.indexer.adapters.local.InMemoryIndexerLifecycleEventBus;
 import com.inqwise.indexer.adapters.local.InMemoryIndexerQueue;
@@ -49,6 +58,7 @@ import com.inqwise.indexer.cleanup.DeleteIndexerCommandHandler;
 import com.inqwise.indexer.adapters.local.InMemoryCommandEngine;
 import com.inqwise.indexer.adapters.local.InMemoryDocumentStoreMetadataRepository;
 import com.inqwise.indexer.metadata.IndexerRecord;
+import com.inqwise.indexer.metadata.MetadataIndexerModels;
 import com.inqwise.indexer.metadata.InsertTarget;
 import com.inqwise.indexer.catalog.targets.TargetProvisioningState;
 import com.inqwise.indexer.catalog.targets.TargetStatus;
@@ -65,6 +75,94 @@ import io.vertx.junit5.VertxTestContext;
 
 @ExtendWith(VertxExtension.class)
 class LoadManagementServiceTest {
+	@Test
+	void startReturnsTerminalSnapshotWhenProviderCompletesAndCleansUpInline(VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository metadata = new InMemoryDocumentStoreMetadataRepository();
+		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
+		InMemoryCommandEngine commands = new InMemoryCommandEngine();
+		registerCleanupHandlers(commands, metadata, loads);
+		commands.register(new PublishLoadCommandHandler(
+			new MetadataLoadPublicationRepository(metadata), loads, null, commands
+		));
+		LoadIndexerMarkerHandler markers = new LoadIndexerMarkerHandler(loads, null, commands);
+		LoadProvider provider = new CapturingLoadProvider() {
+			@Override
+			public Future<Void> start(LoadRequest request, LoadWriter writer) {
+				return writer.complete(LoadCompletion.builder().build());
+			}
+		};
+		LoadManagementService service = new DefaultLoadManagementService(
+			new MetadataLoadCreationCatalog(metadata), loads,
+			groups -> Future.all(groups.stream().map(group -> metadata.getIndexerById(group.indexerId())
+				.compose(found -> markers.complete(
+					MetadataIndexerModels.fromRecord(found.orElseThrow()),
+					(CompleteIndexActionItem) group.actions().get(0)
+				))).toList()).mapEmpty(),
+			new InMemoryLoadProviderRegistry().register("fast", provider), null, commands
+		);
+
+		metadata.insertTarget(readyTarget("test", "customers"))
+			.compose(targetId -> service.create(CreateLoadRequest.builder()
+				.withTargetId(targetId).withProviderId("fast").withLiveWriterPolicy(LiveWriterPolicy.NONE).build()))
+			.compose(created -> service.start(new StartLoadRequest(created.indexerId(), created.version())))
+			.compose(started -> {
+				assertEquals(IndexerLoadState.PUBLISHED, started.state());
+				return loads.getByIndexerId(started.indexerId()).compose(found -> {
+					assertTrue(found.isEmpty(), "Inline publication must actually finalize cleanup");
+					return loads.getCompletionByIndexerId(started.indexerId());
+				});
+			})
+			.onComplete(testContext.succeeding(completion -> testContext.verify(() -> {
+				assertEquals(IndexerLoadState.PUBLISHED, completion.orElseThrow().terminalState());
+				testContext.completeNow();
+			})));
+	}
+
+	@Test
+	void preservesCompletionReportedBeforeProviderStartReturns(VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository metadata = new InMemoryDocumentStoreMetadataRepository();
+		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
+		List<IndexerActionItem> published = new ArrayList<>();
+		LoadProvider provider = new CapturingLoadProvider() {
+			@Override
+			public Future<Void> start(LoadRequest request, LoadWriter writer) {
+				return loads.getByIndexerId(request.indexerId()).compose(found -> {
+					assertEquals(IndexerLoadState.STARTING, found.orElseThrow().state());
+					return writer.complete(LoadCompletion.builder().withAuditRef("fast-source").build());
+				});
+			}
+		};
+		LoadManagementService service = new DefaultLoadManagementService(
+			new MetadataLoadCreationCatalog(metadata),
+			loads,
+			groups -> {
+				groups.forEach(group -> published.addAll(group.actions()));
+				return Future.succeededFuture();
+			},
+			new InMemoryLoadProviderRegistry().register("fast", provider),
+			null,
+			command -> Future.succeededFuture()
+		);
+
+		metadata.insertTarget(readyTarget("test", "customers"))
+			.compose(targetId -> service.create(CreateLoadRequest.builder()
+				.withTargetId(targetId)
+				.withProviderId("fast")
+				.withLiveWriterPolicy(LiveWriterPolicy.NONE)
+				.build()))
+			.compose(created -> service.start(StartLoadRequest.builder()
+				.withIndexerId(created.indexerId())
+				.withExpectedVersion(created.version())
+				.build()))
+			.onComplete(testContext.succeeding(started -> testContext.verify(() -> {
+				assertEquals(1, published.size(), "Provider completion must enqueue its marker");
+				CompleteIndexActionItem marker = assertInstanceOf(CompleteIndexActionItem.class, published.get(0));
+				assertEquals(started.targetId(), marker.getTargetId());
+				assertEquals(started.indexerId(), marker.getIndexerId());
+				testContext.completeNow();
+			})));
+	}
+
 	@Test
 	void loadRequestCopiesSourceQueryOnInputAndAccess() {
 		JsonObject sourceQuery = new JsonObject().put("segment", "vip");

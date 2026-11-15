@@ -20,13 +20,22 @@ import com.inqwise.indexer.load.workflow.DefaultLoadManagementService;
 
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import com.inqwise.indexer.catalog.indexers.IndexResourceOwnership;
+import com.inqwise.indexer.commands.CommandService;
+import com.inqwise.indexer.load.repository.UpdateIndexerLoadState;
 import com.inqwise.indexer.catalog.indexers.IndexerRuntimeState;
 import com.inqwise.indexer.catalog.indexers.IndexerRole;
 import com.inqwise.indexer.catalog.indexers.IndexerType;
@@ -50,6 +59,126 @@ import io.vertx.junit5.VertxTestContext;
 
 @ExtendWith(VertxExtension.class)
 class PublishLoadCommandTest {
+	@ParameterizedTest
+	@EnumSource(PublicationFailurePoint.class)
+	void replayResumesPublicationAfterInterruptedHandoff(
+		PublicationFailurePoint failurePoint,
+		VertxTestContext testContext
+	) {
+		InMemoryDocumentStoreMetadataRepository metadata = new InMemoryDocumentStoreMetadataRepository();
+		RuntimeException interruption = new IllegalStateException("publication handoff interrupted");
+		AtomicBoolean failStateUpdate = new AtomicBoolean(
+			failurePoint == PublicationFailurePoint.LOAD_STATE_UPDATE
+		);
+		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository() {
+			@Override
+			public Future<Void> updateState(UpdateIndexerLoadState update) {
+				if (update.state() == IndexerLoadState.PUBLISHED
+					&& failStateUpdate.compareAndSet(true, false)) {
+					return Future.failedFuture(interruption);
+				}
+				return super.updateState(update);
+			}
+		};
+		AtomicBoolean failCleanup = new AtomicBoolean(
+			failurePoint == PublicationFailurePoint.CLEANUP_SUBMISSION
+		);
+		List<CleanupLoadCommand> acceptedCleanup = new ArrayList<>();
+		CommandService cleanup = command -> {
+			if (failCleanup.compareAndSet(true, false)) {
+				return Future.failedFuture(interruption);
+			}
+			acceptedCleanup.add(CleanupLoadCommand.builder(command.toJson()).build());
+			return Future.succeededFuture();
+		};
+
+		insertHistoricalReplacement(metadata, loads).compose(setup -> {
+			PublishLoadCommand command = new PublishLoadCommand(setup.indexerId(), 0L);
+			PublishLoadCommandHandler firstAttempt = new PublishLoadCommandHandler(
+				new MetadataLoadPublicationRepository(metadata), loads, null, cleanup
+			);
+			return firstAttempt.handle(command).transform(result -> {
+				assertTrue(result.failed(), "The injected handoff failure must be observed");
+				assertSame(interruption, result.cause());
+				assertTrue(acceptedCleanup.isEmpty());
+				return metadata.getIndexerById(setup.indexerId());
+			}).compose(candidate -> {
+				assertEquals(PublicationState.PUBLISHED, candidate.orElseThrow().publicationState());
+				// Recreate the handler so replay cannot rely on its original in-memory state.
+				PublishLoadCommandHandler replay = new PublishLoadCommandHandler(
+					new MetadataLoadPublicationRepository(metadata), loads, null, cleanup
+				);
+				return replay.handle(PublishLoadCommand.builder(command.toJson()).build());
+			}).compose(ignored -> loads.getByIndexerId(setup.indexerId()))
+				.compose(load -> {
+					assertEquals(IndexerLoadState.PUBLISHED, load.orElseThrow().state());
+					assertEquals(1, acceptedCleanup.size());
+					assertEquals(setup.indexerId(), acceptedCleanup.get(0).getIndexerId());
+					assertEquals(setup.oldPublishedId(), acceptedCleanup.get(0).getOldPublishedIndexerId());
+					return metadata.getIndexerById(setup.oldPublishedId());
+				});
+		}).onComplete(testContext.succeeding(previous -> testContext.verify(() -> {
+			assertEquals(PublicationState.RETIRED, previous.orElseThrow().publicationState());
+			testContext.completeNow();
+		})));
+	}
+
+	@Test
+	void replaySucceedsAfterPublicationAndCleanupComplete(VertxTestContext testContext) {
+		InMemoryDocumentStoreMetadataRepository metadata = new InMemoryDocumentStoreMetadataRepository();
+		InMemoryIndexerLoadRepository loads = new InMemoryIndexerLoadRepository();
+		InMemoryCommandEngine commands = cleanupCommandService(metadata, loads);
+
+		insertHistoricalReplacement(metadata, loads).compose(setup -> {
+			PublishLoadCommand command = new PublishLoadCommand(setup.indexerId(), 0L);
+			return commands.submit(command)
+				.compose(ignored -> loads.getCompletionByIndexerId(setup.indexerId()))
+				.compose(completion -> {
+					assertEquals(IndexerLoadState.PUBLISHED, completion.orElseThrow().terminalState());
+					return commands.submit(PublishLoadCommand.builder(command.toJson()).build());
+				})
+				.compose(ignored -> metadata.getIndexerById(setup.oldPublishedId()))
+				.compose(previous -> {
+					assertTrue(previous.isEmpty());
+					return metadata.getIndexerById(setup.indexerId());
+				});
+		}).onComplete(testContext.succeeding(candidate -> testContext.verify(() -> {
+			assertEquals(PublicationState.PUBLISHED, candidate.orElseThrow().publicationState());
+			testContext.completeNow();
+		})));
+	}
+
+	private Future<HistoricalReplacement> insertHistoricalReplacement(
+		InMemoryDocumentStoreMetadataRepository metadata,
+		InMemoryIndexerLoadRepository loads
+	) {
+		return metadata.insertTarget(readyTarget("test", "customers"))
+			.compose(targetId -> metadata.insertIndexer(indexerRecord(
+				"old", targetId, "customers", "customers--idx-old", "customers--queue-old",
+				IndexerType.INDEX, IndexerRole.LIVE_WRITER, IndexResourceOwnership.OWNER,
+				IndexerRuntimeState.ACTIVE, PublicationState.PUBLISHED, MutationState.WRITABLE
+			)).compose(oldId -> metadata.insertIndexer(indexerRecord(
+				"load", targetId, "customers", "customers--idx-new", "customers--queue-load",
+				IndexerType.INDEX, IndexerRole.LOAD_WRITER, IndexResourceOwnership.OWNER,
+				IndexerRuntimeState.ACTIVE, PublicationState.UNPUBLISHED, MutationState.WRITABLE
+			)).compose(indexerId -> loads.insert(InsertIndexerLoad.builder()
+				.withIndexerId(indexerId)
+				.withTargetId(targetId)
+				.withLiveWriterPolicy(LiveWriterPolicy.NONE)
+				.withProviderId("default")
+				.withState(IndexerLoadState.HISTORICAL_COMPLETE)
+				.withReloadStartAt(Instant.parse("2026-06-05T10:00:00Z"))
+				.build()).map(new HistoricalReplacement(oldId, indexerId)))));
+	}
+
+	private enum PublicationFailurePoint {
+		LOAD_STATE_UPDATE,
+		CLEANUP_SUBMISSION
+	}
+
+	private record HistoricalReplacement(Integer oldPublishedId, Integer indexerId) {
+	}
+
 	@Test
 	void publishesHistoricalOnlyLoadAsLiveWriter(VertxTestContext testContext) {
 		InMemoryDocumentStoreMetadataRepository metadata = new InMemoryDocumentStoreMetadataRepository();

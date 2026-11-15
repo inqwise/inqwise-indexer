@@ -55,32 +55,59 @@ public class PublishLoadCommandHandler implements CommandHandler {
 	@Override
 	public Future<Void> handle(Command command) {
 		PublishLoadCommand publish = PublishLoadCommand.builder(command.toJson()).build();
-
 		return loadRepository.getByIndexerId(publish.getIndexerId())
 			.compose(found -> found
-				.map(Future::succeededFuture)
-				.orElseGet(() -> Future.failedFuture(
-					"Indexer load not found: " + publish.getIndexerId()
-				)))
-			.compose(load -> validateLoadVersion(load, publish.getExpectedLoadVersion())
-				.compose(valid -> publish(load)));
+				.map(load -> resume(publish, load))
+				.orElseGet(() -> replayCompleted(publish)));
 	}
 
-	private Future<IndexerLoadRecord> validateLoadVersion(IndexerLoadRecord load, long expectedVersion) {
-		if (load.version() != expectedVersion) {
-			return Future.failedFuture(
-				"Indexer load version conflict for id " + load.indexerId() + ": expected "
-					+ expectedVersion + " but was " + load.version()
-			);
-		}
-		return Future.succeededFuture(load);
+	private Future<Void> replayCompleted(PublishLoadCommand command) {
+		return loadRepository.getCompletionByIndexerId(command.getIndexerId())
+			.compose(found -> {
+				if (found.filter(completion -> completion.terminalState() == IndexerLoadState.PUBLISHED
+					&& command.getExpectedLoadVersion() >= 0
+					&& command.getExpectedLoadVersion() < Long.MAX_VALUE
+					&& completion.terminalVersion() == command.getExpectedLoadVersion() + 1).isPresent()) {
+					return Future.succeededFuture();
+				}
+				return Future.failedFuture("Indexer load not found: " + command.getIndexerId());
+			});
 	}
 
-	private Future<Void> publish(IndexerLoadRecord load) {
-		return publicationRepository.publish(load)
-			.compose(publication -> markPublished(load)
-				.compose(ignored -> publishEvents(load, publication))
-				.compose(ignored -> cleanup(load, publication)));
+	private Future<Void> resume(PublishLoadCommand command, IndexerLoadRecord load) {
+		return loadRepository.getPublication(load.indexerId()).compose(found -> {
+			if (found.isPresent()) {
+				LoadPublication intent = found.orElseThrow();
+				if (intent.expectedLoadVersion() != command.getExpectedLoadVersion()
+					|| (load.state() == IndexerLoadState.PUBLISHED
+						? load.version() != intent.expectedLoadVersion() + 1
+						: load.version() != intent.expectedLoadVersion())) {
+					return versionConflict(load, command.getExpectedLoadVersion());
+				}
+				return finish(load, intent);
+			}
+			if (load.version() != command.getExpectedLoadVersion()) {
+				return versionConflict(load, command.getExpectedLoadVersion());
+			}
+			return publicationRepository.prepare(load)
+				.compose(intent -> loadRepository.preparePublication(intent)
+					.compose(ignored -> finish(load, intent)));
+		});
+	}
+
+	private Future<Void> versionConflict(IndexerLoadRecord load, long expectedVersion) {
+		return Future.failedFuture(
+			"Indexer load version conflict for id " + load.indexerId() + ": expected "
+				+ expectedVersion + " but was " + load.version()
+		);
+	}
+
+	private Future<Void> finish(IndexerLoadRecord load, LoadPublication publication) {
+		Future<Void> applied = load.state() == IndexerLoadState.PUBLISHED
+			? Future.succeededFuture()
+			: publicationRepository.publish(publication).compose(ignored -> markPublished(load));
+		return applied.compose(ignored -> publishEvents(load, publication))
+			.compose(ignored -> cleanup(load, publication));
 	}
 
 	private Future<Void> markPublished(IndexerLoadRecord load) {

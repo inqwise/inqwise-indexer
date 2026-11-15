@@ -113,12 +113,14 @@ public class InMemoryIndexerQueue implements IndexerQueueClient, IndexerQueueRes
 
 		@Override
 		public Future<Void> publish(IndexerActionItem item) {
+			InMemoryIndexerQueueConsumer consumer;
 			synchronized (InMemoryIndexerQueue.this) {
 				state.items.addLast(item);
+				consumer = state.consumer;
 			}
 
-			if (state.consumer != null) {
-				state.consumer.dispatch();
+			if (consumer != null) {
+				consumer.dispatch();
 			}
 
 			return Future.succeededFuture();
@@ -137,6 +139,7 @@ public class InMemoryIndexerQueue implements IndexerQueueClient, IndexerQueueRes
 		private IndexerActionItem inFlight;
 		private boolean paused = true;
 		private boolean closed;
+		private boolean dispatching;
 
 		private InMemoryIndexerQueueConsumer(QueueState state, IndexerQueueConsumerOptions options) {
 			this.state = state;
@@ -145,20 +148,26 @@ public class InMemoryIndexerQueue implements IndexerQueueClient, IndexerQueueRes
 
 		@Override
 		public IndexerQueueConsumer handler(Handler<IndexerActionItem> handler) {
-			this.handler = handler;
+			synchronized (InMemoryIndexerQueue.this) {
+				this.handler = handler;
+			}
 			dispatch();
 			return this;
 		}
 
 		@Override
 		public Future<Void> pause() {
-			paused = true;
+			synchronized (InMemoryIndexerQueue.this) {
+				paused = true;
+			}
 			return Future.succeededFuture();
 		}
 
 		@Override
 		public Future<Void> resume() {
-			paused = false;
+			synchronized (InMemoryIndexerQueue.this) {
+				paused = false;
+			}
 			dispatch();
 			return Future.succeededFuture();
 		}
@@ -178,27 +187,44 @@ public class InMemoryIndexerQueue implements IndexerQueueClient, IndexerQueueRes
 
 		@Override
 		public Future<Void> close() {
-			closed = true;
-			handler = null;
-			inFlight = null;
+			synchronized (InMemoryIndexerQueue.this) {
+				closed = true;
+				handler = null;
+				inFlight = null;
+			}
 			return Future.succeededFuture();
 		}
 
 		private void dispatch() {
-			Handler<IndexerActionItem> currentHandler;
-			IndexerActionItem item;
-
 			synchronized (InMemoryIndexerQueue.this) {
-				if (closed || paused || inFlight != null || handler == null || state.items.isEmpty()) {
+				if (dispatching) {
 					return;
 				}
-
-				currentHandler = handler;
-				item = state.items.peekFirst();
-				inFlight = item;
+				dispatching = true;
 			}
 
-			currentHandler.handle(item);
+			while (true) {
+				Handler<IndexerActionItem> currentHandler;
+				IndexerActionItem item;
+				synchronized (InMemoryIndexerQueue.this) {
+					if (closed || paused || inFlight != null || handler == null || state.items.isEmpty()) {
+						dispatching = false;
+						return;
+					}
+					currentHandler = handler;
+					item = state.items.peekFirst();
+					inFlight = item;
+				}
+
+				try {
+					currentHandler.handle(item);
+				} catch (RuntimeException | Error error) {
+					synchronized (InMemoryIndexerQueue.this) {
+						dispatching = false;
+					}
+					throw error;
+				}
+			}
 		}
 
 		IndexerQueueConsumerOptions getOptions() {
